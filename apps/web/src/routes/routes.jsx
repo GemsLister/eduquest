@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
 import { Login } from "../pages/auth/Login.jsx";
 import { Register } from "../pages/auth/Register.jsx";
@@ -18,29 +18,36 @@ export const router = createBrowserRouter([
         element: <Login />,
       },
       {
-        path: "/register",
+        path: "register",
         element: <Register />,
       },
       {
-        path: "/recover-password",
+        path: "recover-password",
         element: <RecoverPassword />,
       },
       {
-        path: "/change-password",
+        path: "change-password",
         element: <ChangePassword />,
       },
-    ],
-  },
-  {
-    element: <Layout />,
-    children: [
       {
-        path: "/instructor-dashboard/",
-        element: <InstructorDashboard />,
+        path: "instructor-dashboard",
+        element: <Layout />,
+        children: [
+          {
+            index: true,
+            element: <InstructorDashboard />,
+          },
+        ],
       },
       {
-        path: "/instructor-quiz",
-        element: <InstructorQuiz />,
+        path: "instructor-quiz",
+        element: <Layout />,
+        children: [
+          {
+            index: true,
+            element: <InstructorQuiz />,
+          },
+        ],
       },
     ],
   },

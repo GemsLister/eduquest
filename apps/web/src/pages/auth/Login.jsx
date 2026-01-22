@@ -1,6 +1,6 @@
 import { supabase } from "../../supabaseClient.js";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { GoogleButton, AuthButton } from "../../components/Buttons.jsx";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 import { ShowPassword } from "../../components/Buttons.jsx";

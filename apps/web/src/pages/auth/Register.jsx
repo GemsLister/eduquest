@@ -1,7 +1,7 @@
 import { useState } from "react";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 import { AuthButton } from "../../components/Buttons.jsx";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 export const Register = () => {
   const [username, setUsername] = useState();
@@ -62,7 +62,10 @@ export const Register = () => {
         <AuthButton name="Register" user={userData} />
         <p className="text-center text-[clamp(10px,3dvw,14px)] text-elephant my-4 flex items-center justify-center gap-1">
           Already have an account?
-          <Link to="/" className="text-[clamp(10px,3dvw,14px)] text-dark-aquamarine-green">
+          <Link
+            to="/"
+            className="text-[clamp(10px,3dvw,14px)] text-dark-aquamarine-green"
+          >
             Login here
           </Link>
         </p>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 import { AuthButton } from "../../components/Buttons.jsx";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 export const ChangePassword = () => {
   const [email, setEmail] = useState();

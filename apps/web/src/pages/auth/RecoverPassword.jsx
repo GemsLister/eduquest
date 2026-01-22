@@ -1,7 +1,7 @@
 import { useState } from "react";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 import { AuthButton } from "../../components/Buttons.jsx";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 export const RecoverPassword = () => {
   const [email, setEmail] = useState();
@@ -23,7 +23,7 @@ export const RecoverPassword = () => {
                 Recover Password
               </h1>
               <p className="text-[clamp(10px,3dvw,16px)] text-elephant">
-                Regain Access to Your Account 
+                Regain Access to Your Account
               </p>
             </div>
           </div>
