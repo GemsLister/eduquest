@@ -6,6 +6,8 @@ import { RecoverPassword } from "../pages/auth/RecoverPassword.jsx";
 import { ChangePassword } from "../pages/auth/ChangePassword.jsx";
 import { InstructorDashboard } from "../pages/instructors/InstructorDashboard.jsx";
 import { InstructorQuiz } from "../pages/instructors/InstructorQuiz.jsx";
+import { InstructorQuestions } from "../pages/instructors/InstructorQuestions.jsx";
+import { InstructorProfile } from "../pages/instructors/InstructorProfile.jsx";
 import { Layout } from "../pages/instructors/Layout.jsx";
 
 export const router = createBrowserRouter([
@@ -46,6 +48,26 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <InstructorQuiz />,
+          },
+        ],
+      },
+      {
+        path: "instructor-questions",
+        element: <Layout />,
+        children: [
+          {
+            index: true,
+            element: <InstructorQuestions />,
+          },
+        ],
+      },
+      {
+        path: "instructor-profile",
+        element: <Layout />,
+        children: [
+          {
+            index: true,
+            element: <InstructorProfile />,
           },
         ],
       },
