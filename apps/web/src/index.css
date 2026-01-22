@@ -1,1 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&display=swap");
 @import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-full-white: #fffffe;
+  --color-pale-silver: #eaeaeb;
+  --color-fur-white: #F4F1F0;
+  --color-elephant: #919599;
+  --color-authentic-white: #F6F8FA;
+  --color-porcelain-white: #EAEDF2;
+  /* Blue Bolors */
+  --color-regal-blue: #094067;
+  --color-new-blue-sky: #3da9fc;
+  /* Green Colors */
+  --color-wintergreen-mint: #abd1c6;
+  --color-dark-aquamarine-green: #004643;
+  --color-holly: #001e1d;
+  --color-green-pea: #1D6142;
+  --color-sea-green: #30675C;
+  --color-hornblende-green: #234E4D;
+  --color-casual-green: #8BC1A1;
+  /* Font */
+  --font-mona-sans: "Mona Sans", sans-serif;
+}
+
+body {
+  font-family: var(--font-mona-sans);
+}
+
+button {
+    cursor: pointer;
+}
