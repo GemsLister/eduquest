@@ -9,6 +9,7 @@ import { InstructorQuiz } from "../pages/instructors/InstructorQuiz.jsx";
 import { InstructorQuestions } from "../pages/instructors/InstructorQuestions.jsx";
 import { InstructorProfile } from "../pages/instructors/InstructorProfile.jsx";
 import { Layout } from "../pages/instructors/Layout.jsx";
+import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
 
 export const router = createBrowserRouter([
   {
@@ -33,7 +34,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "instructor-dashboard",
-        element: <Layout />,
+        element: (
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        ),
         children: [
           {
             index: true,
@@ -43,7 +48,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "instructor-quiz",
-        element: <Layout />,
+        element: (
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        ),
         children: [
           {
             index: true,
@@ -53,7 +62,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "instructor-questions",
-        element: <Layout />,
+        element: (
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        ),
         children: [
           {
             index: true,
@@ -63,7 +76,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "instructor-profile",
-        element: <Layout />,
+        element: (
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        ),
         children: [
           {
             index: true,
