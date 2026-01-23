@@ -118,37 +118,49 @@ export const InstructorQuiz = () => {
         return;
       }
 
-      // TODO: Save quiz to Supabase
-      // const { data: quiz, error: quizError } = await supabase
-      //   .from("quizzes")
-      //   .insert([
-      //     {
-      //       instructor_id: user.id,
-      //       title: quizTitle,
-      //       description: quizDescription,
-      //       duration: parseInt(quizDuration) || null,
-      //       is_published: false,
-      //     },
-      //   ])
-      //   .select();
-      // if (quizError) throw quizError;
-      //
-      // TODO: Save questions to Supabase
-      // const questionsData = questions.map((q) => ({
-      //   quiz_id: quiz[0].id,
-      //   type: q.type,
-      //   text: q.text,
-      //   options: q.type === "mcq" ? q.options : null,
-      //   correct_answer:
-      //     q.type === "mcq" ? q.correctAnswer : q.correctAnswer,
-      //   points: q.points,
-      // }));
-      // const { error: questionsError } = await supabase
-      //   .from("questions")
-      //   .insert(questionsData);
-      // if (questionsError) throw questionsError;
+      // Save quiz to Supabase
+      const { data: quiz, error: quizError } = await supabase
+        .from("quizzes")
+        .insert([
+          {
+            instructor_id: user.id,
+            title: quizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+            is_published: false,
+          },
+        ])
+        .select();
 
-      alert("Quiz saved successfully! (Local only - not saved to DB yet)");
+      if (quizError) throw quizError;
+      if (!quiz || quiz.length === 0) throw new Error("Failed to create quiz");
+
+      const quizId = quiz[0].id;
+
+      // Save questions to Supabase
+      const questionsData = questions.map((q) => ({
+        quiz_id: quizId,
+        type: q.type,
+        text: q.text,
+        options: q.type === "mcq" ? q.options : null,
+        correct_answer:
+          q.type === "mcq"
+            ? q.options[q.correctAnswer]
+            : q.type === "true_false"
+              ? q.correctAnswer === 0
+                ? "true"
+                : "false"
+              : q.correctAnswer,
+        points: q.points,
+      }));
+
+      const { error: questionsError } = await supabase
+        .from("questions")
+        .insert(questionsData);
+
+      if (questionsError) throw questionsError;
+
+      alert("Quiz saved successfully!");
       navigate("/instructor-dashboard");
     } catch (err) {
       setError(err.message || "Failed to save quiz");

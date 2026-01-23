@@ -33,16 +33,23 @@ export const InstructorQuestions = () => {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // TODO: Fetch questions from Supabase
-      // const { data, error } = await supabase
-      //   .from("questions")
-      //   .select("*, quizzes(title)")
-      //   .eq("instructor_id", user.id)
-      //   .order("created_at", { ascending: false });
-      // if (error) throw error;
-      // setQuestions(data || []);
+      // Fetch questions from Supabase
+      const { data, error } = await supabase
+        .from("questions")
+        .select("*, quizzes(title)")
+        .in(
+          "quiz_id",
+          (
+            await supabase
+              .from("quizzes")
+              .select("id")
+              .eq("instructor_id", user.id)
+          ).data?.map((q) => q.id) || [],
+        )
+        .order("created_at", { ascending: false });
 
-      setQuestions([]);
+      if (error) throw error;
+      setQuestions(data || []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching questions:", error);

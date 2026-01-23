@@ -30,19 +30,66 @@ export const InstructorDashboard = () => {
           return;
         }
 
-        // TODO: Fetch quizzes from database
-        // const { data: quizzesData, error: quizzesError } = await supabase
-        //   .from("quizzes")
-        //   .select("*")
-        //   .eq("instructor_id", authUser.id)
-        //   .order("created_at", { ascending: false });
+        // Fetch quizzes from database
+        const { data: quizzesData, error: quizzesError } = await supabase
+          .from("quizzes")
+          .select("*, quiz_attempts(count)")
+          .eq("instructor_id", authUser.id)
+          .order("created_at", { ascending: false });
 
-        // TODO: Fetch stats from database
-        setQuizzes([]);
+        if (quizzesError) throw quizzesError;
+
+        // Fetch stats from database
+        const { data: statsData, error: statsError } = await supabase
+          .from("quizzes")
+          .select("id")
+          .eq("instructor_id", authUser.id);
+
+        if (statsError) throw statsError;
+
+        // Fetch unique students count
+        const { data: studentsData, error: studentsError } = await supabase
+          .from("quiz_attempts")
+          .select("user_id", { count: "exact" })
+          .in("quiz_id", statsData?.map((q) => q.id) || []);
+
+        if (studentsError) throw studentsError;
+
+        // Fetch average score
+        const { data: scoresData, error: scoresError } = await supabase
+          .from("quiz_attempts")
+          .select("score")
+          .in("quiz_id", statsData?.map((q) => q.id) || []);
+
+        if (scoresError) throw scoresError;
+
+        // Process quizzes data
+        const processedQuizzes = (quizzesData || []).map((quiz) => ({
+          ...quiz,
+          attempts: quiz.quiz_attempts?.[0]?.count || 0,
+        }));
+
+        // Calculate unique students
+        const uniqueStudents = new Set(
+          scoresData?.map((attempt) => attempt.user_id) || [],
+        ).size;
+
+        // Calculate average score
+        const averageScore =
+          scoresData && scoresData.length > 0
+            ? Math.round(
+                scoresData.reduce(
+                  (sum, attempt) => sum + (attempt.score || 0),
+                  0,
+                ) / scoresData.length,
+              )
+            : 0;
+
+        setQuizzes(processedQuizzes);
         setStats({
-          totalQuizzes: 0,
-          totalStudents: 0,
-          averageScore: 0,
+          totalQuizzes: statsData?.length || 0,
+          totalStudents: uniqueStudents,
+          averageScore: averageScore,
         });
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
