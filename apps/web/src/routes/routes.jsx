@@ -8,10 +8,13 @@ import { InstructorDashboard } from "../pages/instructors/InstructorDashboard.js
 import { InstructorQuiz } from "../pages/instructors/InstructorQuiz.jsx";
 import { InstructorQuestions } from "../pages/instructors/InstructorQuestions.jsx";
 import { InstructorProfile } from "../pages/instructors/InstructorProfile.jsx";
-import { Layout } from "../pages/instructors/Layout.jsx";
+// import { Layout } from "../components/Layout.jsx";
+import { InstructorLayout } from "../pages/instructors/InstructorLayout.jsx";
 import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
+import { StudentDashboard } from "../pages/students/StudentDashboard.jsx";
 
 export const router = createBrowserRouter([
+  // For authentication routing
   {
     path: "/",
     element: <App />,
@@ -32,11 +35,12 @@ export const router = createBrowserRouter([
         path: "change-password",
         element: <ChangePassword />,
       },
+      // For instructor routing
       {
         path: "instructor-dashboard",
         element: (
           <ProtectedRoute>
-            <Layout />
+            <InstructorLayout />
           </ProtectedRoute>
         ),
         children: [
@@ -50,7 +54,7 @@ export const router = createBrowserRouter([
         path: "instructor-quiz",
         element: (
           <ProtectedRoute>
-            <Layout />
+            <InstructorLayout/> 
           </ProtectedRoute>
         ),
         children: [
@@ -64,7 +68,7 @@ export const router = createBrowserRouter([
         path: "instructor-questions",
         element: (
           <ProtectedRoute>
-            <Layout />
+            <InstructorLayout/> 
           </ProtectedRoute>
         ),
         children: [
@@ -78,7 +82,7 @@ export const router = createBrowserRouter([
         path: "instructor-profile",
         element: (
           <ProtectedRoute>
-            <Layout />
+            <InstructorLayout/>
           </ProtectedRoute>
         ),
         children: [
@@ -90,4 +94,19 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // For student routing
+  // {
+  //   path: "student-dashboard",
+  //   element: (
+  //     <ProtectedRoute>
+  //       <InstructorLayout/> />
+  //     </ProtectedRoute>
+  //   ),
+  //   children: [
+  //     {
+  //       index: true,
+  //       element: <StudentDashboard />,
+  //     },
+  //   ],
+  // }
 ]);
