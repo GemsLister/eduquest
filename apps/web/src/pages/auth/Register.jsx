@@ -29,7 +29,7 @@ export const Register = () => {
   ];
   const userData = { username, email, password };
   return (
-    <div className="flex items-center justify-center h-screen w-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-[clamp(100px,20dvw,180px)]">
+    <div className="flex items-center justify-center h-screen flex-1 bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-[clamp(100px,20dvw,180px)]">
       <form className="p-[clamp(30px,2dvw,80px)] bg-full-white rounded-[15px] shadow-2xl">
         <fieldset className="flex flex-col w-[clamp(330px,30dvw,400px)]">
           {/* Logo */}
