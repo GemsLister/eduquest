@@ -9,8 +9,20 @@ export const useLogin = () => {
         email: userData.email,
         password: userData.password,
       });
-      if (error) alert(`Invalid account: ${error}`);
-      else navigate("/instructor-dashboard");
+
+      if (error) throw error;
+      if (
+        data.user.email.endsWith(
+          import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION,
+        )
+      ) {
+        navigate("/instructor-dashboard");
+      } else if (
+        data.user.email.endsWith(import.meta.env.VITE_STUDENT_ACCOUNT_EXTENSION)
+      ) {
+        navigate("/student-dashboard");
+      }
+
       console.log(data.message);
     } catch (error) {
       console.error(error);
