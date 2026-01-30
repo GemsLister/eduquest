@@ -7,7 +7,7 @@ export const Sidebar = ({ navs }) => {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <aside
-      className={`flex flex-col bg-porcelain-white transition-all duration-300 ease-in-out ${isOpen ? "w-[300px]" : "w-[80px]"}`}
+      className={`flex flex-col bg-porcelain-white transition-all duration-300 ease-in-out ${isOpen ? "w-[300px]" : "w-[80px]"} h-screen`}
     >
       <div
         className={`flex ${isOpen ? "justify-between" : "justify-center"} w-full py-6 px-3`}
