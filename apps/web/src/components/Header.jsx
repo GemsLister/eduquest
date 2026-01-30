@@ -1,7 +1,6 @@
-import InstructorImage from "../assets/instructor-profile.png";
 import { useUsername } from "../hooks/useUsername";
 
-export const Header = () => {
+export const Header = ({profile}) => {
   const userData = useUsername();
   if (userData.loading) return <h1>Loading...</h1>;
 
@@ -10,7 +9,7 @@ export const Header = () => {
       {/* Instructor name */}
       <div className="flex items-center gap-3 font-semibold">
         <img
-          src={InstructorImage}
+          src={profile}
           alt="instructor-image"
           className="h-[clamp(30px,13dvw,40px)] w-[clamp(30px,13dvw,45px)] rounded-full"
         />
