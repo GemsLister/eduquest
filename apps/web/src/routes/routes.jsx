@@ -1,17 +1,24 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
+import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
+// Auth Routes
 import { Login } from "../pages/auth/Login.jsx";
 import { Register } from "../pages/auth/Register.jsx";
 import { RecoverPassword } from "../pages/auth/RecoverPassword.jsx";
 import { ChangePassword } from "../pages/auth/ChangePassword.jsx";
+// Instructor Routes
+import { InstructorLayout } from "../pages/instructors/InstructorLayout.jsx";
 import { InstructorDashboard } from "../pages/instructors/InstructorDashboard.jsx";
 import { InstructorQuiz } from "../pages/instructors/InstructorQuiz.jsx";
 import { InstructorQuestions } from "../pages/instructors/InstructorQuestions.jsx";
 import { InstructorProfile } from "../pages/instructors/InstructorProfile.jsx";
-// import { Layout } from "../components/Layout.jsx";
-import { InstructorLayout } from "../pages/instructors/InstructorLayout.jsx";
-import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
+// Student Routes
+import { StudentLayout } from "../pages/students/StudentLayout.jsx";
 import { StudentDashboard } from "../pages/students/StudentDashboard.jsx";
+import { StudentQuiz } from "../pages/students/StudentQuiz.jsx";
+import { StudentScores } from "../pages/students/StudentScores.jsx";
+import { StudentSummaries } from "../pages/students/StudentSummaries.jsx";
+import { StudentProfile } from "../pages/students/StudentProfile.jsx";
 
 export const router = createBrowserRouter([
   // For authentication routing
@@ -48,65 +55,51 @@ export const router = createBrowserRouter([
             index: true,
             element: <InstructorDashboard />,
           },
-        ],
-      },
-      {
-        path: "instructor-quiz",
-        element: (
-          <ProtectedRoute>
-            <InstructorLayout/> 
-          </ProtectedRoute>
-        ),
-        children: [
           {
-            index: true,
+            path: "instructor-quiz",
             element: <InstructorQuiz />,
           },
-        ],
-      },
-      {
-        path: "instructor-questions",
-        element: (
-          <ProtectedRoute>
-            <InstructorLayout/> 
-          </ProtectedRoute>
-        ),
-        children: [
           {
-            index: true,
+            path: "instructor-questions",
             element: <InstructorQuestions />,
           },
+          {
+            path: "instructor-profile",
+            element: <InstructorProfile/>,
+          }
         ],
       },
+      // For student routing
       {
-        path: "instructor-profile",
+        path: "student-dashboard",
         element: (
           <ProtectedRoute>
-            <InstructorLayout/>
+            <StudentLayout />
           </ProtectedRoute>
         ),
         children: [
           {
             index: true,
-            element: <InstructorProfile />,
+            element: <StudentDashboard />,
+          },
+          {
+            path: "student-quiz",
+            element: <StudentQuiz />,
+          },
+          {
+            path: "student-scores",
+            element: <StudentScores />,
+          },
+          {
+            path: "student-summaries",
+            element: <StudentSummaries />,
+          },
+          {
+            path: "student-profile",
+            element: <StudentProfile />,
           },
         ],
       },
     ],
   },
-  // For student routing
-  // {
-  //   path: "student-dashboard",
-  //   element: (
-  //     <ProtectedRoute>
-  //       <InstructorLayout/> />
-  //     </ProtectedRoute>
-  //   ),
-  //   children: [
-  //     {
-  //       index: true,
-  //       element: <StudentDashboard />,
-  //     },
-  //   ],
-  // }
 ]);
