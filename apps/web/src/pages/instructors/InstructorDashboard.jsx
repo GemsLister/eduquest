@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
-import { CreateQuizIcon } from "../../assets/svg/CreateQuizIcon.jsx";
+import { QuizIcon } from "../../assets/svg/QuizIcon.jsx";
 
 export const InstructorDashboard = () => {
   const navigate = useNavigate();
@@ -113,7 +113,7 @@ export const InstructorDashboard = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white">
+    <main className="flex-1 overflow-auto bg-authentic-white">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-casual-green to-hornblende-green text-white p-8 rounded-lg m-6 mb-8">
         <h1 className="text-4xl font-bold mb-2">Welcome Back!</h1>
@@ -171,7 +171,7 @@ export const InstructorDashboard = () => {
           onClick={() => navigate("/instructor-quiz")}
           className="flex items-center gap-3 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md hover:shadow-lg"
         >
-          <CreateQuizIcon />
+          <QuizIcon />
           Create New Quiz
         </button>
       </div>
@@ -231,6 +231,6 @@ export const InstructorDashboard = () => {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 };
