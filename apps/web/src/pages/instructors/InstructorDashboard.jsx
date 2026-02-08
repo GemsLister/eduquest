@@ -2,17 +2,15 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { QuizIcon } from "../../assets/svg/QuizIcon.jsx";
+import { SectionManager } from "../../components/SectionManager.jsx";
 
 export const InstructorDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [sections, setSections] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalQuizzes: 0,
-    totalStudents: 0,
-    averageScore: 0,
-  });
+  const [sectionQuizzes, setSectionQuizzes] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,7 +28,18 @@ export const InstructorDashboard = () => {
           return;
         }
 
-        // Fetch quizzes from database
+        // Fetch sections from database
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from("sections")
+          .select("*")
+          .eq("instructor_id", authUser.id)
+          .eq("is_archived", false)
+          .order("created_at", { ascending: false });
+
+        if (sectionsError) throw sectionsError;
+        setSections(sectionsData || []);
+
+        // Fetch all quizzes for this instructor
         const { data: quizzesData, error: quizzesError } = await supabase
           .from("quizzes")
           .select("*, quiz_attempts(count)")
@@ -39,58 +48,25 @@ export const InstructorDashboard = () => {
 
         if (quizzesError) throw quizzesError;
 
-        // Fetch stats from database
-        const { data: statsData, error: statsError } = await supabase
-          .from("quizzes")
-          .select("id")
-          .eq("instructor_id", authUser.id);
-
-        if (statsError) throw statsError;
-
-        // Fetch unique students count
-        const { data: studentsData, error: studentsError } = await supabase
-          .from("quiz_attempts")
-          .select("user_id", { count: "exact" })
-          .in("quiz_id", statsData?.map((q) => q.id) || []);
-
-        if (studentsError) throw studentsError;
-
-        // Fetch average score
-        const { data: scoresData, error: scoresError } = await supabase
-          .from("quiz_attempts")
-          .select("score")
-          .in("quiz_id", statsData?.map((q) => q.id) || []);
-
-        if (scoresError) throw scoresError;
-
         // Process quizzes data
         const processedQuizzes = (quizzesData || []).map((quiz) => ({
           ...quiz,
           attempts: quiz.quiz_attempts?.[0]?.count || 0,
         }));
 
-        // Calculate unique students
-        const uniqueStudents = new Set(
-          scoresData?.map((attempt) => attempt.user_id) || [],
-        ).size;
-
-        // Calculate average score
-        const averageScore =
-          scoresData && scoresData.length > 0
-            ? Math.round(
-                scoresData.reduce(
-                  (sum, attempt) => sum + (attempt.score || 0),
-                  0,
-                ) / scoresData.length,
-              )
-            : 0;
-
         setQuizzes(processedQuizzes);
-        setStats({
-          totalQuizzes: statsData?.length || 0,
-          totalStudents: uniqueStudents,
-          averageScore: averageScore,
+
+        // Group quizzes by section
+        const grouped = {};
+        processedQuizzes.forEach((quiz) => {
+          if (quiz.section_id) {
+            if (!grouped[quiz.section_id]) {
+              grouped[quiz.section_id] = [];
+            }
+            grouped[quiz.section_id].push(quiz);
+          }
         });
+        setSectionQuizzes(grouped);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -103,7 +79,7 @@ export const InstructorDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
           <p className="mt-4 text-hornblende-green font-semibold">Loading...</p>
@@ -113,124 +89,92 @@ export const InstructorDashboard = () => {
   }
 
   return (
-    <main className="flex-1 overflow-auto bg-authentic-white">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-casual-green to-hornblende-green text-white p-8 rounded-lg m-6 mb-8">
-        <h1 className="text-4xl font-bold mb-2">Welcome Back!</h1>
-        <p className="text-lg opacity-90">{user?.email || "Instructor"}</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="bg-white border-b border-gray-200 px-6 py-8">
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">Your Classes</h1>
+        <p className="text-gray-600">Manage your classes and create quizzes</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-6 mb-8">
-        <div className="bg-white border-l-4 border-casual-green rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">
-                Total Quizzes
-              </p>
-              <p className="text-4xl font-bold text-hornblende-green">
-                {stats.totalQuizzes}
-              </p>
-            </div>
-            <div className="text-4xl text-casual-green opacity-20">📝</div>
-          </div>
+      {/* Main Content */}
+      <div className="px-6 py-8">
+        {/* Create Section */}
+        <div className="mb-8">
+          <SectionManager
+            onSectionCreated={(newSection) => {
+              setSections([newSection, ...sections]);
+            }}
+            userId={user?.id}
+          />
         </div>
 
-        <div className="bg-white border-l-4 border-hornblende-green rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">
-                Total Students
-              </p>
-              <p className="text-4xl font-bold text-hornblende-green">
-                {stats.totalStudents}
-              </p>
-            </div>
-            <div className="text-4xl text-hornblende-green opacity-20">👥</div>
-          </div>
-        </div>
-
-        <div className="bg-white border-l-4 border-casual-green rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">
-                Avg Score
-              </p>
-              <p className="text-4xl font-bold text-hornblende-green">
-                {stats.averageScore}%
-              </p>
-            </div>
-            <div className="text-4xl text-casual-green opacity-20">📊</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="px-6 mb-8">
-        <button
-          onClick={() => navigate("/instructor-quiz")}
-          className="flex items-center gap-3 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md hover:shadow-lg"
-        >
-          <QuizIcon />
-          Create New Quiz
-        </button>
-      </div>
-
-      {/* Quizzes Section */}
-      <div className="px-6 pb-8">
-        <h2 className="text-2xl font-bold text-hornblende-green mb-4">
-          Your Quizzes
-        </h2>
-
-        {quizzes.length === 0 ? (
-          <div className="bg-white rounded-lg p-12 text-center shadow-md">
+        {/* Classes Grid */}
+        {sections.length === 0 ? (
+          <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
             <div className="text-6xl mb-4">📚</div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              No Quizzes Yet
+              No Classes Yet
             </h3>
-            <p className="text-gray-500 mb-4">
-              Create your first quiz to get started!
+            <p className="text-gray-500">
+              Create your first class to get started!
             </p>
-            <button
-              onClick={() => navigate("/instructor-quiz")}
-              className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-            >
-              Create Quiz
-            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quizzes.map((quiz) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {sections.map((section) => (
               <div
-                key={quiz.id}
-                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group"
+                key={section.id}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
               >
-                <div className="h-32 bg-gradient-to-r from-casual-green to-hornblende-green group-hover:opacity-90 transition-opacity"></div>
+                {/* Class Header */}
+                <div className="h-24 bg-gradient-to-r from-casual-green to-hornblende-green group-hover:opacity-90 transition-opacity flex items-center justify-center">
+                  <div className="text-white text-center">
+                    <div className="text-3xl font-bold">{section.name[0]}</div>
+                  </div>
+                </div>
+
+                {/* Class Info */}
                 <div className="p-4">
-                  <h3 className="font-bold text-lg text-hornblende-green mb-2 truncate">
-                    {quiz.title}
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">
+                    {section.name}
                   </h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {quiz.description}
+                  <p className="text-sm text-gray-600 mb-3">
+                    Code:{" "}
+                    <span className="font-semibold">
+                      {section.enrollment_code}
+                    </span>
                   </p>
-                  <div className="flex justify-between text-sm text-gray-500 mb-4">
-                    <span>{quiz.questions_count || 0} Questions</span>
-                    <span>{quiz.attempts || 0} Attempts</span>
+                  {section.description && (
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {section.description}
+                    </p>
+                  )}
+
+                  {/* Stats */}
+                  <div className="flex gap-4 text-sm text-gray-600 mb-4 py-3 border-t border-gray-200 pt-3">
+                    <div>
+                      <div className="font-semibold text-gray-800">
+                        {sectionQuizzes[section.id]?.length || 0}
+                      </div>
+                      <div className="text-xs text-gray-500">Quizzes</div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="flex-1 bg-casual-green text-white py-2 rounded text-sm font-semibold hover:bg-hornblende-green transition-colors">
-                      Edit
-                    </button>
-                    <button className="flex-1 bg-gray-200 text-gray-700 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition-colors">
-                      Results
-                    </button>
-                  </div>
+
+                  {/* Actions */}
+                  <button
+                    onClick={() =>
+                      navigate(`/instructor-dashboard/section/${section.id}`)
+                    }
+                    className="w-full bg-casual-green text-white py-2 rounded font-semibold hover:bg-hornblende-green transition-colors"
+                  >
+                    View Class
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 };
