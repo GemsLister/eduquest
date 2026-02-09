@@ -91,13 +91,17 @@ export const InstructorDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="bg-white border-b border-gray-200 px-6 py-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Your Classes</h1>
-        <p className="text-gray-600">Manage your classes and create quizzes</p>
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-6 md:py-8">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 mb-2">
+          Your Classes
+        </h1>
+        <p className="text-sm md:text-base text-gray-600">
+          Manage your classes and create quizzes
+        </p>
       </div>
 
       {/* Main Content */}
-      <div className="px-6 py-8">
+      <div className="px-4 md:px-6 py-6 md:py-8">
         {/* Create Section */}
         <div className="mb-8">
           <SectionManager
@@ -110,42 +114,44 @@ export const InstructorDashboard = () => {
 
         {/* Classes Grid */}
         {sections.length === 0 ? (
-          <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          <div className="bg-white rounded-lg p-8 md:p-12 text-center shadow-sm border border-gray-200">
+            <div className="text-4xl md:text-6xl mb-4">📚</div>
+            <h3 className="text-lg md:text-xl font-semibold text-gray-700 mb-2">
               No Classes Yet
             </h3>
-            <p className="text-gray-500">
+            <p className="text-sm md:text-base text-gray-500">
               Create your first class to get started!
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
             {sections.map((section) => (
               <div
                 key={section.id}
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
               >
                 {/* Class Header */}
-                <div className="h-24 bg-gradient-to-r from-casual-green to-hornblende-green group-hover:opacity-90 transition-opacity flex items-center justify-center">
+                <div className="h-20 md:h-24 bg-gradient-to-r from-casual-green to-hornblende-green group-hover:opacity-90 transition-opacity flex items-center justify-center">
                   <div className="text-white text-center">
-                    <div className="text-3xl font-bold">{section.name[0]}</div>
+                    <div className="text-2xl md:text-3xl font-bold">
+                      {section.name[0]}
+                    </div>
                   </div>
                 </div>
 
                 {/* Class Info */}
                 <div className="p-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">
+                  <h3 className="text-base md:text-lg font-bold text-gray-800 mb-1">
                     {section.name}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-xs md:text-sm text-gray-600 mb-3">
                     Code:{" "}
                     <span className="font-semibold">
                       {section.enrollment_code}
                     </span>
                   </p>
                   {section.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                    <p className="text-xs md:text-sm text-gray-600 mb-3 line-clamp-2">
                       {section.description}
                     </p>
                   )}
@@ -165,7 +171,7 @@ export const InstructorDashboard = () => {
                     onClick={() =>
                       navigate(`/instructor-dashboard/section/${section.id}`)
                     }
-                    className="w-full bg-casual-green text-white py-2 rounded font-semibold hover:bg-hornblende-green transition-colors"
+                    className="w-full bg-casual-green text-white py-2 rounded font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors"
                   >
                     View Class
                   </button>

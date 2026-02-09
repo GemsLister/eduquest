@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { useLogout } from "../../hooks/useLogout.jsx";
 import profileImage from "../../assets/instructor-profile.png";
 
 export const InstructorProfile = () => {
@@ -16,6 +17,7 @@ export const InstructorProfile = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const handleLogout = useLogout();
 
   useEffect(() => {
     fetchUserData();
@@ -109,13 +111,15 @@ export const InstructorProfile = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white p-6">
+    <div className="flex-1 overflow-auto bg-authentic-white p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-hornblende-green mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-hornblende-green mb-2">
           My Profile
         </h1>
-        <p className="text-gray-600">Manage your account information</p>
+        <p className="text-sm md:text-base text-gray-600">
+          Manage your account information
+        </p>
       </div>
 
       {error && (
@@ -131,30 +135,32 @@ export const InstructorProfile = () => {
       )}
 
       {/* Profile Card */}
-      <div className="bg-white rounded-lg shadow-md p-8 mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
         {/* Profile Header with Avatar */}
-        <div className="flex items-start justify-between mb-8 pb-8 border-b-2 border-gray-200">
-          <div className="flex items-start gap-6">
-            <div className="flex-shrink-0">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6 mb-8 pb-8 border-b-2 border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6 flex-1">
+            <div className="flex-shrink-0 flex justify-center md:justify-start">
               <img
                 src={profileImage}
                 alt="profile"
                 className="h-24 w-24 rounded-full border-4 border-casual-green"
               />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-hornblende-green">
+            <div className="text-center md:text-left flex-1">
+              <h2 className="text-xl md:text-2xl font-bold text-hornblende-green">
                 {profile.firstName} {profile.lastName}
               </h2>
               <p className="text-gray-600 text-sm mt-1">@{profile.username}</p>
-              <p className="text-gray-600 text-sm mt-1">{profile.email}</p>
+              <p className="text-gray-600 text-sm mt-1 break-all">
+                {profile.email}
+              </p>
             </div>
           </div>
 
           {!editMode && (
             <button
               onClick={() => setEditMode(true)}
-              className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              className="w-full md:w-auto bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
             >
               Edit Profile
             </button>
@@ -241,7 +247,7 @@ export const InstructorProfile = () => {
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-col md:flex-row gap-4 pt-4">
               <button
                 onClick={handleUpdateProfile}
                 disabled={saveLoading}
@@ -278,27 +284,27 @@ export const InstructorProfile = () => {
       </div>
 
       {/* Account Info */}
-      <div className="bg-white rounded-lg shadow-md p-8 mb-6">
-        <h3 className="text-xl font-bold text-hornblende-green mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
+        <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-6">
           Account Information
         </h3>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center p-4 bg-gray-50 rounded-lg">
             <div>
               <p className="text-sm font-semibold text-gray-700">Email</p>
-              <p className="text-gray-600">{profile.email}</p>
+              <p className="text-gray-600 break-all">{profile.email}</p>
             </div>
           </div>
 
-          <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center p-4 bg-gray-50 rounded-lg">
             <div>
               <p className="text-sm font-semibold text-gray-700">Role</p>
               <p className="text-gray-600">Instructor</p>
             </div>
           </div>
 
-          <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center p-4 bg-gray-50 rounded-lg">
             <div>
               <p className="text-sm font-semibold text-gray-700">
                 Account Status
@@ -310,19 +316,26 @@ export const InstructorProfile = () => {
       </div>
 
       {/* Security Settings */}
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h3 className="text-xl font-bold text-hornblende-green mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-8">
+        <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-6">
           Security
         </h3>
 
         <div className="space-y-4">
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4 text-sm md:text-base">
             For your account security, you can change your password or manage
             your account settings.
           </p>
 
           <button className="w-full bg-gray-100 text-gray-800 border-2 border-gray-300 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
             Change Password
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-100 text-red-800 border-2 border-red-300 px-6 py-3 rounded-lg font-semibold hover:bg-red-200 transition-colors"
+          >
+            Logout
           </button>
         </div>
       </div>

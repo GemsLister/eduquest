@@ -350,7 +350,14 @@ export const SectionDetail = () => {
                         {quiz.is_published ? "Edit" : "Continue"}
                       </button>
                       {quiz.is_published && (
-                        <button className="flex-1 bg-gray-200 text-gray-700 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition-colors">
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/instructor-dashboard/quiz-results/${quiz.id}`,
+                            )
+                          }
+                          className="flex-1 bg-gray-200 text-gray-700 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition-colors"
+                        >
                           Results
                         </button>
                       )}

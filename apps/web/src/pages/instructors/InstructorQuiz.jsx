@@ -21,6 +21,8 @@ export const InstructorQuiz = () => {
   const [sectionId, setSectionId] = useState(null);
   const [saveStatus, setSaveStatus] = useState(""); // For auto-save feedback
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
+  const [shareToken, setShareToken] = useState("");
+  const [showShareUrl, setShowShareUrl] = useState(false);
 
   // Load existing quiz if editing
   useEffect(() => {
@@ -45,6 +47,7 @@ export const InstructorQuiz = () => {
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
       setSectionId(quiz.section_id);
+      setShareToken(quiz.share_token || "");
 
       // Load questions
       const { data: questionsData, error: questionsError } = await supabase
@@ -145,6 +148,25 @@ export const InstructorQuiz = () => {
     );
   };
 
+  // Generate share token
+  const generateShareToken = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let token = "";
+    for (let i = 0; i < 8; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  };
+
+  // Copy URL to clipboard
+  const copyToClipboard = () => {
+    const url = `${window.location.origin}/quiz/${shareToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setSaveStatus("URL copied to clipboard!");
+      setTimeout(() => setSaveStatus(""), 2000);
+    });
+  };
+
   // Delete question
   const deleteQuestion = async (id) => {
     setDeletingQuestionId(id);
@@ -243,9 +265,15 @@ export const InstructorQuiz = () => {
       }
 
       let quizData;
+      let newToken = shareToken;
 
       if (quizId) {
         // Update existing quiz
+        // Generate token if publishing and doesn't have one yet
+        if (publish && !shareToken) {
+          newToken = generateShareToken();
+        }
+
         const { data, error: updateError } = await supabase
           .from("quizzes")
           .update({
@@ -253,6 +281,7 @@ export const InstructorQuiz = () => {
             description: quizDescription || null,
             duration: quizDuration ? parseInt(quizDuration) : null,
             is_published: publish || isPublished,
+            share_token: publish ? newToken : shareToken,
           })
           .eq("id", quizId)
           .select();
@@ -264,6 +293,8 @@ export const InstructorQuiz = () => {
         await supabase.from("questions").delete().eq("quiz_id", quizId);
       } else {
         // Create new quiz
+        newToken = publish ? generateShareToken() : null;
+
         const { data: newQuiz, error: quizError } = await supabase
           .from("quizzes")
           .insert([
@@ -274,6 +305,7 @@ export const InstructorQuiz = () => {
               description: quizDescription || null,
               duration: quizDuration ? parseInt(quizDuration) : null,
               is_published: publish,
+              share_token: newToken,
             },
           ])
           .select();
@@ -283,6 +315,11 @@ export const InstructorQuiz = () => {
           throw new Error("Failed to create quiz");
 
         quizData = newQuiz[0];
+      }
+
+      // Update state with new token
+      if (newToken) {
+        setShareToken(newToken);
       }
 
       // Save questions to Supabase
@@ -312,10 +349,11 @@ export const InstructorQuiz = () => {
       }
 
       if (publish) {
-        setSaveStatus("Quiz published!");
+        setShowShareUrl(true);
+        setSaveStatus("Quiz published! Share URL generated.");
         setTimeout(() => {
-          navigate(`/instructor-dashboard/section/${sectionId || ""}`);
-        }, 1500);
+          setSaveStatus("");
+        }, 3000);
       } else {
         setSaveStatus("Draft saved!");
         setTimeout(() => {
@@ -368,15 +406,27 @@ export const InstructorQuiz = () => {
             </p>
           </div>
           {quizId && (
-            <span
-              className={`px-4 py-2 rounded-lg font-semibold text-sm ${
-                isPublished
-                  ? "bg-green-100 text-green-700"
-                  : "bg-yellow-100 text-yellow-700"
-              }`}
-            >
-              {isPublished ? "Published" : "Draft"}
-            </span>
+            <div className="flex gap-4 items-center">
+              <span
+                className={`px-4 py-2 rounded-lg font-semibold text-sm ${
+                  isPublished
+                    ? "bg-green-100 text-green-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
+              >
+                {isPublished ? "Published" : "Draft"}
+              </span>
+              {isPublished && (
+                <button
+                  onClick={() =>
+                    navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                  }
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  📊 View Results
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -390,6 +440,37 @@ export const InstructorQuiz = () => {
       {saveStatus && (
         <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
           {saveStatus}
+        </div>
+      )}
+
+      {/* Share URL Section */}
+      {showShareUrl && shareToken && (
+        <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
+          <h3 className="text-lg font-bold text-blue-900 mb-3">
+            ✅ Quiz Published Successfully!
+          </h3>
+          <p className="text-blue-800 mb-4">
+            Share this link with students so they can take the quiz from the
+            computer lab:
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={`${window.location.origin}/quiz/${shareToken}`}
+              readOnly
+              className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm"
+            />
+            <button
+              onClick={copyToClipboard}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+            >
+              Copy Link
+            </button>
+          </div>
+          <p className="text-sm text-blue-700 mt-3 bg-white p-3 rounded">
+            📌 <strong>Share Code:</strong>{" "}
+            <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
+          </p>
         </div>
       )}
 

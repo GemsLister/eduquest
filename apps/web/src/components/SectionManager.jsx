@@ -68,14 +68,14 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
+          className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors shadow-md"
         >
           <span className="text-lg">+</span>
           Create New Class
         </button>
       ) : (
-        <div className="bg-white rounded-lg p-6 shadow-md border border-casual-green">
-          <h3 className="text-xl font-bold text-hornblende-green mb-4">
+        <div className="bg-white rounded-lg p-4 md:p-6 shadow-md border border-casual-green">
+          <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-4">
             Create New Class
           </h3>
 
@@ -90,7 +90,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="e.g., Period 1, Block A, Biology 101"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
               />
             </div>
 
@@ -104,7 +104,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
                 onChange={handleInputChange}
                 placeholder="Optional class description"
                 rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
               />
             </div>
 
@@ -114,7 +114,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
               </div>
             )}
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-col md:flex-row gap-3 md:justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -122,14 +122,14 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
                   setError("");
                   setFormData({ name: "", description: "" });
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm md:text-base hover:bg-gray-300 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-casual-green text-white rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-casual-green text-white rounded-lg font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Creating..." : "Create Class"}
               </button>
