@@ -2,11 +2,7 @@ import { useState, useEffect, startTransition } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 
-const QUESTION_TYPES = [
-  { value: "mcq", label: "Multiple Choice" },
-  { value: "short_answer", label: "Short Answer" },
-  { value: "true_false", label: "True/False" },
-];
+const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
 
 export const InstructorQuiz = () => {
   const navigate = useNavigate();
@@ -574,26 +570,6 @@ export const InstructorQuiz = () => {
                   >
                     {deletingQuestionId === question.id ? "..." : "Delete"}
                   </button>
-                </div>
-
-                {/* Question Type */}
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Question Type
-                  </label>
-                  <select
-                    value={question.type}
-                    onChange={(e) =>
-                      updateQuestion(question.id, "type", e.target.value)
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-                  >
-                    {QUESTION_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 {/* Question Text */}

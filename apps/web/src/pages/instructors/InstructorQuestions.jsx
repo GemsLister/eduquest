@@ -3,8 +3,6 @@ import { supabase } from "../../supabaseClient.js";
 
 const QUESTION_TYPES = {
   mcq: "Multiple Choice",
-  short_answer: "Short Answer",
-  true_false: "True/False",
 };
 
 export const InstructorQuestions = () => {
@@ -188,24 +186,6 @@ export const InstructorQuestions = () => {
           </h2>
 
           <div className="space-y-4">
-            {/* Type */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Question Type
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-              >
-                <option value="mcq">Multiple Choice</option>
-                <option value="short_answer">Short Answer</option>
-                <option value="true_false">True/False</option>
-              </select>
-            </div>
-
             {/* Question Text */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
