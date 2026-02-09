@@ -18,6 +18,9 @@ export const GoogleButton = () => {
         provider: "google",
         options: {
           redirectTo: import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
       if (error) throw new Error(error.message);
@@ -54,6 +57,7 @@ export const AuthButton = ({ name, user }) => {
       case "Login":
         try {
           if (!user.email || !user.password) alert("Needed");
+          else if (!user.captchaToken) alert("Please complete the reCAPTCHA");
           else {
             handleLogin(user);
             console.log(`Success ${user.email}`);

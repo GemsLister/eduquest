@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { GoogleButton } from "../../components/Buttons.jsx";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
@@ -8,7 +8,30 @@ export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const userData = { email, password };
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const userData = { email, password, captchaToken };
+
+  const recaptchaSiteKey = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
+  // Load Google reCAPTCHA script on component mount
+  useEffect(() => {
+    if (!window.grecaptcha) {
+      const script = document.createElement("script");
+      script.src = "https://www.google.com/recaptcha/api.js";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // Define the global callback for reCAPTCHA
+    window.onCaptchaSuccess = (token) => {
+      setCaptchaToken(token);
+    };
+
+    return () => {
+      delete window.onCaptchaSuccess;
+    };
+  }, []);
 
   const inputs = [
     {
@@ -89,6 +112,15 @@ export const Login = () => {
             <div className="flex justify-end text-[clamp(10px,3dvw,14px)] text-elephant">
               <Link to="/recover-password">Forgot password?</Link>
             </div>
+          </div>
+
+          {/* reCAPTCHA */}
+          <div className="flex justify-center mt-4">
+            <div
+              className="g-recaptcha"
+              data-sitekey={recaptchaSiteKey}
+              data-callback="onCaptchaSuccess"
+            />
           </div>
         </fieldset>
 
