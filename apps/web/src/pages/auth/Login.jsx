@@ -15,7 +15,7 @@ export const Login = () => {
       type: "email",
       name: "email",
       id: "email",
-      placeholder: "Enter your email",
+      placeholder: "name@buksu.edu.ph",
       onChange: (e) => setEmail(e.target.value),
       value: email,
     },
@@ -23,7 +23,7 @@ export const Login = () => {
       type: showPassword ? "text" : "password",
       name: "password",
       id: "password",
-      placeholder: `Enter your password`,
+      placeholder: `Password`,
       onChange: (e) => setPassword(e.target.value),
       value: password,
     },
@@ -92,7 +92,11 @@ export const Login = () => {
           </div>
         </fieldset>
 
-        <AuthButton name="Login" user={userData} />
+        <AuthButton
+          name="Login"
+          user={userData}
+          errorMessage="Invalid email. Please try again!"
+        />
 
         <p className="text-center text-[clamp(10px,3dvw,14px)] text-elephant my-4 flex items-center justify-center gap-1">
           Don't have an account?
