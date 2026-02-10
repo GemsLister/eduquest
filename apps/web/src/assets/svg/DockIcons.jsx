@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 export const DockLeftIcon = ({ resize }) => {
   return (
     <div className="flex items-center">
