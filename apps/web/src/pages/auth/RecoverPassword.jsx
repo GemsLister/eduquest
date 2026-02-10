@@ -30,14 +30,14 @@ export const RecoverPassword = () => {
           <div className="flex flex-col gap-5">
             <input
               type="email"
-              placeholder="Enter your email"
+              placeholder="name@buksu.edu.ph"
               onChange={(e) => setEmail(e.target.value)}
               className="border-2 border-pale-silver p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
             />
           </div>
         </fieldset>
         <div className="flex flex-col gap-3">
-          <AuthButton name="Continue" user={userData} />
+          <AuthButton name="Continue" user={userData} errorMessage="Email not found" />
           <Link to="/">
             <button className="border-2 border-pale-silver hover:bg-fur-white text-elephant p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full">
               Back
