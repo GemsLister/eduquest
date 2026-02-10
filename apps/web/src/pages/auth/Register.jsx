@@ -17,7 +17,7 @@ export const Register = () => {
     {
       type: "email",
       name: "email",
-      placeholder: "Enter your email",
+      placeholder: "name@buksu.edu.ph",
       onChange: (e) => setEmail(e.target.value),
     },
     {
