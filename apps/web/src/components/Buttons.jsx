@@ -9,23 +9,12 @@ import {
   VisibilityOffIcon,
   VisibilityOnIcon,
 } from "../assets/svg/ShowPasswordIcons.jsx";
+import { useGoogleLogin } from "../hooks/useGoogleLogin.jsx";
+import { toast } from "react-toastify";
 
 export const GoogleButton = () => {
-  const handleGoogleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL,
-        },
-      });
-      if (error) throw new Error(error.message);
-      if (data.url) redirect(data.url);
-    } catch (error) {
-      console.error(error.message);
-    }
-  };
+  const { handleGoogleLogin } = useGoogleLogin();
+
   return (
     <button
       type="button"
@@ -53,22 +42,24 @@ export const AuthButton = ({ name, user }) => {
     switch (name) {
       case "Login":
         try {
-          if (!user.email || !user.password) alert("Needed");
+          if (!user.email || !user.password) toast.error("Fill out the form");
           else {
-            handleLogin(user);
-            console.log(`Success ${user.email}`);
+            const result = handleLogin(user);
+            if (!result && result.success) console.error(error);
           }
         } catch (error) {
+          // notify();
           console.error(error);
         }
         break;
 
       case "Register":
         try {
-          if (!user.username || !user.password || !user.email) alert("Needed!");
+          if (!user.username || !user.password || !user.email)
+            toast.error("Fill out the form");
           else {
-            handleRegister(user);
-            console.log("success");
+            const result = handleRegister(user);
+            if (!result && result.success) console.error(error);
           }
         } catch (error) {
           console.error(error);
@@ -77,7 +68,7 @@ export const AuthButton = ({ name, user }) => {
 
       case "Continue":
         try {
-          if (!user.email) alert("Needed!");
+          if (!user.email) toast.error("Fill out the form");
           else {
             handleRecover(user);
             console.log(`continue ${user.email}`);
@@ -89,11 +80,9 @@ export const AuthButton = ({ name, user }) => {
 
       case "Change Password":
         try {
-          if (!user.password) alert("Needed!");
-          else {
-            handleChangePassword(user);
-            console.log(`change password ${user.email}`);
-          }
+          if (!user.password) toast.error("Fill out the form");
+          handleChangePassword(user);
+          console.log(`change password ${user.password}`);
         } catch (error) {
           console.error(error);
         }
