@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export const useLogin = () => {
   const navigate = useNavigate();
@@ -10,22 +11,21 @@ export const useLogin = () => {
         password: userData.password,
       });
 
-      if (error) throw error;
+      // To notify users that their email is invalid
+      if (error) toast.error("Invalid email or password");
+
       if (
-        data.user.email.endsWith(
+        !data.user.email.endsWith(
           import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION,
         )
       ) {
-        navigate("/instructor-dashboard");
-      } else if (
-        data.user.email.endsWith(import.meta.env.VITE_STUDENT_ACCOUNT_EXTENSION)
-      ) {
-        navigate("/student-dashboard");
-      }
+        await supabase.auth.signOut();
+        toast.error("Access Denied: Instructors Only!");
+      } else navigate("/instructor-dashboard");
 
       console.log(data.message);
     } catch (error) {
-      console.error(error);
+      toast.error(error);
     }
   };
   return { handleLogin };
