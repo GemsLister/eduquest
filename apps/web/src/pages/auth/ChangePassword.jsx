@@ -4,7 +4,7 @@ import { AuthButton } from "../../components/Buttons.jsx";
 import { Link } from "react-router-dom";
 
 export const ChangePassword = () => {
-  const [email, setEmail] = useState();
+  const [password, setPassword] = useState();
   return (
     <div className="flex items-center justify-center h-screen flex-1 bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-[clamp(100px,20dvw,180px)]">
       <form className="p-[clamp(30px,2dvw,80px)] bg-full-white rounded-[15px] shadow-2xl">
@@ -30,13 +30,13 @@ export const ChangePassword = () => {
             <input
               type="password"
               placeholder="Enter new password"
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               className="border-2 border-pale-silver p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
             />
           </div>
         </fieldset>
         <div className="flex flex-col gap-3">
-          <AuthButton name="Change Password" user={email} />
+          <AuthButton name="Change Password" user={{ password }} />
           <Link to="/recover-password">
             <button className="border-2 border-pale-silver hover:bg-fur-white text-elephant p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full">
               Back
