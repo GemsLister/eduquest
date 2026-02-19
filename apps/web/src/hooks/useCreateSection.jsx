@@ -1,4 +1,11 @@
-export const useCreateSection = () => {
+import { useState } from "react";
+
+export const useCreateSection = ({ onSectionCreated, userId }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+  });
   const handleCreateSection = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -47,4 +54,5 @@ export const useCreateSection = () => {
       setLoading(false);
     }
   };
+  return { handleCreateSection, showForm, setShowForm };
 };
