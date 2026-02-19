@@ -1,10 +1,9 @@
-import { useState } from "react";
 import * as Container from "../../container/PopupContainer.jsx";
 import { useCreateSection } from "../../../hooks/useCreateSection.jsx";
 import { CreateClassPopup } from "../forms/CreateClassPopup.jsx";
 
 export const CreateSectionButton = ({ onSectionCreated, userId }) => {
-  const { handleCreateSection, showForm, setShowForm } = useCreateSection(
+  const { handleCreateSection, handleInputChange, showForm, setShowForm, loading, error, formData } = useCreateSection(
     onSectionCreated,
     userId,
   );
@@ -72,8 +71,13 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
       ) : (
         <Container.PopupContainer>
           <CreateClassPopup
-            createSection={handleCreateSection}
+            onSubmit={handleCreateSection}
             onClose={() => setShowForm(false)}
+            loading={loading}
+            error={error}
+            formDataName={formData.name}
+            formDataDescription={formData.description}
+            onInputChange={handleInputChange}
           />
         </Container.PopupContainer>
       )}
