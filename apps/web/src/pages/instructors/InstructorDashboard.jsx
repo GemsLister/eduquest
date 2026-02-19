@@ -1,4 +1,4 @@
-import { SectionManager } from "../../components/SectionManager.jsx";
+import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
 import { useFetchSectionQuiz } from "../../hooks/useFetchSectionQuiz.jsx";
 import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
@@ -18,7 +18,7 @@ export const InstructorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Container.PagesContainer>
       {/* Hero Section */}
       <div className="flex justify-between items-center bg-white border-b border-gray-200 px-4 md:px-6 py-6 md:py-8">
         <div className="flex flex-col">
@@ -30,17 +30,18 @@ export const InstructorDashboard = () => {
           </p>
         </div>
         {/* Create Section */}
-        <div className="flex justify-center">
-          <SectionManager
-            onSectionCreated={(newSections) =>
-              setSections((prev) => [newSections, ...prev])
-            }
-            userId={user?.id}
-          />
-        </div>
       </div>
+      <div className="my-4 mx-7">
+        <CreateSectionButton
+          onSectionCreated={(newSections) =>
+            setSections((prev) => [newSections, ...prev])
+          }
+          userId={user?.id}
+        />
+      </div>
+
       {/* Main Content */}
-      <Container.MainContainer>
+      <Container.ContentContainer>
         {/* Classes Grid */}
         {sections?.length === 0 ? (
           <div>
@@ -60,7 +61,7 @@ export const InstructorDashboard = () => {
             ))}
           </div>
         )}
-      </Container.MainContainer>
-    </div>
+      </Container.ContentContainer>
+    </Container.PagesContainer>
   );
 };
