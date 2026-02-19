@@ -1,6 +1,6 @@
 import { SectionManager } from "../../components/SectionManager.jsx";
 import { useFetchSectionQuiz } from "../../hooks/useFetchSectionQuiz.jsx";
-import * as Container from "../../components/container/containerIndex.js";
+import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
 
 export const InstructorDashboard = () => {
