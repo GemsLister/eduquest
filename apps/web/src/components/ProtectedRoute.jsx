@@ -13,13 +13,14 @@ export const ProtectedRoute = ({ children }) => {
           data: { user: authUser },
         } = await supabase.auth.getUser();
         setUser(authUser);
+        console.log({authUser})
       } catch (error) {
         console.error("Auth check error:", error);
         setUser(null);
       } finally {
         setLoading(false);
-      }
-    };
+      };
+    }
 
     checkAuth();
   }, []);
