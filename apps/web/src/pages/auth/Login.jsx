@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { GoogleButton, AuthButton } from "../../components/ui/Buttons.jsx";
+import { GoogleButton, AuthButton } from "../../components/ui/buttons/Buttons.jsx";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 
 export const Login = () => {
