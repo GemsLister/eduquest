@@ -1,25 +1,17 @@
-import { useState } from "react";
 import { toast } from "react-toastify";
 
-export const CreateClassPopup = ({ handleCreateSection, onClose }) => {
-  const [showForm, setShowForm] = useState(true);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+export const CreateClassPopup = ({
+  onSubmit,
+  onClose,
+  loading,
+  error,
+  formDataName,
+  formDataDescription,
+  onInputChange
+}) => {
 
   return (
-    <form onSubmit={handleCreateSection} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-4">
         Create New Class
       </h3>
@@ -31,8 +23,8 @@ export const CreateClassPopup = ({ handleCreateSection, onClose }) => {
         <input
           type="text"
           name="name"
-          value={formData.name}
-          onChange={handleInputChange}
+          value={formDataName}
+          onChange={onInputChange}
           placeholder="e.g., Period 1, Block A, Biology 101"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
         />
@@ -44,8 +36,8 @@ export const CreateClassPopup = ({ handleCreateSection, onClose }) => {
         </label>
         <textarea
           name="description"
-          value={formData.description}
-          onChange={handleInputChange}
+          value={formDataDescription}
+          onChange={onInputChange}
           placeholder="Optional class description"
           rows="3"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
