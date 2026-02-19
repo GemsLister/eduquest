@@ -1,11 +1,23 @@
 import { useState } from "react";
+import { supabase } from "../supabaseClient";
 
-export const useCreateSection = ({ onSectionCreated, userId }) => {
+export const useCreateSection = (onSectionCreated, userId) => {
+  const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
   });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const handleCreateSection = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -54,5 +66,14 @@ export const useCreateSection = ({ onSectionCreated, userId }) => {
       setLoading(false);
     }
   };
-  return { handleCreateSection, showForm, setShowForm };
+  return {
+    handleCreateSection,
+    handleInputChange,
+    showForm,
+    setShowForm,
+    loading,
+    error,
+    formData,
+    setFormData,
+  };
 };
