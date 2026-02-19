@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { GoogleButton } from "../../components/Buttons.jsx";
+import { GoogleButton, AuthButton } from "../../components/ui/Buttons.jsx";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
-import { AuthButton } from "../../components/Buttons.jsx";
 
 export const Login = () => {
   const [email, setEmail] = useState("");

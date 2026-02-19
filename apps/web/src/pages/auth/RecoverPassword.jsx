@@ -1,6 +1,6 @@
 import { useState } from "react";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
-import { AuthButton } from "../../components/Buttons.jsx";
+import { AuthButton } from "../../components/ui/Buttons.jsx";
 import { Link } from "react-router-dom";
 
 export const RecoverPassword = () => {
