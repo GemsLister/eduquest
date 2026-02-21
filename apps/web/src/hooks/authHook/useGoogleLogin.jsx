@@ -1,6 +1,4 @@
 import { supabase } from "../../supabaseClient";
-import { AuthCallBack } from "../../components/auth/AuthCallBack";
-
 export const useGoogleLogin = () => {
   const handleGoogleLogin = async (e) => {
     e.preventDefault();
