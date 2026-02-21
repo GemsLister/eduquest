@@ -1,20 +1,24 @@
 import { useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { useParams } from "react-router-dom";
-export const useCreateQuiz = ({ user }) => {
+import { useParams, useNavigate } from "react-router-dom";
+export const useCreateQuiz = ({ user } = {}) => {
+  const navigate = useNavigate();
   const { sectionId } = useParams();
   const [quizFormData, setQuizFormData] = useState({
     title: "",
     description: "",
   });
   const [showQuizForm, setShowQuizForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const handleCreateQuiz = async (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
     try {
       if (!quizFormData.title.trim()) {
         alert("Quiz title is required");
         return;
       }
+
+      setIsSubmitting(true);
 
       const { data, error } = await supabase
         .from("quizzes")
@@ -37,17 +41,19 @@ export const useCreateQuiz = ({ user }) => {
       setShowQuizForm(false);
 
       // Navigate to quiz editor to add questions
-      navigate(`/instructor-dashboard/instructor-quiz/${data[0].id}`);
+      navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
     } catch (error) {
       alert("Error creating quiz: " + error.message);
       console.error("Error creating quiz:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   return {
-    handleCreateQuiz,
     quizFormData,
     showQuizForm,
-    setShowQuizForm,
+    handleCreateQuiz,
     setQuizFormData,
+    isSubmitting,
   };
 };
