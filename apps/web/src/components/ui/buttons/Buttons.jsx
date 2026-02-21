@@ -1,18 +1,18 @@
 import { useState } from "react";
 import googleIcon from "../../../assets/google-icon.png";
-import { useRegister } from "../../../hooks/useRegister.jsx";
-import { useRecover } from "../../../hooks/useRecover.jsx";
-import { useChangePassword } from "../../../hooks/useChangePassword.jsx";
-import { useLogin } from "../../../hooks/useLogin.jsx";
+// import { useRegister } from "../../../hooks/useRegister.jsx";
+// import { useRecover } from "../../../hooks/useRecover.jsx";
+// import { useChangePassword } from "../../../hooks/useChangePassword.jsx";
+// import { useLogin } from "../../../hooks/useLogin.jsx";
+import * as AuthHooks from "../../../hooks/authHook/authHooks.js";
 import {
   VisibilityOffIcon,
   VisibilityOnIcon,
 } from "../../../assets/svg/ShowPasswordIcons.jsx";
-import { useGoogleLogin } from "../../../hooks/useGoogleLogin.jsx";
 import { toast } from "react-toastify";
 
 export const GoogleButton = () => {
-  const { handleGoogleLogin } = useGoogleLogin();
+  const { handleGoogleLogin } = AuthHooks.useGoogleLogin();
 
   return (
     <button
@@ -31,10 +31,10 @@ export const GoogleButton = () => {
 };
 
 export const AuthButton = ({ name, user }) => {
-  const { handleRegister } = useRegister();
-  const { handleRecover } = useRecover();
-  const { handleChangePassword } = useChangePassword();
-  const { handleLogin } = useLogin();
+  const { handleRegister } = AuthHooks.useRegister();
+  const { handleRecover } = AuthHooks.useRecover();
+  const { handleChangePassword } = AuthHooks.useChangePassword();
+  const { handleLogin } = AuthHooks.useLogin();
 
   const handleClick = (e) => {
     e.preventDefault();
@@ -44,7 +44,8 @@ export const AuthButton = ({ name, user }) => {
           if (!user.email || !user.password) toast.error("Fill out the form");
 
           if (!user.email || !user.password) alert("Needed");
-          else if (!user.captchaToken) toast.error("Please complete the reCAPTCHA");
+          else if (!user.captchaToken)
+            toast.error("Please complete the reCAPTCHA");
           else {
             const result = handleLogin(user);
             if (!result && result.success) console.error(error);
