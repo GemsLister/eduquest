@@ -1,8 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useFetchQuizzes } from "../../hooks/useFetchQuizzes.jsx";
-import { useDeleteQuiz } from "../../hooks/useDeleteQuiz.jsx";
-import { useCreateQuiz } from "../../hooks/useCreateQuiz.jsx";
-// import * as Container from "../../components/container/containers.js";
+import * as QuizHooks from "../../hooks/quizHook/quizHooks.js"
 import * as Quiz from "./quizzes/quizIndex.js";
 import { CreateQuizFormButton } from "../../components/ui/buttons/CreateQuizFormButton.jsx";
 
@@ -15,15 +12,15 @@ export const SectionDetail = () => {
     quizzes = [],
     loading,
     user,
-  } = useFetchQuizzes();
-  const { handleDeleteQuiz, deletingQuizId } = useDeleteQuiz(fetchQuizzes);
+  } = QuizHooks.useFetchQuizzes();
+  const { handleDeleteQuiz, deletingQuizId } = QuizHooks.useDeleteQuiz(fetchQuizzes);
   const {
     quizFormData,
     showQuizForm,
     handleCreateQuiz,
     setQuizFormData,
     isSubmitting,
-  } = useCreateQuiz({
+  } = QuizHooks.useCreateQuiz({
     user: user || {},
   });
 
