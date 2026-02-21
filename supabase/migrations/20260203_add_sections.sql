@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS public.sections (
   instructor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  enrollment_code VARCHAR(50) UNIQUE,
+  exam_code VARCHAR(50) UNIQUE,
   color_scheme VARCHAR(50) DEFAULT 'casual-green', -- casual-green, hornblende-green, etc.
   is_archived BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.student_sections (
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_sections_instructor_id ON public.sections(instructor_id);
-CREATE INDEX IF NOT EXISTS idx_sections_enrollment_code ON public.sections(enrollment_code);
+CREATE INDEX IF NOT EXISTS idx_sections_exam_code ON public.sections(exam_code);
 CREATE INDEX IF NOT EXISTS idx_quizzes_section_id ON public.quizzes(section_id);
 CREATE INDEX IF NOT EXISTS idx_student_sections_student_id ON public.student_sections(student_id);
 CREATE INDEX IF NOT EXISTS idx_student_sections_section_id ON public.student_sections(section_id);

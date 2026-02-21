@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 export const ClassInfo = ({ sectionId, sectionName, examCode, subject }) => {
   const navigate = useNavigate();
   return (
-    <>
+    <div>
       {/* Class Header */}
       <div className="h-20 md:h-24 bg-gradient-to-r from-casual-green to-hornblende-green group-hover:opacity-90 transition-opacity flex items-center justify-center">
         <div className="text-white text-center">
@@ -33,10 +33,10 @@ export const ClassInfo = ({ sectionId, sectionName, examCode, subject }) => {
         {/* Stats */}
         <div className="flex gap-4 text-sm text-gray-600 mb-4 py-3 border-t border-gray-200 pt-3">
           <div>
+            <div className="text-xs text-gray-500">Quizzes</div>
             <div className="font-semibold text-gray-800">
               {sectionId?.length || 0}
             </div>
-            <div className="text-xs text-gray-500">Quizzes</div>
           </div>
         </div>
 
@@ -48,6 +48,6 @@ export const ClassInfo = ({ sectionId, sectionName, examCode, subject }) => {
           View Class
         </button>
       </div>
-    </>
+    </div>
   );
 };

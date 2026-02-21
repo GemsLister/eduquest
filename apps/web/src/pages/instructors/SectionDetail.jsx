@@ -1,182 +1,202 @@
 import { useState, useEffect, startTransition } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { useFetchQuizzes } from "../../hooks/useFetchQuizzes.jsx";
+import { useDeleteQuiz } from "../../hooks/useDeleteQuiz.jsx";
+import { useCreateQuiz } from "../../hooks/useCreateQuiz.jsx";
+// import * as Container from "../../components/container/containers.js";
+import * as Quiz from "./quizzes/quizIndex.js";
 
 export const SectionDetail = () => {
   const navigate = useNavigate();
   const { sectionId } = useParams();
-  const [section, setSection] = useState(null);
-  const [quizzes, setQuizzes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [showQuizForm, setShowQuizForm] = useState(false);
-  const [deletingQuizId, setDeletingQuizId] = useState(null);
-  const [quizFormData, setQuizFormData] = useState({
-    title: "",
-    description: "",
-  });
+  const {
+    fetchQuizzes,
+    section,
+    quizzes = [],
+    loading,
+    user,
+  } = useFetchQuizzes();
+  const { handleDeleteQuiz, deletingQuizId } = useDeleteQuiz(fetchQuizzes);
+  const {
+    handleCreateQuiz,
+    quizFormData,
+    showQuizForm,
+    setShowQuizForm,
+    setQuizFormData,
+  } = useCreateQuiz(sectionId, user);
+  // const [section, setSection] = useState(null);
+  // const [quizzes, setQuizzes] = useState([]);
+  // const [loading, setLoading] = useState(true);
+  // const [user, setUser] = useState(null);
+  // const [showQuizForm, setShowQuizForm] = useState(false);
+  // const [deletingQuizId, setDeletingQuizId] = useState(null);
+  // const [quizFormData, setQuizFormData] = useState({
+  //   title: "",
+  //   description: "",
+  // });
 
-  const fetchQuizzes = async () => {
-    try {
-      // Fetch quizzes for this section
-      const { data: quizzesData, error: quizzesError } = await supabase
-        .from("quizzes")
-        .select("*, quiz_attempts(count)")
-        .eq("section_id", sectionId)
-        .order("created_at", { ascending: false });
+  // const fetchQuizzes = async () => {
+  //   try {
+  //     // Fetch quizzes for this section
+  //     const { data: quizzesData, error: quizzesError } = await supabase
+  //       .from("quizzes")
+  //       .select("*, quiz_attempts(count)")
+  //       .eq("section_id", sectionId)
+  //       .order("created_at", { ascending: false });
 
-      if (quizzesError) throw quizzesError;
+  //     if (quizzesError) throw quizzesError;
 
-      // Fetch question counts for each quiz
-      const quizzesWithCounts = await Promise.all(
-        (quizzesData || []).map(async (quiz) => {
-          const { count, error: countError } = await supabase
-            .from("questions")
-            .select("*", { count: "exact", head: true })
-            .eq("quiz_id", quiz.id);
+  //     // Fetch question counts for each quiz
+  //     const quizzesWithCounts = await Promise.all(
+  //       (quizzesData || []).map(async (quiz) => {
+  //         const { count, error: countError } = await supabase
+  //           .from("questions")
+  //           .select("*", { count: "exact", head: true })
+  //           .eq("quiz_id", quiz.id);
 
-          return {
-            ...quiz,
-            attempts: quiz.quiz_attempts?.[0]?.count || 0,
-            questions_count: !countError ? count : 0,
-          };
-        }),
-      );
+  //         return {
+  //           ...quiz,
+  //           attempts: quiz.quiz_attempts?.[0]?.count || 0,
+  //           questions_count: !countError ? count : 0,
+  //         };
+  //       }),
+  //     );
 
-      setQuizzes(quizzesWithCounts);
-    } catch (error) {
-      console.error("Error fetching quizzes:", error);
-    }
-  };
+  //     setQuizzes(quizzesWithCounts);
+  //   } catch (error) {
+  //     console.error("Error fetching quizzes:", error);
+  //   }
+  // };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get current user
-        const {
-          data: { user: authUser },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError) throw authError;
-        setUser(authUser);
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       // Get current user
+  //       const {
+  //         data: { user: authUser },
+  //         error: authError,
+  //       } = await supabase.auth.getUser();
+  //       if (authError) throw authError;
+  //       setUser(authUser);
 
-        // Fetch section
-        const { data: sectionData, error: sectionError } = await supabase
-          .from("sections")
-          .select("*")
-          .eq("id", sectionId)
-          .single();
+  //       // Fetch section
+  //       const { data: sectionData, error: sectionError } = await supabase
+  //         .from("sections")
+  //         .select("*")
+  //         .eq("id", sectionId)
+  //         .single();
 
-        if (sectionError) throw sectionError;
-        setSection(sectionData);
+  //       if (sectionError) throw sectionError;
+  //       setSection(sectionData);
 
-        // Fetch quizzes
-        await fetchQuizzes();
-      } catch (error) {
-        console.error("Error fetching section data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //       // Fetch quizzes
+  //       await fetchQuizzes();
+  //     } catch (error) {
+  //       console.error("Error fetching section data:", error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchData();
-  }, [sectionId]);
+  //   fetchData();
+  // }, [sectionId]);
 
-  const handleDeleteQuiz = async (quizId, quizTitle) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${quizTitle}"? This action cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+  // const handleDeleteQuiz = async (quizId, quizTitle) => {
+  //   if (
+  //     !window.confirm(
+  //       `Are you sure you want to delete "${quizTitle}"? This action cannot be undone.`,
+  //     )
+  //   ) {
+  //     return;
+  //   }
 
-    setDeletingQuizId(quizId);
-    console.log("Starting delete for quiz:", quizId, quizTitle);
+  //   setDeletingQuizId(quizId);
+  //   console.log("Starting delete for quiz:", quizId, quizTitle);
 
-    try {
-      // Delete all questions associated with the quiz first
-      console.log("Deleting questions for quiz:", quizId);
-      const { error: questionsError } = await supabase
-        .from("questions")
-        .delete()
-        .eq("quiz_id", quizId);
+  //   try {
+  //     // Delete all questions associated with the quiz first
+  //     console.log("Deleting questions for quiz:", quizId);
+  //     const { error: questionsError } = await supabase
+  //       .from("questions")
+  //       .delete()
+  //       .eq("quiz_id", quizId);
 
-      console.log("Questions delete response - error:", questionsError);
+  //     console.log("Questions delete response - error:", questionsError);
 
-      if (questionsError) {
-        console.error("Questions delete error:", questionsError);
-        throw new Error(
-          `Failed to delete questions: ${questionsError.message}`,
-        );
-      }
+  //     if (questionsError) {
+  //       console.error("Questions delete error:", questionsError);
+  //       throw new Error(
+  //         `Failed to delete questions: ${questionsError.message}`,
+  //       );
+  //     }
 
-      // Delete the quiz
-      console.log("Deleting quiz:", quizId);
-      const { error: quizError } = await supabase
-        .from("quizzes")
-        .delete()
-        .eq("id", quizId);
+  //     // Delete the quiz
+  //     console.log("Deleting quiz:", quizId);
+  //     const { error: quizError } = await supabase
+  //       .from("quizzes")
+  //       .delete()
+  //       .eq("id", quizId);
 
-      console.log("Quiz delete response - error:", quizError);
+  //     console.log("Quiz delete response - error:", quizError);
 
-      if (quizError) {
-        console.error("Quiz delete error:", quizError);
-        throw new Error(`Failed to delete quiz: ${quizError.message}`);
-      }
+  //     if (quizError) {
+  //       console.error("Quiz delete error:", quizError);
+  //       throw new Error(`Failed to delete quiz: ${quizError.message}`);
+  //     }
 
-      // Wait a moment for the database to sync, then refresh
-      console.log("Waiting for DB sync...");
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+  //     // Wait a moment for the database to sync, then refresh
+  //     console.log("Waiting for DB sync...");
+  //     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Refresh the quizzes list
-      console.log("Refreshing quizzes list...");
-      await fetchQuizzes();
+  //     // Refresh the quizzes list
+  //     console.log("Refreshing quizzes list...");
+  //     await fetchQuizzes();
 
-      console.log("Quiz deleted successfully!");
-      alert("✓ Quiz deleted successfully!");
-    } catch (error) {
-      console.error("Full error object:", error);
-      alert("❌ Error deleting quiz:\n" + error.message);
-    } finally {
-      setDeletingQuizId(null);
-    }
-  };
+  //     console.log("Quiz deleted successfully!");
+  //     alert("✓ Quiz deleted successfully!");
+  //   } catch (error) {
+  //     console.error("Full error object:", error);
+  //     alert("❌ Error deleting quiz:\n" + error.message);
+  //   } finally {
+  //     setDeletingQuizId(null);
+  //   }
+  // };
 
-  const handleCreateQuiz = async (e) => {
-    e.preventDefault();
-    try {
-      if (!quizFormData.title.trim()) {
-        alert("Quiz title is required");
-        return;
-      }
+  // const handleCreateQuiz = async (e) => {
+  //   e.preventDefault();
+  //   try {
+  //     if (!quizFormData.title.trim()) {
+  //       alert("Quiz title is required");
+  //       return;
+  //     }
 
-      const { data, error } = await supabase
-        .from("quizzes")
-        .insert([
-          {
-            instructor_id: user.id,
-            section_id: sectionId,
-            title: quizFormData.title.trim(),
-            description: quizFormData.description.trim() || null,
-            is_published: false,
-          },
-        ])
-        .select();
+  //     const { data, error } = await supabase
+  //       .from("quizzes")
+  //       .insert([
+  //         {
+  //           instructor_id: user.id,
+  //           section_id: sectionId,
+  //           title: quizFormData.title.trim(),
+  //           description: quizFormData.description.trim() || null,
+  //           is_published: false,
+  //         },
+  //       ])
+  //       .select();
 
-      if (error) throw error;
+  //     if (error) throw error;
 
-      // Reset form
-      setQuizFormData({ title: "", description: "" });
-      setShowQuizForm(false);
+  //     // Reset form
+  //     setQuizFormData({ title: "", description: "" });
+  //     setShowQuizForm(false);
 
-      // Navigate to quiz editor to add questions
-      navigate(`/instructor-dashboard/instructor-quiz/${data[0].id}`);
-    } catch (error) {
-      alert("Error creating quiz: " + error.message);
-      console.error("Error creating quiz:", error);
-    }
-  };
+  //     // Navigate to quiz editor to add questions
+  //     navigate(`/instructor-dashboard/instructor-quiz/${data[0].id}`);
+  //   } catch (error) {
+  //     alert("Error creating quiz: " + error.message);
+  //     console.error("Error creating quiz:", error);
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -205,27 +225,26 @@ export const SectionDetail = () => {
           onClick={() => navigate("/instructor-dashboard")}
           className="text-casual-green font-semibold mb-4 hover:underline"
         >
-          ← Back to Classes
+          ← Back to Sections
         </button>
         <h1 className="text-4xl font-bold text-gray-800 mb-2">
           {section.name}
         </h1>
         <p className="text-gray-600">
-          {section.description || "No description provided"}
+          Subject: {section.description || "No description provided"}
         </p>
         <p className="text-sm text-gray-500 mt-2">
-          Class Code:{" "}
-          <span className="font-semibold">{section.enrollment_code}</span>
+          Exam Code: <span className="font-semibold">{section.exam_code}</span>
         </p>
       </div>
 
       {/* Main Content */}
-      <div className="px-6 py-8">
+      <div>
         {/* Create Quiz Button */}
         {!showQuizForm ? (
           <div className="mb-8">
             <button
-              onClick={() => setShowQuizForm(true)}
+              onClick={() => setShowQuizForm((prev) => !prev)}
               className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
             >
               <span className="text-lg">+</span>
@@ -233,7 +252,7 @@ export const SectionDetail = () => {
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-lg p-6 shadow-md border border-casual-green mb-8">
+          <div className="absolute bg-white rounded-lg p-6 shadow-md border border-casual-green mb-8">
             <h3 className="text-xl font-bold text-hornblende-green mb-4">
               Create New Quiz
             </h3>
@@ -292,7 +311,12 @@ export const SectionDetail = () => {
         )}
 
         {/* Quizzes List */}
-        <div>
+        <Quiz.QuizzesList
+          quizzes={quizzes}
+          handleDelete={handleDeleteQuiz}
+          setQuizFormData={setQuizFormData}
+        />
+        {/* <div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Quizzes</h2>
 
           {quizzes.length === 0 ? (
@@ -381,7 +405,7 @@ export const SectionDetail = () => {
               ))}
             </div>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );

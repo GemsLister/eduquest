@@ -21,10 +21,6 @@ export const useFetchSectionQuiz = () => {
         } = await supabase.auth.getUser();
         if (authError) throw authError;
         setUser(authUser);
-<<<<<<< HEAD
-        
-=======
->>>>>>> 9686f0b83c0e9f246942de0a0e3b04f93b504705
 
         if (!authUser) {
           navigate("/");
@@ -68,10 +64,6 @@ export const useFetchSectionQuiz = () => {
     fetchData();
   }, [navigate]);
   {
-<<<<<<< HEAD
     return { quizzes, sectionQuizzes, user, sections, setSections, loading };
-=======
-    return { quizzes, sectionQuizzes, user, sections, loading };
->>>>>>> 9686f0b83c0e9f246942de0a0e3b04f93b504705
   }
 };

@@ -1,7 +1,8 @@
-export * from "./DashboardIcon.jsx";
-export * from "./DockIcons.jsx";
-export * from "./SearchIcon.jsx";
-export * from "./ProfileIcon.jsx";
-export * from "./SectionIcon.jsx";
-export * from "./LogoutIcon.jsx";
-
+export { DashboardIcon } from "./DashboardIcon.jsx";
+export { DockLeftIcon } from "./DockIcons.jsx";
+export { DockRightIcon } from "./DockIcons.jsx";
+export { SearchIcon } from "./SearchIcon.jsx";
+export { ProfileIcon } from "./ProfileIcon.jsx";
+export { QuestionIcon } from "./QuestionIcon.jsx";
+export { LogoutIcon } from "./LogoutIcon.jsx";
+export { SectionIcon } from "./SectionIcon.jsx";

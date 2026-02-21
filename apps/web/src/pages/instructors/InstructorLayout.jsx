@@ -2,7 +2,7 @@ import { Sidebar } from "../../components/Sidebar.jsx";
 import { Header } from "../../components/Header.jsx";
 import { DashboardIcon } from "../../assets/svg/DashboardIcon.jsx";
 import { QuizIcon } from "../../assets/svg/QuizIcon.jsx";
-import { QuestionIcon } from "../../assets/svg/QuestionIcon.jsx";
+import { QuestionIcon } from "../../assets/svg/sidebar/QuestionIcon.jsx";
 import { ProfileIcon } from "../../assets/svg/ProfileIcon.jsx";
 import { LogoutIcon } from "../../assets/svg/LogoutIcon.jsx";
 import { Outlet } from "react-router-dom";
@@ -14,11 +14,6 @@ export const InstructorLayout = () => {
       name: "Home",
       path: "/instructor-dashboard",
       icon: <DashboardIcon />,
-    },
-    {
-      name: "Create Quiz",
-      path: "/instructor-dashboard/instructor-quiz",
-      icon: <QuizIcon />,
     },
     {
       name: "Questions",
@@ -39,7 +34,7 @@ export const InstructorLayout = () => {
 
   return (
     <div className="flex h-screen">
-      <Sidebar navs={navs} />
+      <Sidebar />
       <div className="flex flex-col flex-1 h-screen bg-authentic-white">
         <Header profile={InstructorImage} />
         <main>

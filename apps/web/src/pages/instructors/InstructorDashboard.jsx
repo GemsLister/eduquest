@@ -40,28 +40,25 @@ export const InstructorDashboard = () => {
         />
       </div>
 
-      {/* Main Content */}
-      <Container.ContentContainer>
-        {/* Classes Grid */}
-        {sections?.length === 0 ? (
-          <div>
-            <ClassCard.EmptyClassSection title="No Classes Found" icon="📚" />
-          </div>
-        ) : (
-          <div>
-            {sections.map((section) => (
-              <Container.SectionContainer key={section.id}>
-                <ClassCard.ClassInfo
-                  sectionId={section.id}
-                  sectionName={section.name}
-                  examCode={section.exam_code}
-                  subject={section.subject}
-                />
-              </Container.SectionContainer>
-            ))}
-          </div>
-        )}
-      </Container.ContentContainer>
+      {/* Classes Grid */}
+      {sections?.length === 0 ? (
+        <div>
+          <ClassCard.EmptyClassSection title="No Classes Found" icon="📚" />
+        </div>
+      ) : (
+        <Container.ContentContainer>
+          {sections.map((section) => (
+            <Container.SectionContainer key={section.id}>
+              <ClassCard.ClassInfo
+                sectionId={section.id}
+                sectionName={section.name}
+                examCode={section.exam_code}
+                subject={section.description}
+              />
+            </Container.SectionContainer>
+          ))}
+        </Container.ContentContainer>
+      )}
     </Container.PagesContainer>
   );
 };

@@ -6,6 +6,13 @@
 - [ ] 3. Fix InstructorQuestions.jsx to delete questions from Supabase
 - [ ] 4. Add update question functionality to quizService.js
 - [ ] 5. Test the implementation
+- [ ] Fix InstructorDashboard.jsx:
+  - [ ] Call useFetchSectionQuiz() instead of useFetchSectionQuiz
+  - [ ] Fix onSectionCreated callback to use functional update (fix stale closure)
+  - [ ] Add navigate from useNavigate hook
+- [ ] Fix useFetchSectionQuiz.jsx:
+  - [ ] Remove extra `};` syntax error before return statement
+
 
 ## Implementation Details
 
@@ -25,3 +32,4 @@
   
 ### Step 4: Add Update Function to quizService.js
 - Add updateQuestion function to quizService
+# Fix Issues in InstructorDashboard and useFetchSectionQuiz
