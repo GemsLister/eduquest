@@ -6,11 +6,16 @@ import { StudentFormInput } from "../components/StudentForm.jsx";
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
-
+  // Add this function to handle updating the answers state
+  const handleAnswerChange = (questionId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+  };
   // State for student info
   const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
-  const [studentSection, setStudentSection] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
 
   // State for quiz data
@@ -69,82 +74,62 @@ export const PublicQuizPage = () => {
   }, [shareToken]);
 
   const handleStartQuiz = async (e) => {
-    e.preventDefault();
-
-    if (!studentName.trim() || !studentEmail.trim()) {
-      setError("Please enter your name and email");
-      return;
-    }
+    if (e && e.preventDefault) e.preventDefault();
 
     try {
       setSubmitting(true);
-      setError("");
 
-      // 1. Use 'let' so we can re-assign the student variable
-      let { data: student, error: studentError } = await supabase
+      // 1. Check if student already exists
+      let { data: student, error: fetchError } = await supabase
         .from("student_profile")
         .select("id")
         .eq("student_email", studentEmail)
         .maybeSingle();
 
-      if (studentError) throw studentError;
+      if (fetchError) throw fetchError;
 
-      // 2. If student doesn't exist, create them
+      // 2. If student doesn't exist, CREATE them and WAIT for the response
       if (!student) {
         const { data: newStudent, error: createError } = await supabase
           .from("student_profile")
           .insert([
             {
-              student_name: studentName,
               student_email: studentEmail,
-              section: studentSection,
+              student_name: studentName,
             },
           ])
-          .select()
+          .select() // Ensure we get the ID back
           .single();
 
         if (createError) throw createError;
-        student = newStudent; // This works now because of 'let'
+        student = newStudent; // Re-assign so student.id is now valid
       }
 
-      // 3. Create quiz attempt using the valid student.id
-      // Step 3: Create quiz attempt
+      // 3. Create the attempt using the verified ID
       const { data: attempt, error: attemptError } = await supabase
         .from("quiz_attempts")
         .insert([
           {
             quiz_id: quiz.id,
-            student_id: student.id, // This fulfills the 'fk_student_id' link
-            student_name: studentName, // This fills the varchar column in your screenshot
-            student_email: studentEmail, // This fills the varchar column in your screenshot
+            student_id: student.id, // This is the ID that must exist
+            student_name: studentName,
+            student_email: studentEmail,
             status: "in_progress",
           },
         ])
         .select()
         .single();
 
-      if (attemptError) {
-        console.error("Attempt Error:", attemptError); // Log this to see if it's an RLS issue
-        throw attemptError;
-      }
+      if (attemptError) throw attemptError;
 
       setAttemptId(attempt.id);
       setHasStarted(true);
     } catch (err) {
-      // If you see "fk_student_name" here, delete that constraint in Supabase
-      setError(err.message || "Failed to start quiz");
-      console.error(err);
+      setError(err.message);
+      console.error("Database Error:", err);
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // Handle answer selection
-  const handleAnswerChange = (questionId, answer) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: answer,
-    }));
   };
 
   // Submit answer and move to next question
@@ -349,12 +334,6 @@ export const PublicQuizPage = () => {
                 type: "email",
                 value: studentEmail,
                 onChange: setStudentEmail,
-              },
-              {
-                label: "Section Code",
-                type: "text",
-                value: studentSection,
-                onChange: setStudentSection,
               },
             ].map((field, index) => (
               <StudentFormInput
