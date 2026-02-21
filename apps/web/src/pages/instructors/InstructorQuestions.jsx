@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { supabase } from "../../supabaseClient.js";
+import { useState } from "react";
 
 const QUESTION_TYPES = {
   mcq: "Multiple Choice",
@@ -8,54 +7,8 @@ const QUESTION_TYPES = {
 };
 
 export const InstructorQuestions = () => {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [editingId, setEditingId] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    type: "mcq",
-    text: "",
-    options: ["", ""],
-    correctAnswer: 0,
-    points: 1,
-  });
-
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
-
-  const fetchQuestions = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch questions from Supabase
-      const { data, error } = await supabase
-        .from("questions")
-        .select("*, quizzes(title)")
-        .in(
-          "quiz_id",
-          (
-            await supabase
-              .from("quizzes")
-              .select("id")
-              .eq("instructor_id", user.id)
-          ).data?.map((q) => q.id) || [],
-        )
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setQuestions(data || []);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching questions:", error);
-      setLoading(false);
-    }
-  };
 
   const filteredQuestions = questions.filter((q) => {
     const matchesSearch = q.text
@@ -65,66 +18,6 @@ export const InstructorQuestions = () => {
     return matchesSearch && matchesType;
   });
 
-  const handleAddQuestion = () => {
-    setEditingId(null);
-    setFormData({
-      type: "mcq",
-      text: "",
-      options: ["", ""],
-      correctAnswer: 0,
-      points: 1,
-    });
-    setShowForm(true);
-  };
-
-  const handleSaveQuestion = async () => {
-    if (!formData.text.trim()) {
-      alert("Question text is required");
-      return;
-    }
-    if (formData.type === "mcq" && formData.options.some((o) => !o.trim())) {
-      alert("All options must be filled");
-      return;
-    }
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // TODO: Save question to Supabase
-      // if (editingId) {
-      //   // Update existing
-      // } else {
-      //   // Create new
-      // }
-
-      alert(
-        editingId
-          ? "Question updated (local only)"
-          : "Question created (local only)",
-      );
-      setShowForm(false);
-      setFormData({
-        type: "mcq",
-        text: "",
-        options: ["", ""],
-        correctAnswer: 0,
-        points: 1,
-      });
-    } catch (error) {
-      console.error("Error saving question:", error);
-    }
-  };
-
-  const handleDeleteQuestion = (id) => {
-    if (confirm("Are you sure you want to delete this question?")) {
-      // TODO: Delete from Supabase
-      setQuestions(questions.filter((q) => q.id !== id));
-      alert("Question deleted (local only)");
-    }
-  };
 
   if (loading) {
     return (
