@@ -78,7 +78,7 @@ export const SectionDetail = () => {
         <Quiz.QuizzesList
           quizzes={quizzes}
           handleDelete={handleDeleteQuiz}
-          deletingQuizId={deletingQuizId} // <--- Add this line
+          deletingQuizId={deletingQuizId}
           setQuizFormData={setQuizFormData}
         />
       </div>
