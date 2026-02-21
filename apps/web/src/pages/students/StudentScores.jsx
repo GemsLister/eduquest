@@ -1,3 +1,3 @@
-export const StudentScores = () => {
-    return <h1>Scores</h1>
-}
+// export const StudentScores = () => {
+//     return <h1>Scores</h1>
+// }
