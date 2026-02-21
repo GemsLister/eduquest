@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "../supabaseClient";
 export const useDeleteQuiz = (fetchQuizzes) => {
   const [deletingQuizId, setDeletingQuizId] = useState(null);
   const handleDeleteQuiz = async (quizId, quizTitle) => {
