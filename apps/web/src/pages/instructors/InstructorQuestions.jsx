@@ -1,24 +1,7 @@
-import { useState } from "react";
-
-const QUESTION_TYPES = {
-  mcq: "Multiple Choice",
-  short_answer: "Short Answer",
-  true_false: "True/False",
-};
+import * as QuestionHook from "../../hooks/questionHook/questionHooks.js"
 
 export const InstructorQuestions = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
-
-  const filteredQuestions = questions.filter((q) => {
-    const matchesSearch = q.text
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "all" || q.type === filterType;
-    return matchesSearch && matchesType;
-  });
-
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
