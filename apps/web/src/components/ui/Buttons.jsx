@@ -1,38 +1,19 @@
 import { useState } from "react";
-import googleIcon from "../../../assets/google-icon.png";
-import { useRegister } from "../../../hooks/useRegister.jsx";
-import { useRecover } from "../../../hooks/useRecover.jsx";
-import { useChangePassword } from "../../../hooks/useChangePassword.jsx";
-import { useLogin } from "../../../hooks/useLogin.jsx";
+import googleIcon from "../../assets/google-icon.png";
+import { useRegister } from "../../hooks/useRegister.jsx";
+import { useRecover } from "../../hooks/useRecover.jsx";
+import { useChangePassword } from "../../hooks/useChangePassword.jsx";
+import { useLogin } from "../../hooks/useLogin.jsx";
 import {
   VisibilityOffIcon,
   VisibilityOnIcon,
-} from "../../../assets/svg/ShowPasswordIcons.jsx";
-import { useGoogleLogin } from "../../../hooks/useGoogleLogin.jsx";
+} from "../../assets/svg/ShowPasswordIcons.jsx";
+import { useGoogleLogin } from "../../hooks/useGoogleLogin.jsx";
 import { toast } from "react-toastify";
 
 export const GoogleButton = () => {
   const { handleGoogleLogin } = useGoogleLogin();
 
-  //   const handleGoogleLogin = async (e) => {
-  //     e.preventDefault();
-  //     try {
-  //       const { data, error } = await supabase.auth.signInWithOAuth({
-  //         provider: "google",
-  //         options: {
-  //           redirectTo: import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL,
-  //           queryParams: {
-  //             prompt: "select_account",
-  //           },
-  //         },
-  //       });
-  //       if (error) throw new Error(error.message);
-  //       if (data.url) redirect(data.url);
-  //     } catch (error) {
-  //       console.error(error.message);
-  //     }
-  //   };
-  // >>>>>>> SmartquizGroup
   return (
     <button
       type="button"
@@ -60,16 +41,10 @@ export const AuthButton = ({ name, user }) => {
     switch (name) {
       case "Login":
         try {
-<<<<<<< HEAD:apps/web/src/components/ui/buttons/Buttons.jsx
           if (!user.email || !user.password) toast.error("Fill out the form");
 
           if (!user.email || !user.password) alert("Needed");
           else if (!user.captchaToken) toast.error("Please complete the reCAPTCHA");
-=======
-          if (!user.email || !user.password) toast.error(error.message || "Fill out the form");
-          if (!user.email || !user.password) toast.error(error.message || "Needed");
-          else if (!user.captchaToken) toast(error.message || "Please complete the reCAPTCHA");
->>>>>>> 9686f0b83c0e9f246942de0a0e3b04f93b504705:apps/web/src/components/Buttons.jsx
           else {
             const result = handleLogin(user);
             if (!result && result.success) console.error(error);
@@ -95,7 +70,7 @@ export const AuthButton = ({ name, user }) => {
 
       case "Continue":
         try {
-          if (!user.email) toast.error(error.message || "Fill out the form");
+          if (!user.email) toast.error("Fill out the form");
           else {
             handleRecover(user);
             console.log(`continue ${user.email}`);
@@ -107,7 +82,7 @@ export const AuthButton = ({ name, user }) => {
 
       case "Change Password":
         try {
-          if (!user.password) toast.error(error.message || "Fill out the form");
+          if (!user.password) toast.error("Fill out the form");
           handleChangePassword(user);
           console.log(`change password ${user.password}`);
         } catch (error) {
