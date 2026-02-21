@@ -1,5 +1,5 @@
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
-import { useFetchSectionQuiz } from "../../hooks/useFetchSectionQuiz.jsx";
+import { useFetchSectionQuiz } from "../../hooks/quizHook/useFetchSectionQuiz.jsx";
 import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
 
