@@ -2,6 +2,7 @@ export const QuestionList = ({
   filteredQuestions,
   handleAddQuestion,
   setFormData,
+  setEditingId
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
