@@ -1,7 +1,10 @@
-import * as QuestionHook from "../../hooks/questionHook/questionHooks.js"
+import * as QuestionHook from "../../hooks/questionHook/questionHooks.js";
+import { SearchInput } from "../../components/ui/inputs/SearchInput.jsx";
 
 export const InstructorQuestions = () => {
-  
+  const { filteredQuestions, setSearchTerm, setFilterType } =
+    QuestionHook.useFilteredQuestion();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -34,28 +37,11 @@ export const InstructorQuestions = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex gap-4">
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search questions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-          />
-        </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-        >
-          <option value="all">All Types</option>
-          <option value="mcq">Multiple Choice</option>
-          <option value="short_answer">Short Answer</option>
-          <option value="true_false">True/False</option>
-        </select>
-      </div>
-
+      {/* Search Input */}
+      <SearchInput
+        setSearchTerm={setSearchTerm}
+        setFilterType={setFilterType}
+      />
       {/* Add/Edit Form */}
       {showForm && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-casual-green">
