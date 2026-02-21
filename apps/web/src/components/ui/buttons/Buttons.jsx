@@ -1,9 +1,5 @@
 import { useState } from "react";
 import googleIcon from "../../../assets/google-icon.png";
-// import { useRegister } from "../../../hooks/useRegister.jsx";
-// import { useRecover } from "../../../hooks/useRecover.jsx";
-// import { useChangePassword } from "../../../hooks/useChangePassword.jsx";
-// import { useLogin } from "../../../hooks/useLogin.jsx";
 import * as AuthHooks from "../../../hooks/authHook/authHooks.js";
 import {
   VisibilityOffIcon,
