@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { supabase } from "../supabaseClient";
 export const useFetchQuestion = () => {
   const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const fetchQuestions = async () => {
     try {
       const {
@@ -34,5 +36,5 @@ export const useFetchQuestion = () => {
   useEffect(() => {
     fetchQuestions();
   }, []);
-  return { fetchQuestions, questions };
+  return { fetchQuestions, questions, loading };
 };
