@@ -1,8 +1,19 @@
+import { useState } from "react";
+import { supabase } from "../../supabaseClient.js";
+
 export const useAddSaveQuestion = () => {
+  const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    text: "",
+    options: ["", ""],
+    correctAnswer: 0,
+    points: 1,
+  });
+
   const handleAddQuestion = () => {
     setEditingId(null);
     setFormData({
-      type: "mcq",
       text: "",
       options: ["", ""],
       correctAnswer: 0,
@@ -44,4 +55,6 @@ export const useAddSaveQuestion = () => {
       console.error("Error saving question:", error);
     }
   };
+
+  return { handleAddQuestion, handleSaveQuestion, showForm };
 };
