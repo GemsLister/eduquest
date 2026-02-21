@@ -55,5 +55,12 @@ export const useAddSaveQuestion = () => {
     }
   };
 
-  return { handleAddQuestion, handleSaveQuestion, showForm };
+  return {
+    handleAddQuestion,
+    handleSaveQuestion,
+    setEditingId,
+    setFormData,
+    setShowForm,
+    showForm,
+  };
 };
