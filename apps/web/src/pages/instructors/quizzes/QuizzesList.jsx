@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-export const QuizzesList = ({ quizzes, handleDelete }) => {
+export const QuizzesList = ({ quizzes, handleDelete, deletingQuizId }) => {
   const navigate = useNavigate();
   return (
     <div>
