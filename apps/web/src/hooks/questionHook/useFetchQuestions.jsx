@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 export const useFetchQuestion = () => {
   const [questions, setQuestions] = useState([]);
