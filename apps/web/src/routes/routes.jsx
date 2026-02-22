@@ -7,21 +7,7 @@ import { Register } from "../pages/auth/Register.jsx";
 import { RecoverPassword } from "../pages/auth/RecoverPassword.jsx";
 import { ChangePassword } from "../pages/auth/ChangePassword.jsx";
 // Instructor Routes
-import { InstructorLayout } from "../pages/instructors/InstructorLayout.jsx";
-import { InstructorDashboard } from "../pages/instructors/InstructorDashboard.jsx";
-import { InstructorQuiz } from "../pages/instructors/InstructorQuiz.jsx";
-import { InstructorQuestions } from "../pages/instructors/InstructorQuestions.jsx";
-import { InstructorProfile } from "../pages/instructors/InstructorProfile.jsx";
-import { SectionDetail } from "../pages/instructors/SectionDetail.jsx";
-import { QuizResults } from "../pages/instructors/quizzes/QuizResults.jsx";
-import { QuizResultDetail } from "../pages/instructors/quizzes/QuizResultDetail.jsx";
-// Student Routes
-// import { StudentLayout } from "../pages/students/StudentLayout.jsx";
-// import { StudentDashboard } from "../pages/students/StudentDashboard.jsx";
-// import { StudentQuiz } from "../pages/students/StudentQuiz.jsx";
-// import { StudentScores } from "../pages/students/StudentScores.jsx";
-// import { StudentSummaries } from "../pages/students/StudentSummaries.jsx";
-// import { StudentProfile } from "../pages/students/StudentProfile.jsx";
+import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
 
@@ -58,43 +44,46 @@ export const router = createBrowserRouter(
           path: "instructor-dashboard",
           element: (
             <ProtectedRoute>
-              <InstructorLayout />
+              <InstructorIndex.InstructorLayout />
             </ProtectedRoute>
           ),
           children: [
             {
               index: true,
-              element: <InstructorDashboard />,
+              element: <InstructorIndex.InstructorDashboard />,
             },
             {
               path: "section/:sectionId",
-              element: <SectionDetail />,
+              element: <InstructorIndex.SectionDetail />,
             },
             {
               path: "instructor-quiz",
-              element: <InstructorQuiz />,
+              element: <InstructorIndex.InstructorQuiz />,
             },
             {
               path: "instructor-quiz/:quizId",
-              element: <InstructorQuiz />,
+              element: <InstructorIndex.InstructorQuiz />,
             },
             {
               path: "quiz-results/:quizId",
-              element: <QuizResults />,
+              element: <InstructorIndex.QuizResults />,
             },
             {
               path: "quiz-results/:quizId/attempt/:attemptId",
-              element: <QuizResultDetail />,
+              element: <InstructorIndex.QuizResultDetail />,
             },
             {
               path: "instructor-questions",
-              element: <InstructorQuestions />,
+              element: <InstructorIndex.InstructorQuestions />,
             },
             {
               path: "instructor-profile",
-              element: <InstructorProfile />,
+              element: <InstructorIndex.InstructorProfile />,
             },
           ],
+        },
+        {
+          path: "instructor-dashboard",
         },
         // For student routing
         // {
