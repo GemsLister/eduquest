@@ -2,7 +2,6 @@ import { Sidebar } from "../../components/Sidebar.jsx";
 import { Header } from "../../components/Header.jsx";
 import { Outlet } from "react-router-dom";
 import InstructorImage from "../../assets/instructor-profile.png";
-import * as SidebarIcon from "../../assets/svg/sidebar/sidebarIcons.js";
 
 export const InstructorLayout = () => {
   return (
