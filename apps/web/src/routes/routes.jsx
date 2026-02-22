@@ -82,37 +82,6 @@ export const router = createBrowserRouter(
         {
           path: "instructor-dashboard",
         },
-        // For student routing
-        // {
-        //   path: "student-dashboard",
-        //   element: (
-        //     <ProtectedRoute>
-        //       <StudentLayout />
-        //     </ProtectedRoute>
-        //   ),
-        //   children: [
-        //     {
-        //       index: true,
-        //       element: <StudentDashboard />,
-        //     },
-        //     {
-        //       path: "student-quiz",
-        //       element: <StudentQuiz />,
-        //     },
-        //     {
-        //       path: "student-scores",
-        //       element: <StudentScores />,
-        //     },
-        //     {
-        //       path: "student-summaries",
-        //       element: <StudentSummaries />,
-        //     },
-        //     {
-        //       path: "student-profile",
-        //       element: <StudentProfile />,
-        //     },
-        //   ],
-        // },
       ],
     },
   ],
