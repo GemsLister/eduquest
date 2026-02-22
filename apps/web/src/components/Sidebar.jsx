@@ -7,7 +7,7 @@ export const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <aside
-      className={`sticky flex flex-col bg-porcelain-white transition-all duration-300 ease-in-out ${isOpen ? "w-[300px]" : "w-[80px]"}`}
+      className={`static flex flex-col bg-porcelain-white transition-all duration-300 ease-in-out ${isOpen ? "w-[300px]" : "w-[80px]"}`}
     >
       <div
         className={`flex ${isOpen ? "justify-between" : "justify-center"} w-full py-6 px-3`}
@@ -39,6 +39,11 @@ export const Sidebar = () => {
               icon: <Icon.QuestionIcon />,
             },
             {
+              name: "Item Analysis",
+              path: "/instructor-dashboard/item-difficulty-analysis",
+              icon: <Icon.AnalyticsIcon />,
+            },
+            {
               name: "Profile",
               path: "/instructor-dashboard/instructor-profile",
               icon: <Icon.ProfileIcon />,
@@ -56,7 +61,7 @@ export const Sidebar = () => {
                 className={({ isActive }) =>
                   `flex items-center gap-3 font-semibold text-[clamp(12px,10dvw,14px)] text-hornblende-green hover:bg-casual-green hover:text-white p-3.5 rounded-md transition-all duration-300 ease-in-out ${isActive ? "bg-casual-green text-white" : ""}`
                 }
-                end
+                end={navs.path === "/instructor-dashboard" ? true : false}
               >
                 {isOpen ? (
                   <div className="flex justify-center items-center gap-3">
