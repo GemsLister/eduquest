@@ -2,10 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
 import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
 // Auth Routes
-import { Login } from "../pages/auth/Login.jsx";
-import { Register } from "../pages/auth/Register.jsx";
-import { RecoverPassword } from "../pages/auth/RecoverPassword.jsx";
-import { ChangePassword } from "../pages/auth/ChangePassword.jsx";
+import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Public Routes
@@ -25,19 +22,19 @@ export const router = createBrowserRouter(
       children: [
         {
           index: true,
-          element: <Login />,
+          element: <AuthIndex.Login />,
         },
         {
           path: "register",
-          element: <Register />,
+          element: <AuthIndex.Register />,
         },
         {
           path: "recover-password",
-          element: <RecoverPassword />,
+          element: <AuthIndex.RecoverPassword />,
         },
         {
           path: "change-password",
-          element: <ChangePassword />,
+          element: <AuthIndex.ChangePassword />,
         },
         // For instructor routing
         {
