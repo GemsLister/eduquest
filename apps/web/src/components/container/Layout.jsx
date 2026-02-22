@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Header } from "../Header.jsx";
 import InstructorImage from "../../assets/instructor-profile.png";
 
-export const Layout = ({ children }) => {
+export const Layout = () => {
   return (
     <div className="flex h-screen">
       <Sidebar />
