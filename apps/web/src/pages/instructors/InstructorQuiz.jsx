@@ -19,6 +19,8 @@ export const InstructorQuiz = () => {
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
   const [showShareUrl, setShowShareUrl] = useState(false);
+  const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
+  const [questionCount, setQuestionCount] = useState(1);
 
   // Load existing quiz if editing
   useEffect(() => {
@@ -85,17 +87,24 @@ export const InstructorQuiz = () => {
     }
   };
 
-  // Add new question
+  // Show popup to select how many questions to add
   const addQuestion = () => {
-    const newQuestion = {
-      id: Date.now(),
+    setQuestionCount(1);
+    setShowAddQuestionPopup(true);
+  };
+
+  // Add multiple questions at once
+  const addMultipleQuestions = (count) => {
+    const newQuestions = Array.from({ length: count }, (_, i) => ({
+      id: Date.now() + i,
       type: "mcq",
       text: "",
       options: ["", ""],
       correctAnswer: 0,
       points: 1,
-    };
-    setQuestions([...questions, newQuestion]);
+    }));
+    setQuestions([...questions, ...newQuestions]);
+    setShowAddQuestionPopup(false);
   };
 
   // Update question
@@ -518,6 +527,41 @@ export const InstructorQuiz = () => {
         </div>
       </div>
 
+      {/* Add Question Count Popup */}
+      {showAddQuestionPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
+            <h3 className="text-lg font-bold text-hornblende-green mb-4">
+              How many questions do you want to add?
+            </h3>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={questionCount}
+              onChange={(e) =>
+                setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 mb-4 text-center text-lg"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => addMultipleQuestions(questionCount)}
+                className="flex-1 bg-casual-green text-white py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              >
+                Add {questionCount} Question{questionCount > 1 ? "s" : ""}
+              </button>
+              <button
+                onClick={() => setShowAddQuestionPopup(false)}
+                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Questions Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -552,7 +596,7 @@ export const InstructorQuiz = () => {
                 {/* Question Header */}
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">
-                    Question {idx + 1}
+                    {idx + 1}. Question {idx + 1}
                   </h3>
                   <button
                     onClick={(e) => {
@@ -596,7 +640,7 @@ export const InstructorQuiz = () => {
                     </label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
-                        <div key={optIdx} className="flex gap-2">
+                        <div key={optIdx} className="flex gap-2 items-center">
                           <input
                             type="radio"
                             name={`correct-${question.id}`}
@@ -608,15 +652,18 @@ export const InstructorQuiz = () => {
                                 optIdx,
                               )
                             }
-                            className="mt-3"
+                            className="mt-0.5"
                           />
+                          <span className="text-sm font-semibold text-gray-500 w-5">
+                            ({String.fromCharCode(97 + optIdx)})
+                          </span>
                           <input
                             type="text"
                             value={option}
                             onChange={(e) =>
                               updateOption(question.id, optIdx, e.target.value)
                             }
-                            placeholder={`Option ${optIdx + 1}`}
+                            placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
                             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
                           />
                           {question.options.length > 2 && (
