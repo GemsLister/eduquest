@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../supabaseClient.js";
 import profileImage from "../../assets/instructor-profile.png";
 
@@ -10,12 +10,15 @@ export const InstructorProfile = () => {
     lastName: "",
     email: "",
     bio: "",
+    avatarUrl: "",
   });
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchUserData();
@@ -68,6 +71,7 @@ export const InstructorProfile = () => {
             lastName: newProfile.last_name || "",
             email: authUser.email,
             bio: newProfile.bio || "",
+            avatarUrl: newProfile.avatar_url || "",
           });
         } else if (profileError) {
           throw profileError;
@@ -79,6 +83,7 @@ export const InstructorProfile = () => {
             lastName: profileData.last_name || "",
             email: authUser.email,
             bio: profileData.bio || "",
+            avatarUrl: profileData.avatar_url || "",
           });
         }
       }
@@ -87,6 +92,65 @@ export const InstructorProfile = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image must be less than 2MB");
+      return;
+    }
+
+    setAvatarUploading(true);
+    setError("");
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      // Add cache-busting param so browser reloads the new image
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+
+      // Update profile in database
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile((prev) => ({ ...prev, avatarUrl }));
+      setSuccess("Profile picture updated!");
+    } catch (err) {
+      setError(err.message || "Failed to upload avatar");
+      console.error(err);
+    } finally {
+      setAvatarUploading(false);
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -164,12 +228,64 @@ export const InstructorProfile = () => {
         {/* Profile Header with Avatar */}
         <div className="flex items-start justify-between mb-8 pb-8 border-b-2 border-gray-200">
           <div className="flex items-start gap-6">
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 relative group">
               <img
-                src={profileImage}
+                src={profile.avatarUrl || profileImage}
                 alt="profile"
-                className="h-24 w-24 rounded-full border-4 border-casual-green"
+                className="h-24 w-24 rounded-full border-4 border-casual-green object-cover"
               />
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+              {/* Camera icon overlay */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute bottom-0 right-0 bg-gray-700 bg-opacity-75 hover:bg-opacity-90 text-white rounded-full p-1.5 cursor-pointer transition-all shadow-lg"
+                title="Change profile picture"
+              >
+                {avatarUploading ? (
+                  <svg
+                    className="animate-spin h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z" />
+                    <path
+                      fillRule="evenodd"
+                      d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.2.32.556.522.944.545a4.257 4.257 0 013.998 4.216v5.461a4.5 4.5 0 01-4.5 4.5H5.75a4.5 4.5 0 01-4.5-4.5v-5.461a4.257 4.257 0 013.998-4.216.998.998 0 00.944-.545l.82-1.317a2.75 2.75 0 012.332-1.39zM12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </button>
             </div>
             <div>
               <h2 className="text-2xl font-bold text-hornblende-green">
