@@ -4,7 +4,13 @@ import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
 
 export const InstructorDashboard = () => {
-  const { user, sections = [], setSections, loading } = useFetchSectionQuiz();
+  const {
+    user,
+    sections = [],
+    setSections,
+    sectionQuizzes,
+    loading,
+  } = useFetchSectionQuiz();
 
   if (loading) {
     return (
@@ -54,6 +60,7 @@ export const InstructorDashboard = () => {
                 sectionName={section.name}
                 examCode={section.exam_code}
                 subject={section.description}
+                quizCount={sectionQuizzes[section.id]?.length || 0}
               />
             </Container.SectionContainer>
           ))}

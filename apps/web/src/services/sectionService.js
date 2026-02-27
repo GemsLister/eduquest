@@ -19,7 +19,7 @@ export const sectionService = {
       .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
-    if (error) throw new error();
+    if (error) throw error;
     return data || [];
   },
 

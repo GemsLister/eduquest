@@ -32,9 +32,9 @@ export const useFetchSectionQuiz = () => {
         );
         setSections(sectionsData);
 
-        const quizzesData = await quizService.getQuizzesByInstructor(
-          authUser.id,
-        );
+        const { data: quizzesData, error: quizzesError } =
+          await quizService.getQuizzesByInstructor(authUser.id);
+        if (quizzesError) throw quizzesError;
 
         // Process quizzes data
         const processedQuizzes = (quizzesData || []).map((quiz) => ({

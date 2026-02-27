@@ -37,15 +37,12 @@ export const AuthButton = ({ name, user }) => {
     switch (name) {
       case "Login":
         try {
-          if (!user.email || !user.password) toast.error("Fill out the form");
-
-          if (!user.email || !user.password) alert("Needed");
-          else if (!user.captchaToken)
-            toast.error("Please complete the reCAPTCHA");
-          else {
-            const result = handleLogin(user);
-            if (!result && result.success) console.error(error);
+          if (!user.email || !user.password) {
+            toast.error("Fill out the form");
+            return;
           }
+          const result = handleLogin(user);
+          if (!result && result.success) console.error(error);
         } catch (error) {
           // notify();
           console.error(error);

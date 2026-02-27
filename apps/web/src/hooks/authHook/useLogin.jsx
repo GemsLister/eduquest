@@ -12,7 +12,10 @@ export const useLogin = () => {
       });
 
       // To notify users that their email is invalid
-      if (error) toast.error("Invalid email or password");
+      if (error) {
+        toast.error("Invalid email or password");
+        return;
+      }
 
       if (
         !data.user.email.endsWith(
@@ -21,11 +24,12 @@ export const useLogin = () => {
       ) {
         await supabase.auth.signOut();
         toast.error("Access Denied: Instructors Only!");
-      } else navigate("/instructor-dashboard");
-
-      console.log(data.message);
+      } else {
+        navigate("/instructor-dashboard");
+      }
     } catch (error) {
-      toast.error(error);
+      console.error(error);
+      toast.error("An error occurred during login");
     }
   };
   return { handleLogin };
