@@ -33,26 +33,54 @@ export const InstructorProfile = () => {
       if (authUser) {
         setUser(authUser);
 
-        // TODO: Fetch profile from database
-        // const { data: profileData, error: profileError } = await supabase
-        //   .from("profiles")
-        //   .select("*")
-        //   .eq("id", authUser.id)
-        //   .single();
+        // Fetch profile from database
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .single();
 
-        // Set default profile data
-        const firstName = authUser.user_metadata?.given_name || "";
-        const lastName = authUser.user_metadata?.family_name || "";
-        const username =
-          authUser.user_metadata?.full_name || authUser.email.split("@")[0];
+        if (profileError && profileError.code === "PGRST116") {
+          // Profile doesn't exist yet — create it
+          const firstName = authUser.user_metadata?.given_name || "";
+          const lastName = authUser.user_metadata?.family_name || "";
+          const username =
+            authUser.user_metadata?.full_name || authUser.email.split("@")[0];
 
-        setProfile({
-          username: username,
-          firstName: firstName,
-          lastName: lastName,
-          email: authUser.email,
-          bio: "",
-        });
+          const { data: newProfile, error: createError } = await supabase
+            .from("profiles")
+            .insert({
+              id: authUser.id,
+              username: username,
+              first_name: firstName,
+              last_name: lastName,
+              bio: "",
+              is_instructor: true,
+            })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+
+          setProfile({
+            username: newProfile.username || "",
+            firstName: newProfile.first_name || "",
+            lastName: newProfile.last_name || "",
+            email: authUser.email,
+            bio: newProfile.bio || "",
+          });
+        } else if (profileError) {
+          throw profileError;
+        } else {
+          // Profile exists — use it
+          setProfile({
+            username: profileData.username || "",
+            firstName: profileData.first_name || "",
+            lastName: profileData.last_name || "",
+            email: authUser.email,
+            bio: profileData.bio || "",
+          });
+        }
       }
     } catch (err) {
       setError("Failed to load profile");
@@ -74,18 +102,19 @@ export const InstructorProfile = () => {
         return;
       }
 
-      // TODO: Update profile in database
-      // const { error: updateError } = await supabase
-      //   .from("profiles")
-      //   .update({
-      //     username: profile.username,
-      //     first_name: profile.firstName,
-      //     last_name: profile.lastName,
-      //     bio: profile.bio,
-      //   })
-      //   .eq("id", user.id);
+      // Update profile in database
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          username: profile.username,
+          first_name: profile.firstName,
+          last_name: profile.lastName,
+          bio: profile.bio,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
 
-      // if (updateError) throw updateError;
+      if (updateError) throw updateError;
 
       setSuccess("Profile updated successfully!");
       setEditMode(false);
