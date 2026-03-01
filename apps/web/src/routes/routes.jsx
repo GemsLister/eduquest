@@ -5,8 +5,11 @@ import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
 import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
+// Item Analysis Routes
+import * as ItemAnalysisIndex from "../pages/item-analysis/itemAnalysisIndex.js";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
+import { Layout } from "../components/container/Layout.jsx";
 
 export const router = createBrowserRouter(
   [
@@ -41,7 +44,7 @@ export const router = createBrowserRouter(
           path: "instructor-dashboard",
           element: (
             <ProtectedRoute>
-              <InstructorIndex.InstructorLayout />
+              <Layout />
             </ProtectedRoute>
           ),
           children: [
@@ -77,10 +80,11 @@ export const router = createBrowserRouter(
               path: "instructor-profile",
               element: <InstructorIndex.InstructorProfile />,
             },
+            {
+              path: "item-difficulty-analysis",
+              element: <ItemAnalysisIndex.ItemDifficulty />,
+            },
           ],
-        },
-        {
-          path: "instructor-dashboard",
         },
       ],
     },
