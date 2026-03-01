@@ -163,7 +163,7 @@ export const InstructorQuiz = () => {
     });
   };
 
-  // Delete question
+  // Delete question - with cascade delete of attempts
   const deleteQuestion = async (id) => {
     setDeletingQuestionId(id);
     console.log("deleteQuestion called with ID:", id, "Type:", typeof id);
@@ -178,9 +178,50 @@ export const InstructorQuiz = () => {
       return;
     }
 
-    // If it's a saved question from database, delete from DB
+    // If it's a saved question from database, delete from DB with cascade
     try {
       console.log("Attempting to delete saved question from DB with ID:", id);
+      
+      // First, get all quiz_responses for this question
+      const { data: responses, error: responsesError } = await supabase
+        .from("quiz_responses")
+        .select("attempt_id")
+        .eq("question_id", id);
+
+      if (responsesError) {
+        console.error("Error fetching responses:", responsesError);
+        throw new Error("Failed to find related responses");
+      }
+
+      // Get unique attempt IDs
+      const attemptIds = [...new Set(responses?.map(r => r.attempt_id).filter(Boolean))];
+
+      // Delete quiz_responses for this question
+      const { error: deleteResponsesError } = await supabase
+        .from("quiz_responses")
+        .delete()
+        .eq("question_id", id);
+
+      if (deleteResponsesError) {
+        console.error("Error deleting responses:", deleteResponsesError);
+        throw new Error("Failed to delete question responses");
+      }
+
+      // Delete quiz_attempts that had responses to this question
+      if (attemptIds.length > 0) {
+        const { error: deleteAttemptsError } = await supabase
+          .from("quiz_attempts")
+          .delete()
+          .in("id", attemptIds);
+
+        if (deleteAttemptsError) {
+          console.error("Error deleting attempts:", deleteAttemptsError);
+          // Continue anyway - the question should still be deleted
+        }
+        console.log("Deleted quiz attempts:", attemptIds.length);
+      }
+
+      // Finally, delete the question
       const { error } = await supabase.from("questions").delete().eq("id", id);
 
       console.log("Delete response - error:", error);
@@ -557,9 +598,11 @@ export const InstructorQuiz = () => {
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      deleteQuestion(question.id).catch((err) => {
-                        console.error("Failed to delete question:", err);
-                      });
+                      if (confirm("Are you sure you want to delete this question? This will also remove all student attempts for this quiz.")) {
+                        deleteQuestion(question.id).catch((err) => {
+                          console.error("Failed to delete question:", err);
+                        });
+                      }
                     }}
                     disabled={deletingQuestionId === question.id}
                     className={`${
