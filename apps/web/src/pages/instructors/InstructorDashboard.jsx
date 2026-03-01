@@ -18,7 +18,7 @@ export const InstructorDashboard = () => {
   }
 
   return (
-    <Container.PagesContainer>
+    <>
       {/* Hero Section */}
       <div className="flex justify-between items-center bg-white border-b border-gray-200 px-4 md:px-6 py-6 md:py-8">
         <div className="flex flex-col">
@@ -59,6 +59,6 @@ export const InstructorDashboard = () => {
           ))}
         </Container.ContentContainer>
       )}
-    </Container.PagesContainer>
+    </>
   );
 };
