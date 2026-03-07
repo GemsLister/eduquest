@@ -1,22 +1,26 @@
 import { useUsername } from "../hooks/useUsername";
+import defaultAvatar from "../assets/instructor-profile.png";
+import { Link } from "react-router-dom";
 
-export const Header = ({profile}) => {
+export const Header = () => {
   const userData = useUsername();
   if (userData.loading) return <h1>Loading...</h1>;
 
   return (
     <header className="flex items-end justify-end px-8 py-3">
-      {/* Instructor name */}
-      <div className="flex items-center gap-3 font-semibold">
+      <Link
+        to="/instructor-dashboard/instructor-profile"
+        className="flex items-center gap-3 font-semibold hover:opacity-80 transition-opacity"
+      >
         <img
-          src={profile}
+          src={userData.avatarUrl || defaultAvatar}
           alt="instructor-image"
-          className="h-[clamp(30px,13dvw,40px)] w-[clamp(30px,13dvw,45px)] rounded-full"
+          className="h-10 w-10 rounded-full object-cover aspect-square"
         />
         <h2 className="text-[clamp(14px,4dvw,18px)]">
           {userData.googleName || userData.dbName}
         </h2>
-      </div>
+      </Link>
     </header>
   );
 };
