@@ -4,9 +4,9 @@ import { Header } from "../Header.jsx";
 
 export const Layout = () => {
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-authentic-white">
       <Sidebar />
-      <div className="flex flex-col flex-1 h-screen overflow-y-auto bg-authentic-white">
+      <div className="flex flex-col flex-1 h-screen overflow-y-auto">
         <Header />
         <main>
           <Outlet />
