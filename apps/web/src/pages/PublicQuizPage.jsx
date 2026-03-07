@@ -7,17 +7,14 @@ export const PublicQuizPage = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
 
-  // State for student info
+  // --- STATES ---
+  const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
-
-  // State for quiz data
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // State for quiz progress
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -27,13 +24,10 @@ export const PublicQuizPage = () => {
   const [showReviewPage, setShowReviewPage] = useState(false);
 
   const handleAnswerChange = (questionId, value) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }));
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  // 1. Load quiz and JOIN with sections to get the exam_code
+  // --- LOAD QUIZ DATA ---
   useEffect(() => {
     const loadQuiz = async () => {
       try {
@@ -52,11 +46,10 @@ export const PublicQuizPage = () => {
           .single();
 
         if (quizError || !quizData) {
-          setError("Quiz not found. Invalid or expired link.");
+          setError("Quiz not found. Invalid link.");
           setLoading(false);
           return;
         }
-
         setQuiz(quizData);
 
         const { data: questionsData, error: questionsError } = await supabase
@@ -69,33 +62,25 @@ export const PublicQuizPage = () => {
         setQuestions(questionsData || []);
       } catch (err) {
         setError(err.message || "Failed to load quiz");
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
-    if (shareToken) {
-      loadQuiz();
-    }
+    if (shareToken) loadQuiz();
   }, [shareToken]);
 
-  // 2. Start Quiz: Link student to the Section's Exam Code
+  // --- START QUIZ LOGIC (FIXED EXAM_CODE) ---
   const handleStartQuiz = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!studentEmail) {
-      setError("Please provide your school email.");
+    if (!studentName || !studentEmail) {
+      setError("Please provide your name and email.");
       return;
     }
 
     try {
       setSubmitting(true);
-      setError("");
+      const currentExamCode = quiz?.sections?.exam_code; 
 
-      // Get exam_code from the joined section data
-      const currentExamCode = quiz.sections?.exam_code;
-
-      // Check if student already exists
       let { data: student, error: fetchError } = await supabase
         .from("student_profile")
         .select("id, student_name")
@@ -105,12 +90,12 @@ export const PublicQuizPage = () => {
       if (fetchError) throw fetchError;
 
       if (!student) {
-        // Create new student WITH the exam code
         const { data: newStudent, error: createError } = await supabase
           .from("student_profile")
           .insert([
             {
               student_email: studentEmail,
+              student_name: studentName,
               exam_code: currentExamCode,
             },
           ])
@@ -131,13 +116,13 @@ export const PublicQuizPage = () => {
         if (updateError) throw updateError;
       }
 
-      // Create the quiz attempt
       const { data: attempt, error: attemptError } = await supabase
         .from("quiz_attempts")
         .insert([
           {
             quiz_id: quiz.id,
             student_id: student.id,
+            student_name: studentName,
             student_email: studentEmail,
             status: "in_progress",
           },
@@ -146,12 +131,10 @@ export const PublicQuizPage = () => {
         .single();
 
       if (attemptError) throw attemptError;
-
       setAttemptId(attempt.id);
       setHasStarted(true);
     } catch (err) {
       setError(err.message);
-      console.error("Database Error:", err);
     } finally {
       setSubmitting(false);
     }
@@ -232,12 +215,10 @@ export const PublicQuizPage = () => {
         })
         .eq("id", attemptId);
 
-      if (updateError) throw updateError;
-
       setScore(totalScore);
       setCompleted(true);
     } catch (err) {
-      setError(err.message || "Failed to submit quiz");
+      setError(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -282,6 +263,11 @@ export const PublicQuizPage = () => {
           <p className="mt-2 text-gray-600">{quiz?.description}</p>
           {error && <div className="mt-4 text-red-500 text-sm">{error}</div>}
           <form onSubmit={handleStartQuiz} className="mt-6 space-y-4">
+            <StudentFormInput
+              label="Full Name"
+              value={studentName}
+              onChange={setStudentName}
+            />
             <StudentFormInput
               label="School Email"
               type="email"

@@ -3,6 +3,8 @@ export const AddEditForm = ({
   formData,
   setFormData,
   setShowForm,
+  editingId,
+  showForm,
 }) => {
   return (
     <div>
@@ -35,7 +37,7 @@ export const AddEditForm = ({
                 Options *
               </label>
               <div className="space-y-2">
-                {formData.options.map((opt, idx) => (
+                {formData.options && formData.options.map((opt, idx) => (
                   <div key={idx} className="flex gap-2">
                     <input
                       type="radio"
@@ -80,7 +82,7 @@ export const AddEditForm = ({
                 onClick={() =>
                   setFormData({
                     ...formData,
-                    options: [...formData.options, ""],
+                    options: [...(formData.options || []), ""],
                   })
                 }
                 className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
@@ -106,6 +108,28 @@ export const AddEditForm = ({
                 min="1"
                 className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
               />
+            </div>
+
+            {/* Flag/Status */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Status / Flag
+              </label>
+              <select
+                value={formData.flag || "pending"}
+                onChange={(e) =>
+                  setFormData({ ...formData, flag: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+              >
+                <option value="pending">Pending Review</option>
+                <option value="retain">Retain (Good)</option>
+                <option value="needs_revision">Needs Revision</option>
+                <option value="discard">Discard</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Set the status to help track question quality. Questions with item analysis will be auto-flagged.
+              </p>
             </div>
           </div>
 
