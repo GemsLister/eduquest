@@ -190,7 +190,7 @@ export const InstructorQuiz = () => {
     // If it's a saved question from database, delete from DB with cascade
     try {
       console.log("Attempting to delete saved question from DB with ID:", id);
-      
+
       // First, get all quiz_responses for this question
       const { data: responses, error: responsesError } = await supabase
         .from("quiz_responses")
@@ -203,7 +203,9 @@ export const InstructorQuiz = () => {
       }
 
       // Get unique attempt IDs
-      const attemptIds = [...new Set(responses?.map(r => r.attempt_id).filter(Boolean))];
+      const attemptIds = [
+        ...new Set(responses?.map((r) => r.attempt_id).filter(Boolean)),
+      ];
 
       // Delete quiz_responses for this question
       const { error: deleteResponsesError } = await supabase
@@ -489,8 +491,8 @@ export const InstructorQuiz = () => {
         </div>
       )}
 
-      {/* Share URL Section */}
-      {showShareUrl && shareToken && (
+      {/* Share URL Section - always show when published */}
+      {(showShareUrl || isPublished) && shareToken && (
         <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
           <h3 className="text-lg font-bold text-blue-900 mb-3">
             ✅ Quiz Published Successfully!
@@ -526,6 +528,11 @@ export const InstructorQuiz = () => {
           Quiz Information
         </h2>
 
+        {isPublished && (
+          <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
+            🔒 This quiz is published and cannot be edited.
+          </div>
+        )}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -536,7 +543,8 @@ export const InstructorQuiz = () => {
               value={quizTitle}
               onChange={(e) => setQuizTitle(e.target.value)}
               placeholder="e.g., Biology Chapter 5 Test"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
 
@@ -549,7 +557,8 @@ export const InstructorQuiz = () => {
               onChange={(e) => setQuizDescription(e.target.value)}
               placeholder="Describe the quiz purpose and content"
               rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
 
@@ -562,7 +571,8 @@ export const InstructorQuiz = () => {
               value={quizDuration}
               onChange={(e) => setQuizDuration(e.target.value)}
               placeholder="Leave blank for unlimited"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
         </div>
@@ -609,23 +619,27 @@ export const InstructorQuiz = () => {
           <h2 className="text-xl font-bold text-hornblende-green">
             Questions ({questions.length})
           </h2>
-          <button
-            onClick={addQuestion}
-            className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-          >
-            + Add Question
-          </button>
+          {!isPublished && (
+            <button
+              onClick={addQuestion}
+              className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+            >
+              + Add Question
+            </button>
+          )}
         </div>
 
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <p className="text-gray-500 mb-4">No questions added yet</p>
-            <button
-              onClick={addQuestion}
-              className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-            >
-              Add First Question
-            </button>
+            {!isPublished && (
+              <button
+                onClick={addQuestion}
+                className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              >
+                Add First Question
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -642,16 +656,21 @@ export const InstructorQuiz = () => {
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      if (confirm("Are you sure you want to delete this question? This will also remove all student attempts for this quiz.")) {
+                      if (
+                        !isPublished &&
+                        confirm(
+                          "Are you sure you want to delete this question? This will also remove all student attempts for this quiz.",
+                        )
+                      ) {
                         deleteQuestion(question.id).catch((err) => {
                           console.error("Failed to delete question:", err);
                         });
                       }
                     }}
-                    disabled={deletingQuestionId === question.id}
+                    disabled={deletingQuestionId === question.id || isPublished}
                     className={`${
-                      deletingQuestionId === question.id
-                        ? "text-gray-400 cursor-not-allowed"
+                      deletingQuestionId === question.id || isPublished
+                        ? "text-gray-300 cursor-not-allowed"
                         : "text-red-500 hover:text-red-700"
                     } text-sm font-semibold transition-colors`}
                   >
@@ -671,7 +690,8 @@ export const InstructorQuiz = () => {
                     }
                     placeholder="Enter the question"
                     rows="2"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+                    disabled={isPublished}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                   />
                 </div>
 
@@ -817,27 +837,39 @@ export const InstructorQuiz = () => {
 
       {/* Action Buttons */}
       <div className="flex gap-4 mb-8">
-        <button
-          onClick={() => handleSaveQuiz(false)}
-          disabled={loading}
-          className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Saving..." : "Save as Draft"}
-        </button>
-        <button
-          onClick={() => handleSaveQuiz(true)}
-          disabled={loading || questions.length === 0}
-          className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={
-            questions.length === 0 ? "Add at least one question to publish" : ""
-          }
-        >
-          {loading
-            ? "Publishing..."
-            : isPublished
-              ? "Update & Publish"
-              : "Publish Quiz"}
-        </button>
+        {!isPublished && (
+          <>
+            <button
+              onClick={() => handleSaveQuiz(false)}
+              disabled={loading}
+              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={() => handleSaveQuiz(true)}
+              disabled={loading || questions.length === 0}
+              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                questions.length === 0
+                  ? "Add at least one question to publish"
+                  : ""
+              }
+            >
+              {loading ? "Publishing..." : "Publish Quiz"}
+            </button>
+          </>
+        )}
+        {isPublished && (
+          <button
+            onClick={() =>
+              navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+            }
+            className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+          >
+            📊 View Results
+          </button>
+        )}
         <button
           onClick={() => navigate(-1)}
           className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
