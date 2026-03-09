@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 
 export const ProtectedRoute = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,14 +14,22 @@ export const ProtectedRoute = ({ children }) => {
           data: { user: authUser },
         } = await supabase.auth.getUser();
         setUser(authUser);
-        console.log({authUser})
+
+        if (authUser) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", authUser.id)
+            .single();
+          setIsAdmin(!!profile?.is_admin);
+        }
       } catch (error) {
         console.error("Auth check error:", error);
         setUser(null);
       } finally {
         setLoading(false);
-      };
-    }
+      }
+    };
 
     checkAuth();
   }, []);
@@ -38,6 +47,10 @@ export const ProtectedRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  if (isAdmin) {
+    return <Navigate to="/admin-dashboard" replace />;
   }
 
   return children;

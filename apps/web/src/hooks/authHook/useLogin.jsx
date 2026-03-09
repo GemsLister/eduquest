@@ -17,15 +17,29 @@ export const useLogin = () => {
         return;
       }
 
+      // Check profile for role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin, is_instructor")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.is_admin) {
+        navigate("/admin-dashboard");
+        return;
+      }
+
+      // Allow if is_instructor flag is set OR email matches the allowed domain
       if (
-        !data.user.email.endsWith(
+        profile?.is_instructor ||
+        data.user.email.endsWith(
           import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION,
         )
       ) {
+        navigate("/instructor-dashboard");
+      } else {
         await supabase.auth.signOut();
         toast.error("Access Denied: Instructors Only!");
-      } else {
-        navigate("/instructor-dashboard");
       }
     } catch (error) {
       console.error(error);
