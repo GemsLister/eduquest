@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import * as QuestionHook from "../../hooks/questionHook/questionHooks.js";
 import { SearchInput } from "../../components/ui/inputs/SearchInput.jsx";
 import { QuestionList } from "../../components/QuestionList.jsx";
@@ -7,7 +7,7 @@ import { AddEditForm } from "../../components/ui/forms/AddEditForm.jsx";
 export const InstructorQuestions = () => {
   const { fetchQuestions, questions, loading } =
     QuestionHook.useFetchQuestion();
-  const { filteredQuestions, searchTerm, setSearchTerm, setFilterType, filterFlag, setFilterFlag } =
+  const { filteredQuestions, searchTerm, setSearchTerm, setFilterType, setFilterFlag } =
     QuestionHook.useFilteredQuestion(questions);
   const {
     handleAddQuestion,
@@ -16,23 +16,42 @@ export const InstructorQuestions = () => {
     setFormData,
     setShowForm,
     showForm,
-    editingId,
-    formData,
   } = QuestionHook.useAddSaveQuestion();
-  const { handleDeleteQuestion } = QuestionHook.useDeleteQuestion();
 
-  // Listen for questions-updated event to refetch
+  const [editingId, setEditingIdLocal] = useState(null);
+
+  // Listen for questions-updated event
   useEffect(() => {
     const handleQuestionsUpdate = () => {
       fetchQuestions();
     };
-    
-    window.addEventListener('questions-updated', handleQuestionsUpdate);
-    
-    return () => {
-      window.removeEventListener('questions-updated', handleQuestionsUpdate);
-    };
+
+    window.addEventListener("questions-updated", handleQuestionsUpdate);
+    return () => window.removeEventListener("questions-updated", handleQuestionsUpdate);
   }, [fetchQuestions]);
+
+  // Set editingId when editing a question
+  const handleEditQuestion = (id) => {
+    setEditingIdLocal(id);
+    setEditingId(id);
+  };
+
+  // We need to get formData from the hook - let's use a simpler approach
+  // Create a local state to hold form data for the form
+  const [formData, setFormDataLocal] = useState({
+    text: "",
+    options: ["", ""],
+    correctAnswer: 0,
+    points: 1,
+    flag: "pending",
+    quiz_id: null,
+  });
+
+  // Wrap the setFormData to also update local state
+  const handleSetFormData = (data) => {
+    setFormDataLocal(data);
+    setFormData(data);
+  };
 
   if (loading) {
     return (
@@ -66,35 +85,20 @@ export const InstructorQuestions = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-4">
-        <SearchInput
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          setFilterType={setFilterType}
-        />
-        
-        {/* Flag Filter */}
-        <select
-          value={filterFlag}
-          onChange={(e) => setFilterFlag(e.target.value)}
-          className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="retain">Retain (Good)</option>
-          <option value="needs_revision">Needs Revision</option>
-          <option value="discard">Discard</option>
-        </select>
-      </div>
+      <SearchInput
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        setFilterType={setFilterType}
+        setFilterFlag={setFilterFlag}
+      />
 
       {/* Add/Edit Form */}
       <AddEditForm
         handleSaveQuestion={handleSaveQuestion}
         formData={formData}
-        setFormData={setFormData}
+        setFormData={handleSetFormData}
         setShowForm={setShowForm}
         editingId={editingId}
-        showForm={showForm}
       />
 
       {/* Questions List */}
@@ -102,10 +106,9 @@ export const InstructorQuestions = () => {
         filteredQuestions={filteredQuestions}
         handleAddQuestion={handleAddQuestion}
         handleSaveQuestion={handleSaveQuestion}
-        setFormData={setFormData}
+        setFormData={handleSetFormData}
+        setEditingId={handleEditQuestion}
         setShowForm={setShowForm}
-        setEditingId={setEditingId}
-        handleDeleteQuestion={handleDeleteQuestion}
       />
     </div>
   );
