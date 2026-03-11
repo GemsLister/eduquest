@@ -1,16 +1,18 @@
-export const ItemAnalysisHeader = ({ 
-  sections, 
-  quizzes, 
-  selectedSection, 
-  selectedQuiz, 
+import React from "react";
+
+export const ItemAnalysisHeader = ({
+  sections,
+  quizzes,
+  selectedSection,
+  selectedQuiz,
   loadingQuizzes,
-  onSectionChange,
-  onQuizChange 
+  onSectionChange, // Use the prop from the parent
+  onQuizChange,    // Use the prop from the parent
 }) => {
   return (
     <div>
-      {/* Header */}
       <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
+        {/* Header Title Section */}
         <div className="p-6 bg-casual-green text-white">
           <h1 className="text-2xl font-bold uppercase tracking-wider">
             Item Analysis Report
@@ -24,6 +26,7 @@ export const ItemAnalysisHeader = ({
         {/* Selection Controls */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
             {/* Section Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -31,10 +34,8 @@ export const ItemAnalysisHeader = ({
               </label>
               <select
                 value={selectedSection}
-                onChange={(e) => {
-                  onSectionChange(e.target.value);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                onChange={(e) => onSectionChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               >
                 <option value="">-- Select a Section --</option>
                 {sections.map((section) => (
@@ -58,11 +59,9 @@ export const ItemAnalysisHeader = ({
               </label>
               <select
                 value={selectedQuiz}
-                onChange={(e) => {
-                  onQuizChange(e.target.value);
-                }}
+                onChange={(e) => onQuizChange(e.target.value)}
                 disabled={!selectedSection || loadingQuizzes}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">
                   {loadingQuizzes
@@ -71,11 +70,12 @@ export const ItemAnalysisHeader = ({
                       ? "Select a section first"
                       : "-- Select a Quiz --"}
                 </option>
-                {quizzes && quizzes.map((quiz) => (
-                  <option key={quiz.id} value={quiz.id}>
-                    {quiz.title}
-                  </option>
-                ))}
+                {quizzes &&
+                  quizzes.map((quiz) => (
+                    <option key={quiz.id} value={quiz.id}>
+                      {quiz.title}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
