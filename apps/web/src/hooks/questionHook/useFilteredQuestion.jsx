@@ -14,12 +14,5 @@ export const useFilteredQuestion = (questions = []) => {
     return matchesSearch && matchesType && matchesFlag;
   });
 
-  return { 
-    filteredQuestions, 
-    searchTerm, 
-    setSearchTerm, 
-    setFilterType,
-    filterFlag,
-    setFilterFlag,
-  };
+  return { filteredQuestions, searchTerm, setSearchTerm, setFilterType, setFilterFlag };
 };
