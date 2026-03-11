@@ -77,6 +77,14 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.InstructorQuestions />,
             },
             {
+              path: "question-bank",
+              element: <InstructorIndex.QuestionBank />,
+            },
+            {
+              path: "question-bank/:quizId",
+              element: <InstructorIndex.QuestionBank />,
+            },
+            {
               path: "instructor-profile",
               element: <InstructorIndex.InstructorProfile />,
             },
