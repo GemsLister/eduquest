@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { supabase } from "../supabaseClient";
 
 export const QuestionList = ({
@@ -6,36 +7,16 @@ export const QuestionList = ({
   setFormData,
   setEditingId,
   setShowForm,
-  handleDeleteQuestion,
 }) => {
-  
-  const handleQuickFlagChange = async (questionId, newFlag) => {
-    try {
-      const { error } = await supabase
-        .from("questions")
-        .update({ flag: newFlag, updated_at: new Date().toISOString() })
-        .eq("id", questionId);
+  const [updatingFlag, setUpdatingFlag] = useState(null);
 
-      if (error) {
-        console.error("Error updating flag:", error);
-        alert("Failed to update flag");
-        return;
-      }
-
-      // Dispatch event to refresh questions
-      window.dispatchEvent(new Event('questions-updated'));
-    } catch (error) {
-      console.error("Error updating flag:", error);
-      alert("Failed to update flag");
-    }
-  };
-
+  // Get flag badge configuration
   const getFlagBadge = (flag) => {
     const flagConfig = {
       pending: { label: "Pending", className: "bg-yellow-100 text-yellow-700 border-yellow-300" },
       approved: { label: "Approved", className: "bg-green-100 text-green-700 border-green-300" },
+      retain: { label: "Retain", className: "bg-blue-100 text-blue-700 border-blue-300" },
       needs_revision: { label: "Needs Revision", className: "bg-orange-100 text-orange-700 border-orange-300" },
-      retain: { label: "Retain", className: "bg-green-100 text-green-700 border-green-300" },
       discard: { label: "Discard", className: "bg-red-100 text-red-700 border-red-300" },
     };
     
@@ -45,6 +26,35 @@ export const QuestionList = ({
         {config.label}
       </span>
     );
+  };
+
+  // Handle flag change
+  const handleFlagChange = async (questionId, newFlag) => {
+    if (updatingFlag) return;
+    
+    setUpdatingFlag(questionId);
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .update({
+          flag: newFlag,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", questionId);
+
+      if (error) {
+        console.error("Error updating flag:", error);
+        alert("Failed to update flag: " + error.message);
+      } else {
+        // Dispatch event to refresh
+        window.dispatchEvent(new Event("questions-updated"));
+      }
+    } catch (error) {
+      console.error("Error updating flag:", error);
+      alert("An error occurred while updating the flag");
+    } finally {
+      setUpdatingFlag(null);
+    }
   };
 
   return (
@@ -78,6 +88,7 @@ export const QuestionList = ({
                     <span className="text-sm text-gray-500">
                       {question.points} points
                     </span>
+                    <span className="text-gray-300">|</span>
                     {getFlagBadge(question.flag)}
                   </div>
                   <p className="text-gray-800 font-semibold">{question.text}</p>
@@ -94,10 +105,7 @@ export const QuestionList = ({
                   <button
                     onClick={() => {
                       setEditingId(question.id);
-                      setFormData({
-                        ...question,
-                        correctAnswer: parseInt(question.correct_answer) || 0,
-                      });
+                      setFormData(question);
                       setShowForm(true);
                     }}
                     className="text-casual-green hover:text-hornblende-green font-semibold text-sm"
@@ -105,7 +113,11 @@ export const QuestionList = ({
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteQuestion(question.id)}
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this question?")) {
+                        handleDeleteQuestion(question.id);
+                      }
+                    }}
                     className="text-red-500 hover:text-red-700 font-semibold text-sm"
                   >
                     Delete
@@ -114,48 +126,54 @@ export const QuestionList = ({
               </div>
 
               {/* Quick Flag Actions */}
-              <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
-                <span className="text-xs text-gray-500 self-center mr-2">Quick Flag:</span>
-                <button
-                  onClick={() => handleQuickFlagChange(question.id, "retain")}
-                  className={`px-2 py-1 text-xs rounded border transition-colors ${
-                    question.flag === "retain" || question.flag === "approved"
-                      ? "bg-green-500 text-white border-green-600"
-                      : "bg-white text-green-700 border-green-300 hover:bg-green-50"
-                  }`}
-                >
-                  ✓ Retain
-                </button>
-                <button
-                  onClick={() => handleQuickFlagChange(question.id, "needs_revision")}
-                  className={`px-2 py-1 text-xs rounded border transition-colors ${
-                    question.flag === "needs_revision"
-                      ? "bg-orange-500 text-white border-orange-600"
-                      : "bg-white text-orange-700 border-orange-300 hover:bg-orange-50"
-                  }`}
-                >
-                  ⚠ Needs Revision
-                </button>
-                <button
-                  onClick={() => handleQuickFlagChange(question.id, "discard")}
-                  className={`px-2 py-1 text-xs rounded border transition-colors ${
-                    question.flag === "discard"
-                      ? "bg-red-500 text-white border-red-600"
-                      : "bg-white text-red-700 border-red-300 hover:bg-red-50"
-                  }`}
-                >
-                  ✕ Discard
-                </button>
-                <button
-                  onClick={() => handleQuickFlagChange(question.id, "pending")}
-                  className={`px-2 py-1 text-xs rounded border transition-colors ${
-                    question.flag === "pending"
-                      ? "bg-yellow-500 text-white border-yellow-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  ○ Pending
-                </button>
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-2">Quick Actions:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleFlagChange(question.id, "retain")}
+                    disabled={updatingFlag === question.id}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      question.flag === "retain"
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
+                    }`}
+                  >
+                    ✓ Retain
+                  </button>
+                  <button
+                    onClick={() => handleFlagChange(question.id, "needs_revision")}
+                    disabled={updatingFlag === question.id}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      question.flag === "needs_revision"
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : "bg-white text-orange-700 border-orange-300 hover:bg-orange-50"
+                    }`}
+                  >
+                    ✎ Needs Revision
+                  </button>
+                  <button
+                    onClick={() => handleFlagChange(question.id, "discard")}
+                    disabled={updatingFlag === question.id}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      question.flag === "discard"
+                        ? "bg-red-500 text-white border-red-500"
+                        : "bg-white text-red-700 border-red-300 hover:bg-red-50"
+                    }`}
+                  >
+                    ✕ Discard
+                  </button>
+                  <button
+                    onClick={() => handleFlagChange(question.id, "pending")}
+                    disabled={updatingFlag === question.id}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      question.flag === "pending" || !question.flag
+                        ? "bg-yellow-500 text-white border-yellow-500"
+                        : "bg-white text-yellow-700 border-yellow-300 hover:bg-yellow-50"
+                    }`}
+                  >
+                    ↺ Reset to Pending
+                  </button>
+                </div>
               </div>
 
               {/* Show Options Preview for MCQ */}
@@ -167,13 +185,13 @@ export const QuestionList = ({
                       <li
                         key={idx}
                         className={
-                          idx === parseInt(question.correct_answer)
+                          idx === question.correctAnswer
                             ? "text-casual-green font-semibold"
                             : ""
                         }
                       >
                         {idx + 1}. {opt}
-                        {idx === parseInt(question.correct_answer) && (
+                        {idx === question.correctAnswer && (
                           <span className="ml-2">✓</span>
                         )}
                       </li>
@@ -188,3 +206,25 @@ export const QuestionList = ({
     </div>
   );
 };
+
+// Helper function for delete
+async function handleDeleteQuestion(id) {
+  try {
+    const { error } = await supabase
+      .from("questions")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting question:", error);
+      alert("Failed to delete question: " + error.message);
+      return;
+    }
+
+    alert("Question deleted successfully!");
+    window.dispatchEvent(new Event("questions-updated"));
+  } catch (error) {
+    console.error("Error deleting question:", error);
+    alert("An error occurred while deleting the question");
+  }
+}
