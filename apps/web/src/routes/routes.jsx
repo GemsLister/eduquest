@@ -6,7 +6,7 @@ import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Item Analysis Routes
-import * as ItemAnalysisIndex from "../pages/item-analysis/itemAnalysisIndex.js";
+import { ItemAnalysisPage } from "../pages/item-analysis/itemAnalysisPage.jsx";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
 import { Layout } from "../components/container/Layout.jsx";
@@ -82,7 +82,7 @@ export const router = createBrowserRouter(
             },
             {
               path: "item-difficulty-analysis",
-              element: <ItemAnalysisIndex.ItemDifficulty />,
+              element: <ItemAnalysisPage />,
             },
           ],
         },
