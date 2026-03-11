@@ -34,8 +34,8 @@ export const Sidebar = () => {
               icon: <Icon.SectionIcon />,
             },
             {
-              name: "Questions",
-              path: "/instructor-dashboard/instructor-questions",
+              name: "Question Bank",
+              path: "/instructor-dashboard/question-bank",
               icon: <Icon.QuestionIcon />,
             },
             {
