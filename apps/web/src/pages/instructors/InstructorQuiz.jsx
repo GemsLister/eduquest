@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 
@@ -15,12 +15,11 @@ export const InstructorQuiz = () => {
   const [error, setError] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [sectionId, setSectionId] = useState(null);
-  const [saveStatus, setSaveStatus] = useState(""); // For auto-save feedback
+  const [saveStatus, setSaveStatus] = useState("");
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
   const [showShareUrl, setShowShareUrl] = useState(false);
 
-  // Load existing quiz if editing
   useEffect(() => {
     if (quizId) {
       loadQuiz();
@@ -45,19 +44,17 @@ export const InstructorQuiz = () => {
       setSectionId(quiz.section_id);
       setShareToken(quiz.share_token || "");
 
-      // Load questions
       const { data: questionsData, error: questionsError } = await supabase
         .from("questions")
         .select("*")
         .eq("quiz_id", quizId)
+        .or("is_archived.is.null,is_archived.eq.false")
         .order("created_at", { ascending: true });
 
       if (questionsError) throw questionsError;
 
-      // Transform questions to match state format
       const transformedQuestions = questionsData.map((q) => {
         let correctAnswerValue;
-
         if (q.type === "mcq") {
           correctAnswerValue = q.options.indexOf(q.correct_answer);
         } else if (q.type === "true_false") {
@@ -65,7 +62,6 @@ export const InstructorQuiz = () => {
         } else {
           correctAnswerValue = q.correct_answer;
         }
-
         return {
           id: q.id,
           type: q.type,
@@ -85,7 +81,6 @@ export const InstructorQuiz = () => {
     }
   };
 
-  // Add new question
   const addQuestion = () => {
     const newQuestion = {
       id: Date.now(),
@@ -98,30 +93,22 @@ export const InstructorQuiz = () => {
     setQuestions([...questions, newQuestion]);
   };
 
-  // Update question
   const updateQuestion = (id, field, value) => {
     setQuestions(
       questions.map((q) => (q.id === id ? { ...q, [field]: value } : q)),
     );
   };
 
-  // Update option
   const updateOption = (questionId, optionIndex, value) => {
     setQuestions(
       questions.map((q) =>
         q.id === questionId
-          ? {
-              ...q,
-              options: q.options.map((opt, idx) =>
-                idx === optionIndex ? value : opt,
-              ),
-            }
+          ? { ...q, options: q.options.map((opt, idx) => (idx === optionIndex ? value : opt)) }
           : q,
       ),
     );
   };
 
-  // Add option to MCQ question
   const addOption = (questionId) => {
     setQuestions(
       questions.map((q) =>
@@ -130,21 +117,16 @@ export const InstructorQuiz = () => {
     );
   };
 
-  // Remove option from MCQ question
   const removeOption = (questionId, optionIndex) => {
     setQuestions(
       questions.map((q) =>
         q.id === questionId
-          ? {
-              ...q,
-              options: q.options.filter((_, idx) => idx !== optionIndex),
-            }
+          ? { ...q, options: q.options.filter((_, idx) => idx !== optionIndex) }
           : q,
       ),
     );
   };
 
-  // Generate share token
   const generateShareToken = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let token = "";
@@ -154,7 +136,6 @@ export const InstructorQuiz = () => {
     return token;
   };
 
-  // Copy URL to clipboard
   const copyToClipboard = () => {
     const url = `${window.location.origin}/quiz/${shareToken}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -163,97 +144,41 @@ export const InstructorQuiz = () => {
     });
   };
 
-  // Delete question - with cascade delete of attempts
-  const deleteQuestion = async (id) => {
+  // Archive question to Question Bank (instead of permanently deleting)
+  const archiveQuestion = async (id) => {
     setDeletingQuestionId(id);
-    console.log("deleteQuestion called with ID:", id, "Type:", typeof id);
-
+    
     // If it's a new question (temp ID from Date.now()), just remove from state
     if (typeof id === "number" && id > 10000000000) {
-      console.log("Deleting unsaved question from state");
-      startTransition(() => {
-        setQuestions(questions.filter((q) => q.id !== id));
-        setDeletingQuestionId(null);
-      });
+      setQuestions(questions.filter((q) => q.id !== id));
+      setDeletingQuestionId(null);
       return;
     }
 
-    // If it's a saved question from database, delete from DB with cascade
+    // If it's a saved question from database, archive it instead of deleting
     try {
-      console.log("Attempting to delete saved question from DB with ID:", id);
-      
-      // First, get all quiz_responses for this question
-      const { data: responses, error: responsesError } = await supabase
-        .from("quiz_responses")
-        .select("attempt_id")
-        .eq("question_id", id);
+      const { error } = await supabase
+        .from("questions")
+        .update({ is_archived: true, updated_at: new Date().toISOString() })
+        .eq("id", id);
 
-      if (responsesError) {
-        console.error("Error fetching responses:", responsesError);
-        throw new Error("Failed to find related responses");
-      }
+      if (error) throw error;
 
-      // Get unique attempt IDs
-      const attemptIds = [...new Set(responses?.map(r => r.attempt_id).filter(Boolean))];
-
-      // Delete quiz_responses for this question
-      const { error: deleteResponsesError } = await supabase
-        .from("quiz_responses")
-        .delete()
-        .eq("question_id", id);
-
-      if (deleteResponsesError) {
-        console.error("Error deleting responses:", deleteResponsesError);
-        throw new Error("Failed to delete question responses");
-      }
-
-      // Delete quiz_attempts that had responses to this question
-      if (attemptIds.length > 0) {
-        const { error: deleteAttemptsError } = await supabase
-          .from("quiz_attempts")
-          .delete()
-          .in("id", attemptIds);
-
-        if (deleteAttemptsError) {
-          console.error("Error deleting attempts:", deleteAttemptsError);
-          // Continue anyway - the question should still be deleted
-        }
-        console.log("Deleted quiz attempts:", attemptIds.length);
-      }
-
-      // Finally, delete the question
-      const { error } = await supabase.from("questions").delete().eq("id", id);
-
-      console.log("Delete response - error:", error);
-
-      if (error) {
-        console.error("Delete error details:", error);
-        throw new Error(`Delete failed: ${error.message}`);
-      }
-
-      console.log("Question deleted successfully from DB");
-      // Remove from local state immediately for instant UI feedback
-      startTransition(() => {
-        setQuestions((prevQuestions) => {
-          const filtered = prevQuestions.filter((q) => q.id !== id);
-          console.log("Updated questions state, removed ID:", id);
-          return filtered;
-        });
-      });
+      // Remove from local state for instant UI feedback
+      setQuestions((prevQuestions) => prevQuestions.filter((q) => q.id !== id));
+      alert("Question archived to Question Bank! You can restore it from there.");
     } catch (err) {
-      console.error("Error deleting question - full error:", err);
-      alert("❌ Error deleting question:\n" + err.message);
+      console.error("Error archiving question:", err);
+      alert("Error archiving question: " + err.message);
     } finally {
       setDeletingQuestionId(null);
     }
   };
 
-  // Save quiz (as draft or update existing)
   const handleSaveQuiz = async (publish = false) => {
     setError("");
     setSaveStatus("Saving...");
 
-    // Validation
     if (!quizTitle.trim()) {
       setError("Quiz title is required");
       setSaveStatus("");
@@ -266,22 +191,14 @@ export const InstructorQuiz = () => {
       return;
     }
 
-    // Validate all questions
     for (let q of questions) {
       if (!q.text.trim()) {
         setError("All questions must have text");
         setSaveStatus("");
         return;
       }
-      if (
-        q.type === "mcq" &&
-        q.options.filter((opt) => opt.trim()).length < 2
-      ) {
-        setError(
-          publish
-            ? "MCQ questions must have at least 2 options to publish"
-            : "Warning: MCQ questions should have at least 2 options",
-        );
+      if (q.type === "mcq" && q.options.filter((opt) => opt.trim()).length < 2) {
+        setError(publish ? "MCQ questions must have at least 2 options to publish" : "Warning: MCQ questions should have at least 2 options");
         if (publish) {
           setSaveStatus("");
           return;
@@ -291,9 +208,7 @@ export const InstructorQuiz = () => {
 
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError("User not authenticated");
         setLoading(false);
@@ -305,8 +220,6 @@ export const InstructorQuiz = () => {
       let newToken = shareToken;
 
       if (quizId) {
-        // Update existing quiz
-        // Generate token if publishing and doesn't have one yet
         if (publish && !shareToken) {
           newToken = generateShareToken();
         }
@@ -326,76 +239,82 @@ export const InstructorQuiz = () => {
         if (updateError) throw updateError;
         quizData = data[0];
 
-        // Delete old questions and insert new ones
-        await supabase.from("questions").delete().eq("quiz_id", quizId);
+        const { data: existingQuestions } = await supabase.from("questions").select("id").eq("quiz_id", quizId);
+        const existingQuestionIds = new Set(existingQuestions?.map(q => q.id) || []);
+
+        for (const q of questions) {
+          if (typeof q.id !== "number" && existingQuestionIds.has(q.id)) {
+            const { error: updateQuestionError } = await supabase
+              .from("questions")
+              .update({
+                text: q.text,
+                options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+                correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+                points: q.points,
+              })
+              .eq("id", q.id);
+            if (updateQuestionError) throw updateQuestionError;
+          }
+        }
+
+        const questionsToAdd = questions
+          .filter(q => typeof q.id === "number" && q.id > 10000000000)
+          .map((q) => ({
+            quiz_id: quizData.id,
+            type: q.type,
+            text: q.text,
+            options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+            points: q.points,
+          }));
+
+        if (questionsToAdd.length > 0) {
+          const { error: questionsError } = await supabase.from("questions").insert(questionsToAdd);
+          if (questionsError) throw questionsError;
+        }
       } else {
-        // Create new quiz
         newToken = publish ? generateShareToken() : null;
 
         const { data: newQuiz, error: quizError } = await supabase
           .from("quizzes")
-          .insert([
-            {
-              instructor_id: user.id,
-              section_id: sectionId || null,
-              title: quizTitle,
-              description: quizDescription || null,
-              duration: quizDuration ? parseInt(quizDuration) : null,
-              is_published: publish,
-              share_token: newToken,
-            },
-          ])
+          .insert([{
+            instructor_id: user.id,
+            section_id: sectionId || null,
+            title: quizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+            is_published: publish,
+            share_token: newToken,
+          }])
           .select();
 
         if (quizError) throw quizError;
-        if (!newQuiz || newQuiz.length === 0)
-          throw new Error("Failed to create quiz");
-
+        if (!newQuiz || newQuiz.length === 0) throw new Error("Failed to create quiz");
         quizData = newQuiz[0];
+
+        if (questions.length > 0) {
+          const questionsData = questions.map((q) => ({
+            quiz_id: quizData.id,
+            type: q.type,
+            text: q.text,
+            options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+            points: q.points,
+          }));
+          const { error: questionsError } = await supabase.from("questions").insert(questionsData);
+          if (questionsError) throw questionsError;
+        }
       }
 
-      // Update state with new token
-      if (newToken) {
-        setShareToken(newToken);
-      }
-
-      // Save questions to Supabase
-      if (questions.length > 0) {
-        const questionsData = questions.map((q) => ({
-          quiz_id: quizData.id,
-          type: q.type,
-          text: q.text,
-          options:
-            q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-          correct_answer:
-            q.type === "mcq"
-              ? q.options[q.correctAnswer]
-              : q.type === "true_false"
-                ? q.correctAnswer === 0
-                  ? "true"
-                  : "false"
-                : q.correctAnswer,
-          points: q.points,
-        }));
-
-        const { error: questionsError } = await supabase
-          .from("questions")
-          .insert(questionsData);
-
-        if (questionsError) throw questionsError;
-      }
+      if (newToken) setShareToken(newToken);
 
       if (publish) {
         setShowShareUrl(true);
         setSaveStatus("Quiz published! Share URL generated.");
-        setTimeout(() => {
-          setSaveStatus("");
-        }, 3000);
+        setTimeout(() => setSaveStatus(""), 3000);
       } else {
         setSaveStatus("Draft saved!");
-        setTimeout(() => {
-          setSaveStatus("");
-        }, 2000);
+        setTimeout(() => setSaveStatus(""), 2000);
       }
     } catch (err) {
       setError(err.message || "Failed to save quiz");
@@ -411,9 +330,7 @@ export const InstructorQuiz = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">
-            Loading quiz...
-          </p>
+          <p className="mt-4 text-hornblende-green font-semibold">Loading quiz...</p>
         </div>
       </div>
     );
@@ -421,12 +338,8 @@ export const InstructorQuiz = () => {
 
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      {/* Header */}
       <div className="mb-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-casual-green font-semibold mb-4 hover:underline"
-        >
+        <button onClick={() => navigate(-1)} className="text-casual-green font-semibold mb-4 hover:underline">
           ← Back
         </button>
         <div className="flex justify-between items-start">
@@ -435,140 +348,68 @@ export const InstructorQuiz = () => {
               {quizId ? "Edit Quiz" : "Create Quiz"}
             </h1>
             <p className="text-gray-600">
-              {quizId
-                ? isPublished
-                  ? "Published - Changes will be saved"
-                  : "Draft - Finish and publish when ready"
-                : "Build a new quiz with questions and answers"}
+              {quizId ? (isPublished ? "Published - Changes will be saved" : "Draft - Finish and publish when ready") : "Build a new quiz with questions and answers"}
             </p>
           </div>
           {quizId && (
             <div className="flex gap-4 items-center">
-              <span
-                className={`px-4 py-2 rounded-lg font-semibold text-sm ${
-                  isPublished
-                    ? "bg-green-100 text-green-700"
-                    : "bg-yellow-100 text-yellow-700"
-                }`}
-              >
+              <span className={`px-4 py-2 rounded-lg font-semibold text-sm ${isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                 {isPublished ? "Published" : "Draft"}
               </span>
               {isPublished && (
-                <button
-                  onClick={() =>
-                    navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-                  }
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  📊 View Results
-                </button>
+                <>
+                  <button onClick={() => navigate(`/instructor-dashboard/quiz-results/${quizId}`)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                    📊 View Results
+                  </button>
+                  <button onClick={() => navigate(`/instructor-dashboard/question-bank/${quizId}`)} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                    📚 Question Bank
+                  </button>
+                </>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error}
-        </div>
-      )}
+      {error && <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
+      {saveStatus && <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">{saveStatus}</div>}
 
-      {saveStatus && (
-        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-          {saveStatus}
-        </div>
-      )}
-
-      {/* Share URL Section */}
       {showShareUrl && shareToken && (
         <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">
-            ✅ Quiz Published Successfully!
-          </h3>
-          <p className="text-blue-800 mb-4">
-            Share this link with students so they can take the quiz from the
-            computer lab:
-          </p>
+          <h3 className="text-lg font-bold text-blue-900 mb-3">✅ Quiz Published Successfully!</h3>
+          <p className="text-blue-800 mb-4">Share this link with students so they can take the quiz:</p>
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={`${window.location.origin}/quiz/${shareToken}`}
-              readOnly
-              className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm"
-            />
-            <button
-              onClick={copyToClipboard}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
-            >
-              Copy Link
-            </button>
+            <input type="text" value={`${window.location.origin}/quiz/${shareToken}`} readOnly className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm" />
+            <button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition">Copy Link</button>
           </div>
           <p className="text-sm text-blue-700 mt-3 bg-white p-3 rounded">
-            📌 <strong>Share Code:</strong>{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
+            📌 <strong>Share Code:</strong> <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
           </p>
         </div>
       )}
 
-      {/* Quiz Info Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-hornblende-green mb-4">
-          Quiz Information
-        </h2>
-
+        <h2 className="text-xl font-bold text-hornblende-green mb-4">Quiz Information</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Quiz Title *
-            </label>
-            <input
-              type="text"
-              value={quizTitle}
-              onChange={(e) => setQuizTitle(e.target.value)}
-              placeholder="e.g., Biology Chapter 5 Test"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-            />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Quiz Title *</label>
+            <input type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="e.g., Biology Chapter 5 Test" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
           </div>
-
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              value={quizDescription}
-              onChange={(e) => setQuizDescription(e.target.value)}
-              placeholder="Describe the quiz purpose and content"
-              rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-            />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+            <textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="Describe the quiz purpose and content" rows="3" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
           </div>
-
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Duration (minutes)
-            </label>
-            <input
-              type="number"
-              value={quizDuration}
-              onChange={(e) => setQuizDuration(e.target.value)}
-              placeholder="Leave blank for unlimited"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-            />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Duration (minutes)</label>
+            <input type="number" value={quizDuration} onChange={(e) => setQuizDuration(e.target.value)} placeholder="Leave blank for unlimited" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
           </div>
         </div>
       </div>
 
-      {/* Questions Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-hornblende-green">
-            Questions ({questions.length})
-          </h2>
-          <button
-            onClick={addQuestion}
-            className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-          >
+          <h2 className="text-xl font-bold text-hornblende-green">Questions ({questions.length})</h2>
+          <button onClick={addQuestion} className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors">
             + Add Question
           </button>
         </div>
@@ -576,191 +417,70 @@ export const InstructorQuiz = () => {
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <p className="text-gray-500 mb-4">No questions added yet</p>
-            <button
-              onClick={addQuestion}
-              className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-            >
-              Add First Question
-            </button>
+            <button onClick={addQuestion} className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors">Add First Question</button>
           </div>
         ) : (
           <div className="space-y-6">
             {questions.map((question, idx) => (
-              <div
-                key={question.id}
-                className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors"
-              >
-                {/* Question Header */}
+              <div key={question.id} className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Question {idx + 1}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Question {idx + 1}</h3>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      if (confirm("Are you sure you want to delete this question? This will also remove all student attempts for this quiz.")) {
-                        deleteQuestion(question.id).catch((err) => {
-                          console.error("Failed to delete question:", err);
-                        });
+                      if (confirm("Archive this question to Question Bank? You can restore it later.")) {
+                        archiveQuestion(question.id).catch((err) => console.error("Failed to archive question:", err));
                       }
                     }}
                     disabled={deletingQuestionId === question.id}
-                    className={`${
-                      deletingQuestionId === question.id
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-red-500 hover:text-red-700"
-                    } text-sm font-semibold transition-colors`}
+                    className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold transition-colors`}
                   >
-                    {deletingQuestionId === question.id ? "..." : "Delete"}
+                    {deletingQuestionId === question.id ? "..." : "📁 Archive"}
                   </button>
                 </div>
 
-                {/* Question Text */}
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Question Text *
-                  </label>
-                  <textarea
-                    value={question.text}
-                    onChange={(e) =>
-                      updateQuestion(question.id, "text", e.target.value)
-                    }
-                    placeholder="Enter the question"
-                    rows="2"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question Text *</label>
+                  <textarea value={question.text} onChange={(e) => updateQuestion(question.id, "text", e.target.value)} placeholder="Enter the question" rows="2" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
                 </div>
 
-                {/* Options for MCQ */}
                 {question.type === "mcq" && (
                   <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Options *
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Options *</label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
                         <div key={optIdx} className="flex gap-2">
-                          <input
-                            type="radio"
-                            name={`correct-${question.id}`}
-                            checked={question.correctAnswer === optIdx}
-                            onChange={() =>
-                              updateQuestion(
-                                question.id,
-                                "correctAnswer",
-                                optIdx,
-                              )
-                            }
-                            className="mt-3"
-                          />
-                          <input
-                            type="text"
-                            value={option}
-                            onChange={(e) =>
-                              updateOption(question.id, optIdx, e.target.value)
-                            }
-                            placeholder={`Option ${optIdx + 1}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-                          />
+                          <input type="radio" name={`correct-${question.id}`} checked={question.correctAnswer === optIdx} onChange={() => updateQuestion(question.id, "correctAnswer", optIdx)} className="mt-3" />
+                          <input type="text" value={option} onChange={(e) => updateOption(question.id, optIdx, e.target.value)} placeholder={`Option ${optIdx + 1}`} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green" />
                           {question.options.length > 2 && (
-                            <button
-                              onClick={() => removeOption(question.id, optIdx)}
-                              className="text-red-500 hover:text-red-700 px-3 py-2"
-                            >
-                              ✕
-                            </button>
+                            <button onClick={() => removeOption(question.id, optIdx)} className="text-red-500 hover:text-red-700 px-3 py-2">✕</button>
                           )}
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={() => addOption(question.id)}
-                      className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
-                    >
-                      + Add Option
-                    </button>
+                    <button onClick={() => addOption(question.id)} className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green">+ Add Option</button>
                   </div>
                 )}
 
-                {/* True/False */}
                 {question.type === "true_false" && (
                   <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Correct Answer *
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer *</label>
                     <div className="flex gap-4">
                       <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`tf-${question.id}`}
-                          checked={question.correctAnswer === 0}
-                          onChange={() =>
-                            updateQuestion(question.id, "correctAnswer", 0)
-                          }
-                          className="mr-2"
-                        />
+                        <input type="radio" name={`tf-${question.id}`} checked={question.correctAnswer === 0} onChange={() => updateQuestion(question.id, "correctAnswer", 0)} className="mr-2" />
                         <span className="text-gray-700">True</span>
                       </label>
                       <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`tf-${question.id}`}
-                          checked={question.correctAnswer === 1}
-                          onChange={() =>
-                            updateQuestion(question.id, "correctAnswer", 1)
-                          }
-                          className="mr-2"
-                        />
+                        <input type="radio" name={`tf-${question.id}`} checked={question.correctAnswer === 1} onChange={() => updateQuestion(question.id, "correctAnswer", 1)} className="mr-2" />
                         <span className="text-gray-700">False</span>
                       </label>
                     </div>
                   </div>
                 )}
 
-                {/* Short Answer */}
-                {question.type === "short_answer" && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Expected Answer (for reference)
-                    </label>
-                    <textarea
-                      value={
-                        typeof question.correctAnswer === "string"
-                          ? question.correctAnswer
-                          : ""
-                      }
-                      onChange={(e) =>
-                        updateQuestion(
-                          question.id,
-                          "correctAnswer",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Enter the expected answer"
-                      rows="2"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-                    />
-                  </div>
-                )}
-
-                {/* Points */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Points
-                  </label>
-                  <input
-                    type="number"
-                    value={question.points}
-                    onChange={(e) =>
-                      updateQuestion(
-                        question.id,
-                        "points",
-                        parseInt(e.target.value),
-                      )
-                    }
-                    min="1"
-                    className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Points</label>
+                  <input type="number" value={question.points} onChange={(e) => updateQuestion(question.id, "points", parseInt(e.target.value))} min="1" className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green" />
                 </div>
               </div>
             ))}
@@ -768,36 +488,18 @@ export const InstructorQuiz = () => {
         )}
       </div>
 
-      {/* Action Buttons */}
       <div className="flex gap-4 mb-8">
-        <button
-          onClick={() => handleSaveQuiz(false)}
-          disabled={loading}
-          className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button onClick={() => handleSaveQuiz(false)} disabled={loading} className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           {loading ? "Saving..." : "Save as Draft"}
         </button>
-        <button
-          onClick={() => handleSaveQuiz(true)}
-          disabled={loading || questions.length === 0}
-          className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={
-            questions.length === 0 ? "Add at least one question to publish" : ""
-          }
-        >
-          {loading
-            ? "Publishing..."
-            : isPublished
-              ? "Update & Publish"
-              : "Publish Quiz"}
+        <button onClick={() => handleSaveQuiz(true)} disabled={loading || questions.length === 0} className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={questions.length === 0 ? "Add at least one question to publish" : ""}>
+          {loading ? "Publishing..." : isPublished ? "Update & Publish" : "Publish Quiz"}
         </button>
-        <button
-          onClick={() => navigate(-1)}
-          className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
-        >
+        <button onClick={() => navigate(-1)} className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
           {quizId ? "Close" : "Cancel"}
         </button>
       </div>
     </div>
   );
 };
+
