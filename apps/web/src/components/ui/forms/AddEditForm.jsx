@@ -1,11 +1,47 @@
+import { useState, useEffect } from "react";
+import { supabase } from "../../../supabaseClient";
+
 export const AddEditForm = ({
   handleSaveQuestion,
   formData,
   setFormData,
   setShowForm,
-  editingId,
-  showForm,
+  editingId
 }) => {
+  const [quizzes, setQuizzes] = useState([]);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(true);
+
+  // Fetch quizzes for selection when adding new question
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      if (!editingId) {
+        // Only fetch quizzes when adding new question
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          
+          if (user) {
+            const { data, error } = await supabase
+              .from("quizzes")
+              .select("id, title")
+              .eq("instructor_id", user.id)
+              .order("title", { ascending: true });
+            
+            if (!error) {
+              setQuizzes(data || []);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching quizzes:", error);
+        }
+      }
+      setLoadingQuizzes(false);
+    };
+
+    fetchQuizzes();
+  }, [editingId]);
+
   return (
     <div>
       {showForm && (
@@ -13,6 +49,32 @@ export const AddEditForm = ({
           <h2 className="text-xl font-bold text-hornblende-green mb-4">
             {editingId ? "Edit Question" : "Add New Question"}
           </h2>
+
+          {/* Quiz Selection - Only show when adding new question */}
+          {!editingId && (
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Select Quiz *
+              </label>
+              <select
+                value={formData.quiz_id || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, quiz_id: e.target.value })
+                }
+                disabled={loadingQuizzes}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 bg-white"
+              >
+                <option value="">
+                  {loadingQuizzes ? "Loading quizzes..." : "-- Select a Quiz --"}
+                </option>
+                {quizzes.map((quiz) => (
+                  <option key={quiz.id} value={quiz.id}>
+                    {quiz.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-4">
             {/* Question Text */}
@@ -37,7 +99,7 @@ export const AddEditForm = ({
                 Options *
               </label>
               <div className="space-y-2">
-                {formData.options && formData.options.map((opt, idx) => (
+                {formData.options.map((opt, idx) => (
                   <div key={idx} className="flex gap-2">
                     <input
                       type="radio"
@@ -82,7 +144,7 @@ export const AddEditForm = ({
                 onClick={() =>
                   setFormData({
                     ...formData,
-                    options: [...(formData.options || []), ""],
+                    options: [...formData.options, ""],
                   })
                 }
                 className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
@@ -120,15 +182,18 @@ export const AddEditForm = ({
                 onChange={(e) =>
                   setFormData({ ...formData, flag: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 bg-white"
               >
                 <option value="pending">Pending Review</option>
-                <option value="retain">Retain (Good)</option>
+                <option value="approved">Approved</option>
+                <option value="retain">Retain (Good Question)</option>
                 <option value="needs_revision">Needs Revision</option>
                 <option value="discard">Discard</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                Set the status to help track question quality. Questions with item analysis will be auto-flagged.
+                Set the status to help track question quality. 
+                Use "Retain" for good questions, "Needs Revision" for questions that need improvement, 
+                and "Discard" for questions to remove.
               </p>
             </div>
           </div>
