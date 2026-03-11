@@ -1,5 +1,30 @@
 import { supabase } from "../../supabaseClient";
-export const saveItemAnalysis = async () => {
+
+/**
+ * Calculate auto-flag based on difficulty status
+ * @param {string} difficultyStatus - "Easy", "Moderate", "Difficult", or "N/A"
+ * @returns {string} - "approved", "needs_revision", or "discard"
+ */
+const calculateAutoFlag = (difficultyStatus) => {
+  switch (difficultyStatus) {
+    case "Easy":
+      return "approved";
+    case "Moderate":
+      return "needs_revision";
+    case "Difficult":
+      return "discard";
+    default:
+      return "pending";
+  }
+};
+
+/**
+ * Save item analysis results for a quiz
+ * @param {string} quizId - Quiz ID
+ * @param {Array} analysisResults - Array of analysis results
+ * @returns {Promise<{data, error}>}
+ */
+export const saveItemAnalysis = async (quizId, analysisResults) => {
   try {
     const results = [];
 
@@ -59,15 +84,15 @@ export const saveItemAnalysis = async () => {
 
       // Insert distractor analysis if available
       if (item.distractorAnalysis && analysisData) {
-        const distractorInserts = Object.entries(item.distractorAnalysis).map(
-          ([key, value]) => ({
+        const distractorInserts = Object.entries(item.distractorAnalysis)
+          .filter(([key]) => key !== 'distractors')
+          .map(([key, value]) => ({
             item_analysis_id: analysisData.id,
             option_identifier: key,
             taker_count: value.count,
             taker_percentage: parseFloat(value.percentage),
             is_correct_answer: key === "correct",
-          }),
-        );
+          }));
 
         if (distractorInserts.length > 0) {
           const { error: distractorError } = await supabase
