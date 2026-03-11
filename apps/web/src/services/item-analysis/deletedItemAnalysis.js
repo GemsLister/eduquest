@@ -1,5 +1,11 @@
 import { supabase } from "../../supabaseClient";
-export const deletedItemAnalysis = async () => {
+
+/**
+ * Delete item analysis for a quiz
+ * @param {string} quizId - Quiz ID
+ * @returns {Promise<{error}>}
+ */
+export const deleteItemAnalysis = async (quizId) => {
   try {
     // Distractors will be deleted automatically due to CASCADE
     const { error } = await supabase
