@@ -10,6 +10,7 @@ export const useAddSaveQuestion = () => {
     correctAnswer: 0,
     points: 1,
     flag: "pending",
+    quiz_id: null,
   });
 
   const handleAddQuestion = () => {
@@ -20,6 +21,7 @@ export const useAddSaveQuestion = () => {
       correctAnswer: 0,
       points: 1,
       flag: "pending",
+      quiz_id: null,
     });
     setShowForm(true);
   };
@@ -29,7 +31,7 @@ export const useAddSaveQuestion = () => {
       alert("Question text is required");
       return;
     }
-    if (formData.options && formData.options.some((o) => !o.trim())) {
+    if (formData.type === "mcq" && formData.options.some((o) => !o.trim())) {
       alert("All options must be filled");
       return;
     }
@@ -38,78 +40,55 @@ export const useAddSaveQuestion = () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
-        alert("You must be logged in to save questions");
-        return;
-      }
+      if (!user) return;
 
-      // Get the quiz_id - if editing, we need to find it from the existing question
-      let quizId = formData.quiz_id;
-      
-      if (!quizId && editingId) {
-        // Get quiz_id from the existing question
-        const { data: existingQuestion, error: fetchError } = await supabase
-          .from("questions")
-          .select("quiz_id")
-          .eq("id", editingId)
-          .single();
-        
-        if (fetchError) {
-          console.error("Error fetching existing question:", fetchError);
-          alert("Failed to find the quiz for this question");
-          return;
-        }
-        quizId = existingQuestion.quiz_id;
-      }
-
-      if (!quizId) {
-        alert("No quiz selected. Please select a quiz first.");
-        return;
-      }
-
-      const questionData = {
-        quiz_id: quizId,
-        text: formData.text,
-        type: "mcq",
-        options: formData.options,
-        correct_answer: String(formData.correctAnswer),
-        points: formData.points || 1,
-        flag: formData.flag || "pending",
-      };
-
-      let error;
-      
       if (editingId) {
         // Update existing question
-        const { error: updateError } = await supabase
+        const { error } = await supabase
           .from("questions")
           .update({
-            ...questionData,
+            text: formData.text,
+            options: formData.options,
+            correct_answer: formData.correctAnswer,
+            points: formData.points,
+            flag: formData.flag,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingId);
-        
-        error = updateError;
+
+        if (error) {
+          console.error("Error updating question:", error);
+          alert("Failed to update question: " + error.message);
+          return;
+        }
+        alert("Question updated successfully!");
       } else {
-        // Insert new question
-        const { error: insertError } = await supabase
+        // Create new question - need quiz_id
+        if (!formData.quiz_id) {
+          alert("Please select a quiz first");
+          return;
+        }
+
+        const { error } = await supabase
           .from("questions")
-          .insert(questionData);
-        
-        error = insertError;
+          .insert({
+            quiz_id: formData.quiz_id,
+            type: "mcq", // Default type
+            text: formData.text,
+            options: formData.options,
+            correct_answer: formData.correctAnswer,
+            points: formData.points,
+            flag: formData.flag,
+          });
+
+        if (error) {
+          console.error("Error creating question:", error);
+          alert("Failed to create question: " + error.message);
+          return;
+        }
+        alert("Question created successfully!");
       }
 
-      if (error) {
-        console.error("Error saving question:", error);
-        alert("Failed to save question: " + error.message);
-        return;
-      }
-
-      alert(editingId ? "Question updated successfully!" : "Question created successfully!");
-      
-      // Dispatch event to notify other components
-      window.dispatchEvent(new Event('questions-updated'));
-      
       setShowForm(false);
       setFormData({
         text: "",
@@ -117,11 +96,51 @@ export const useAddSaveQuestion = () => {
         correctAnswer: 0,
         points: 1,
         flag: "pending",
+        quiz_id: null,
       });
+
+      // Refresh questions list
+      window.dispatchEvent(new Event("questions-updated"));
     } catch (error) {
       console.error("Error saving question:", error);
       alert("An error occurred while saving the question");
     }
+  };
+
+  // Function to update question flag
+  const updateQuestionFlag = async (questionId, newFlag) => {
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .update({
+          flag: newFlag,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", questionId);
+
+      if (error) {
+        console.error("Error updating flag:", error);
+        return false;
+      }
+
+      // Update local state
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === questionId ? { ...q, flag: newFlag } : q
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error("Error updating flag:", error);
+      return false;
+    }
+  };
+
+  // Need access to setQuestions from parent
+  const setQuestions = (callback) => {
+    // This will be overridden by the component using this hook
+    window.dispatchEvent(new Event("questions-updated"));
   };
 
   return {
@@ -131,7 +150,6 @@ export const useAddSaveQuestion = () => {
     setFormData,
     setShowForm,
     showForm,
-    formData,
-    editingId,
+    updateQuestionFlag,
   };
 };
