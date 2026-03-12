@@ -1,6 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-export const QuizzesList = ({ quizzes, handleDelete, deletingQuizId }) => {
+export const QuizzesList = ({
+  quizzes,
+  handleDelete,
+  deletingQuizId,
+  handleToggleAccess,
+  togglingQuizId,
+}) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState(null);
 
@@ -77,6 +83,36 @@ export const QuizzesList = ({ quizzes, handleDelete, deletingQuizId }) => {
                         {copiedId === quiz.id ? "✓ Copied" : "Copy"}
                       </button>
                     </div>
+                  </div>
+                )}
+                {/* Open/Close toggle — only for published quizzes */}
+                {quiz.is_published && (
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <span
+                      className={`text-xs font-semibold ${quiz.is_open !== false ? "text-green-700" : "text-red-600"}`}
+                    >
+                      {quiz.is_open !== false ? "🔓 Open" : "🔒 Closed"}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleAccess(quiz.id, quiz.is_open !== false);
+                      }}
+                      disabled={togglingQuizId === quiz.id}
+                      className={`text-xs px-3 py-1 rounded font-semibold transition-colors ${
+                        togglingQuizId === quiz.id
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : quiz.is_open !== false
+                            ? "bg-red-100 text-red-600 hover:bg-red-200"
+                            : "bg-green-100 text-green-700 hover:bg-green-200"
+                      }`}
+                    >
+                      {togglingQuizId === quiz.id
+                        ? "..."
+                        : quiz.is_open !== false
+                          ? "Close Quiz"
+                          : "Open Quiz"}
+                    </button>
                   </div>
                 )}
                 <div className="flex gap-2">

@@ -50,6 +50,13 @@ export const PublicQuizPage = () => {
           setLoading(false);
           return;
         }
+
+        if (quizData.is_open === false) {
+          setError("This quiz is currently closed by the instructor.");
+          setLoading(false);
+          return;
+        }
+
         setQuiz(quizData);
 
         const { data: questionsData, error: questionsError } = await supabase

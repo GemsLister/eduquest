@@ -15,6 +15,8 @@ export const SectionDetail = () => {
   } = QuizHooks.useFetchQuizzes();
   const { handleDeleteQuiz, deletingQuizId } =
     QuizHooks.useDeleteQuiz(fetchQuizzes);
+  const { handleToggleAccess, togglingQuizId } =
+    QuizHooks.useToggleQuizAccess(fetchQuizzes);
   const {
     quizFormData,
     showQuizForm,
@@ -81,6 +83,8 @@ export const SectionDetail = () => {
           handleDelete={handleDeleteQuiz}
           deletingQuizId={deletingQuizId}
           setQuizFormData={setQuizFormData}
+          handleToggleAccess={handleToggleAccess}
+          togglingQuizId={togglingQuizId}
         />
       </div>
     </div>
