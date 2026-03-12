@@ -77,9 +77,14 @@ export const PublicQuizPage = () => {
       return;
     }
 
+    if (!studentEmail.endsWith("@student.buksu.edu.ph")) {
+      setError("Only @student.buksu.edu.ph email addresses are allowed.");
+      return;
+    }
+
     try {
       setSubmitting(true);
-      const currentExamCode = quiz?.sections?.exam_code; 
+      const currentExamCode = quiz?.sections?.exam_code;
 
       let { data: student, error: fetchError } = await supabase
         .from("student_profile")
@@ -235,7 +240,7 @@ export const PublicQuizPage = () => {
   // --- RENDERING ---
   if (loading)
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         Loading...
       </div>
     );
@@ -243,7 +248,7 @@ export const PublicQuizPage = () => {
   if (completed) {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
     return (
-      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+      <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         <h1 className="text-3xl font-bold">Quiz Complete!</h1>
         <div className="mt-4 rounded-lg bg-indigo-50 p-8">
           <p className="text-5xl font-bold text-indigo-600">
@@ -257,7 +262,7 @@ export const PublicQuizPage = () => {
 
   if (!hasStarted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
           <h1 className="text-2xl font-bold">{quiz?.title}</h1>
           <p className="mt-2 text-gray-600">{quiz?.description}</p>
@@ -289,43 +294,68 @@ export const PublicQuizPage = () => {
   // Review page (shown after last question)
   if (showReviewPage) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="mx-auto max-w-3xl">
-          {/* Header */}
-          <div className="bg-white border-b-4 border-casual-green rounded-t-lg p-6 shadow-md">
-            <h1 className="text-xl font-bold text-gray-800">{quiz?.title}</h1>
+      <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-4">
+        <div className="mx-auto max-w-4xl">
+          {/* Header — matches question page */}
+          <div className="bg-white border-b-4 border-casual-green rounded-t-lg px-6 py-4 shadow-md">
+            <h1 className="text-lg font-bold text-gray-800">{quiz?.title}</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Review &middot; {answeredCount}/{questions.length} answered
+            </p>
           </div>
 
-          {/* Unanswered notice */}
-          <div className="bg-white p-6 shadow-md border-b border-gray-200">
+          {/* Question navigation panel — mirrors question page */}
+          <div className="bg-white px-6 py-4 shadow-md border-b border-gray-200">
+            <div className="flex flex-wrap gap-1.5">
+              {questions.map((q, i) => {
+                const isAnswered =
+                  answers[q.id] !== undefined && answers[q.id] !== "";
+                const isUnanswered = !isAnswered;
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => goToQuestion(i)}
+                    className={`w-9 h-9 rounded text-sm font-bold transition-colors
+                      ${
+                        isUnanswered
+                          ? "bg-yellow-100 text-yellow-800 border border-yellow-400 hover:bg-yellow-200"
+                          : "bg-green-100 text-green-800 border border-green-400 hover:bg-green-200"
+                      }`}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-4 mt-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-green-100 border border-green-400"></span>{" "}
+                Answered
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-yellow-100 border border-yellow-400"></span>{" "}
+                Unanswered
+              </span>
+            </div>
+          </div>
+
+          {/* Review body */}
+          <div className="bg-white p-6 shadow-md rounded-b-lg">
+            {/* Unanswered warning */}
             {unansweredQuestions.length > 0 ? (
-              <>
-                <p className="text-gray-700 mb-3">
+              <div className="mb-5 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                <p className="text-sm text-gray-700 mb-2">
                   You are at the end of the assessment, however not all of the
-                  items have been answered. Below you will find the item numbers
-                  for which an answer was not submitted:
+                  items have been answered. Click the numbered buttons above to
+                  go back and answer them.
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {unansweredQuestions.map((item) => (
-                    <button
-                      key={item.index}
-                      onClick={() => goToQuestion(item.index)}
-                      className="w-8 h-8 rounded bg-yellow-100 border border-yellow-400 text-yellow-800 text-sm font-bold hover:bg-yellow-200 transition-colors"
-                    >
-                      {item.index + 1}
-                    </button>
-                  ))}
-                </div>
-              </>
+              </div>
             ) : (
-              <p className="text-green-700 font-semibold">
+              <p className="text-green-700 font-semibold mb-5">
                 All questions have been answered.
               </p>
             )}
-          </div>
 
-          {/* Instructions */}
-          <div className="bg-white p-6 shadow-md border-b border-gray-200">
             <p className="text-gray-700">
               To receive a grade for this assessment, please press the{" "}
               <strong>Grade Assessment</strong> button below.
@@ -334,34 +364,34 @@ export const PublicQuizPage = () => {
               If you want to change your answers, please do so using the{" "}
               <strong>Previous</strong> button.
             </p>
-          </div>
 
-          {/* Notice */}
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 shadow-md">
-            <p className="font-bold text-gray-800">NOTICE</p>
-            <p className="text-yellow-700 text-sm mt-1">
-              Once you submit the assessment for grading, you will not be able
-              to return to the assessment and edit your answers! Your assessment
-              will be graded and the score will be determined for this
-              assessment.
-            </p>
-          </div>
+            {/* Notice */}
+            <div className="mt-5 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+              <p className="font-bold text-gray-800 text-sm">NOTICE</p>
+              <p className="text-yellow-700 text-sm mt-1">
+                Once you submit the assessment for grading, you will not be able
+                to return to the assessment and edit your answers! Your
+                assessment will be graded and the score will be determined for
+                this assessment.
+              </p>
+            </div>
 
-          {/* Action buttons */}
-          <div className="flex justify-center gap-4 mt-6">
-            <button
-              onClick={handlePrevious}
-              className="px-8 py-3 bg-white border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Previous
-            </button>
-            <button
-              onClick={handleSubmitQuiz}
-              disabled={submitting}
-              className="px-8 py-3 bg-casual-green text-white rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50"
-            >
-              {submitting ? "Submitting..." : "Grade Assessment"}
-            </button>
+            {/* Action buttons */}
+            <div className="mt-8 flex justify-between">
+              <button
+                onClick={handlePrevious}
+                className="px-6 py-2.5 bg-gray-100 rounded-lg font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={handleSubmitQuiz}
+                disabled={submitting}
+                className="px-6 py-2.5 bg-casual-green text-white rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Submitting..." : "Grade Assessment"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -372,7 +402,7 @@ export const PublicQuizPage = () => {
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-4">
       <div className="mx-auto max-w-4xl">
         {/* Quiz header */}
         <div className="bg-white border-b-4 border-casual-green rounded-t-lg px-6 py-4 shadow-md mb-0">
