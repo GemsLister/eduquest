@@ -15,6 +15,11 @@ const navItems = [
     icon: <Icon.ProfileIcon />,
   },
   {
+    name: "Requests",
+    path: "/admin-dashboard/registration-requests",
+    icon: <Icon.SearchIcon />,
+  },
+  {
     name: "Create Instructor",
     path: "/admin-dashboard/create-instructor",
     icon: <Icon.SectionIcon />,

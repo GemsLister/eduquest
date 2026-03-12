@@ -111,6 +111,10 @@ export const router = createBrowserRouter(
               path: "create-instructor",
               element: <AdminIndex.AdminCreateInstructor />,
             },
+            {
+              path: "registration-requests",
+              element: <AdminIndex.AdminRegistrationRequests />,
+            },
           ],
         },
       ],

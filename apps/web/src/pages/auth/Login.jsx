@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { GoogleButton, AuthButton } from "../../components/ui/buttons/Buttons.jsx";
+import {
+  GoogleButton,
+  AuthButton,
+} from "../../components/ui/buttons/Buttons.jsx";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 
 export const Login = () => {
@@ -63,7 +66,7 @@ export const Login = () => {
                     <input
                       key={index}
                       {...input}
-                      className="w-full border-2 border-pale-silver p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
+                      className="w-full border-2 border-pale-silver p-2.5 pr-16 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
                     />
                     {input.name === "password" && (
                       <button

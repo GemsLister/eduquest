@@ -62,4 +62,33 @@ export const adminService = {
   deleteInstructor: async (userId) => {
     return await callEdgeFunction("delete-instructor", { userId });
   },
+
+  /**
+   * Fetch all pending registration requests (is_approved = false, is_admin = false)
+   */
+  getRegistrationRequests: async () => {
+    return await supabase
+      .from("profiles")
+      .select("id, username, email, created_at")
+      .eq("is_approved", false)
+      .eq("is_admin", false)
+      .order("created_at", { ascending: false });
+  },
+
+  /**
+   * Approve a registration request
+   */
+  approveRegistration: async (userId) => {
+    return await supabase
+      .from("profiles")
+      .update({ is_approved: true })
+      .eq("id", userId);
+  },
+
+  /**
+   * Reject a registration request (deletes the auth user)
+   */
+  rejectRegistration: async (userId) => {
+    return await callEdgeFunction("delete-instructor", { userId });
+  },
 };

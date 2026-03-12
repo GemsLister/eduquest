@@ -51,8 +51,15 @@ export const AuthButton = ({ name, user }) => {
 
       case "Register":
         try {
-          if (!user.username || !user.password || !user.email)
+          if (
+            !user.username ||
+            !user.password ||
+            !user.email ||
+            !user.confirmPassword
+          )
             toast.error("Fill out the form");
+          else if (user.password !== user.confirmPassword)
+            toast.error("Passwords do not match");
           else {
             const result = handleRegister(user);
             if (!result && result.success) console.error(error);
