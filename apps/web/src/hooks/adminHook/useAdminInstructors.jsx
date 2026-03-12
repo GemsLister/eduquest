@@ -6,7 +6,7 @@ export const useAdminInstructors = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(null); // stores id being deleted
+  const [statusLoading, setStatusLoading] = useState(null); // stores id being updated
 
   const fetchInstructors = useCallback(async () => {
     setLoading(true);
@@ -43,20 +43,29 @@ export const useAdminInstructors = () => {
     return { success: true, data };
   };
 
-  const deleteInstructor = async (userId) => {
-    setDeleteLoading(userId);
+  const toggleInstructorStatus = async (userId, disabled) => {
+    setStatusLoading(userId);
     setError("");
-    const { error: deleteError } = await adminService.deleteInstructor(userId);
-    setDeleteLoading(null);
-    if (deleteError) {
+    const { error: statusError } = await adminService.toggleInstructorStatus(
+      userId,
+      disabled,
+    );
+    setStatusLoading(null);
+    if (statusError) {
       const message =
-        typeof deleteError === "string"
-          ? deleteError
-          : deleteError.message || "Failed to delete instructor";
+        typeof statusError === "string"
+          ? statusError
+          : statusError.message || "Failed to update instructor status";
       setError(message);
       return { success: false, error: message };
     }
-    setInstructors((prev) => prev.filter((i) => i.id !== userId));
+    setInstructors((prev) =>
+      prev.map((instructor) =>
+        instructor.id === userId
+          ? { ...instructor, is_disabled: disabled }
+          : instructor,
+      ),
+    );
     return { success: true };
   };
 
@@ -65,9 +74,9 @@ export const useAdminInstructors = () => {
     loading,
     error,
     createLoading,
-    deleteLoading,
+    statusLoading,
     fetchInstructors,
     createInstructor,
-    deleteInstructor,
+    toggleInstructorStatus,
   };
 };

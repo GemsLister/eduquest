@@ -57,10 +57,13 @@ export const adminService = {
   },
 
   /**
-   * Delete an instructor account (auth + profile) via edge function.
+   * Toggle an instructor account without deleting related data.
    */
-  deleteInstructor: async (userId) => {
-    return await callEdgeFunction("delete-instructor", { userId });
+  toggleInstructorStatus: async (userId, disabled) => {
+    return await callEdgeFunction("toggle-instructor-status", {
+      userId,
+      disabled,
+    });
   },
 
   /**

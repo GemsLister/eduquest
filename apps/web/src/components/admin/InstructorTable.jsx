@@ -2,17 +2,23 @@ import { useState } from "react";
 import { adminService } from "../../services/adminService.js";
 import { toast } from "react-toastify";
 
-export const InstructorTable = ({ instructors, deleteLoading, onDelete }) => {
+export const InstructorTable = ({
+  instructors,
+  statusLoading,
+  onToggleStatus,
+}) => {
   const [changePwdTarget, setChangePwdTarget] = useState(null); // { id, name }
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
 
+  const getInstructorName = (instructor) =>
+    instructor.first_name || instructor.last_name
+      ? `${instructor.first_name || ""} ${instructor.last_name || ""}`.trim()
+      : instructor.email;
+
   const handleChangePwdOpen = (instructor) => {
-    const name =
-      instructor.first_name || instructor.last_name
-        ? `${instructor.first_name || ""} ${instructor.last_name || ""}`.trim()
-        : instructor.email;
+    const name = getInstructorName(instructor);
     setChangePwdTarget({ id: instructor.id, name });
     setNewPassword("");
     setShowNewPassword(false);
@@ -60,16 +66,15 @@ export const InstructorTable = ({ instructors, deleteLoading, onDelete }) => {
               <th className="px-5 py-4 font-semibold">Name</th>
               <th className="px-5 py-4 font-semibold">Username</th>
               <th className="px-5 py-4 font-semibold">Email</th>
+              <th className="px-5 py-4 font-semibold">Status</th>
               <th className="px-5 py-4 font-semibold">Date Created</th>
               <th className="px-5 py-4 font-semibold text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {instructors.map((instructor) => {
-              const fullName =
-                instructor.first_name || instructor.last_name
-                  ? `${instructor.first_name || ""} ${instructor.last_name || ""}`.trim()
-                  : "—";
+              const fullName = getInstructorName(instructor);
+              const isDisabled = instructor.is_disabled === true;
               const createdAt = instructor.created_at
                 ? new Date(instructor.created_at).toLocaleDateString("en-US", {
                     year: "numeric",
@@ -92,6 +97,17 @@ export const InstructorTable = ({ instructors, deleteLoading, onDelete }) => {
                   <td className="px-5 py-4 text-gray-600">
                     {instructor.email || "—"}
                   </td>
+                  <td className="px-5 py-4">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        isDisabled
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {isDisabled ? "Disabled" : "Active"}
+                    </span>
+                  </td>
                   <td className="px-5 py-4 text-gray-500">{createdAt}</td>
                   <td className="px-5 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -102,13 +118,21 @@ export const InstructorTable = ({ instructors, deleteLoading, onDelete }) => {
                         Change Password
                       </button>
                       <button
-                        onClick={() => onDelete(instructor.id)}
-                        disabled={deleteLoading === instructor.id}
-                        className="px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => onToggleStatus(instructor)}
+                        disabled={statusLoading === instructor.id}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isDisabled
+                            ? "text-green-700 border border-green-300 hover:bg-green-50"
+                            : "text-amber-700 border border-amber-300 hover:bg-amber-50"
+                        }`}
                       >
-                        {deleteLoading === instructor.id
-                          ? "Deleting..."
-                          : "Delete"}
+                        {statusLoading === instructor.id
+                          ? isDisabled
+                            ? "Enabling..."
+                            : "Disabling..."
+                          : isDisabled
+                            ? "Enable Account"
+                            : "Disable Account"}
                       </button>
                     </div>
                   </td>

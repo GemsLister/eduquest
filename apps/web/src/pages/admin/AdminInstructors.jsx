@@ -3,18 +3,18 @@ import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.j
 import { InstructorTable } from "../../components/admin/InstructorTable.jsx";
 
 export const AdminInstructors = () => {
-  const { instructors, loading, error, deleteLoading, deleteInstructor } =
+  const { instructors, loading, error, statusLoading, toggleInstructorStatus } =
     useAdminInstructors();
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [statusTarget, setStatusTarget] = useState(null);
 
-  const handleDeleteClick = (id) => {
-    setConfirmDeleteId(id);
+  const handleStatusClick = (instructor) => {
+    setStatusTarget(instructor);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!confirmDeleteId) return;
-    await deleteInstructor(confirmDeleteId);
-    setConfirmDeleteId(null);
+  const handleConfirmStatus = async () => {
+    if (!statusTarget) return;
+    await toggleInstructorStatus(statusTarget.id, !statusTarget.is_disabled);
+    setStatusTarget(null);
   };
 
   return (
@@ -51,38 +51,48 @@ export const AdminInstructors = () => {
         ) : (
           <InstructorTable
             instructors={instructors}
-            deleteLoading={deleteLoading}
-            onDelete={handleDeleteClick}
+            statusLoading={statusLoading}
+            onToggleStatus={handleStatusClick}
           />
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {confirmDeleteId && (
+      {statusTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
             <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Delete Instructor?
+              {statusTarget.is_disabled
+                ? "Enable Instructor?"
+                : "Disable Instructor?"}
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              This will permanently remove the instructor&apos;s account and all
-              associated data. This action cannot be undone.
+              {statusTarget.is_disabled
+                ? "This will restore the instructor's access. Their quizzes, sections, and records will remain unchanged."
+                : "This will block the instructor from logging in, but their quizzes, sections, and records will stay in the database."}
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setConfirmDeleteId(null)}
+                onClick={() => setStatusTarget(null)}
                 className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirmDelete}
-                disabled={deleteLoading === confirmDeleteId}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
+                onClick={handleConfirmStatus}
+                disabled={statusLoading === statusTarget.id}
+                className={`flex-1 px-4 py-2.5 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 ${
+                  statusTarget.is_disabled
+                    ? "bg-casual-green hover:bg-hornblende-green"
+                    : "bg-amber-500 hover:bg-amber-600"
+                }`}
               >
-                {deleteLoading === confirmDeleteId
-                  ? "Deleting..."
-                  : "Yes, Delete"}
+                {statusLoading === statusTarget.id
+                  ? statusTarget.is_disabled
+                    ? "Enabling..."
+                    : "Disabling..."
+                  : statusTarget.is_disabled
+                    ? "Yes, Enable"
+                    : "Yes, Disable"}
               </button>
             </div>
           </div>

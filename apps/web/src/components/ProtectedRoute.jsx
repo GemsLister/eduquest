@@ -6,6 +6,7 @@ export const ProtectedRoute = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(null);
+  const [isDisabled, setIsDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,12 +20,18 @@ export const ProtectedRoute = ({ children }) => {
         if (authUser) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("is_admin, is_approved")
+            .select("*")
             .eq("id", authUser.id)
             .single();
           setIsAdmin(!!profile?.is_admin);
           // Treat null (column not yet added) as approved to avoid locking out existing users
           setIsApproved(profile?.is_approved !== false);
+          setIsDisabled(profile?.is_disabled === true);
+
+          if (profile?.is_disabled === true) {
+            await supabase.auth.signOut();
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error("Auth check error:", error);
@@ -49,6 +56,10 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (isDisabled) {
     return <Navigate to="/" replace />;
   }
 

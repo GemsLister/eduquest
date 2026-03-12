@@ -20,9 +20,15 @@ export const useLogin = () => {
       // Check profile for role
       const { data: profile } = await supabase
         .from("profiles")
-        .select("is_admin, is_instructor")
+        .select("*")
         .eq("id", data.user.id)
         .single();
+
+      if (profile?.is_disabled) {
+        await supabase.auth.signOut();
+        toast.error("This account has been disabled by the admin");
+        return;
+      }
 
       if (profile?.is_admin) {
         navigate("/admin-dashboard");
