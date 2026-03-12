@@ -91,4 +91,14 @@ export const adminService = {
   rejectRegistration: async (userId) => {
     return await callEdgeFunction("delete-instructor", { userId });
   },
+
+  /**
+   * Change an instructor's password via edge function.
+   */
+  changeInstructorPassword: async (userId, newPassword) => {
+    return await callEdgeFunction("change-instructor-password", {
+      userId,
+      newPassword,
+    });
+  },
 };
