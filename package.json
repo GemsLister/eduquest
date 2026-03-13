@@ -17,5 +17,9 @@
     "lint": "npm run lint --workspaces",
     "preview": "npm run preview --workspace=apps/web"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-toastify": "^11.0.5"
+  }
 }
