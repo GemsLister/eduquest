@@ -1,3 +1,4 @@
+export { InstructorLayout } from "./InstructorLayout.jsx";
 export { InstructorDashboard } from "./InstructorDashboard.jsx";
 export { InstructorQuiz } from "./InstructorQuiz.jsx";
 export { InstructorQuestions } from "./InstructorQuestions.jsx";

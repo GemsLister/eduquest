@@ -12,17 +12,16 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
     error,
     formData,
   } = useCreateSection(onSectionCreated, userId);
-  
 
   return (
     <div>
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors shadow-md"
+          className="flex items-center gap-2 bg-white text-hornblende-green px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-casual-green hover:text-white transition-all duration-200 shadow-md"
         >
-          <span className="text-lg">+</span>
-          Create New Class
+          <span className="text-lg leading-none">+</span>
+          New Section
         </button>
       ) : (
         <Container.PopupContainer>

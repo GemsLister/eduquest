@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 
@@ -19,6 +19,8 @@ export const InstructorQuiz = () => {
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
   const [showShareUrl, setShowShareUrl] = useState(false);
+  const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
+  const [questionCount, setQuestionCount] = useState(1);
 
   useEffect(() => {
     if (quizId) {
@@ -82,15 +84,21 @@ export const InstructorQuiz = () => {
   };
 
   const addQuestion = () => {
-    const newQuestion = {
-      id: Date.now(),
+    setQuestionCount(1);
+    setShowAddQuestionPopup(true);
+  };
+
+  const addMultipleQuestions = (count) => {
+    const newQuestions = Array.from({ length: count }, (_, i) => ({
+      id: Date.now() + i,
       type: "mcq",
       text: "",
       options: ["", ""],
       correctAnswer: 0,
       points: 1,
-    };
-    setQuestions([...questions, newQuestion]);
+    }));
+    setQuestions([...questions, ...newQuestions]);
+    setShowAddQuestionPopup(false);
   };
 
   const updateQuestion = (id, field, value) => {
@@ -144,7 +152,6 @@ export const InstructorQuiz = () => {
     });
   };
 
-  // Archive question to Question Bank (instead of permanently deleting)
   const archiveQuestion = async (id) => {
     setDeletingQuestionId(id);
     
@@ -374,7 +381,7 @@ export const InstructorQuiz = () => {
       {error && <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
       {saveStatus && <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">{saveStatus}</div>}
 
-      {showShareUrl && shareToken && (
+      {(showShareUrl || isPublished) && shareToken && (
         <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
           <h3 className="text-lg font-bold text-blue-900 mb-3">✅ Quiz Published Successfully!</h3>
           <p className="text-blue-800 mb-4">Share this link with students so they can take the quiz:</p>
@@ -389,42 +396,127 @@ export const InstructorQuiz = () => {
       )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-hornblende-green mb-4">Quiz Information</h2>
+        <h2 className="text-xl font-bold text-hornblende-green mb-4">
+          Quiz Information
+        </h2>
+
+        {isPublished && (
+          <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
+            🔒 This quiz is published and cannot be edited.
+          </div>
+        )}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Quiz Title *</label>
-            <input type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="e.g., Biology Chapter 5 Test" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Quiz Title *
+            </label>
+            <input
+              type="text"
+              value={quizTitle}
+              onChange={(e) => setQuizTitle(e.target.value)}
+              placeholder="e.g., Biology Chapter 5 Test"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+            />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-            <textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="Describe the quiz purpose and content" rows="3" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={quizDescription}
+              onChange={(e) => setQuizDescription(e.target.value)}
+              placeholder="Describe the quiz purpose and content"
+              rows="3"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+            />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Duration (minutes)</label>
-            <input type="number" value={quizDuration} onChange={(e) => setQuizDuration(e.target.value)} placeholder="Leave blank for unlimited" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Duration (minutes)
+            </label>
+            <input
+              type="number"
+              value={quizDuration}
+              onChange={(e) => setQuizDuration(e.target.value)}
+              placeholder="Leave blank for unlimited"
+              disabled={isPublished}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+            />
           </div>
         </div>
       </div>
 
+      {showAddQuestionPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
+            <h3 className="text-lg font-bold text-hornblende-green mb-4">
+              How many questions do you want to add?
+            </h3>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={questionCount}
+              onChange={(e) =>
+                setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 mb-4 text-center text-lg"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => addMultipleQuestions(questionCount)}
+                className="flex-1 bg-casual-green text-white py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              >
+                Add {questionCount} Question{questionCount > 1 ? "s" : ""}
+              </button>
+              <button
+                onClick={() => setShowAddQuestionPopup(false)}
+                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-hornblende-green">Questions ({questions.length})</h2>
-          <button onClick={addQuestion} className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors">
-            + Add Question
-          </button>
+          <h2 className="text-xl font-bold text-hornblende-green">
+            Questions ({questions.length})
+          </h2>
+          {!isPublished && (
+            <button
+              onClick={addQuestion}
+              className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+            >
+              + Add Question
+            </button>
+          )}
         </div>
 
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <p className="text-gray-500 mb-4">No questions added yet</p>
-            <button onClick={addQuestion} className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors">Add First Question</button>
+            {!isPublished && (
+              <button
+                onClick={addQuestion}
+                className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              >
+                Add First Question
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
             {questions.map((question, idx) => (
               <div key={question.id} className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Question {idx + 1}</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {idx + 1}. {question.text.substring(0, 50)}...
+                  </h3>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -440,8 +532,19 @@ export const InstructorQuiz = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question Text *</label>
-                  <textarea value={question.text} onChange={(e) => updateQuestion(question.id, "text", e.target.value)} placeholder="Enter the question" rows="2" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Question Text *
+                  </label>
+                  <textarea
+                    value={question.text}
+                    onChange={(e) =>
+                      updateQuestion(question.id, "text", e.target.value)
+                    }
+                    placeholder="Enter the question"
+                    rows="2"
+                    disabled={isPublished}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                  />
                 </div>
 
                 {question.type === "mcq" && (
@@ -449,9 +552,32 @@ export const InstructorQuiz = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Options *</label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
-                        <div key={optIdx} className="flex gap-2">
-                          <input type="radio" name={`correct-${question.id}`} checked={question.correctAnswer === optIdx} onChange={() => updateQuestion(question.id, "correctAnswer", optIdx)} className="mt-3" />
-                          <input type="text" value={option} onChange={(e) => updateOption(question.id, optIdx, e.target.value)} placeholder={`Option ${optIdx + 1}`} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green" />
+                        <div key={optIdx} className="flex gap-2 items-center">
+                          <input
+                            type="radio"
+                            name={`correct-${question.id}`}
+                            checked={question.correctAnswer === optIdx}
+                            onChange={() =>
+                              updateQuestion(
+                                question.id,
+                                "correctAnswer",
+                                optIdx,
+                              )
+                            }
+                            className="mt-0.5"
+                          />
+                          <span className="text-sm font-semibold text-gray-500 w-5">
+                            ({String.fromCharCode(97 + optIdx)})
+                          </span>
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) =>
+                              updateOption(question.id, optIdx, e.target.value)
+                            }
+                            placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                          />
                           {question.options.length > 2 && (
                             <button onClick={() => removeOption(question.id, optIdx)} className="text-red-500 hover:text-red-700 px-3 py-2">✕</button>
                           )}
@@ -489,13 +615,43 @@ export const InstructorQuiz = () => {
       </div>
 
       <div className="flex gap-4 mb-8">
-        <button onClick={() => handleSaveQuiz(false)} disabled={loading} className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-          {loading ? "Saving..." : "Save as Draft"}
-        </button>
-        <button onClick={() => handleSaveQuiz(true)} disabled={loading || questions.length === 0} className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={questions.length === 0 ? "Add at least one question to publish" : ""}>
-          {loading ? "Publishing..." : isPublished ? "Update & Publish" : "Publish Quiz"}
-        </button>
-        <button onClick={() => navigate(-1)} className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+        {!isPublished && (
+          <>
+            <button
+              onClick={() => handleSaveQuiz(false)}
+              disabled={loading}
+              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={() => handleSaveQuiz(true)}
+              disabled={loading || questions.length === 0}
+              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                questions.length === 0
+                  ? "Add at least one question to publish"
+                  : ""
+              }
+            >
+              {loading ? "Publishing..." : "Publish Quiz"}
+            </button>
+          </>
+        )}
+        {isPublished && (
+          <button
+            onClick={() =>
+              navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+            }
+            className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+          >
+            📊 View Results
+          </button>
+        )}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+        >
           {quizId ? "Close" : "Cancel"}
         </button>
       </div>

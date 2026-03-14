@@ -4,7 +4,13 @@ import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
 
 export const InstructorDashboard = () => {
-  const { user, sections = [], setSections, loading } = useFetchSectionQuiz();
+  const {
+    user,
+    sections = [],
+    setSections,
+    sectionQuizzes,
+    loading,
+  } = useFetchSectionQuiz();
 
   if (loading) {
     return (
@@ -19,25 +25,28 @@ export const InstructorDashboard = () => {
 
   return (
     <>
-      {/* Hero Section */}
-      <div className="flex justify-between items-center bg-white border-b border-gray-200 px-4 md:px-6 py-6 md:py-8">
-        <div className="flex flex-col">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 mb-2">
-            Sections
-          </h1>
-          <p className="text-sm md:text-base text-gray-600">
-            Manage your classes and create quizzes
-          </p>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+              Instructor
+            </p>
+            <h1 className="text-2xl md:text-3xl font-black text-white">
+              Your Sections
+            </h1>
+            <p className="text-white/60 text-sm mt-1">
+              {sections.length} {sections.length === 1 ? "class" : "classes"}{" "}
+              active
+            </p>
+          </div>
+          <CreateSectionButton
+            onSectionCreated={(newSections) =>
+              setSections((prev) => [newSections, ...prev])
+            }
+            userId={user?.id}
+          />
         </div>
-        {/* Create Section */}
-      </div>
-      <div className="my-4 mx-7">
-        <CreateSectionButton
-          onSectionCreated={(newSections) =>
-            setSections((prev) => [newSections, ...prev])
-          }
-          userId={user?.id}
-        />
       </div>
 
       {/* Classes Grid */}
@@ -54,6 +63,7 @@ export const InstructorDashboard = () => {
                 sectionName={section.name}
                 examCode={section.exam_code}
                 subject={section.description}
+                quizCount={sectionQuizzes[section.id]?.length || 0}
               />
             </Container.SectionContainer>
           ))}

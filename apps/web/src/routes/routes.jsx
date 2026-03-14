@@ -1,15 +1,19 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
 import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
+import { AdminProtectedRoute } from "../components/AdminProtectedRoute.jsx";
 // Auth Routes
 import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Item Analysis Routes
-import { ItemAnalysisPage } from "../pages/item-analysis/itemAnalysisPage.jsx";
+import * as ItemAnalysisIndex from "../pages/item-analysis/itemAnalysisIndex.js";
+// Admin Routes
+import * as AdminIndex from "../pages/admin/adminPageIndex.js";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
 import { Layout } from "../components/container/Layout.jsx";
+import { AdminLayout } from "../components/container/AdminLayout.jsx";
 
 export const router = createBrowserRouter(
   [
@@ -91,6 +95,33 @@ export const router = createBrowserRouter(
             {
               path: "item-difficulty-analysis",
               element: <ItemAnalysisPage />,
+            },
+          ],
+        },
+        // Admin dashboard routing
+        {
+          path: "admin-dashboard",
+          element: (
+            <AdminProtectedRoute>
+              <AdminLayout />
+            </AdminProtectedRoute>
+          ),
+          children: [
+            {
+              index: true,
+              element: <AdminIndex.AdminDashboard />,
+            },
+            {
+              path: "instructors",
+              element: <AdminIndex.AdminInstructors />,
+            },
+            {
+              path: "create-instructor",
+              element: <AdminIndex.AdminCreateInstructor />,
+            },
+            {
+              path: "registration-requests",
+              element: <AdminIndex.AdminRegistrationRequests />,
             },
           ],
         },

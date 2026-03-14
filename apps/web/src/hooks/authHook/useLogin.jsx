@@ -12,20 +12,44 @@ export const useLogin = () => {
       });
 
       // To notify users that their email is invalid
-      if (error) toast.error("Invalid email or password");
+      if (error) {
+        toast.error("Invalid email or password");
+        return;
+      }
 
+      // Check profile for role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.is_disabled) {
+        await supabase.auth.signOut();
+        toast.error("This account has been disabled by the admin");
+        return;
+      }
+
+      if (profile?.is_admin) {
+        navigate("/admin-dashboard");
+        return;
+      }
+
+      // Allow if is_instructor flag is set OR email matches the allowed domain
       if (
-        !data.user.email.endsWith(
+        profile?.is_instructor ||
+        data.user.email.endsWith(
           import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION,
         )
       ) {
+        navigate("/instructor-dashboard");
+      } else {
         await supabase.auth.signOut();
         toast.error("Access Denied: Instructors Only!");
-      } else navigate("/instructor-dashboard");
-
-      console.log(data.message);
+      }
     } catch (error) {
-      toast.error(error);
+      console.error(error);
+      toast.error("An error occurred during login");
     }
   };
   return { handleLogin };

@@ -5,6 +5,7 @@ export const useUsername = () => {
   const [userData, setUserData] = useState({
     googleName: "",
     dbName: "",
+    avatarUrl: "",
     loading: true,
   });
 
@@ -15,24 +16,32 @@ export const useUsername = () => {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Get the user's full name from Google
         const googleName =
           user.user_metadata?.full_name || user.email.split("@")[0];
-        const { data: dbRecord, error } = await supabase
+        const { data: dbRecord } = await supabase
           .from("profiles")
-          .select("username")
+          .select("username, avatar_url, first_name, last_name")
           .eq("id", user.id)
           .single();
 
-        if (dbRecord) console.log(dbRecord.username);
+        const fullName =
+          dbRecord?.first_name && dbRecord?.last_name
+            ? `${dbRecord.first_name} ${dbRecord.last_name}`
+            : null;
 
         setUserData({
-          googleName: googleName,
+          googleName: fullName || googleName,
           dbName: dbRecord ? dbRecord.username : "",
+          avatarUrl: dbRecord?.avatar_url || "",
           loading: false,
         });
       } else {
-        setUserData({ googleName: "", dbName: "", loading: false });
+        setUserData({
+          googleName: "",
+          dbName: "",
+          avatarUrl: "",
+          loading: false,
+        });
       }
     };
     getUserData();

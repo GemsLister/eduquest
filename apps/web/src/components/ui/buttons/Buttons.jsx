@@ -37,15 +37,12 @@ export const AuthButton = ({ name, user }) => {
     switch (name) {
       case "Login":
         try {
-          if (!user.email || !user.password) toast.error("Fill out the form");
-
-          if (!user.email || !user.password) alert("Needed");
-          else if (!user.captchaToken)
-            toast.error("Please complete the reCAPTCHA");
-          else {
-            const result = handleLogin(user);
-            if (!result && result.success) console.error(error);
+          if (!user.email || !user.password) {
+            toast.error("Fill out the form");
+            return;
           }
+          const result = handleLogin(user);
+          if (!result && result.success) console.error(error);
         } catch (error) {
           // notify();
           console.error(error);
@@ -54,8 +51,15 @@ export const AuthButton = ({ name, user }) => {
 
       case "Register":
         try {
-          if (!user.username || !user.password || !user.email)
+          if (
+            !user.username ||
+            !user.password ||
+            !user.email ||
+            !user.confirmPassword
+          )
             toast.error("Fill out the form");
+          else if (user.password !== user.confirmPassword)
+            toast.error("Passwords do not match");
           else {
             const result = handleRegister(user);
             if (!result && result.success) console.error(error);
