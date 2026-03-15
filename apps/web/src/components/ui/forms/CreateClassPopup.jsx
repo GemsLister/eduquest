@@ -7,9 +7,8 @@ export const CreateClassPopup = ({
   error,
   formDataName,
   formDataDescription,
-  onInputChange
+  onInputChange,
 }) => {
-
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-4">
@@ -18,9 +17,10 @@ export const CreateClassPopup = ({
 
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Class Name *
+          Section Code
         </label>
         <input
+          required
           type="text"
           name="name"
           value={formDataName}
@@ -31,14 +31,15 @@ export const CreateClassPopup = ({
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Description
+        <label className="text-sm font-semibold text-gray-700 mb-2">
+          Subject
         </label>
-        <textarea
+        <input
+          required
           name="description"
           value={formDataDescription}
           onChange={onInputChange}
-          placeholder="Optional class description"
+          placeholder="eg., Computer Programming 1"
           rows="3"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
         />
