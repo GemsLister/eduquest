@@ -1,3 +1,15 @@
+const getCohortFilterLabel = (filter) => {
+  const labels = {
+    "all": "All Students",
+    "top_performers": "Top 25% Performers",
+    "bottom_performers": "Bottom 25% Performers",
+    "middle_performers": "Middle 50% Performers",
+    "perfect_scores": "Perfect Scores Only",
+    "failing_scores": "Failing Scores (<60%)"
+  };
+  return labels[filter] || filter;
+};
+
 export const ItemAnalysisResults = ({ 
   selectedQuiz, 
   analysis, 
@@ -6,7 +18,8 @@ export const ItemAnalysisResults = ({
   savingAnalysis, 
   analysisSaved,
   totalAttempts,
-  allTakers
+  allTakers,
+  selectedCohortFilter
 }) => {
   return (
     <div>
@@ -16,15 +29,22 @@ export const ItemAnalysisResults = ({
           {/* Action Buttons */}
           <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-700">
-                Analysis Results
-                {analysis?.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    ({analysis.length} questions)
-                  </span>
-                )}
-              </h3>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-700">
+              Analysis Results
+              {analysis?.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({analysis.length} questions)
+                </span>
+              )}
+            </h3>
+            {selectedCohortFilter !== "all" && (
+              <div className="mt-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Filter: {getCohortFilterLabel(selectedCohortFilter)}
+                </span>
+              </div>
+            )}
+          </div>
             
             <div className="flex gap-2">
               {saveError && (
