@@ -13,5 +13,20 @@ export const useGoogleLogin = () => {
       },
     });
   };
-  return { handleGoogleLogin };
+  const handleGoogleQuizLogin = async (quizToken) => {
+    const redirectUrl = `${window.location.origin}/public-quiz/${quizToken}?auth=success`;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+    if (error) console.error('Google login error:', error);
+  };
+
+  return { handleGoogleLogin, handleGoogleQuizLogin };
 };
