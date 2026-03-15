@@ -483,17 +483,31 @@ export const InstructorQuiz = () => {
       )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-hornblende-green">
-            Questions ({questions.length})
-          </h2>
+        <div className="flex justify-between items-center mb-6 gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-hornblende-green">
+              Questions ({questions.length})
+            </h2>
+          </div>
           {!isPublished && (
-            <button
-              onClick={addQuestion}
-              className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-            >
-              + Add Question
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={addQuestion}
+                className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors text-sm"
+              >
+                + Add Question
+              </button>
+              <button
+                onClick={() => {
+                  const shuffled = [...questions].sort(() => Math.random() - 0.5);
+                  setQuestions(shuffled);
+                }}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1"
+                title="Randomize question order for students"
+              >
+                🔀 Shuffle
+              </button>
+            </div>
           )}
         </div>
 
@@ -517,18 +531,48 @@ export const InstructorQuiz = () => {
                   <h3 className="text-lg font-semibold text-gray-800">
                     {idx + 1}. {question.text.substring(0, 50)}...
                   </h3>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (confirm("Archive this question to Question Bank? You can restore it later.")) {
-                        archiveQuestion(question.id).catch((err) => console.error("Failed to archive question:", err));
-                      }
-                    }}
-                    disabled={deletingQuestionId === question.id}
-                    className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold transition-colors`}
-                  >
-                    {deletingQuestionId === question.id ? "..." : "📁 Archive"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (confirm("Archive this question to Question Bank? You can restore it later.")) {
+                          archiveQuestion(question.id).catch((err) => console.error("Failed to archive question:", err));
+                        }
+                      }}
+                      disabled={deletingQuestionId === question.id}
+                      className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
+                    >
+                      {deletingQuestionId === question.id ? "..." : "📁 Archive"}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (confirm("Delete this question permanently? This cannot be undone.")) {
+                          if (typeof question.id === "number" && question.id > 10000000000) {
+                            // Local question
+                            setQuestions(questions.filter((q) => q.id !== question.id));
+                          } else {
+                            // Database question - hard delete
+                            supabase
+                              .from("questions")
+                              .delete()
+                              .eq("id", question.id)
+                              .then(({ error }) => {
+                                if (error) {
+                                  console.error("Delete error:", error);
+                                  alert("Delete failed: " + error.message);
+                                } else {
+                                  setQuestions(questions.filter((q) => q.id !== question.id));
+                                }
+                              });
+                          }
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mb-4">
@@ -614,47 +658,59 @@ export const InstructorQuiz = () => {
         )}
       </div>
 
-      <div className="flex gap-4 mb-8">
-        {!isPublished && (
-          <>
-            <button
-              onClick={() => handleSaveQuiz(false)}
-              disabled={loading}
-              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Saving..." : "Save as Draft"}
-            </button>
-            <button
-              onClick={() => handleSaveQuiz(true)}
-              disabled={loading || questions.length === 0}
-              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={
-                questions.length === 0
-                  ? "Add at least one question to publish"
-                  : ""
-              }
-            >
-              {loading ? "Publishing..." : "Publish Quiz"}
-            </button>
-          </>
-        )}
-        {isPublished && (
-          <button
-            onClick={() =>
-              navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-            }
-            className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
-          >
-            📊 View Results
-          </button>
-        )}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex-1 bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
-        >
-          {quizId ? "Close" : "Cancel"}
-        </button>
-      </div>
+            <div className="flex gap-4 mb-8">
+              {!isPublished && (
+                <>
+                  <button
+                    onClick={() => handleSaveQuiz(false)}
+                    disabled={loading}
+                    className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Saving..." : "Save as Draft"}
+                  </button>
+                  <button
+                    onClick={() => handleSaveQuiz(true)}
+                    disabled={loading || questions.length === 0}
+                    className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      questions.length === 0
+                        ? "Add at least one question to publish"
+                        : ""
+                    }
+                  >
+                    {loading ? "Publishing..." : "Publish Quiz"}
+                  </button>
+                </>
+              )}
+              {quizId && (
+                <>
+                  <button
+                    onClick={() =>
+                      navigate(`/instructor-dashboard/question-bank/${quizId}`)
+                    }
+                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    📚 Load from Archive
+                  </button>
+                  {isPublished && (
+                    <button
+                      onClick={() =>
+                        navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                      }
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                    >
+                      📊 View Results
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                onClick={() => navigate(-1)}
+                className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+              >
+                {quizId ? "Close" : "Cancel"}
+              </button>
+            </div>
     </div>
   );
 };
