@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
-import { StudentFormInput } from "../components/StudentForm.jsx";
+import * as studentService from "../services/studentService.js";
+import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
+import { useSearchParams } from "react-router-dom";
 
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
@@ -22,6 +24,8 @@ export const PublicQuizPage = () => {
   const [score, setScore] = useState(0);
   const [attemptId, setAttemptId] = useState(null);
   const [showReviewPage, setShowReviewPage] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authenticating, setAuthenticating] = useState(false);
 
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -76,7 +80,96 @@ export const PublicQuizPage = () => {
     if (shareToken) loadQuiz();
   }, [shareToken]);
 
-  // --- START QUIZ LOGIC (FIXED EXAM_CODE) ---
+  // Auth state listener
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Auto-start quiz after Google auth
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (session?.user && searchParams.get('auth') === 'success' && !hasStarted && quiz) {
+      handleGoogleQuizStart();
+    }
+  }, [session, searchParams, hasStarted, quiz]);
+
+  const { handleGoogleQuizLogin } = useGoogleLogin();
+
+  const handleGoogleQuizLoginClick = () => {
+    handleGoogleQuizLogin(shareToken);
+    setAuthenticating(true);
+  };
+
+  const handleGoogleQuizStart = async () => {
+    if (!session?.user) return;
+
+    const user = session.user;
+    const email = user.email;
+    const studentId = email.split('@')[0];
+    const studentName = user.user_metadata?.full_name || studentId;
+
+    if (!email.endsWith('@student.buksu.edu.ph')) {
+      setError('Only @student.buksu.edu.ph email addresses are allowed.');
+      await supabase.auth.signOut();
+      setSession(null);
+      setAuthenticating(false);
+      return;
+    }
+
+    try {
+      setAuthenticating(true);
+      const currentExamCode = quiz?.sections?.exam_code;
+
+      let { data: student } = await studentService.getStudentByEmail(email);
+
+      if (!student) {
+        const newStudent = await studentService.createStudent({
+          student_email: email,
+          student_name: studentName,
+          student_id: studentId,
+          exam_code: currentExamCode,
+        });
+        student = newStudent;
+      } else {
+        // Update existing
+        await studentService.updateStudent(student.id, {
+          student_id: studentId,
+          student_name: studentName,
+          exam_code: currentExamCode,
+        });
+      }
+
+      const { data: attempt } = await supabase
+        .from("quiz_attempts")
+        .insert([
+          {
+            quiz_id: quiz.id,
+            student_id: student.id,
+            student_name: studentName,
+            student_email: email,
+            user_id: user.id,
+            status: "in_progress",
+          },
+        ])
+        .select()
+        .single();
+
+      setAttemptId(attempt.id);
+      setHasStarted(true);
+    } catch (err) {
+      setError(err.message || 'Failed to start quiz');
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  // --- Manual start (deprecated but keep for fallback) ---
   const handleStartQuiz = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!studentName || !studentEmail) {
@@ -257,8 +350,8 @@ export const PublicQuizPage = () => {
     return (
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         <h1 className="text-3xl font-bold">Quiz Complete!</h1>
-        <div className="mt-4 rounded-lg bg-indigo-50 p-8">
-          <p className="text-5xl font-bold text-indigo-600">
+        <div className="mt-4 rounded-lg bg-full-white p-8">
+          <p className="text-5xl font-bold text-hornblende-green">
             {score}/{totalPoints}
           </p>
           <p className="mt-2 text-gray-600">Your responses are recorded.</p>
@@ -274,25 +367,25 @@ export const PublicQuizPage = () => {
           <h1 className="text-2xl font-bold">{quiz?.title}</h1>
           <p className="mt-2 text-gray-600">{quiz?.description}</p>
           {error && <div className="mt-4 text-red-500 text-sm">{error}</div>}
-          <form onSubmit={handleStartQuiz} className="mt-6 space-y-4">
-            <StudentFormInput
-              label="Full Name"
-              value={studentName}
-              onChange={setStudentName}
-            />
-            <StudentFormInput
-              label="School Email"
-              type="email"
-              value={studentEmail}
-              onChange={setStudentEmail}
-            />
-            <button
-              disabled={submitting}
-              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-400"
-            >
-              {submitting ? "Starting..." : "Start Quiz"}
-            </button>
-          </form>
+          {authenticating ? (
+            <div className="mt-6 flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <p className="text-gray-600">Signing in with Google...</p>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <p className="text-sm text-gray-600 mb-4 text-center">
+                Sign in with your institutional Google account (@student.buksu.edu.ph) to start the exam quickly.
+              </p>
+              <button
+                onClick={handleGoogleQuizLoginClick}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-white border-2 border-gray-300 py-3 px-4 font-semibold text-gray-800 hover:border-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-md"
+              >
+                <img src="/src/assets/google-icon.png" alt="Google" className="h-5 w-5" />
+                Sign in with Google
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
