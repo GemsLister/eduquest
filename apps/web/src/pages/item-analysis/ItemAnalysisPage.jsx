@@ -18,6 +18,7 @@ export const ItemAnalysisPage = () => {
   const [analysisSaved, setAnalysisSaved] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // --- 1. Fetch Sections ---
   useEffect(() => {
@@ -61,7 +62,7 @@ export const ItemAnalysisPage = () => {
     else setAnalysis([]);
   }, [selectedQuiz]);
 
-  // --- 4. THE MISSING FUNCTION (The Fix for your Error) ---
+  // --- 4. Save Analysis ---
   const handleSaveAnalysis = async () => {
     if (!selectedQuiz || analysis.length === 0) return;
     setSavingAnalysis(true);
@@ -82,104 +83,111 @@ export const ItemAnalysisPage = () => {
     }
   };
 
-  // --- 5. THE FETCH AND ANALYZE LOGIC (To see all students) ---
- const fetchAndAnalyze = async (quizId) => {
-  try {
-    setLoading(true);
+  // Helper function to map answer to letter A/B/C/D
+  const getLetter = (answer) => {
+    const num = parseInt(answer);
+    return isNaN(num) ? answer.toUpperCase() : String.fromCharCode(65 + num);
+  };
 
-    // 1. Fetch Questions and ALL Student Attempts
-    const { data: questions } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
-    const { data: attempts } = await supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
+  // --- 5. Fetch and Analyze Logic ---
+  const fetchAndAnalyze = async (quizId) => {
+    try {
+      setLoading(true);
 
-    // Map attempt IDs to student names and total scores for Discrimination math
-    const takersMap = {};
-    const attemptIds = attempts?.map(att => {
-      takersMap[att.id] = { 
-        name: att.student_name || "Anonymous", 
-        score: att.score || 0 
-      };
-      return att.id;
-    }) || [];
+      // 1. Fetch Questions and ALL Student Attempts
+      const { data: questions } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
+      const { data: attempts } = await supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
 
-    // 2. Fetch ALL individual responses for these students
-    const { data: responses } = await supabase.from("quiz_responses").select("*").in("attempt_id", attemptIds);
-
-    const results = questions.map((q) => {
-      const qResponses = responses?.filter(r => r.question_id === q.id) || [];
-      const total = qResponses.length;
-
-      // --- 3. DISTRACTOR ANALYSIS (For the Bar Chart) ---
-      const distractorData = q.options?.map((opt, idx) => {
-        // Counts how many students chose this specific option
-        const count = qResponses.filter(r => 
-          String(r.answer) === String(opt) || String(r.answer) === String(idx)
-        ).length;
-
-        return {
-          text: opt,
-          count: count,
-          percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
-          isCorrect: String(opt) === String(q.correct_answer)
+      // Map attempt IDs to student names and total scores for Discrimination math
+      const takersMap = {};
+      const attemptIds = attempts?.map(att => {
+        takersMap[att.id] = { 
+          name: att.student_name || "Anonymous", 
+          score: att.score || 0 
         };
+        return att.id;
       }) || [];
 
-      // --- 4. DIFFICULTY ($P$) ---
-      const correctCount = qResponses.filter(r => r.is_correct).length;
-      const fi = total > 0 ? correctCount / total : 0;
+      // 2. Fetch ALL individual responses for these students
+      const { data: responses } = await supabase.from("quiz_responses").select("*").in("attempt_id", attemptIds);
 
-      // --- 5. DISCRIMINATION ($D$) ---
-      let discrimination = 0;
-      let discStatus = "POOR";
+      const results = questions.map((q) => {
+        const qResponses = responses?.filter(r => r.question_id === q.id) || [];
+        const total = qResponses.length;
 
-      if (total >= 2) {
-        // Sort students by total quiz score to find high vs low performers
-        const sorted = qResponses.map(r => ({
+        // --- 3. DISTRACTOR ANALYSIS ---
+        const distractorData = q.options?.map((opt, idx) => {
+          const count = qResponses.filter(r => 
+            String(r.answer) === String(opt) || String(r.answer) === String(idx)
+          ).length;
+
+          return {
+            text: opt,
+            count: count,
+            percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
+            isCorrect: String(opt) === String(q.correct_answer)
+          };
+        }) || [];
+
+        // --- 4. DIFFICULTY ($P$) ---
+        const correctCount = qResponses.filter(r => r.is_correct).length;
+        const fi = total > 0 ? correctCount / total : 0;
+
+        // --- 5. DISCRIMINATION ($D$) ---
+        let discrimination = 0;
+        let discStatus = "POOR";
+
+        const sortedTakers = qResponses.map(r => ({
           isCorrect: r.is_correct,
           totalScore: takersMap[r.attempt_id]?.score || 0
         })).sort((a, b) => b.totalScore - a.totalScore);
 
-        const groupSize = Math.max(1, Math.floor(total * 0.27));
-        const upperGroup = sorted.slice(0, groupSize);
-        const lowerGroup = sorted.slice(-groupSize);
+        const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
+        const lowestScore = sortedTakers.length > 0 ? sortedTakers[sortedTakers.length - 1].totalScore : 0;
 
-        const upperP = upperGroup.filter(r => r.isCorrect).length / groupSize;
-        const lowerP = lowerGroup.filter(r => r.isCorrect).length / groupSize;
-        
-        discrimination = upperP - lowerP;
-        if (discrimination >= 0.40) discStatus = "EXCELLENT";
-        else if (discrimination >= 0.20) discStatus = "GOOD";
-      }
+        if (total >= 2) {
+          const groupSize = Math.max(1, Math.floor(total * 0.27));
+          const upperGroup = sortedTakers.slice(0, groupSize);
+          const lowerGroup = sortedTakers.slice(-groupSize);
 
-      // --- 6. AI DECISION (Flag Logic) ---
-      const isGoodItem = fi >= 0.3 && fi <= 0.8 && discrimination >= 0.2;
+          const upperP = upperGroup.filter(r => r.isCorrect).length / groupSize;
+          const lowerP = lowerGroup.filter(r => r.isCorrect).length / groupSize;
+          
+          discrimination = upperP - lowerP;
+          if (discrimination >= 0.40) discStatus = "EXCELLENT";
+          else if (discrimination >= 0.20) discStatus = "GOOD";
+        }
 
-      return {
-        question_id: q.id,
-        text: q.text,
-        type: q.type,
-        difficulty: total > 0 ? fi.toFixed(2) : "N/A",
-        status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
-        discrimination: discrimination.toFixed(2),
-        discStatus: discStatus,
-        autoFlag: isGoodItem ? "retain" : "revise", // Sets the button color
-        
-        // Data for side-by-side Inspect view
-        distractorAnalysis: distractorData, 
-        takersDetails: qResponses.map(r => ({
-          name: takersMap[r.attempt_id]?.name || "Student",
-          answer: r.answer,
-          isCorrect: r.is_correct
-        }))
-      };
-    });
+        // --- 6. AI DECISION (Flag Logic) ---
+        const isGoodItem = fi >= 0.3 && fi <= 0.8 && discrimination >= 0.2;
 
-    setAnalysis(results);
-  } catch (err) {
-    console.error("Analysis Error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+        return {
+          question_id: q.id,
+          text: q.text,
+          type: q.type,
+          difficulty: total > 0 ? fi.toFixed(2) : "N/A",
+          status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
+          discrimination: discrimination.toFixed(2),
+          discStatus: discStatus,
+          autoFlag: isGoodItem ? "retain" : "revise",
+          highestScore,
+          lowestScore,
+          distractorAnalysis: distractorData,
+          takersDetails: qResponses.map(r => ({
+            name: takersMap[r.attempt_id]?.name || "Student",
+            answer: getLetter(r.answer),
+            isCorrect: r.is_correct
+          }))
+        };
+      });
+
+      setAnalysis(results);
+    } catch (err) {
+      console.error("Analysis Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loadingSections)
     return <div className="p-20 text-center">Loading Sections...</div>;
@@ -195,6 +203,7 @@ export const ItemAnalysisPage = () => {
           loadingQuizzes={loadingQuizzes}
           onSectionChange={setSelectedSection}
           onQuizChange={setSelectedQuiz}
+          onSearchChange={setSearchTerm}
         />
 
         <ItemAnalysisResults
@@ -206,16 +215,33 @@ export const ItemAnalysisPage = () => {
           analysisSaved={analysisSaved}
         />
 
-        {analysis.length > 0 && (
-          <ItemAnalysisTable
-            loading={loading}
-            analysis={analysis}
-            expandedQuestion={expandedQuestion}
-            toggleDetails={(id) =>
-              setExpandedQuestion(expandedQuestion === id ? null : id)
-            }
-          />
-        )}
+        {(() => {
+          const filteredAnalysis = analysis.filter(item => 
+            item.text.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+
+          if (filteredAnalysis.length > 0) {
+            return (
+              <ItemAnalysisTable
+                loading={loading}
+                analysis={filteredAnalysis}
+                expandedQuestion={expandedQuestion}
+                toggleDetails={(id) =>
+                  setExpandedQuestion(expandedQuestion === id ? null : id)
+                }
+              />
+            );
+          }
+          if (searchTerm && filteredAnalysis.length === 0) {
+            return (
+              <div className="text-center py-8 text-gray-500">
+                No questions match "{searchTerm}"
+              </div>
+            );
+          }
+          return null;
+        })()}
+
       </div>
     </div>
   );
