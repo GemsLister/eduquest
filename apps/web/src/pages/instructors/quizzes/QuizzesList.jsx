@@ -11,10 +11,18 @@ export const QuizzesList = ({
   const [copiedId, setCopiedId] = useState(null);
 
   const copyLink = (quiz) => {
+    if (!quiz.share_token) {
+      alert("This quiz doesn't have a share link yet. Please publish the quiz first.");
+      return;
+    }
+    
     const url = `${window.location.origin}/quiz/${quiz.share_token}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(quiz.id);
       setTimeout(() => setCopiedId(null), 2000);
+    }).catch(err => {
+      console.error("Failed to copy link:", err);
+      alert("Failed to copy link to clipboard");
     });
   };
 
@@ -64,23 +72,28 @@ export const QuizzesList = ({
                   <span>{quiz.questions_count || 0} Questions</span>
                   <span>{quiz.attempts || 0} Attempts</span>
                 </div>
-                {quiz.is_published && quiz.share_token && (
+                {quiz.is_published && (
                   <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                     <p className="text-xs text-gray-500 mb-1 font-semibold">
-                      Share Link
+                      Share Link {quiz.share_token ? "" : "(Publish to generate)"}
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-700 font-mono truncate flex-1">
-                        {window.location.origin}/quiz/{quiz.share_token}
+                        {quiz.share_token ? `${window.location.origin}/quiz/${quiz.share_token}` : "No link available"}
                       </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           copyLink(quiz);
                         }}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                        disabled={!quiz.share_token}
+                        className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
+                          quiz.share_token 
+                            ? "text-blue-600 hover:text-blue-800" 
+                            : "text-gray-400 cursor-not-allowed"
+                        }`}
                       >
-                        {copiedId === quiz.id ? "✓ Copied" : "Copy"}
+                        {copiedId === quiz.id ? "✓ Copied" : quiz.share_token ? "Copy" : "Publish"}
                       </button>
                     </div>
                   </div>
