@@ -61,6 +61,10 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.SectionDetail />,
             },
             {
+              path: "quizzes",
+              element: <InstructorIndex.QuizzesPageMain />,
+            },
+            {
               path: "instructor-quiz",
               element: <InstructorIndex.InstructorQuiz />,
             },

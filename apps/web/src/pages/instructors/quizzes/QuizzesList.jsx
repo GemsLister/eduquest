@@ -2,8 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 export const QuizzesList = ({
   quizzes,
-  handleDelete,
-  deletingQuizId,
+  handleArchive,
+  archivingQuizId,
   handleToggleAccess,
   togglingQuizId,
 }) => {
@@ -28,7 +28,7 @@ export const QuizzesList = ({
             No Quizzes Yet
           </h3>
           <p className="text-gray-500">
-            Create your first quiz for this class!
+            Go to the Quizzes page to create and assign quizzes to this section.
           </p>
         </div>
       ) : (
@@ -140,17 +140,17 @@ export const QuizzesList = ({
                   )}
                   <button
                     onClick={async () => {
-                      await handleDelete(quiz.id, quiz.title);
+                      await handleArchive(quiz.id, quiz.title);
                     }}
-                    disabled={deletingQuizId === quiz.id}
+                    disabled={archivingQuizId === quiz.id}
                     className={`${
-                      deletingQuizId === quiz.id
+                      archivingQuizId === quiz.id
                         ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-red-100 text-red-600 hover:bg-red-200"
+                        : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                     } px-3 py-2 rounded text-sm font-semibold transition-colors`}
-                    title="Delete quiz"
+                    title="Archive quiz"
                   >
-                    {deletingQuizId === quiz.id ? "..." : "🗑️"}
+                    {archivingQuizId === quiz.id ? "..." : "📦"}
                   </button>
                 </div>
               </div>

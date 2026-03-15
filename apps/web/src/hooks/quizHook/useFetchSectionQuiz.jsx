@@ -44,16 +44,58 @@ export const useFetchSectionQuiz = () => {
 
         setQuizzes(processedQuizzes);
 
+        // Fetch quiz_sections mapping
+        const quizIds = processedQuizzes.map((q) => q.id);
+        let quizSectionsData = [];
+
+        if (quizIds.length > 0) {
+          try {
+            const { data: qsData, error: qsError } = await supabase
+              .from("quiz_sections")
+              .select("quiz_id, section_id")
+              .in("quiz_id", quizIds);
+
+            if (!qsError && qsData) {
+              quizSectionsData = qsData;
+            }
+          } catch (e) {
+            console.warn("Could not fetch quiz_sections", e);
+          }
+        }
+
         // Group quizzes by section
         const grouped = {};
+
+        // 1. Group using mapping table
+        quizSectionsData.forEach((qs) => {
+          if (!grouped[qs.section_id]) {
+            grouped[qs.section_id] = [];
+          }
+          const quiz = processedQuizzes.find((q) => q.id === qs.quiz_id);
+          if (
+            quiz &&
+            !grouped[qs.section_id].some((existing) => existing.id === quiz.id)
+          ) {
+            grouped[qs.section_id].push(quiz);
+          }
+        });
+
+        // 2. Group using legacy section_id (backward compatibility)
         processedQuizzes.forEach((quiz) => {
           if (quiz.section_id) {
             if (!grouped[quiz.section_id]) {
               grouped[quiz.section_id] = [];
             }
-            grouped[quiz.section_id].push(quiz);
+            if (
+              !grouped[quiz.section_id].some(
+                (existing) => existing.id === quiz.id,
+              )
+            ) {
+              grouped[quiz.section_id].push(quiz);
+            }
           }
         });
+
         setSectionQuizzes(grouped);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);

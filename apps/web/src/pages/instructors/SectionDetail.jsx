@@ -1,31 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import * as QuizHooks from "../../hooks/quizHook/quizHooks.js";
 import * as Quiz from "./quizzes/quizIndex.js";
-import { CreateQuizFormButton } from "../../components/ui/buttons/CreateQuizFormButton.jsx";
 
 export const SectionDetail = () => {
   const navigate = useNavigate();
-  // const { sectionId } = useParams();
   const {
     fetchQuizzes,
     section,
     quizzes = [],
     loading,
-    user,
   } = QuizHooks.useFetchQuizzes();
-  const { handleDeleteQuiz, deletingQuizId } =
-    QuizHooks.useDeleteQuiz(fetchQuizzes);
+
+  const { handleArchiveQuiz, archivingQuizId } =
+    QuizHooks.useArchiveQuiz(fetchQuizzes);
   const { handleToggleAccess, togglingQuizId } =
     QuizHooks.useToggleQuizAccess(fetchQuizzes);
-  const {
-    quizFormData,
-    showQuizForm,
-    handleCreateQuiz,
-    setQuizFormData,
-    isSubmitting,
-  } = QuizHooks.useCreateQuiz({
-    user: user || {},
-  });
 
   if (loading) {
     return (
@@ -57,7 +46,7 @@ export const SectionDetail = () => {
           ← Back to Sections
         </button>
         <h1 className="text-4xl font-bold text-gray-800 mb-2">
-          {section.name}
+          {section.section_name || section.name}
         </h1>
         <p className="text-gray-600">
           Subject: {section.description || "No description provided"}
@@ -69,20 +58,11 @@ export const SectionDetail = () => {
 
       {/* Main Content */}
       <div className="px-6 py-6">
-        <CreateQuizFormButton
-          onCreateQuiz={handleCreateQuiz}
-          setShowQuizForm={setQuizFormData}
-          showQuizForm={showQuizForm}
-          quizFormData={quizFormData}
-          setQuizFormData={setQuizFormData}
-          isSubmitting={isSubmitting}
-        />
         {/* Quizzes List */}
         <Quiz.QuizzesList
           quizzes={quizzes}
-          handleDelete={handleDeleteQuiz}
-          deletingQuizId={deletingQuizId}
-          setQuizFormData={setQuizFormData}
+          handleArchive={handleArchiveQuiz}
+          archivingQuizId={archivingQuizId}
           handleToggleAccess={handleToggleAccess}
           togglingQuizId={togglingQuizId}
         />

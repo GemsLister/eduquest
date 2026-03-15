@@ -28,6 +28,7 @@ export const quizService = {
       .select("*")
       .eq("share_token", shareToken)
       .eq("is_published", true)
+      .eq("is_archived", false)
       .single();
   },
 
@@ -41,6 +42,7 @@ export const quizService = {
       .from("quizzes")
       .select("*, quiz_attempts(count)")
       .eq("instructor_id", instructorId)
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
   },
 
@@ -54,6 +56,7 @@ export const quizService = {
       .from("quizzes")
       .select("*, quiz_attempts(count)")
       .eq("section_id", sectionId)
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
   },
 

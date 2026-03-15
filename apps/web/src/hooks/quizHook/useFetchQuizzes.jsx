@@ -10,14 +10,41 @@ export const useFetchQuizzes = () => {
   const [user, setUser] = useState(null);
   const fetchQuizzes = async () => {
     try {
-      // Fetch quizzes for this section
-      const { data: quizzesData, error: quizzesError } = await supabase
-        .from("quizzes")
-        .select("*, quiz_attempts(count)")
-        .eq("section_id", sectionId)
-        .order("created_at", { ascending: false });
+      // First try to fetch from quiz_sections table (if it exists)
+      let quizIds = [];
+      const { data: qsData, error: qsError } = await supabase
+        .from("quiz_sections")
+        .select("quiz_id")
+        .eq("section_id", sectionId);
 
-      if (quizzesError) throw quizzesError;
+      if (!qsError && qsData) {
+        quizIds = qsData.map((qs) => qs.quiz_id);
+      }
+
+      // Also get any quizzes directly linked to this section (backward compatibility)
+      const { data: directQuizzes, error: directError } = await supabase
+        .from("quizzes")
+        .select("id")
+        .eq("section_id", sectionId);
+
+      if (!directError && directQuizzes) {
+        directQuizzes.forEach((q) => {
+          if (!quizIds.includes(q.id)) quizIds.push(q.id);
+        });
+      }
+
+      let quizzesData = [];
+      if (quizIds.length > 0) {
+        const { data, error: quizzesError } = await supabase
+          .from("quizzes")
+          .select("*, quiz_attempts(count)")
+          .in("id", quizIds)
+          .eq("is_archived", false)
+          .order("created_at", { ascending: false });
+
+        if (quizzesError) throw quizzesError;
+        quizzesData = data;
+      }
 
       // Fetch question counts for each quiz
       const quizzesWithCounts = await Promise.all(
@@ -60,7 +87,7 @@ export const useFetchQuizzes = () => {
           .single();
 
         if (sectionError) throw sectionError;
-        setSection(sectionData);  
+        setSection(sectionData);
 
         // Fetch quizzes
         await fetchQuizzes();
