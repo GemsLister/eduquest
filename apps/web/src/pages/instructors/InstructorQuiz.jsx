@@ -138,7 +138,7 @@ export const InstructorQuiz = () => {
   const generateShareToken = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let token = "";
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) { // Increased length for better uniqueness
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return token;
@@ -227,7 +227,8 @@ export const InstructorQuiz = () => {
       let newToken = shareToken;
 
       if (quizId) {
-        if (publish && !shareToken) {
+        // Always generate a new share token when publishing, even if one exists
+        if (publish) {
           newToken = generateShareToken();
         }
 
