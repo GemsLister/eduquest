@@ -7,7 +7,7 @@ import { sectionService } from "../../services/sectionService";
 export const useFetchSectionQuiz = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [sectionQuizzes, setSectionQuizzes] = useState({});
-  const [user, setUser] = useState("");
+  const [user, setUser] = useState(null);  // Change from "" to null
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
