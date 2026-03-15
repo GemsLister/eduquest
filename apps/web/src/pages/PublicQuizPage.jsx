@@ -109,6 +109,7 @@ export const PublicQuizPage = () => {
   const handleGoogleQuizStart = async () => {
     if (!session?.user) return;
 
+    // Check if user already has an attempt for this quiz
     const user = session.user;
     const email = user.email;
     const studentId = email.split('@')[0];
@@ -152,6 +153,35 @@ export const PublicQuizPage = () => {
         throw new Error("Failed to obtain student profile details.");
       }
 
+      // Check for existing attempt
+      const { data: existingAttempts, error: checkError } = await supabase
+        .from("quiz_attempts")
+        .select("id, status")
+        .eq("quiz_id", quiz.id)
+        .eq("student_id", student.id)
+        .in("status", ["in_progress", "completed"]);
+
+      if (checkError) throw new Error(checkError.message);
+
+      if (existingAttempts && existingAttempts.length > 0) {
+        // User already has an attempt, use the existing one
+        const existingAttempt = existingAttempts.find(a => a.status === "in_progress") || existingAttempts[0];
+        setAttemptId(existingAttempt.id);
+        setHasStarted(true);
+        if (existingAttempt.status === "completed") {
+          setCompleted(true);
+          // Load the existing score
+          const { data: responses } = await supabase
+            .from("quiz_responses")
+            .select("points_earned")
+            .eq("attempt_id", existingAttempt.id);
+          const totalScore = responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
+          setScore(totalScore);
+        }
+        return;
+      }
+
+      // Create new attempt only if none exists
       const { data: attempt, error: attemptError } = await supabase
         .from("quiz_attempts")
         .insert([
@@ -230,6 +260,35 @@ export const PublicQuizPage = () => {
         if (updateError) throw updateError;
       }
 
+      // Check for existing attempt
+      const { data: existingAttempts, error: checkError } = await supabase
+        .from("quiz_attempts")
+        .select("id, status")
+        .eq("quiz_id", quiz.id)
+        .eq("student_id", student.id)
+        .in("status", ["in_progress", "completed"]);
+
+      if (checkError) throw new Error(checkError.message);
+
+      if (existingAttempts && existingAttempts.length > 0) {
+        // User already has an attempt, use the existing one
+        const existingAttempt = existingAttempts.find(a => a.status === "in_progress") || existingAttempts[0];
+        setAttemptId(existingAttempt.id);
+        setHasStarted(true);
+        if (existingAttempt.status === "completed") {
+          setCompleted(true);
+          // Load the existing score
+          const { data: responses } = await supabase
+            .from("quiz_responses")
+            .select("points_earned")
+            .eq("attempt_id", existingAttempt.id);
+          const totalScore = responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
+          setScore(totalScore);
+        }
+        return;
+      }
+
+      // Create new attempt only if none exists
       const { data: attempt, error: attemptError } = await supabase
         .from("quiz_attempts")
         .insert([
