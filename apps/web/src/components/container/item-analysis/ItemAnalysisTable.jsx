@@ -4,13 +4,13 @@ import { DistractorAnalysis } from "./DistractorAnalysis";
 
 export const ItemAnalysisTable = ({ analysis, expandedQuestion, toggleDetails }) => {
   return (
-    <div className="bg-white shadow-xl rounded-xl overflow-hidden border">
+    <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-slate-300">
       <table className="w-full text-left">
         <thead className="bg-gray-50 text-[10px] uppercase font-bold text-gray-400 border-b">
           <tr>
             <th className="p-4">Item</th>
-            <th className="p-4 text-center">Difficulty ($P$)</th>
-            <th className="p-4 text-center">Discrimination ($D$)</th>
+            <th className="p-4 text-center">Difficulty</th>
+            <th className="p-4 text-center">Discrimination</th>
             <th className="p-4 text-center">AI Decision</th>
             <th className="p-4 text-center">Details</th>
           </tr>
@@ -27,6 +27,11 @@ export const ItemAnalysisTable = ({ analysis, expandedQuestion, toggleDetails })
                 <td className="p-4 text-center">
                    <div className="text-sm font-bold text-gray-700">{item.discrimination}</div>
                    <div className="text-[10px] uppercase text-gray-400">{item.discStatus}</div>
+                   {item.highestScore !== undefined && (
+                     <div className="text-[9px] text-gray-500 mt-1">
+                       Hi: {item.highestScore} | Lo: {item.lowestScore}
+                     </div>
+                   )}
                 </td>
                 <td className="p-4 text-center">
                   <span className={`px-4 py-1 rounded-md text-[10px] font-black text-white uppercase ${
