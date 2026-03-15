@@ -13,7 +13,7 @@ export const ItemAnalysisHeader = ({
     <div>
       <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
         {/* Header Title Section */}
-        <div className="p-6 bg-casual-green text-white">
+        <div className="p-6 bg-hornblende-green text-white">
           <h1 className="text-2xl font-bold uppercase tracking-wider">
             Item Analysis Report
           </h1>
@@ -25,7 +25,7 @@ export const ItemAnalysisHeader = ({
 
         {/* Selection Controls */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* Section Selection */}
             <div>
@@ -77,6 +77,19 @@ export const ItemAnalysisHeader = ({
                     </option>
                   ))}
               </select>
+            </div>
+
+            {/* NEW: Question Search */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Search Questions
+              </label>
+              <input
+                type="text"
+                placeholder="Search by question text..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+              />
             </div>
           </div>
         </div>
