@@ -29,8 +29,8 @@ export const QuizzesPageMain = () => {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Your Quizzes</h1>
-          <p className="text-gray-500 mt-1">Create new quizzes</p>
+          <h1 className="text-3xl font-bold text-gray-800">Quiz Management</h1>
+          <p className="text-gray-500 mt-1">Create, manage, and restore your quizzes</p>
         </div>
         <CreateQuizFormButton
           onCreateQuiz={handleCreateQuiz}
