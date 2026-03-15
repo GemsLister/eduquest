@@ -22,6 +22,7 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
+          hd: "student.buksu.edu.ph"
         },
       },
     });
