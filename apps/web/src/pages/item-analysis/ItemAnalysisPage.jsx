@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
@@ -74,7 +75,7 @@ export const ItemAnalysisPage = () => {
       );
       if (error) throw error;
       setAnalysisSaved(true);
-      alert("Analysis saved successfully!");
+      toast.success("Analysis saved successfully!");
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
@@ -95,67 +96,89 @@ export const ItemAnalysisPage = () => {
       setLoading(true);
 
       // 1. Fetch Questions and ALL Student Attempts
-      const { data: questions } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
-      const { data: attempts } = await supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
+      const { data: questions } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("quiz_id", quizId);
+      const { data: attempts } = await supabase
+        .from("quiz_attempts")
+        .select("*")
+        .eq("quiz_id", quizId);
 
       // Map attempt IDs to student names and total scores for Discrimination math
       const takersMap = {};
-      const attemptIds = attempts?.map(att => {
-        takersMap[att.id] = { 
-          name: att.student_name || "Anonymous", 
-          score: att.score || 0 
-        };
-        return att.id;
-      }) || [];
+      const attemptIds =
+        attempts?.map((att) => {
+          takersMap[att.id] = {
+            name: att.student_name || "Anonymous",
+            score: att.score || 0,
+          };
+          return att.id;
+        }) || [];
 
       // 2. Fetch ALL individual responses for these students
-      const { data: responses } = await supabase.from("quiz_responses").select("*").in("attempt_id", attemptIds);
+      const { data: responses } = await supabase
+        .from("quiz_responses")
+        .select("*")
+        .in("attempt_id", attemptIds);
 
       const results = questions.map((q) => {
-        const qResponses = responses?.filter(r => r.question_id === q.id) || [];
+        const qResponses =
+          responses?.filter((r) => r.question_id === q.id) || [];
         const total = qResponses.length;
 
         // --- 3. DISTRACTOR ANALYSIS ---
-        const distractorData = q.options?.map((opt, idx) => {
-          const count = qResponses.filter(r => 
-            String(r.answer) === String(opt) || String(r.answer) === String(idx)
-          ).length;
+        const distractorData =
+          q.options?.map((opt, idx) => {
+            const count = qResponses.filter(
+              (r) =>
+                String(r.answer) === String(opt) ||
+                String(r.answer) === String(idx),
+            ).length;
 
-          return {
-            text: opt,
-            count: count,
-            percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
-            isCorrect: String(opt) === String(q.correct_answer)
-          };
-        }) || [];
+            return {
+              text: opt,
+              count: count,
+              percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
+              isCorrect: String(opt) === String(q.correct_answer),
+            };
+          }) || [];
 
         // --- 4. DIFFICULTY ($P$) ---
-        const correctCount = qResponses.filter(r => r.is_correct).length;
+        const correctCount = qResponses.filter((r) => r.is_correct).length;
         const fi = total > 0 ? correctCount / total : 0;
 
         // --- 5. DISCRIMINATION ($D$) ---
         let discrimination = 0;
         let discStatus = "POOR";
 
-        const sortedTakers = qResponses.map(r => ({
-          isCorrect: r.is_correct,
-          totalScore: takersMap[r.attempt_id]?.score || 0
-        })).sort((a, b) => b.totalScore - a.totalScore);
+        const sortedTakers = qResponses
+          .map((r) => ({
+            isCorrect: r.is_correct,
+            totalScore: takersMap[r.attempt_id]?.score || 0,
+          }))
+          .sort((a, b) => b.totalScore - a.totalScore);
 
-        const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
-        const lowestScore = sortedTakers.length > 0 ? sortedTakers[sortedTakers.length - 1].totalScore : 0;
+        const highestScore =
+          sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
+        const lowestScore =
+          sortedTakers.length > 0
+            ? sortedTakers[sortedTakers.length - 1].totalScore
+            : 0;
 
         if (total >= 2) {
           const groupSize = Math.max(1, Math.floor(total * 0.27));
           const upperGroup = sortedTakers.slice(0, groupSize);
           const lowerGroup = sortedTakers.slice(-groupSize);
 
-          const upperP = upperGroup.filter(r => r.isCorrect).length / groupSize;
-          const lowerP = lowerGroup.filter(r => r.isCorrect).length / groupSize;
-          
+          const upperP =
+            upperGroup.filter((r) => r.isCorrect).length / groupSize;
+          const lowerP =
+            lowerGroup.filter((r) => r.isCorrect).length / groupSize;
+
           discrimination = upperP - lowerP;
-          if (discrimination >= 0.40) discStatus = "EXCELLENT";
-          else if (discrimination >= 0.20) discStatus = "GOOD";
+          if (discrimination >= 0.4) discStatus = "EXCELLENT";
+          else if (discrimination >= 0.2) discStatus = "GOOD";
         }
 
         // --- 6. AI DECISION (Flag Logic) ---
@@ -173,11 +196,11 @@ export const ItemAnalysisPage = () => {
           highestScore,
           lowestScore,
           distractorAnalysis: distractorData,
-          takersDetails: qResponses.map(r => ({
+          takersDetails: qResponses.map((r) => ({
             name: takersMap[r.attempt_id]?.name || "Student",
             answer: getLetter(r.answer),
-            isCorrect: r.is_correct
-          }))
+            isCorrect: r.is_correct,
+          })),
         };
       });
 
@@ -216,8 +239,8 @@ export const ItemAnalysisPage = () => {
         />
 
         {(() => {
-          const filteredAnalysis = analysis.filter(item => 
-            item.text.toLowerCase().includes(searchTerm.toLowerCase())
+          const filteredAnalysis = analysis.filter((item) =>
+            item.text.toLowerCase().includes(searchTerm.toLowerCase()),
           );
 
           if (filteredAnalysis.length > 0) {
@@ -241,7 +264,6 @@ export const ItemAnalysisPage = () => {
           }
           return null;
         })()}
-
       </div>
     </div>
   );

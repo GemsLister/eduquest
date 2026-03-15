@@ -1,5 +1,7 @@
 import { useState, useEffect, startTransition } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
@@ -7,6 +9,7 @@ const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
 export const InstructorQuiz = () => {
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const confirm = useConfirm();
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizDuration, setQuizDuration] = useState("");
@@ -14,7 +17,8 @@ export const InstructorQuiz = () => {
   const [loading, setLoading] = useState(quizId ? true : false);
   const [error, setError] = useState("");
   const [isPublished, setIsPublished] = useState(false);
-  const [sectionId, setSectionId] = useState(null);
+  const [selectedSectionIds, setSelectedSectionIds] = useState([]);
+  const [availableSections, setAvailableSections] = useState([]);
   const [saveStatus, setSaveStatus] = useState("");
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
@@ -23,10 +27,29 @@ export const InstructorQuiz = () => {
   const [questionCount, setQuestionCount] = useState(1);
 
   useEffect(() => {
+    loadSections();
     if (quizId) {
       loadQuiz();
+    } else {
+      setLoading(false);
     }
   }, [quizId]);
+
+  const loadSections = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("sections")
+        .select("*")
+        .eq("instructor_id", user.id);
+      if (data) setAvailableSections(data);
+    } catch (e) {
+      console.error("Failed to load sections", e);
+    }
+  };
 
   const loadQuiz = async () => {
     try {
@@ -43,8 +66,17 @@ export const InstructorQuiz = () => {
       setQuizDescription(quiz.description || "");
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
-      setSectionId(quiz.section_id);
       setShareToken(quiz.share_token || "");
+
+      const { data: qsData, error: qsError } = await supabase
+        .from("quiz_sections")
+        .select("section_id")
+        .eq("quiz_id", quizId);
+      if (!qsError && qsData && qsData.length > 0) {
+        setSelectedSectionIds(qsData.map((d) => d.section_id));
+      } else if (quiz.section_id) {
+        setSelectedSectionIds([quiz.section_id]); // fallback for old data
+      }
 
       const { data: questionsData, error: questionsError } = await supabase
         .from("questions")
@@ -111,7 +143,12 @@ export const InstructorQuiz = () => {
     setQuestions(
       questions.map((q) =>
         q.id === questionId
-          ? { ...q, options: q.options.map((opt, idx) => (idx === optionIndex ? value : opt)) }
+          ? {
+              ...q,
+              options: q.options.map((opt, idx) =>
+                idx === optionIndex ? value : opt,
+              ),
+            }
           : q,
       ),
     );
@@ -154,7 +191,7 @@ export const InstructorQuiz = () => {
 
   const archiveQuestion = async (id) => {
     setDeletingQuestionId(id);
-    
+
     // If it's a new question (temp ID from Date.now()), just remove from state
     if (typeof id === "number" && id > 10000000000) {
       setQuestions(questions.filter((q) => q.id !== id));
@@ -173,10 +210,12 @@ export const InstructorQuiz = () => {
 
       // Remove from local state for instant UI feedback
       setQuestions((prevQuestions) => prevQuestions.filter((q) => q.id !== id));
-      alert("Question archived to Question Bank! You can restore it from there.");
+      toast.success(
+        "Question archived to Question Bank! You can restore it from there.",
+      );
     } catch (err) {
       console.error("Error archiving question:", err);
-      alert("Error archiving question: " + err.message);
+      toast.error("Error archiving question: " + err.message);
     } finally {
       setDeletingQuestionId(null);
     }
@@ -204,8 +243,15 @@ export const InstructorQuiz = () => {
         setSaveStatus("");
         return;
       }
-      if (q.type === "mcq" && q.options.filter((opt) => opt.trim()).length < 2) {
-        setError(publish ? "MCQ questions must have at least 2 options to publish" : "Warning: MCQ questions should have at least 2 options");
+      if (
+        q.type === "mcq" &&
+        q.options.filter((opt) => opt.trim()).length < 2
+      ) {
+        setError(
+          publish
+            ? "MCQ questions must have at least 2 options to publish"
+            : "Warning: MCQ questions should have at least 2 options",
+        );
         if (publish) {
           setSaveStatus("");
           return;
@@ -215,7 +261,9 @@ export const InstructorQuiz = () => {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setError("User not authenticated");
         setLoading(false);
@@ -246,8 +294,13 @@ export const InstructorQuiz = () => {
         if (updateError) throw updateError;
         quizData = data[0];
 
-        const { data: existingQuestions } = await supabase.from("questions").select("id").eq("quiz_id", quizId);
-        const existingQuestionIds = new Set(existingQuestions?.map(q => q.id) || []);
+        const { data: existingQuestions } = await supabase
+          .from("questions")
+          .select("id")
+          .eq("quiz_id", quizId);
+        const existingQuestionIds = new Set(
+          existingQuestions?.map((q) => q.id) || [],
+        );
 
         for (const q of questions) {
           if (typeof q.id !== "number" && existingQuestionIds.has(q.id)) {
@@ -255,8 +308,18 @@ export const InstructorQuiz = () => {
               .from("questions")
               .update({
                 text: q.text,
-                options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-                correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+                options:
+                  q.type === "mcq"
+                    ? q.options.filter((opt) => opt.trim())
+                    : null,
+                correct_answer:
+                  q.type === "mcq"
+                    ? q.options[q.correctAnswer]
+                    : q.type === "true_false"
+                      ? q.correctAnswer === 0
+                        ? "true"
+                        : "false"
+                      : q.correctAnswer,
                 points: q.points,
               })
               .eq("id", q.id);
@@ -265,18 +328,28 @@ export const InstructorQuiz = () => {
         }
 
         const questionsToAdd = questions
-          .filter(q => typeof q.id === "number" && q.id > 10000000000)
+          .filter((q) => typeof q.id === "number" && q.id > 10000000000)
           .map((q) => ({
             quiz_id: quizData.id,
             type: q.type,
             text: q.text,
-            options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+            options:
+              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer:
+              q.type === "mcq"
+                ? q.options[q.correctAnswer]
+                : q.type === "true_false"
+                  ? q.correctAnswer === 0
+                    ? "true"
+                    : "false"
+                  : q.correctAnswer,
             points: q.points,
           }));
 
         if (questionsToAdd.length > 0) {
-          const { error: questionsError } = await supabase.from("questions").insert(questionsToAdd);
+          const { error: questionsError } = await supabase
+            .from("questions")
+            .insert(questionsToAdd);
           if (questionsError) throw questionsError;
         }
       } else {
@@ -284,19 +357,22 @@ export const InstructorQuiz = () => {
 
         const { data: newQuiz, error: quizError } = await supabase
           .from("quizzes")
-          .insert([{
-            instructor_id: user.id,
-            section_id: sectionId || null,
-            title: quizTitle,
-            description: quizDescription || null,
-            duration: quizDuration ? parseInt(quizDuration) : null,
-            is_published: publish,
-            share_token: newToken,
-          }])
+          .insert([
+            {
+              instructor_id: user.id,
+              section_id: selectedSectionIds[0] || null,
+              title: quizTitle,
+              description: quizDescription || null,
+              duration: quizDuration ? parseInt(quizDuration) : null,
+              is_published: publish,
+              share_token: newToken,
+            },
+          ])
           .select();
 
         if (quizError) throw quizError;
-        if (!newQuiz || newQuiz.length === 0) throw new Error("Failed to create quiz");
+        if (!newQuiz || newQuiz.length === 0)
+          throw new Error("Failed to create quiz");
         quizData = newQuiz[0];
 
         if (questions.length > 0) {
@@ -304,13 +380,52 @@ export const InstructorQuiz = () => {
             quiz_id: quizData.id,
             type: q.type,
             text: q.text,
-            options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : q.type === "true_false" ? q.correctAnswer === 0 ? "true" : "false" : q.correctAnswer,
+            options:
+              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer:
+              q.type === "mcq"
+                ? q.options[q.correctAnswer]
+                : q.type === "true_false"
+                  ? q.correctAnswer === 0
+                    ? "true"
+                    : "false"
+                  : q.correctAnswer,
             points: q.points,
           }));
-          const { error: questionsError } = await supabase.from("questions").insert(questionsData);
+          const { error: questionsError } = await supabase
+            .from("questions")
+            .insert(questionsData);
           if (questionsError) throw questionsError;
         }
+      }
+
+      // Sync the many-to-many relationship in quiz_sections
+      if (quizData) {
+        try {
+          const { error: deleteError } = await supabase
+            .from("quiz_sections")
+            .delete()
+            .eq("quiz_id", quizData.id);
+
+          // If no error deleting (meaning table exists)
+          if (!deleteError && selectedSectionIds.length > 0) {
+            const sectionInserts = selectedSectionIds.map((sId) => ({
+              quiz_id: quizData.id,
+              section_id: sId,
+            }));
+            await supabase.from("quiz_sections").insert(sectionInserts);
+          }
+        } catch (tableError) {
+          console.warn("quiz_sections table might not exist yet:", tableError);
+        }
+
+        await supabase
+          .from("quizzes")
+          .update({
+            section_id:
+              selectedSectionIds.length > 0 ? selectedSectionIds[0] : null,
+          })
+          .eq("id", quizData.id);
       }
 
       if (newToken) setShareToken(newToken);
@@ -337,7 +452,9 @@ export const InstructorQuiz = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading quiz...</p>
+          <p className="mt-4 text-hornblende-green font-semibold">
+            Loading quiz...
+          </p>
         </div>
       </div>
     );
@@ -346,7 +463,10 @@ export const InstructorQuiz = () => {
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
       <div className="mb-8">
-        <button onClick={() => navigate(-1)} className="text-casual-green font-semibold mb-4 hover:underline">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-casual-green font-semibold mb-4 hover:underline"
+        >
           ← Back
         </button>
         <div className="flex justify-between items-start">
@@ -355,20 +475,36 @@ export const InstructorQuiz = () => {
               {quizId ? "Edit Quiz" : "Create Quiz"}
             </h1>
             <p className="text-gray-600">
-              {quizId ? (isPublished ? "Published - Changes will be saved" : "Draft - Finish and publish when ready") : "Build a new quiz with questions and answers"}
+              {quizId
+                ? isPublished
+                  ? "Published - Changes will be saved"
+                  : "Draft - Finish and publish when ready"
+                : "Build a new quiz with questions and answers"}
             </p>
           </div>
           {quizId && (
             <div className="flex gap-4 items-center">
-              <span className={`px-4 py-2 rounded-lg font-semibold text-sm ${isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+              <span
+                className={`px-4 py-2 rounded-lg font-semibold text-sm ${isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
+              >
                 {isPublished ? "Published" : "Draft"}
               </span>
               {isPublished && (
                 <>
-                  <button onClick={() => navigate(`/instructor-dashboard/quiz-results/${quizId}`)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                  <button
+                    onClick={() =>
+                      navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                    }
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
                     📊 View Results
                   </button>
-                  <button onClick={() => navigate(`/instructor-dashboard/question-bank/${quizId}`)} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                  <button
+                    onClick={() =>
+                      navigate(`/instructor-dashboard/question-bank/${quizId}`)
+                    }
+                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
                     📚 Question Bank
                   </button>
                 </>
@@ -378,19 +514,42 @@ export const InstructorQuiz = () => {
         </div>
       </div>
 
-      {error && <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
-      {saveStatus && <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">{saveStatus}</div>}
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+      {saveStatus && (
+        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+          {saveStatus}
+        </div>
+      )}
 
       {(showShareUrl || isPublished) && shareToken && (
         <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">✅ Quiz Published Successfully!</h3>
-          <p className="text-blue-800 mb-4">Share this link with students so they can take the quiz:</p>
+          <h3 className="text-lg font-bold text-blue-900 mb-3">
+            ✅ Quiz Published Successfully!
+          </h3>
+          <p className="text-blue-800 mb-4">
+            Share this link with students so they can take the quiz:
+          </p>
           <div className="flex gap-2">
-            <input type="text" value={`${window.location.origin}/quiz/${shareToken}`} readOnly className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm" />
-            <button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition">Copy Link</button>
+            <input
+              type="text"
+              value={`${window.location.origin}/quiz/${shareToken}`}
+              readOnly
+              className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm"
+            />
+            <button
+              onClick={copyToClipboard}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+            >
+              Copy Link
+            </button>
           </div>
           <p className="text-sm text-blue-700 mt-3 bg-white p-3 rounded">
-            📌 <strong>Share Code:</strong> <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
+            📌 <strong>Share Code:</strong>{" "}
+            <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
           </p>
         </div>
       )}
@@ -444,6 +603,48 @@ export const InstructorQuiz = () => {
               disabled={isPublished}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
+          </div>
+
+          <div className="pt-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Assign to Sections
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {availableSections.map((sec) => (
+                <label
+                  key={sec.id}
+                  className={`flex items-center space-x-3 border p-3 rounded-lg cursor-pointer ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "hover:bg-gray-50 bg-white"}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedSectionIds.includes(sec.id)}
+                    onChange={(e) => {
+                      if (e.target.checked)
+                        setSelectedSectionIds([...selectedSectionIds, sec.id]);
+                      else
+                        setSelectedSectionIds(
+                          selectedSectionIds.filter((id) => id !== sec.id),
+                        );
+                    }}
+                    disabled={isPublished}
+                    className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium text-gray-800">
+                      {sec.section_name}
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      Code: {sec.exam_code}
+                    </span>
+                  </div>
+                </label>
+              ))}
+              {availableSections.length === 0 && (
+                <div className="text-sm text-gray-500 col-span-2">
+                  No sections available. Create one first!
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -499,7 +700,9 @@ export const InstructorQuiz = () => {
               </button>
               <button
                 onClick={() => {
-                  const shuffled = [...questions].sort(() => Math.random() - 0.5);
+                  const shuffled = [...questions].sort(
+                    () => Math.random() - 0.5,
+                  );
                   setQuestions(shuffled);
                 }}
                 className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1"
@@ -526,33 +729,59 @@ export const InstructorQuiz = () => {
         ) : (
           <div className="space-y-6">
             {questions.map((question, idx) => (
-              <div key={question.id} className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors">
+              <div
+                key={question.id}
+                className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors"
+              >
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">
                     {idx + 1}. {question.text.substring(0, 50)}...
                   </h3>
                   <div className="flex gap-2">
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.preventDefault();
-                        if (confirm("Archive this question to Question Bank? You can restore it later.")) {
-                          archiveQuestion(question.id).catch((err) => console.error("Failed to archive question:", err));
+                        const confirmed = await confirm({
+                          title: "Archive Question",
+                          message:
+                            "Archive this question to Question Bank? You can restore it later.",
+                          confirmText: "Archive",
+                          cancelText: "Cancel",
+                          variant: "warning",
+                        });
+                        if (confirmed) {
+                          archiveQuestion(question.id).catch((err) =>
+                            console.error("Failed to archive question:", err),
+                          );
                         }
                       }}
                       disabled={deletingQuestionId === question.id}
                       className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
                     >
-                      {deletingQuestionId === question.id ? "..." : "📁 Archive"}
+                      {deletingQuestionId === question.id
+                        ? "..."
+                        : "📁 Archive"}
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.preventDefault();
-                        if (confirm("Delete this question permanently? This cannot be undone.")) {
-                          if (typeof question.id === "number" && question.id > 10000000000) {
-                            // Local question
-                            setQuestions(questions.filter((q) => q.id !== question.id));
+                        const confirmed = await confirm({
+                          title: "Delete Question",
+                          message:
+                            "Delete this question permanently? This cannot be undone.",
+                          confirmText: "Delete",
+                          cancelText: "Cancel",
+                          variant: "danger",
+                        });
+                        if (confirmed) {
+                          if (
+                            typeof question.id === "number" &&
+                            question.id > 10000000000
+                          ) {
+                            setQuestions(
+                              questions.filter((q) => q.id !== question.id),
+                            );
                           } else {
-                            // Database question - hard delete
                             supabase
                               .from("questions")
                               .delete()
@@ -560,9 +789,15 @@ export const InstructorQuiz = () => {
                               .then(({ error }) => {
                                 if (error) {
                                   console.error("Delete error:", error);
-                                  alert("Delete failed: " + error.message);
+                                  toast.error(
+                                    "Delete failed: " + error.message,
+                                  );
                                 } else {
-                                  setQuestions(questions.filter((q) => q.id !== question.id));
+                                  setQuestions(
+                                    questions.filter(
+                                      (q) => q.id !== question.id,
+                                    ),
+                                  );
                                 }
                               });
                           }
@@ -593,7 +828,9 @@ export const InstructorQuiz = () => {
 
                 {question.type === "mcq" && (
                   <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Options *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Options *
+                    </label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
                         <div key={optIdx} className="flex gap-2 items-center">
@@ -623,25 +860,53 @@ export const InstructorQuiz = () => {
                             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
                           />
                           {question.options.length > 2 && (
-                            <button onClick={() => removeOption(question.id, optIdx)} className="text-red-500 hover:text-red-700 px-3 py-2">✕</button>
+                            <button
+                              onClick={() => removeOption(question.id, optIdx)}
+                              className="text-red-500 hover:text-red-700 px-3 py-2"
+                            >
+                              ✕
+                            </button>
                           )}
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => addOption(question.id)} className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green">+ Add Option</button>
+                    <button
+                      onClick={() => addOption(question.id)}
+                      className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
+                    >
+                      + Add Option
+                    </button>
                   </div>
                 )}
 
                 {question.type === "true_false" && (
                   <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Correct Answer *
+                    </label>
                     <div className="flex gap-4">
                       <label className="flex items-center">
-                        <input type="radio" name={`tf-${question.id}`} checked={question.correctAnswer === 0} onChange={() => updateQuestion(question.id, "correctAnswer", 0)} className="mr-2" />
+                        <input
+                          type="radio"
+                          name={`tf-${question.id}`}
+                          checked={question.correctAnswer === 0}
+                          onChange={() =>
+                            updateQuestion(question.id, "correctAnswer", 0)
+                          }
+                          className="mr-2"
+                        />
                         <span className="text-gray-700">True</span>
                       </label>
                       <label className="flex items-center">
-                        <input type="radio" name={`tf-${question.id}`} checked={question.correctAnswer === 1} onChange={() => updateQuestion(question.id, "correctAnswer", 1)} className="mr-2" />
+                        <input
+                          type="radio"
+                          name={`tf-${question.id}`}
+                          checked={question.correctAnswer === 1}
+                          onChange={() =>
+                            updateQuestion(question.id, "correctAnswer", 1)
+                          }
+                          className="mr-2"
+                        />
                         <span className="text-gray-700">False</span>
                       </label>
                     </div>
@@ -649,8 +914,22 @@ export const InstructorQuiz = () => {
                 )}
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Points</label>
-                  <input type="number" value={question.points} onChange={(e) => updateQuestion(question.id, "points", parseInt(e.target.value))} min="1" className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Points
+                  </label>
+                  <input
+                    type="number"
+                    value={question.points}
+                    onChange={(e) =>
+                      updateQuestion(
+                        question.id,
+                        "points",
+                        parseInt(e.target.value),
+                      )
+                    }
+                    min="1"
+                    className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                  />
                 </div>
               </div>
             ))}
@@ -658,60 +937,59 @@ export const InstructorQuiz = () => {
         )}
       </div>
 
-            <div className="flex gap-4 mb-8">
-              {!isPublished && (
-                <>
-                  <button
-                    onClick={() => handleSaveQuiz(false)}
-                    disabled={loading}
-                    className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "Saving..." : "Save as Draft"}
-                  </button>
-                  <button
-                    onClick={() => handleSaveQuiz(true)}
-                    disabled={loading || questions.length === 0}
-                    className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      questions.length === 0
-                        ? "Add at least one question to publish"
-                        : ""
-                    }
-                  >
-                    {loading ? "Publishing..." : "Publish Quiz"}
-                  </button>
-                </>
-              )}
-              {quizId && (
-                <>
-                  <button
-                    onClick={() =>
-                      navigate(`/instructor-dashboard/question-bank/${quizId}`)
-                    }
-                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    📚 Load from Archive
-                  </button>
-                  {isPublished && (
-                    <button
-                      onClick={() =>
-                        navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-                      }
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                    >
-                      📊 View Results
-                    </button>
-                  )}
-                </>
-              )}
+      <div className="flex gap-4 mb-8">
+        {!isPublished && (
+          <>
+            <button
+              onClick={() => handleSaveQuiz(false)}
+              disabled={loading}
+              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={() => handleSaveQuiz(true)}
+              disabled={loading || questions.length === 0}
+              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                questions.length === 0
+                  ? "Add at least one question to publish"
+                  : ""
+              }
+            >
+              {loading ? "Publishing..." : "Publish Quiz"}
+            </button>
+          </>
+        )}
+        {quizId && (
+          <>
+            <button
+              onClick={() =>
+                navigate(`/instructor-dashboard/question-bank/${quizId}`)
+              }
+              className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            >
+              📚 Load from Archive
+            </button>
+            {isPublished && (
               <button
-                onClick={() => navigate(-1)}
-                className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                onClick={() =>
+                  navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                }
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
               >
-                {quizId ? "Close" : "Cancel"}
+                📊 View Results
               </button>
-            </div>
+            )}
+          </>
+        )}
+        <button
+          onClick={() => navigate(-1)}
+          className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+        >
+          {quizId ? "Close" : "Cancel"}
+        </button>
+      </div>
     </div>
   );
 };
-

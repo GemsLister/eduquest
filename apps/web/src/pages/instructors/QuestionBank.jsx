@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 
 export const QuestionBank = () => {
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("active"); // "active" or "archived" or "import"
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -38,7 +41,7 @@ export const QuestionBank = () => {
     return questions.filter(
       (q) =>
         q.text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.quizzes?.title?.toLowerCase().includes(searchTerm.toLowerCase())
+        q.quizzes?.title?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   };
 
@@ -52,18 +55,21 @@ export const QuestionBank = () => {
   // Handle adding new question to bank
   const handleAddToBank = async () => {
     if (!newQuestion.text.trim()) {
-      alert("Question text is required");
+      toast.warning("Question text is required");
       return;
     }
 
-    if (newQuestion.type === "mcq" && newQuestion.options.some((o) => !o.trim())) {
-      alert("All options must be filled");
+    if (
+      newQuestion.type === "mcq" &&
+      newQuestion.options.some((o) => !o.trim())
+    ) {
+      toast.warning("All options must be filled");
       return;
     }
 
     const result = await addToBank(newQuestion);
     if (result.success) {
-      alert("Question added to bank!");
+      toast.success("Question added to bank!");
       setNewQuestion({
         text: "",
         type: "mcq",
@@ -73,19 +79,19 @@ export const QuestionBank = () => {
       });
       setShowAddForm(false);
     } else {
-      alert("Error: " + result.error);
+      toast.error("Error: " + result.error);
     }
   };
 
   // Handle importing selected questions to a quiz
   const handleImportToQuiz = async () => {
     if (!quizId) {
-      alert("No quiz selected for import");
+      toast.warning("No quiz selected for import");
       return;
     }
 
     if (selectedQuestions.length === 0) {
-      alert("Please select at least one question to import");
+      toast.warning("Please select at least one question to import");
       return;
     }
 
@@ -121,14 +127,16 @@ export const QuestionBank = () => {
         orderIndex++;
       }
 
-      alert(`Successfully imported ${selectedQuestions.length} question(s) to the quiz!`);
+      toast.success(
+        `Successfully imported ${selectedQuestions.length} question(s) to the quiz!`,
+      );
       setSelectedQuestions([]);
-      
+
       // Navigate to quiz editor
       navigate(`/instructor-dashboard/instructor-quiz/${quizId}`);
     } catch (error) {
       console.error("Error importing questions:", error);
-      alert("Error importing questions: " + error.message);
+      toast.error("Error importing questions: " + error.message);
     } finally {
       setImporting(false);
     }
@@ -156,7 +164,7 @@ export const QuestionBank = () => {
 
   const removeOption = (index) => {
     if (newQuestion.options.length <= 2) {
-      alert("Minimum 2 options required");
+      toast.warning("Minimum 2 options required");
       return;
     }
     setNewQuestion((prev) => ({
@@ -177,7 +185,9 @@ export const QuestionBank = () => {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading questions...</p>
+          <p className="mt-4 text-hornblende-green font-semibold">
+            Loading questions...
+          </p>
         </div>
       </div>
     );
@@ -282,7 +292,9 @@ export const QuestionBank = () => {
             disabled={importing || selectedQuestions.length === 0}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {importing ? "Importing..." : `Import ${selectedQuestions.length} Questions`}
+            {importing
+              ? "Importing..."
+              : `Import ${selectedQuestions.length} Questions`}
           </button>
         </div>
       )}
@@ -300,7 +312,8 @@ export const QuestionBank = () => {
             <div
               key={question.id}
               className={`bg-white border-2 rounded-lg p-4 ${
-                activeTab === "import" && selectedQuestions.some((q) => q.id === question.id)
+                activeTab === "import" &&
+                selectedQuestions.some((q) => q.id === question.id)
                   ? "border-casual-green bg-green-50"
                   : "border-gray-200 hover:border-casual-green"
               }`}
@@ -311,7 +324,9 @@ export const QuestionBank = () => {
                   {activeTab === "import" && (
                     <input
                       type="checkbox"
-                      checked={selectedQuestions.some((q) => q.id === question.id)}
+                      checked={selectedQuestions.some(
+                        (q) => q.id === question.id,
+                      )}
                       onChange={() => toggleQuestionSelection(question)}
                       className="mr-3 h-5 w-5 text-casual-green"
                     />
@@ -393,8 +408,16 @@ export const QuestionBank = () => {
                         ♻️ Restore
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm("Are you sure you want to permanently delete this question?")) {
+                        onClick={async () => {
+                          const confirmed = await confirm({
+                            title: "Delete Question Permanently",
+                            message:
+                              "Are you sure you want to permanently delete this question?",
+                            confirmText: "Delete",
+                            cancelText: "Cancel",
+                            variant: "danger",
+                          });
+                          if (confirmed) {
                             deleteQuestion(question.id);
                           }
                         }}
@@ -436,7 +459,9 @@ export const QuestionBank = () => {
                 </label>
                 <select
                   value={newQuestion.type}
-                  onChange={(e) => setNewQuestion({ ...newQuestion, type: e.target.value })}
+                  onChange={(e) =>
+                    setNewQuestion({ ...newQuestion, type: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="mcq">Multiple Choice</option>
@@ -451,7 +476,9 @@ export const QuestionBank = () => {
                 </label>
                 <textarea
                   value={newQuestion.text}
-                  onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
+                  onChange={(e) =>
+                    setNewQuestion({ ...newQuestion, text: e.target.value })
+                  }
                   placeholder="Enter your question"
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
@@ -472,7 +499,10 @@ export const QuestionBank = () => {
                           name="correct-answer"
                           checked={newQuestion.correctAnswer === idx}
                           onChange={() =>
-                            setNewQuestion({ ...newQuestion, correctAnswer: idx })
+                            setNewQuestion({
+                              ...newQuestion,
+                              correctAnswer: idx,
+                            })
                           }
                           className="mt-3"
                         />
@@ -547,7 +577,10 @@ export const QuestionBank = () => {
                   type="number"
                   value={newQuestion.points}
                   onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, points: parseInt(e.target.value) || 1 })
+                    setNewQuestion({
+                      ...newQuestion,
+                      points: parseInt(e.target.value) || 1,
+                    })
                   }
                   min={1}
                   className="w-24 px-4 py-2 border border-gray-300 rounded-lg"
@@ -576,4 +609,3 @@ export const QuestionBank = () => {
     </div>
   );
 };
-
