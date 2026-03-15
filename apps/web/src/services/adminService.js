@@ -84,7 +84,7 @@ export const adminService = {
   approveRegistration: async (userId) => {
     return await supabase
       .from("profiles")
-      .update({ is_approved: true })
+      .update({ is_approved: true, is_instructor: true })
       .eq("id", userId);
   },
 
