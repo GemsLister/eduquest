@@ -8,6 +8,10 @@ export const ItemAnalysisHeader = ({
   loadingQuizzes,
   onSectionChange, // Use the prop from the parent
   onQuizChange,    // Use the prop from the parent
+  onSearchChange,
+  onCohortFilterChange,
+  selectedCohortFilter,
+  cohortOptions,
 }) => {
   return (
     <div>
@@ -25,7 +29,7 @@ export const ItemAnalysisHeader = ({
 
         {/* Selection Controls */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Section Selection */}
             <div>
@@ -90,6 +94,26 @@ export const ItemAnalysisHeader = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
               />
+            </div>
+
+            {/* NEW: Cohort Filter */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Filter by Cohort
+              </label>
+              <select
+                value={selectedCohortFilter}
+                onChange={(e) => onCohortFilterChange && onCohortFilterChange(e.target.value)}
+                disabled={!selectedSection}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="all">All Students</option>
+                {cohortOptions?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
