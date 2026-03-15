@@ -35,6 +35,8 @@ export const PublicQuizPage = () => {
   useEffect(() => {
     const loadQuiz = async () => {
       try {
+        console.log("Loading quiz with share token:", shareToken);
+        
         const { data: quizData, error: quizError } = await supabase
           .from("quizzes")
           .select(
@@ -49,7 +51,16 @@ export const PublicQuizPage = () => {
           .eq("is_published", true)
           .single();
 
-        if (quizError || !quizData) {
+        console.log("Quiz data result:", { quizData, quizError });
+
+        if (quizError) {
+          console.error("Quiz loading error:", quizError);
+          setError("Quiz not found. Invalid link.");
+          setLoading(false);
+          return;
+        }
+
+        if (!quizData) {
           setError("Quiz not found. Invalid link.");
           setLoading(false);
           return;
@@ -69,9 +80,12 @@ export const PublicQuizPage = () => {
           .eq("quiz_id", quizData.id)
           .order("created_at", { ascending: true });
 
+        console.log("Questions result:", { questionsData, questionsError });
+
         if (questionsError) throw questionsError;
         setQuestions(questionsData || []);
       } catch (err) {
+        console.error("Full error loading quiz:", err);
         setError(err.message || "Failed to load quiz");
       } finally {
         setLoading(false);
