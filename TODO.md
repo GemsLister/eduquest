@@ -1,35 +1,15 @@
-# Question Bank Page Implementation
+# Google Sign-In for Public Quiz
 
-## Tasks
-- [ ] 1. Add Question Bank navigation link to InstructorLayout sidebar
-- [ ] 2. Fix InstructorQuestions.jsx to save questions to Supabase
-- [ ] 3. Fix InstructorQuestions.jsx to delete questions from Supabase
-- [ ] 4. Add update question functionality to quizService.js
-- [ ] 5. Test the implementation
-- [ ] Fix InstructorDashboard.jsx:
-  - [ ] Call useFetchSectionQuiz() instead of useFetchSectionQuiz
-  - [ ] Fix onSectionCreated callback to use functional update (fix stale closure)
-  - [ ] Add navigate from useNavigate hook
-- [ ] Fix useFetchSectionQuiz.jsx:
-  - [ ] Remove extra `};` syntax error before return statement
+## Step 1: DB Migration ✅
+- Created `supabase/migrations/20241025_add_student_id_to_student_profile.sql`
+- User needs to run migration: `supabase migration up` or apply in Supabase dashboard.
 
+## Step 2: Update Auth Hook ✅
+- Added `handleGoogleQuizLogin` to `apps/web/src/hooks/authHook/useGoogleLogin.jsx`
 
-## Implementation Details
+## Step 3: Update PublicQuizPage ⏳
+- Edit `apps/web/src/pages/PublicQuizPage.jsx`
 
-### Step 1: Add Navigation to Sidebar (InstructorLayout.jsx)
-- Add a new nav item for "Question Bank" with an icon (📝 or ❓)
-- Path: `/instructor-dashboard/instructor-questions`
+## Step 4: Test ⏳
+- `cd apps/web && npm run dev`
 
-### Step 2: Fix Save Functionality (InstructorQuestions.jsx)
-- Import quizService
-- Implement handleSaveQuestion to:
-  - For new questions: create using quizService.createQuestions
-  - For existing questions: update using Supabase directly
-  
-### Step 3: Fix Delete Functionality (InstructorQuestions.jsx)
-- Implement handleDeleteQuestion to:
-  - Delete from Supabase using quizService.deleteQuestion
-  
-### Step 4: Add Update Function to quizService.js
-- Add updateQuestion function to quizService
-# Fix Issues in InstructorDashboard and useFetchSectionQuiz
