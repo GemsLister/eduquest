@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "overrides": {
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "scripts": {
     "dev": "vite",
@@ -17,8 +17,8 @@
     "@remix-run/router": "^1.15.0",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/vite": "^4.1.18",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-router-dom": "^7.13.1",
     "react-toastify": "^10.0.6",
     "tailwindcss": "^4.1.18"
