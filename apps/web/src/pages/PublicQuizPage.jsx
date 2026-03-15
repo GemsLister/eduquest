@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
-import * as studentService from "../services/studentService.js";
+import { studentService } from "../services/studentService.js";
 import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
 import { useSearchParams } from "react-router-dom";
 
@@ -126,26 +126,33 @@ export const PublicQuizPage = () => {
       setAuthenticating(true);
       const currentExamCode = quiz?.sections?.exam_code;
 
-      let { data: student } = await studentService.getStudentByEmail(email);
+      let { data: student, error: fetchError } = await studentService.getStudentByEmail(email);
+      if (fetchError && fetchError.code !== 'PGRST116') throw new Error(fetchError.message);
 
       if (!student) {
-        const newStudent = await studentService.createStudent({
+        const { data: newStudent, error: createError } = await studentService.createStudent({
           student_email: email,
           student_name: studentName,
           student_id: studentId,
           exam_code: currentExamCode,
         });
+        if (createError) throw new Error(createError.message);
         student = newStudent;
       } else {
         // Update existing
-        await studentService.updateStudent(student.id, {
+        const { error: updateError } = await studentService.updateStudent(student.id, {
           student_id: studentId,
           student_name: studentName,
           exam_code: currentExamCode,
         });
+        if (updateError) throw new Error(updateError.message);
       }
 
-      const { data: attempt } = await supabase
+      if (!student || !student.id) {
+        throw new Error("Failed to obtain student profile details.");
+      }
+
+      const { data: attempt, error: attemptError } = await supabase
         .from("quiz_attempts")
         .insert([
           {
@@ -153,12 +160,14 @@ export const PublicQuizPage = () => {
             student_id: student.id,
             student_name: studentName,
             student_email: email,
-            user_id: user.id,
             status: "in_progress",
           },
         ])
         .select()
         .single();
+
+      if (attemptError) throw new Error(attemptError.message);
+      if (!attempt) throw new Error("Failed to create quiz attempt.");
 
       setAttemptId(attempt.id);
       setHasStarted(true);
@@ -364,27 +373,36 @@ export const PublicQuizPage = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-          <h1 className="text-2xl font-bold">{quiz?.title}</h1>
-          <p className="mt-2 text-gray-600">{quiz?.description}</p>
-          {error && <div className="mt-4 text-red-500 text-sm">{error}</div>}
-          {authenticating ? (
-            <div className="mt-6 flex flex-col items-center space-y-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <p className="text-gray-600">Signing in with Google...</p>
+          {error ? (
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-red-600 mb-2">Oops!</h1>
+              <p className="text-gray-700">{error}</p>
             </div>
           ) : (
-            <div className="mt-6">
-              <p className="text-sm text-gray-600 mb-4 text-center">
-                Sign in with your institutional Google account (@student.buksu.edu.ph) to start the exam quickly.
-              </p>
-              <button
-                onClick={handleGoogleQuizLoginClick}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-white border-2 border-gray-300 py-3 px-4 font-semibold text-gray-800 hover:border-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-md"
-              >
-                <img src="/src/assets/google-icon.png" alt="Google" className="h-5 w-5" />
-                Sign in with Google
-              </button>
-            </div>
+            <>
+              <h1 className="text-2xl font-bold">{quiz?.title}</h1>
+              <p className="mt-2 text-gray-600">{quiz?.description}</p>
+              
+              {authenticating ? (
+                <div className="mt-6 flex flex-col items-center space-y-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <p className="text-gray-600">Signing in with Google...</p>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  <p className="text-sm text-gray-600 mb-4 text-center">
+                    Sign in with your institutional Google account (@student.buksu.edu.ph) to start the exam quickly.
+                  </p>
+                  <button
+                    onClick={handleGoogleQuizLoginClick}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-white border-2 border-gray-300 py-3 px-4 font-semibold text-gray-800 hover:border-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-md"
+                  >
+                    <img src="/src/assets/google-icon.png" alt="Google" className="h-5 w-5" />
+                    Sign in with Google
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
