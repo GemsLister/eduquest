@@ -25,6 +25,7 @@ export const InstructorQuiz = () => {
   const [showShareUrl, setShowShareUrl] = useState(false);
   const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
   const [questionCount, setQuestionCount] = useState(1);
+  const [showSectionModal, setShowSectionModal] = useState(false);
 
   useEffect(() => {
     loadSections();
@@ -605,47 +606,6 @@ export const InstructorQuiz = () => {
             />
           </div>
 
-          <div className="pt-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Assign to Sections
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {availableSections.map((sec) => (
-                <label
-                  key={sec.id}
-                  className={`flex items-center space-x-3 border p-3 rounded-lg cursor-pointer ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "hover:bg-gray-50 bg-white"}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedSectionIds.includes(sec.id)}
-                    onChange={(e) => {
-                      if (e.target.checked)
-                        setSelectedSectionIds([...selectedSectionIds, sec.id]);
-                      else
-                        setSelectedSectionIds(
-                          selectedSectionIds.filter((id) => id !== sec.id),
-                        );
-                    }}
-                    disabled={isPublished}
-                    className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
-                  />
-                  <div>
-                    <span className="block text-sm font-medium text-gray-800">
-                      {sec.section_name}
-                    </span>
-                    <span className="block text-xs text-gray-500">
-                      Code: {sec.exam_code}
-                    </span>
-                  </div>
-                </label>
-              ))}
-              {availableSections.length === 0 && (
-                <div className="text-sm text-gray-500 col-span-2">
-                  No sections available. Create one first!
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -677,6 +637,101 @@ export const InstructorQuiz = () => {
                 className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section Selection Modal */}
+      {showSectionModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowSectionModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-1">
+              Assign to Sections
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Select which sections this quiz should appear in.
+            </p>
+
+            {availableSections.length === 0 ? (
+              <div className="text-sm text-gray-500 py-4 text-center">
+                No sections available. Create one first!
+              </div>
+            ) : (
+              <>
+                {/* Select All */}
+                <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedSectionIds.length === availableSections.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedSectionIds(availableSections.map((s) => s.id));
+                      } else {
+                        setSelectedSectionIds([]);
+                      }
+                    }}
+                    disabled={isPublished}
+                    className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-semibold text-gray-800">
+                    Select All
+                  </span>
+                  <span className="ml-auto text-xs text-gray-400">
+                    {selectedSectionIds.length}/{availableSections.length}
+                  </span>
+                </label>
+
+                {/* Section List */}
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {availableSections.map((sec) => (
+                    <label
+                      key={sec.id}
+                      className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedSectionIds.includes(sec.id)
+                          ? "border-casual-green bg-green-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      } ${isPublished ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSectionIds.includes(sec.id)}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setSelectedSectionIds([...selectedSectionIds, sec.id]);
+                          else
+                            setSelectedSectionIds(
+                              selectedSectionIds.filter((id) => id !== sec.id),
+                            );
+                        }}
+                        disabled={isPublished}
+                        className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                      />
+                      <div>
+                        <span className="block text-sm font-medium text-gray-800">
+                          {sec.section_name}
+                        </span>
+                        <span className="block text-xs text-gray-500">
+                          Code: {sec.exam_code}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowSectionModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Done
               </button>
             </div>
           </div>
@@ -946,6 +1001,17 @@ export const InstructorQuiz = () => {
               className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={() => setShowSectionModal(true)}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors relative"
+            >
+              Assign to Sections
+              {selectedSectionIds.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-white text-orange-600 border-2 border-orange-500 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                  {selectedSectionIds.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => handleSaveQuiz(true)}
