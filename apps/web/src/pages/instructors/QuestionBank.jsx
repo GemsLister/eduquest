@@ -259,17 +259,30 @@ export const QuestionBank = () => {
       </div>
 
       {/* Import Action Bar */}
-      {activeTab === "import" && quizId && selectedQuestions.length > 0 && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-300 rounded-lg flex justify-between items-center">
-          <span className="text-blue-800 font-semibold">
-            {selectedQuestions.length} question(s) selected
-          </span>
+      {activeTab === "import" && quizId && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-300 rounded-lg flex justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={handleSelectAllToggle}
+                className="mr-2 h-5 w-5 text-casual-green rounded"
+              />
+              <span className="text-blue-800 font-semibold text-sm">
+                Select All ({displayedQuestions.length})
+              </span>
+            </label>
+            <span className="text-blue-600 font-semibold">
+              {selectedQuestions.length} / {displayedQuestions.length} selected
+            </span>
+          </div>
           <button
             onClick={handleImportToQuiz}
-            disabled={importing}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+            disabled={importing || selectedQuestions.length === 0}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {importing ? "Importing..." : "Import to Quiz"}
+            {importing ? "Importing..." : `Import ${selectedQuestions.length} Questions`}
           </button>
         </div>
       )}
