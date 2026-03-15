@@ -24,7 +24,7 @@ export const SectionDetail = () => {
     setQuizFormData,
     isSubmitting,
   } = QuizHooks.useCreateQuiz({
-    user: user || {},
+    user: user,  // Remove the || {} fallback
   });
 
   if (loading) {
