@@ -7,7 +7,7 @@ import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Item Analysis Routes
-import * as ItemAnalysisIndex from "../pages/item-analysis/itemAnalysisIndex.js";
+import { ItemAnalysisPage } from "../pages/item-analysis/ItemAnalysisPage.jsx";
 // Admin Routes
 import * as AdminIndex from "../pages/admin/adminPageIndex.js";
 // Public Routes
