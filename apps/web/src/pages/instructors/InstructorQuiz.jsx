@@ -154,7 +154,7 @@ export const InstructorQuiz = () => {
 
   const archiveQuestion = async (id) => {
     setDeletingQuestionId(id);
-    
+
     // If it's a new question (temp ID from Date.now()), just remove from state
     if (typeof id === "number" && id > 10000000000) {
       setQuestions(questions.filter((q) => q.id !== id));
@@ -411,6 +411,7 @@ export const InstructorQuiz = () => {
               Quiz Title *
             </label>
             <input
+              required
               type="text"
               value={quizTitle}
               onChange={(e) => setQuizTitle(e.target.value)}
@@ -421,22 +422,10 @@ export const InstructorQuiz = () => {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              value={quizDescription}
-              onChange={(e) => setQuizDescription(e.target.value)}
-              placeholder="Describe the quiz purpose and content"
-              rows="3"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Duration (minutes)
             </label>
             <input
+              required
               type="number"
               value={quizDuration}
               onChange={(e) => setQuizDuration(e.target.value)}
@@ -658,59 +647,59 @@ export const InstructorQuiz = () => {
         )}
       </div>
 
-            <div className="flex gap-4 mb-8">
-              {!isPublished && (
-                <>
-                  <button
-                    onClick={() => handleSaveQuiz(false)}
-                    disabled={loading}
-                    className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "Saving..." : "Save as Draft"}
-                  </button>
-                  <button
-                    onClick={() => handleSaveQuiz(true)}
-                    disabled={loading || questions.length === 0}
-                    className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      questions.length === 0
-                        ? "Add at least one question to publish"
-                        : ""
-                    }
-                  >
-                    {loading ? "Publishing..." : "Publish Quiz"}
-                  </button>
-                </>
-              )}
-              {quizId && (
-                <>
-                  <button
-                    onClick={() =>
-                      navigate(`/instructor-dashboard/question-bank/${quizId}`)
-                    }
-                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    📚 Load from Archive
-                  </button>
-                  {isPublished && (
-                    <button
-                      onClick={() =>
-                        navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-                      }
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                    >
-                      📊 View Results
-                    </button>
-                  )}
-                </>
-              )}
+      <div className="flex gap-4 mb-8">
+        {!isPublished && (
+          <>
+            <button
+              onClick={() => handleSaveQuiz(false)}
+              disabled={loading}
+              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={() => handleSaveQuiz(true)}
+              disabled={loading || questions.length === 0}
+              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                questions.length === 0
+                  ? "Add at least one question to publish"
+                  : ""
+              }
+            >
+              {loading ? "Publishing..." : "Publish Quiz"}
+            </button>
+          </>
+        )}
+        {quizId && (
+          <>
+            <button
+              onClick={() =>
+                navigate(`/instructor-dashboard/question-bank/${quizId}`)
+              }
+              className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            >
+              📚 Load from Archive
+            </button>
+            {isPublished && (
               <button
-                onClick={() => navigate(-1)}
-                className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                onClick={() =>
+                  navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                }
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
               >
-                {quizId ? "Close" : "Cancel"}
+                📊 View Results
               </button>
-            </div>
+            )}
+          </>
+        )}
+        <button
+          onClick={() => navigate(-1)}
+          className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+        >
+          {quizId ? "Close" : "Cancel"}
+        </button>
+      </div>
     </div>
   );
 };
