@@ -18,9 +18,9 @@ export const DistractorAnalysis = ({ item }) => {
             <span
               className={opt.isCorrect ? "text-green-600" : "text-gray-700"}
             >
-              {opt.text}
+              {String.fromCharCode(65 + i)}: {opt.text}
             </span>
-            <span>{opt.percentage}%</span>
+<span>{opt.count} students ({opt.percentage}%)</span>
           </div>
           <div className="w-full bg-gray-100 h-1.5 rounded-full mt-1">
             <div
