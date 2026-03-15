@@ -10,6 +10,11 @@ const navItems = [
     end: true,
   },
   {
+    name: "Quizzes",
+    path: "/instructor-dashboard/quizzes",
+    icon: <Icon.QuizIcon />,
+  },
+  {
     name: "Question Bank",
     path: "/instructor-dashboard/question-bank",
     icon: <Icon.QuestionIcon />,
@@ -29,20 +34,20 @@ const navItems = [
 
 export const Sidebar = () => {
   return (
-    <aside className="group static flex flex-col bg-hornblende-green w-[68px] hover:w-[220px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
+    <aside className="group static flex flex-col bg-hornblende-green w-[72px] hover:w-[240px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
       {/* Logo */}
-      <div className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10">
+      <div className="flex items-center gap-3 py-6 px-4 border-b border-white/10">
         <img
           src={eduquestLogo}
           alt="eduquest-logo"
-          className="h-9 w-9 shrink-0 rounded-lg"
+          className="h-10 w-10 shrink-0 rounded-lg"
         />
-        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide">
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-lg whitespace-nowrap tracking-wide">
           EduQuest
         </span>
       </div>
 
-      <nav className="flex-1 px-3.5">
+      <nav className="flex-1 px-3 mt-4">
         <ul className="flex flex-col gap-2">
           {navItems.map((nav, index) => (
             <li key={index}>
@@ -57,7 +62,9 @@ export const Sidebar = () => {
                   }`
                 }
               >
-                <span className="shrink-0 text-[18px]">{nav.icon}</span>
+                <span className="shrink-0 flex items-center justify-center w-6 h-6 text-[22px]">
+                  {nav.icon}
+                </span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
                   {nav.name}
                 </span>
@@ -68,12 +75,11 @@ export const Sidebar = () => {
       </nav>
 
       {/* Bottom accent */}
-      <div className="px-2 pb-4">
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap">
+      <div className="px-3 pb-6 mt-auto">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-xs px-3 whitespace-nowrap">
           © 2026 EduQuest
         </div>
       </div>
     </aside>
   );
 };
-

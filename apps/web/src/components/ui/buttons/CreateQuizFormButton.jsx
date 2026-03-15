@@ -14,9 +14,9 @@ export const CreateQuizFormButton = ({
   };
 
   return (
-    <div>
+    <div className="relative">
       {!showQuizForm ? (
-        <div className="mb-8">
+        <div>
           <button
             onClick={() => setShowQuizForm(true)}
             className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
@@ -25,7 +25,7 @@ export const CreateQuizFormButton = ({
           </button>
         </div>
       ) : (
-        <div className="absolute bg-white rounded-lg p-6 shadow-md border border-gray-200 mb-8 z-10">
+        <div className="absolute right-0 top-full mt-2 bg-white rounded-lg p-6 shadow-xl border border-gray-200 z-50 min-w-[300px]">
           <h3 className="text-xl font-bold text-hornblende-green mb-4">
             Create New Quiz
           </h3>
