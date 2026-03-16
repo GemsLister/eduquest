@@ -20,13 +20,23 @@ export const useCreateQuiz = ({ user } = {}) => {
         return;
       }
 
+      // Check if user is authenticated
+      if (!user?.id) {
+        alert("You must be logged in to create a quiz");
+        return;
+      }
+
       setIsSubmitting(true);
+
+      console.log("Creating quiz with user:", user);
+      console.log("Section ID:", sectionId);
 
       const { data, error } = await supabase
         .from("quizzes")
         .insert([
           {
-            instructor_id: user?.id,
+            instructor_id: user.id, // Ensure this matches auth.uid()
+            section_id: sectionId,
             title: quizFormData.title.trim(),
             description: quizFormData.description.trim() || null,
             is_published: false,
@@ -35,15 +45,30 @@ export const useCreateQuiz = ({ user } = {}) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details:", error);
+        throw error;
+      }
 
       setQuizFormData({ title: "", description: "" });
       setShowQuizForm(false);
 
       navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
     } catch (error) {
-      toast.error("Error creating quiz: " + error.message);
-      console.error("Error creating quiz:", error);
+      console.error("Full error object:", error);
+
+      // More specific error handling
+      if (error.code === "42501") {
+        toast.error(
+          "Permission denied: You don't have rights to create quizzes in this section. Please contact your administrator.",
+        );
+      } else if (error.message?.includes("row-level security")) {
+        toast.error(
+          "Permission denied: Your account doesn't have instructor privileges. Please ensure you're logged in as an instructor.",
+        );
+      } else {
+        toast.error("Error creating quiz: " + error.message);
+      }
     } finally {
       setIsSubmitting(false);
     }

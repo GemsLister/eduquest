@@ -176,7 +176,8 @@ export const InstructorQuiz = () => {
   const generateShareToken = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let token = "";
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
+      // Increased length for better uniqueness
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return token;
@@ -276,7 +277,8 @@ export const InstructorQuiz = () => {
       let newToken = shareToken;
 
       if (quizId) {
-        if (publish && !shareToken) {
+        // Always generate a new share token when publishing, even if one exists
+        if (publish) {
           newToken = generateShareToken();
         }
 
@@ -571,6 +573,7 @@ export const InstructorQuiz = () => {
               Quiz Title *
             </label>
             <input
+              required
               type="text"
               value={quizTitle}
               onChange={(e) => setQuizTitle(e.target.value)}
@@ -581,22 +584,10 @@ export const InstructorQuiz = () => {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              value={quizDescription}
-              onChange={(e) => setQuizDescription(e.target.value)}
-              placeholder="Describe the quiz purpose and content"
-              rows="3"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Duration (minutes)
             </label>
             <input
+              required
               type="number"
               value={quizDuration}
               onChange={(e) => setQuizDuration(e.target.value)}
@@ -605,7 +596,6 @@ export const InstructorQuiz = () => {
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
-
         </div>
       </div>
 
@@ -668,10 +658,14 @@ export const InstructorQuiz = () => {
                 <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={selectedSectionIds.length === availableSections.length}
+                    checked={
+                      selectedSectionIds.length === availableSections.length
+                    }
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedSectionIds(availableSections.map((s) => s.id));
+                        setSelectedSectionIds(
+                          availableSections.map((s) => s.id),
+                        );
                       } else {
                         setSelectedSectionIds([]);
                       }
@@ -703,7 +697,10 @@ export const InstructorQuiz = () => {
                         checked={selectedSectionIds.includes(sec.id)}
                         onChange={(e) => {
                           if (e.target.checked)
-                            setSelectedSectionIds([...selectedSectionIds, sec.id]);
+                            setSelectedSectionIds([
+                              ...selectedSectionIds,
+                              sec.id,
+                            ]);
                           else
                             setSelectedSectionIds(
                               selectedSectionIds.filter((id) => id !== sec.id),

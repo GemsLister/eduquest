@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
@@ -20,6 +19,8 @@ export const ItemAnalysisPage = () => {
   const [saveError, setSaveError] = useState(null);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCohortFilter, setSelectedCohortFilter] = useState("all");
+  const [cohortOptions, setCohortOptions] = useState([]);
 
   // --- 1. Fetch Sections ---
   useEffect(() => {
@@ -61,7 +62,22 @@ export const ItemAnalysisPage = () => {
   useEffect(() => {
     if (selectedQuiz) fetchAndAnalyze(selectedQuiz);
     else setAnalysis([]);
-  }, [selectedQuiz]);
+  }, [selectedQuiz, selectedCohortFilter]);
+
+  // --- 3.5. Update cohort options when section changes ---
+  useEffect(() => {
+    if (selectedSection) {
+      setCohortOptions([
+        { value: "top_performers", label: "Top 25% Performers" },
+        { value: "bottom_performers", label: "Bottom 25% Performers" },
+        { value: "middle_performers", label: "Middle 50% Performers" },
+        { value: "perfect_scores", label: "Perfect Scores Only" },
+        { value: "failing_scores", label: "Failing Scores (<60%)" },
+      ]);
+    } else {
+      setCohortOptions([]);
+    }
+  }, [selectedSection]);
 
   // --- 4. Save Analysis ---
   const handleSaveAnalysis = async () => {
@@ -75,7 +91,7 @@ export const ItemAnalysisPage = () => {
       );
       if (error) throw error;
       setAnalysisSaved(true);
-      toast.success("Analysis saved successfully!");
+      alert("Analysis saved successfully!");
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
@@ -96,89 +112,141 @@ export const ItemAnalysisPage = () => {
       setLoading(true);
 
       // 1. Fetch Questions and ALL Student Attempts
-      const { data: questions } = await supabase
-        .from("questions")
-        .select("*")
-        .eq("quiz_id", quizId);
-      const { data: attempts } = await supabase
-        .from("quiz_attempts")
-        .select("*")
-        .eq("quiz_id", quizId);
+      const { data: questions } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
+      
+      let attemptsQuery = supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
+      
+      // Apply cohort filtering
+      if (selectedCohortFilter !== "all" && selectedSection) {
+        // First get all attempts to calculate performance-based cohorts
+        const { data: allAttempts } = await supabase
+          .from("quiz_attempts")
+          .select("*")
+          .eq("quiz_id", quizId);
+
+        if (!allAttempts || allAttempts.length === 0) {
+          setAnalysis([]);
+          setLoading(false);
+          return;
+        }
+
+        // Sort by score to calculate percentiles
+        const sortedAttempts = allAttempts.sort((a, b) => (b.score || 0) - (a.score || 0));
+        const totalAttempts = sortedAttempts.length;
+        
+        let filteredAttempts = [];
+
+        if (selectedCohortFilter === "top_performers") {
+          // Top 25% performers
+          const topCount = Math.ceil(totalAttempts * 0.25);
+          filteredAttempts = sortedAttempts.slice(0, topCount);
+        } else if (selectedCohortFilter === "bottom_performers") {
+          // Bottom 25% performers
+          const bottomCount = Math.ceil(totalAttempts * 0.25);
+          filteredAttempts = sortedAttempts.slice(-bottomCount);
+        } else if (selectedCohortFilter === "middle_performers") {
+          // Middle 50% performers
+          const startIndex = Math.floor(totalAttempts * 0.25);
+          const endIndex = Math.ceil(totalAttempts * 0.75);
+          filteredAttempts = sortedAttempts.slice(startIndex, endIndex);
+        } else if (selectedCohortFilter === "perfect_scores") {
+          // Only students with perfect scores (100% of possible points)
+          // First get total possible points for this quiz
+          const { data: questions } = await supabase
+            .from("questions")
+            .select("points")
+            .eq("quiz_id", quizId);
+          
+          const totalPossiblePoints = questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
+          
+          filteredAttempts = allAttempts.filter(a => (a.score || 0) === totalPossiblePoints);
+        } else if (selectedCohortFilter === "failing_scores") {
+          // Students with scores below 60%
+          const { data: questions } = await supabase
+            .from("questions")
+            .select("points")
+            .eq("quiz_id", quizId);
+          
+          const totalPossiblePoints = questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
+          const passingThreshold = totalPossiblePoints * 0.6;
+          
+          filteredAttempts = allAttempts.filter(a => (a.score || 0) < passingThreshold);
+        }
+
+        // Use the filtered attempts for analysis
+        const filteredAttemptIds = filteredAttempts.map(a => a.id);
+        attemptsQuery = supabase
+          .from("quiz_attempts")
+          .select("*")
+          .eq("quiz_id", quizId)
+          .in("id", filteredAttemptIds);
+      }
+      
+      const { data: attempts } = await attemptsQuery;
 
       // Map attempt IDs to student names and total scores for Discrimination math
       const takersMap = {};
-      const attemptIds =
-        attempts?.map((att) => {
-          takersMap[att.id] = {
-            name: att.student_name || "Anonymous",
-            score: att.score || 0,
-          };
-          return att.id;
-        }) || [];
+      const attemptIds = attempts?.map(att => {
+        const displayName = att.guest_name || att.student_name || 
+          (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous");
+        
+        takersMap[att.id] = { 
+          name: displayName, 
+          score: att.score || 0,
+          isGuest: !att.user_id,
+          userId: att.user_id
+        };
+        return att.id;
+      }) || [];
 
       // 2. Fetch ALL individual responses for these students
-      const { data: responses } = await supabase
-        .from("quiz_responses")
-        .select("*")
-        .in("attempt_id", attemptIds);
+      const { data: responses } = await supabase.from("quiz_responses").select("*").in("attempt_id", attemptIds);
 
       const results = questions.map((q) => {
-        const qResponses =
-          responses?.filter((r) => r.question_id === q.id) || [];
+        const qResponses = responses?.filter(r => r.question_id === q.id) || [];
         const total = qResponses.length;
 
         // --- 3. DISTRACTOR ANALYSIS ---
-        const distractorData =
-          q.options?.map((opt, idx) => {
-            const count = qResponses.filter(
-              (r) =>
-                String(r.answer) === String(opt) ||
-                String(r.answer) === String(idx),
-            ).length;
+        const distractorData = q.options?.map((opt, idx) => {
+          const count = qResponses.filter(r => 
+            String(r.answer) === String(opt) || String(r.answer) === String(idx)
+          ).length;
 
-            return {
-              text: opt,
-              count: count,
-              percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
-              isCorrect: String(opt) === String(q.correct_answer),
-            };
-          }) || [];
+          return {
+            text: opt,
+            count: count,
+            percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
+            isCorrect: String(opt) === String(q.correct_answer)
+          };
+        }) || [];
 
         // --- 4. DIFFICULTY ($P$) ---
-        const correctCount = qResponses.filter((r) => r.is_correct).length;
+        const correctCount = qResponses.filter(r => r.is_correct).length;
         const fi = total > 0 ? correctCount / total : 0;
 
         // --- 5. DISCRIMINATION ($D$) ---
         let discrimination = 0;
         let discStatus = "POOR";
 
-        const sortedTakers = qResponses
-          .map((r) => ({
-            isCorrect: r.is_correct,
-            totalScore: takersMap[r.attempt_id]?.score || 0,
-          }))
-          .sort((a, b) => b.totalScore - a.totalScore);
+        const sortedTakers = qResponses.map(r => ({
+          isCorrect: r.is_correct,
+          totalScore: takersMap[r.attempt_id]?.score || 0
+        })).sort((a, b) => b.totalScore - a.totalScore);
 
-        const highestScore =
-          sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
-        const lowestScore =
-          sortedTakers.length > 0
-            ? sortedTakers[sortedTakers.length - 1].totalScore
-            : 0;
+        const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
+        const lowestScore = sortedTakers.length > 0 ? sortedTakers[sortedTakers.length - 1].totalScore : 0;
 
         if (total >= 2) {
           const groupSize = Math.max(1, Math.floor(total * 0.27));
           const upperGroup = sortedTakers.slice(0, groupSize);
           const lowerGroup = sortedTakers.slice(-groupSize);
 
-          const upperP =
-            upperGroup.filter((r) => r.isCorrect).length / groupSize;
-          const lowerP =
-            lowerGroup.filter((r) => r.isCorrect).length / groupSize;
-
+          const upperP = upperGroup.filter(r => r.isCorrect).length / groupSize;
+          const lowerP = lowerGroup.filter(r => r.isCorrect).length / groupSize;
+          
           discrimination = upperP - lowerP;
-          if (discrimination >= 0.4) discStatus = "EXCELLENT";
-          else if (discrimination >= 0.2) discStatus = "GOOD";
+          if (discrimination >= 0.40) discStatus = "EXCELLENT";
+          else if (discrimination >= 0.20) discStatus = "GOOD";
         }
 
         // --- 6. AI DECISION (Flag Logic) ---
@@ -196,11 +264,11 @@ export const ItemAnalysisPage = () => {
           highestScore,
           lowestScore,
           distractorAnalysis: distractorData,
-          takersDetails: qResponses.map((r) => ({
+          takersDetails: qResponses.map(r => ({
             name: takersMap[r.attempt_id]?.name || "Student",
             answer: getLetter(r.answer),
-            isCorrect: r.is_correct,
-          })),
+            isCorrect: r.is_correct
+          }))
         };
       });
 
@@ -227,6 +295,9 @@ export const ItemAnalysisPage = () => {
           onSectionChange={setSelectedSection}
           onQuizChange={setSelectedQuiz}
           onSearchChange={setSearchTerm}
+          onCohortFilterChange={setSelectedCohortFilter}
+          selectedCohortFilter={selectedCohortFilter}
+          cohortOptions={cohortOptions}
         />
 
         <ItemAnalysisResults
@@ -236,11 +307,12 @@ export const ItemAnalysisPage = () => {
           handleSaveAnalysis={handleSaveAnalysis}
           savingAnalysis={savingAnalysis}
           analysisSaved={analysisSaved}
+          selectedCohortFilter={selectedCohortFilter}
         />
 
         {(() => {
-          const filteredAnalysis = analysis.filter((item) =>
-            item.text.toLowerCase().includes(searchTerm.toLowerCase()),
+          const filteredAnalysis = analysis.filter(item => 
+            item.text.toLowerCase().includes(searchTerm.toLowerCase())
           );
 
           if (filteredAnalysis.length > 0) {
@@ -264,6 +336,7 @@ export const ItemAnalysisPage = () => {
           }
           return null;
         })()}
+
       </div>
     </div>
   );

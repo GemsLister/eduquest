@@ -14,7 +14,7 @@ export const useGoogleLogin = () => {
     });
   };
   const handleGoogleQuizLogin = async (quizToken) => {
-    const redirectUrl = `${window.location.origin}/public-quiz/${quizToken}?auth=success`;
+    const redirectUrl = `${window.location.origin}/quiz/${quizToken}?auth=success`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -22,6 +22,7 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
+          hd: "student.buksu.edu.ph"
         },
       },
     });
