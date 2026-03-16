@@ -35,10 +35,29 @@ export const QuestionBank = () => {
     points: 1,
   });
 
-  // Filter questions by search term
+  // Filter questions by search term and exclude current quiz questions
   const filterQuestions = (questions) => {
-    if (!searchTerm) return questions;
-    return questions.filter(
+    let filteredList = questions;
+
+    // Do not show questions that belong to the current quiz,
+    // or exact duplicates of what is already in this quiz.
+    if (quizId) {
+      const currentQuizTexts = new Set(
+        activeQuestions
+          .filter((q) => String(q.quiz_id) === String(quizId))
+          .map((q) => q.text?.toLowerCase().trim()),
+      );
+
+      filteredList = filteredList.filter(
+        (q) =>
+          String(q.quiz_id) !== String(quizId) &&
+          !currentQuizTexts.has(q.text?.toLowerCase().trim()),
+      );
+    }
+
+    if (!searchTerm) return filteredList;
+
+    return filteredList.filter(
       (q) =>
         q.text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.quizzes?.title?.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -51,6 +70,18 @@ export const QuestionBank = () => {
       : activeTab === "archived"
         ? filterQuestions(archivedQuestions)
         : filterQuestions(activeQuestions); // Import tab shows active questions
+
+  const selectAll =
+    displayedQuestions.length > 0 &&
+    selectedQuestions.length === displayedQuestions.length;
+
+  const handleSelectAllToggle = () => {
+    if (selectAll) {
+      setSelectedQuestions([]);
+    } else {
+      setSelectedQuestions([...displayedQuestions]);
+    }
+  };
 
   // Handle adding new question to bank
   const handleAddToBank = async () => {
@@ -311,7 +342,14 @@ export const QuestionBank = () => {
           {displayedQuestions.map((question) => (
             <div
               key={question.id}
-              className={`bg-white border-2 rounded-lg p-4 ${
+              onClick={
+                activeTab === "import"
+                  ? () => toggleQuestionSelection(question)
+                  : undefined
+              }
+              className={`transition-colors bg-white border-2 rounded-lg p-4 ${
+                activeTab === "import" ? "cursor-pointer " : ""
+              }${
                 activeTab === "import" &&
                 selectedQuestions.some((q) => q.id === question.id)
                   ? "border-casual-green bg-green-50"
@@ -327,8 +365,8 @@ export const QuestionBank = () => {
                       checked={selectedQuestions.some(
                         (q) => q.id === question.id,
                       )}
-                      onChange={() => toggleQuestionSelection(question)}
-                      className="mr-3 h-5 w-5 text-casual-green"
+                      onChange={(e) => {}}
+                      className="mr-3 h-5 w-5 text-casual-green pointer-events-none"
                     />
                   )}
 

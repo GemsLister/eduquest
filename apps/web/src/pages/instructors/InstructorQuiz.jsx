@@ -439,7 +439,10 @@ export const InstructorQuiz = () => {
         setTimeout(() => setSaveStatus(""), 3000);
       } else {
         setSaveStatus("Draft saved!");
-        setTimeout(() => setSaveStatus(""), 2000);
+        setTimeout(() => {
+          setSaveStatus("");
+          navigate("/instructor-dashboard/quizzes");
+        }, 1000);
       }
     } catch (err) {
       setError(err.message || "Failed to save quiz");
@@ -467,7 +470,7 @@ export const InstructorQuiz = () => {
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
       <div className="mb-8">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/instructor-dashboard/quizzes")}
           className="text-casual-green font-semibold mb-4 hover:underline"
         >
           ← Back
@@ -1047,7 +1050,7 @@ export const InstructorQuiz = () => {
           </>
         )}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/instructor-dashboard/quizzes")}
           className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
         >
           {quizId ? "Close" : "Cancel"}

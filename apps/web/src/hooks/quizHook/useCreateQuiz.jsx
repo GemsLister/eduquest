@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
 
-export const useCreateQuiz = ({ user } = {}) => {
+export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
   const navigate = useNavigate();
   const [quizFormData, setQuizFormData] = useState({
     title: "",
@@ -31,17 +31,20 @@ export const useCreateQuiz = ({ user } = {}) => {
       console.log("Creating quiz with user:", user);
       console.log("Section ID:", sectionId);
 
+      const quizDataToInsert = {
+        instructor_id: user.id, // Ensure this matches auth.uid()
+        title: quizFormData.title.trim(),
+        description: quizFormData.description.trim() || null,
+        is_published: false,
+      };
+
+      if (sectionId) {
+        quizDataToInsert.section_id = sectionId;
+      }
+
       const { data, error } = await supabase
         .from("quizzes")
-        .insert([
-          {
-            instructor_id: user.id, // Ensure this matches auth.uid()
-            section_id: sectionId,
-            title: quizFormData.title.trim(),
-            description: quizFormData.description.trim() || null,
-            is_published: false,
-          },
-        ])
+        .insert([quizDataToInsert])
         .select()
         .single();
 
