@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
 
 export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) => {
-  const { generateSuggestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
+  const { generateSuggestion, updateQuestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
   const [isManualEdit, setIsManualEdit] = useState(false);
   const [formData, setFormData] = useState({
     text: '',
@@ -33,27 +33,38 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   }, [isOpen, questionData]);
 
   const handleAIGenerate = async () => {
-    await generateSuggestion(questionData);
+    const result = await generateSuggestion(questionData);
+    if (result) {
+      // Immediately populate the form with AI result
+      setFormData({
+        text: result.text,
+        options: result.options,
+        correctAnswer: typeof result.correct_answer === 'string' 
+          ? result.options.indexOf(result.correct_answer) 
+          : result.correct_answer
+      });
+      // Switch to manual edit view so they see the changes in the form
+      setIsManualEdit(true);
+    }
   };
 
   const handleAIApplyAsDraft = async () => {
     try {
-      // Clean suggestions in case AI wrapped it in markdown code blocks
       const cleanSuggestion = typeof suggestion === 'string' 
         ? suggestion.replace(/```json|```/g, '').trim() 
         : suggestion;
         
       const parsed = typeof cleanSuggestion === 'string' ? JSON.parse(cleanSuggestion) : cleanSuggestion;
       
-      // Map text answer to index if necessary before saving
       const correctVal = typeof parsed.correct_answer === 'string' 
         ? parsed.options.indexOf(parsed.correct_answer) 
         : parsed.correct_answer;
 
+      // Save as DRAFT (Badge will stay)
       await saveRevision(questionId, parsed.text, parsed.options, correctVal);
-      alert('AI Revision applied and saved!');
-      onClose();
-      window.dispatchEvent(new Event("questions-updated"));
+      alert('AI Suggestion applied as draft. Click "Save & Update" to finalize.');
+      // Keep modal open so they can review/finalize
+      setIsManualEdit(true); 
     } catch (err) {
       console.error(err);
       alert('Error parsing or saving AI revision: ' + err.message);
@@ -65,12 +76,24 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
     if (formData.options.some(opt => !opt?.trim())) return alert("All options must be filled");
 
     try {
-      await saveRevision(questionId, formData.text, formData.options, formData.correctAnswer);
-      alert('Question updated successfully!');
+      // FINAL SAVE (Badge will disappear)
+      await updateQuestion(questionId, formData.text, formData.options, formData.correctAnswer);
+      alert('Question updated and finalized successfully!');
       onClose();
       window.dispatchEvent(new Event("questions-updated"));
     } catch (err) {
-      alert('Error saving revision: ' + err.message);
+      alert('Error finalizing revision: ' + err.message);
+    }
+  };
+
+  const handleJustSaveDraft = async () => {
+    try {
+      // JUST DRAFT (Badge will stay)
+      await saveRevision(questionId, formData.text, formData.options, formData.correctAnswer);
+      alert('Draft saved successfully!');
+      window.dispatchEvent(new Event("questions-updated"));
+    } catch (err) {
+      alert('Error saving draft: ' + err.message);
     }
   };
 
@@ -216,10 +239,28 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                     </div>
                   ))}
                 </div>
-                <div className="pt-4 flex gap-3">
-                  <button onClick={handleSaveDraft} className="flex-1 bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Save & Update</button>
-                  <button onClick={() => setIsManualEdit(false)} className="bg-gray-200 px-8 rounded-xl">Cancel</button>
+              <div className="pt-4 flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleSaveDraft} 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
+                  >
+                    🚀 Finalize & Update Live
+                  </button>
+                  <button 
+                    onClick={handleJustSaveDraft}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+                  >
+                    💾 Save as Draft
+                  </button>
                 </div>
+                <button 
+                  onClick={() => setIsManualEdit(false)} 
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
               </div>
             )}
           </div>
