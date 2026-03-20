@@ -8,16 +8,17 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, onManualEdit, q
     await generateSuggestion(questionData);
   };
 
-  const handleAIApply = () => {
+  const handleAIApply = async () => {
     try {
       const parsed = JSON.parse(suggestion);
-      // Call update
-      // onApplyAI(parsed.text, parsed.options, parsed.correct_answer);
-      onClose();
+      await updateQuestion(questionId, parsed.text, parsed.options, parsed.correct_answer);
+      alert('Question updated with AI!');
     } catch (err) {
-      alert('Invalid AI suggestion');
+      alert('Error applying suggestion: ' + err.message);
     }
+    onClose();
   };
+
 
   if (!isOpen) return null;
 
