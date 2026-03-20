@@ -5,6 +5,7 @@ import { DistractorAnalysis } from "./DistractorAnalysis";
 
 export const ItemAnalysisTable = ({
   analysis,
+  studentSearchTerm,
   expandedQuestion,
   toggleDetails,
   onFlagClick,
@@ -29,23 +30,30 @@ export const ItemAnalysisTable = ({
                 <React.Fragment key={item.question_id}>
                   <tr className="hover:bg-gray-50 transition-colors h-14">
                     <td className="p-3 text-sm font-medium" title={item.text}>
-                      <div 
-                        className="cursor-pointer group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
-                        onClick={() => onFlagClick(item)}
-                        title="Click to view comparison and edit"
-                      >
-                        <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{index + 1}:</span>
-                        <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
-                        
-                        {item.revised_content && (
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
-                              📝 Revision Pending
-                            </span>
-                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
-                          </div>
-                        )}
-                      </div>
+                      {item.autoFlag === 'revise' || item.revised_content ? (
+                        <div 
+                          className="cursor-pointer group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
+                          onClick={() => onFlagClick(item)}
+                          title="Click to view comparison and edit"
+                        >
+                          <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{index + 1}:</span>
+                          <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
+                          
+                          {item.revised_content && (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
+                                📝 Revision Pending
+                              </span>
+                              <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          <span className="font-bold text-indigo-900 text-sm mr-2">Q{index + 1}:</span>
+                          <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words">{item.text}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-center hidden sm:table-cell">
                       <div className="font-mono text-sm font-bold text-indigo-600">
@@ -70,15 +78,16 @@ export const ItemAnalysisTable = ({
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
                       <span 
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide cursor-pointer hover:shadow-md transition-all ${
-                          item.autoFlag === "approved" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all ${
+                          item.autoFlag === "approved" 
+                            ? "bg-green-500 opacity-80" 
+                            : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
                         }`}
-                        onClick={() => onFlagClick(item)}
-                        title="Click to edit (revise only)"
+                        onClick={() => item.autoFlag === 'revise' && onFlagClick(item)}
+                        title={item.autoFlag === 'revise' ? "Click to edit revision" : "Good item (no revision needed)"}
                       >
                         {item.autoFlag?.toUpperCase()}
                       </span>
-
                     </td>
 
                     <td className="p-3">
@@ -97,7 +106,7 @@ export const ItemAnalysisTable = ({
                           <DetailedItemAnalysis item={item} index={index} />
                           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <DistractorAnalysis item={item} />
-                            <TakersDetailTable item={item} />
+                            <TakersDetailTable item={item} searchTerm={studentSearchTerm} />
                           </div>
                         </div>
                       </td>
