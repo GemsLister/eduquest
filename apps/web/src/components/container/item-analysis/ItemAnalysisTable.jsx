@@ -1,5 +1,6 @@
 import React from "react";
 import { TakersDetailTable } from "./TakersDetailTable";
+import { DetailedItemAnalysis } from "./DetailedItemAnalysis";
 import { DistractorAnalysis } from "./DistractorAnalysis";
 
 export const ItemAnalysisTable = ({
@@ -28,8 +29,23 @@ export const ItemAnalysisTable = ({
                 <React.Fragment key={item.question_id}>
                   <tr className="hover:bg-gray-50 transition-colors h-14">
                     <td className="p-3 text-sm font-medium" title={item.text}>
-                      <span className="font-bold text-indigo-900 text-sm mr-2">Q{index + 1}:</span>
-                      <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words">{item.text}</span>
+                      <div 
+                        className="cursor-pointer group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
+                        onClick={() => onFlagClick(item)}
+                        title="Click to view comparison and edit"
+                      >
+                        <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{index + 1}:</span>
+                        <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
+                        
+                        {item.revised_content && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
+                              📝 Revision Pending
+                            </span>
+                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-center hidden sm:table-cell">
                       <div className="font-mono text-sm font-bold text-indigo-600">
@@ -55,7 +71,7 @@ export const ItemAnalysisTable = ({
                     <td className="p-3 text-center hidden lg:table-cell">
                       <span 
                         className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide cursor-pointer hover:shadow-md transition-all ${
-                          item.autoFlag === "retain" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                          item.autoFlag === "approved" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
                         }`}
                         onClick={() => onFlagClick(item)}
                         title="Click to edit (revise only)"
@@ -76,10 +92,13 @@ export const ItemAnalysisTable = ({
                   </tr>
                   {expandedQuestion === item.question_id && (
                     <tr className="bg-gray-50">
-                      <td colSpan="5" className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                          <DistractorAnalysis item={item} />
-                          <TakersDetailTable item={item} />
+                      <td colSpan="5" className="p-0 border-t border-b border-indigo-100">
+                        <div className="p-6">
+                          <DetailedItemAnalysis item={item} index={index} />
+                          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <DistractorAnalysis item={item} />
+                            <TakersDetailTable item={item} />
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -97,7 +116,7 @@ export const ItemAnalysisTable = ({
           </h4>
           <div className="space-y-3 mb-4">
             <div className="group">
-              <span className="block w-full h-7 bg-green-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">RETAIN</span>
+              <span className="block w-full h-7 bg-green-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">APPROVED</span>
               <div className="text-xs text-slate-700 text-center">
                 <strong className="text-green-700">P: 0.25–0.75</strong>
                 <br />
@@ -117,8 +136,19 @@ export const ItemAnalysisTable = ({
               <div className="text-xs text-slate-700 text-center">Discrimination at least 0.40</div>
             </div>
             <div className="group">
-              <span className="block w-full h-6 bg-amber-500 rounded-lg text-white text-[10px] font-bold text-center py-0.5 mb-1 shadow-sm group-hover:shadow-md transition-all">POOR</span>
+              <span className="block w-full h-7 bg-amber-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">POOR</span>
               <div className="text-xs text-slate-700 text-center">Discrimination below 0.20</div>
+            </div>
+            
+            <div className="pt-2 border-t border-slate-200 mt-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider border border-amber-200 shadow-sm">
+                  📝 Revision Pending
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 italic">
+                A draft revision exists for this question. Click the question to compare and finalize.
+              </p>
             </div>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 text-center leading-tight">
