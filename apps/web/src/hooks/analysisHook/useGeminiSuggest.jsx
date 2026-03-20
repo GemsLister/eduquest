@@ -43,33 +43,74 @@ Output ONLY valid JSON object with NO markdown formatting:
 `;
 
       // Try common model names until one works
-      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+      const modelsToTry = [
+        { name: 'gemini-2.0-flash', version: 'v1beta' },
+        { name: 'gemini-flash-latest', version: 'v1beta' },
+        { name: 'gemini-pro-latest', version: 'v1beta' },
+        { name: 'gemini-1.5-flash', version: 'v1beta' },
+        { name: 'gemini-1.5-pro', version: 'v1beta' }
+      ];
+      
       let result = null;
       let lastError = null;
 
-      for (const modelName of modelsToTry) {
+      for (const modelConfig of modelsToTry) {
         try {
-          console.log(`Trying Gemini model: ${modelName} (v1)...`);
-          // Force v1 API version which is often more stable than v1beta
-          const model = genAIv1.getGenerativeModel({ model: modelName }, { apiVersion: 'v1' });
+          console.log(`Trying Gemini model: ${modelConfig.name} (${modelConfig.version})...`);
+          const model = genAIv1.getGenerativeModel(
+            { model: modelConfig.name },
+            { apiVersion: modelConfig.version }
+          );
           result = await model.generateContent(prompt);
-          if (result) break; // Success!
+          if (result) break;
         } catch (e) {
-          console.warn(`Gemini model ${modelName} (v1) failed:`, e.message);
+          console.warn(`Gemini model ${modelConfig.name} (${modelConfig.version}) failed:`, e.message);
+          lastError = e;
           
+          // Try with models/ prefix as fallback
           try {
-            console.log(`Trying Gemini model: ${modelName} (v1beta)...`);
-            const modelBeta = genAIv1.getGenerativeModel({ model: modelName }); // defaults to v1beta
-            result = await modelBeta.generateContent(prompt);
+            const prefixedName = `models/${modelConfig.name}`;
+            console.log(`Trying Gemini model: ${prefixedName} (${modelConfig.version})...`);
+            const modelPrefixed = genAIv1.getGenerativeModel(
+              { model: prefixedName },
+              { apiVersion: modelConfig.version }
+            );
+            result = await modelPrefixed.generateContent(prompt);
             if (result) break;
           } catch (e2) {
-            console.warn(`Gemini model ${modelName} (v1beta) failed:`, e2.message);
-            lastError = e2;
+            console.warn(`Gemini model models/${modelConfig.name} (${modelConfig.version}) failed:`, e2.message);
+          }
+
+          // Try v1 version as last resort for this model name
+          if (modelConfig.version === 'v1beta') {
+            try {
+              console.log(`Trying Gemini model: ${modelConfig.name} (v1)...`);
+              const modelV1 = genAIv1.getGenerativeModel(
+                { model: modelConfig.name },
+                { apiVersion: 'v1' }
+              );
+              result = await modelV1.generateContent(prompt);
+              if (result) break;
+            } catch (e3) {
+              console.warn(`Gemini model ${modelConfig.name} (v1) failed:`, e3.message);
+            }
           }
         }
       }
 
       if (!result) {
+        console.error('All Gemini models failed. Listing available models from API...');
+        try {
+          const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+          const listData = await listResp.json();
+          if (listData && listData.models) {
+            const names = listData.models.map(m => m.name.replace('models/', ''));
+            console.log('Available Model IDs:', names);
+            console.log('Detailed Model Info:', listData.models);
+          }
+        } catch (listErr) {
+          console.error('Failed to list models:', listErr);
+        }
         throw lastError || new Error('All available Gemini models failed to generate content.');
       }
       
@@ -102,7 +143,6 @@ Output ONLY valid JSON object with NO markdown formatting:
 
   const updateQuestion = async (questionId, newText, newOptions, newCorrect) => {
     // Determine the correct_answer value to store
-    // If it's a number (index), store the option text to match existing convention
     let correctAnswerValue = newCorrect;
     if (typeof newCorrect === 'number' && newOptions[newCorrect]) {
       correctAnswerValue = newOptions[newCorrect];
@@ -110,17 +150,33 @@ Output ONLY valid JSON object with NO markdown formatting:
       correctAnswerValue = newOptions[parseInt(newCorrect)];
     }
 
+    // 1. Fetch current question to preserve it as "original" if it's not already preserved
+    const { data: current } = await supabase
+      .from('questions')
+      .select('original_text, text, options, correct_answer')
+      .eq('id', questionId)
+      .single();
+
+    const updateData = {
+      text: newText,
+      options: newOptions,
+      correct_answer: correctAnswerValue,
+      flag: 'approved',
+      revised_content: null, // CLEAR PENDING STATUS
+      revised_options: null, // CLEAR PENDING STATUS
+      updated_at: new Date().toISOString()
+    };
+
+    // If first time editing, preserve original version
+    if (current && !current.original_text) {
+      updateData.original_text = current.text;
+      updateData.original_options = current.options;
+      updateData.original_correct_answer = current.correct_answer;
+    }
+
     const { error } = await supabase
       .from('questions')
-      .update({ 
-        text: newText,
-        options: newOptions,
-        correct_answer: correctAnswerValue,
-        flag: 'approved',
-        revised_content: null, // Clear revision text
-        revised_options: null, // Clear revision options
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', questionId);
     if (error) throw error;
   };
@@ -142,12 +198,8 @@ Output ONLY valid JSON object with NO markdown formatting:
       .single();
 
     const updateData = {
-      // Update live content
-      text: revisedText,
-      options: revisedOptions,
-      correct_answer: correctAnswerValue,
-      
-      // Update tracking columns
+      // NOTE: We do NOT update the live columns (text, options) here.
+      // This is strictly a DRAFT/REVISION save.
       revised_content: {
         text: revisedText,
         correct_answer: correctAnswerValue,
