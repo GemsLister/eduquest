@@ -6,7 +6,9 @@ export const ItemAnalysisTable = ({
   analysis,
   expandedQuestion,
   toggleDetails,
+  onFlagClick,
 }) => {
+
   return (
     <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-slate-300 flex flex-col lg:flex-row gap-6 p-4 lg:p-6">
       <div className="lg:flex-1 min-w-0 order-2 lg:order-1">
@@ -55,11 +57,12 @@ export const ItemAnalysisTable = ({
                         className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide cursor-pointer hover:shadow-md transition-all ${
                           item.autoFlag === "retain" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
                         }`}
-                        onClick={() => {}}
+                        onClick={() => onFlagClick(item)}
                         title="Click to edit (revise only)"
                       >
                         {item.autoFlag?.toUpperCase()}
                       </span>
+
                     </td>
 
                     <td className="p-3">
