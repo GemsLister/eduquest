@@ -130,15 +130,15 @@ export const QuestionList = ({
                 <p className="text-xs text-gray-500 mb-2">Quick Actions:</p>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => handleFlagChange(question.id, "retain")}
+                    onClick={() => handleFlagChange(question.id, "approved")}
                     disabled={updatingFlag === question.id}
                     className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      question.flag === "retain"
+                      question.flag === "approved"
                         ? "bg-blue-500 text-white border-blue-500"
                         : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
                     }`}
                   >
-                    ✓ Retain
+                    ✓ Approved
                   </button>
                   <button
                     onClick={() => handleFlagChange(question.id, "needs_revision")}
