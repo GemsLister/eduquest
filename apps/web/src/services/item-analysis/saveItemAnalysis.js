@@ -206,16 +206,22 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         },
       };
 
-      const { data: existingSubmission } = await supabase
+      const { data: existingSubmission, error: existingSubmissionError } =
+        await supabase
         .from("quiz_analysis_submissions")
         .select("id")
         .eq("quiz_id", quizId)
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
+      if (existingSubmissionError) {
+        throw existingSubmissionError;
+      }
+
       if (existingSubmission?.id) {
-        await supabase
+        const { error: updateSubmissionError } = await supabase
           .from("quiz_analysis_submissions")
           .update({
             analysis_results: analysisPayload,
@@ -226,13 +232,23 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingSubmission.id);
+
+        if (updateSubmissionError) {
+          throw updateSubmissionError;
+        }
       } else {
-        await supabase.from("quiz_analysis_submissions").insert({
+        const { error: insertSubmissionError } = await supabase
+          .from("quiz_analysis_submissions")
+          .insert({
           quiz_id: quizId,
           instructor_id: user.id,
           analysis_results: analysisPayload,
           status: "pending",
         });
+
+        if (insertSubmissionError) {
+          throw insertSubmissionError;
+        }
       }
     }
 

@@ -17,7 +17,7 @@ export const AdminQuizReviews = () => {
     try {
       let query = supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes!inner(title, description)")
+        .select("*, quizzes(title, description)")
         .order("created_at", { ascending: false });
 
       if (filter !== "all") {

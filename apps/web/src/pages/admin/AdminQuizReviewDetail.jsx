@@ -22,7 +22,7 @@ export const AdminQuizReviewDetail = () => {
     try {
       const { data, error } = await supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes!inner(title, description, duration)")
+        .select("*, quizzes(title, description, duration)")
         .eq("id", submissionId)
         .single();
 
