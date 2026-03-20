@@ -8,6 +8,32 @@ export const useFetchQuizzes = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+
+  const generateShareToken = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let token = "";
+    for (let i = 0; i < 12; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  };
+
+  const getUniqueShareToken = async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateShareToken();
+      const { data, error } = await supabase
+        .from("quizzes")
+        .select("id")
+        .eq("share_token", candidate)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return candidate;
+    }
+
+    throw new Error("Failed to generate a unique share token");
+  };
+
   const fetchQuizzes = async () => {
     try {
       // First try to fetch from quiz_sections table (if it exists)
@@ -40,10 +66,27 @@ export const useFetchQuizzes = () => {
           .select("*, quiz_attempts(count)")
           .in("id", quizIds)
           .eq("is_archived", false)
+          .eq("is_published", true)
           .order("created_at", { ascending: false });
 
         if (quizzesError) throw quizzesError;
         quizzesData = data;
+
+        const missingTokenQuizzes = (quizzesData || []).filter(
+          (quiz) => quiz.is_published && !quiz.share_token,
+        );
+
+        for (const quiz of missingTokenQuizzes) {
+          const token = await getUniqueShareToken();
+          const { error: tokenError } = await supabase
+            .from("quizzes")
+            .update({ share_token: token })
+            .eq("id", quiz.id);
+
+          if (!tokenError) {
+            quiz.share_token = token;
+          }
+        }
       }
 
       // Fetch question counts for each quiz
@@ -54,9 +97,23 @@ export const useFetchQuizzes = () => {
             .select("*", { count: "exact", head: true })
             .eq("quiz_id", quiz.id);
 
+          let attemptsCount = quiz.quiz_attempts?.[0]?.count || 0;
+          if (sectionId) {
+            const { count: sectionAttemptCount, error: attemptCountError } =
+              await supabase
+                .from("quiz_attempts")
+                .select("*", { count: "exact", head: true })
+                .eq("quiz_id", quiz.id)
+                .eq("section_id", sectionId);
+
+            if (!attemptCountError) {
+              attemptsCount = sectionAttemptCount || 0;
+            }
+          }
+
           return {
             ...quiz,
-            attempts: quiz.quiz_attempts?.[0]?.count || 0,
+            attempts: attemptsCount,
             questions_count: !countError ? count : 0,
           };
         }),

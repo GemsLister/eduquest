@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
 
 export const QuizResults = () => {
   const { quizId } = useParams();
+  const [searchParams] = useSearchParams();
+  const sectionId = searchParams.get("section");
   const navigate = useNavigate();
   const [quiz, setQuiz] = useState(null);
   const [attempts, setAttempts] = useState([]);
@@ -12,11 +14,10 @@ export const QuizResults = () => {
 
   useEffect(() => {
     loadQuizAndAttempts();
-  }, [quizId]);
+  }, [quizId, sectionId]);
 
   const loadQuizAndAttempts = async () => {
     try {
-      // Load quiz details
       const { data: quizData, error: quizError } = await supabase
         .from("quizzes")
         .select("*")
@@ -26,13 +27,17 @@ export const QuizResults = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
-      // Load all attempts for this quiz
-      const { data: attemptsData, error: attemptsError } = await supabase
+      let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
         .eq("quiz_id", quizId)
         .order("completed_at", { ascending: false, nullsFirst: false });
 
+      if (sectionId) {
+        attemptsQuery = attemptsQuery.eq("section_id", sectionId);
+      }
+
+      const { data: attemptsData, error: attemptsError } = await attemptsQuery;
       if (attemptsError) throw attemptsError;
       setAttempts(attemptsData || []);
     } catch (err) {
@@ -92,7 +97,7 @@ export const QuizResults = () => {
           onClick={() => navigate(-1)}
           className="text-casual-green font-semibold mb-4 hover:underline"
         >
-          ← Back
+          ? Back
         </button>
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -103,13 +108,12 @@ export const QuizResults = () => {
 
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      {/* Header */}
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
           className="text-casual-green font-semibold mb-4 hover:underline"
         >
-          ← Back
+          ? Back
         </button>
         <div>
           <h1 className="text-3xl font-bold text-hornblende-green mb-2">
@@ -122,10 +126,9 @@ export const QuizResults = () => {
         </div>
       </div>
 
-      {/* Results Table */}
       {attempts.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="text-5xl mb-4">📊</div>
+          <div className="text-5xl mb-4">??</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
             No Attempts Yet
           </h2>
@@ -196,7 +199,6 @@ export const QuizResults = () => {
         </div>
       )}
 
-      {/* Summary Stats */}
       {attempts.length > 0 && (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow-md p-6">

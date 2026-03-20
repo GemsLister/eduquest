@@ -1,13 +1,15 @@
 import { useState, useEffect, startTransition } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
+import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
 
 export const InstructorQuiz = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { quizId } = useParams();
   const confirm = useConfirm();
   const [quizTitle, setQuizTitle] = useState("");
@@ -26,6 +28,12 @@ export const InstructorQuiz = () => {
   const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
   const [questionCount, setQuestionCount] = useState(1);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [saveSectionsLoading, setSaveSectionsLoading] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [returnToQuizzesAfterAssign, setReturnToQuizzesAfterAssign] =
+    useState(false);
+  const [returnFilter, setReturnFilter] = useState("approved");
 
   useEffect(() => {
     loadSections();
@@ -36,12 +44,74 @@ export const InstructorQuiz = () => {
     }
   }, [quizId]);
 
+  useEffect(() => {
+    if (location.state?.openSections) {
+      setReturnToQuizzesAfterAssign(Boolean(location.state?.returnToQuizzes));
+      setReturnFilter(location.state?.returnFilter || "approved");
+      setShowSectionModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  const saveSectionAssignments = async () => {
+    if (!quizId) return;
+
+    setSaveSectionsLoading(true);
+    try {
+      const { error: deleteError } = await supabase
+        .from("quiz_sections")
+        .delete()
+        .eq("quiz_id", quizId);
+
+      if (deleteError) throw deleteError;
+
+      if (selectedSectionIds.length > 0) {
+        const sectionInserts = selectedSectionIds.map((sectionId) => ({
+          quiz_id: quizId,
+          section_id: sectionId,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("quiz_sections")
+          .insert(sectionInserts);
+
+        if (insertError) throw insertError;
+      }
+
+      const { error: updateError } = await supabase
+        .from("quizzes")
+        .update({ section_id: selectedSectionIds[0] || null })
+        .eq("id", quizId);
+
+      if (updateError) throw updateError;
+    } finally {
+      setSaveSectionsLoading(false);
+    }
+  };
+
+  const handleCloseSectionModal = async () => {
+    try {
+      await saveSectionAssignments();
+      setShowSectionModal(false);
+
+      if (returnToQuizzesAfterAssign) {
+        navigate("/instructor-dashboard/quizzes", {
+          state: { filter: returnFilter || "approved" },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save section assignments:", err);
+      toast.error("Failed to save section assignments: " + err.message);
+    }
+  };
+
   const loadSections = async () => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
       const { data } = await supabase
         .from("sections")
         .select("*")
@@ -289,7 +359,7 @@ export const InstructorQuiz = () => {
             description: quizDescription || null,
             duration: quizDuration ? parseInt(quizDuration) : null,
             is_published: publish || isPublished,
-            share_token: publish ? newToken : shareToken,
+            share_token: publish ? newToken : shareToken || null,
           })
           .eq("id", quizId)
           .select();
@@ -641,7 +711,9 @@ export const InstructorQuiz = () => {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowSectionModal(false)}
+            onClick={() => {
+              handleCloseSectionModal();
+            }}
           />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-800 mb-1">
@@ -714,11 +786,13 @@ export const InstructorQuiz = () => {
                       />
                       <div>
                         <span className="block text-sm font-medium text-gray-800">
-                          {sec.section_name}
+                          {sec.section_name || sec.name || "Untitled Section"}
                         </span>
-                        <span className="block text-xs text-gray-500">
-                          Code: {sec.exam_code}
-                        </span>
+                        {sec.description && (
+                          <span className="block text-xs text-gray-500">
+                            {sec.description}
+                          </span>
+                        )}
                       </div>
                     </label>
                   ))}
@@ -728,10 +802,11 @@ export const InstructorQuiz = () => {
 
             <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
               <button
-                onClick={() => setShowSectionModal(false)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                onClick={() => handleCloseSectionModal()}
+                disabled={saveSectionsLoading}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Done
+                {saveSectionsLoading ? "Saving..." : "Done"}
               </button>
             </div>
           </div>
@@ -753,6 +828,7 @@ export const InstructorQuiz = () => {
               >
                 + Add Question
               </button>
+
               <button
                 onClick={() => {
                   const shuffled = [...questions].sort(
@@ -1003,6 +1079,21 @@ export const InstructorQuiz = () => {
               {loading ? "Saving..." : "Save as Draft"}
             </button>
             <button
+              onClick={() => setShowAnalysisModal(true)}
+              disabled={
+                questions.length === 0 || questions.some((q) => !q.text.trim())
+              }
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                questions.length === 0
+                  ? "Add questions first"
+                  : "Analyze questions with AI"
+              }
+            >
+              🧠 Analyze with AI
+            </button>
+            {/* TEMPORARILY HIDDEN - Assign to Sections button (restore when needed)
+            <button
               onClick={() => setShowSectionModal(true)}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors relative"
             >
@@ -1013,6 +1104,8 @@ export const InstructorQuiz = () => {
                 </span>
               )}
             </button>
+            */}
+            {/* TEMPORARILY HIDDEN - Publish Quiz button (restore when needed)
             <button
               onClick={() => handleSaveQuiz(true)}
               disabled={loading || questions.length === 0}
@@ -1025,6 +1118,7 @@ export const InstructorQuiz = () => {
             >
               {loading ? "Publishing..." : "Publish Quiz"}
             </button>
+            */}
           </>
         )}
         {quizId && (
@@ -1056,6 +1150,16 @@ export const InstructorQuiz = () => {
           {quizId ? "Close" : "Cancel"}
         </button>
       </div>
+
+      {/* Bloom's Taxonomy Analysis Modal */}
+      {showAnalysisModal && (
+        <QuizAnalysisResults
+          quizId={quizId || "draft"}
+          questions={questions.filter((q) => q.text.trim())}
+          instructorId={userId}
+          onClose={() => setShowAnalysisModal(false)}
+        />
+      )}
     </div>
   );
 };

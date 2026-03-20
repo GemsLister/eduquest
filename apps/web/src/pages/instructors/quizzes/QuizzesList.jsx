@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 export const QuizzesList = ({
   quizzes,
@@ -8,22 +8,34 @@ export const QuizzesList = ({
   togglingQuizId,
 }) => {
   const navigate = useNavigate();
+  const { sectionId } = useParams();
   const [copiedId, setCopiedId] = useState(null);
+
+  const buildShareUrl = (quiz) => {
+    if (!quiz.share_token) return "";
+    const base = `${window.location.origin}/quiz/${quiz.share_token}`;
+    return sectionId ? `${base}?section=${sectionId}` : base;
+  };
 
   const copyLink = (quiz) => {
     if (!quiz.share_token) {
-      alert("This quiz doesn't have a share link yet. Please publish the quiz first.");
+      alert(
+        "This quiz doesn't have a share link yet. Please publish the quiz first.",
+      );
       return;
     }
-    
-    const url = `${window.location.origin}/quiz/${quiz.share_token}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedId(quiz.id);
-      setTimeout(() => setCopiedId(null), 2000);
-    }).catch(err => {
-      console.error("Failed to copy link:", err);
-      alert("Failed to copy link to clipboard");
-    });
+
+    const url = buildShareUrl(quiz);
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopiedId(quiz.id);
+        setTimeout(() => setCopiedId(null), 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy link:", err);
+        alert("Failed to copy link to clipboard");
+      });
   };
 
   return (
@@ -75,11 +87,14 @@ export const QuizzesList = ({
                 {quiz.is_published && (
                   <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                     <p className="text-xs text-gray-500 mb-1 font-semibold">
-                      Share Link {quiz.share_token ? "" : "(Publish to generate)"}
+                      Share Link{" "}
+                      {quiz.share_token ? "" : "(Publish to generate)"}
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-700 font-mono truncate flex-1">
-                        {quiz.share_token ? `${window.location.origin}/quiz/${quiz.share_token}` : "No link available"}
+                        {quiz.share_token
+                          ? buildShareUrl(quiz)
+                          : "No link available"}
                       </span>
                       <button
                         onClick={(e) => {
@@ -88,12 +103,16 @@ export const QuizzesList = ({
                         }}
                         disabled={!quiz.share_token}
                         className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
-                          quiz.share_token 
-                            ? "text-blue-600 hover:text-blue-800" 
+                          quiz.share_token
+                            ? "text-blue-600 hover:text-blue-800"
                             : "text-gray-400 cursor-not-allowed"
                         }`}
                       >
-                        {copiedId === quiz.id ? "✓ Copied" : quiz.share_token ? "Copy" : "Publish"}
+                        {copiedId === quiz.id
+                          ? "✓ Copied"
+                          : quiz.share_token
+                            ? "Copy"
+                            : "Publish"}
                       </button>
                     </div>
                   </div>
@@ -143,7 +162,9 @@ export const QuizzesList = ({
                     <button
                       onClick={() =>
                         navigate(
-                          `/instructor-dashboard/quiz-results/${quiz.id}`,
+                          sectionId
+                            ? `/instructor-dashboard/quiz-results/${quiz.id}?section=${sectionId}`
+                            : `/instructor-dashboard/quiz-results/${quiz.id}`,
                         )
                       }
                       className="flex-1 bg-gray-200 text-gray-700 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition-colors"

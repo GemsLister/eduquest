@@ -7,7 +7,7 @@ import { sectionService } from "../../services/sectionService";
 export const useFetchSectionQuiz = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [sectionQuizzes, setSectionQuizzes] = useState({});
-  const [user, setUser] = useState(null);  // Change from "" to null
+  const [user, setUser] = useState(null); // Change from "" to null
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -36,8 +36,13 @@ export const useFetchSectionQuiz = () => {
           await quizService.getQuizzesByInstructor(authUser.id);
         if (quizzesError) throw quizzesError;
 
+        // Sections should only show published quizzes.
+        const visibleQuizzes = (quizzesData || []).filter(
+          (quiz) => quiz.is_published && !quiz.is_archived,
+        );
+
         // Process quizzes data
-        const processedQuizzes = (quizzesData || []).map((quiz) => ({
+        const processedQuizzes = visibleQuizzes.map((quiz) => ({
           ...quiz,
           attempts: quiz.quiz_attempts?.[0]?.count || 0,
         }));
