@@ -117,7 +117,7 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
       // Insert distractor analysis if available
       if (item.distractorAnalysis && analysisData) {
         const distractorInserts = Object.entries(item.distractorAnalysis)
-          .filter(([key]) => key !== 'distractors')
+          .filter(([key]) => key !== "distractors")
           .map(([key, value]) => ({
             item_analysis_id: analysisData.id,
             option_identifier: key,
@@ -142,6 +142,98 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         id: analysisData?.id,
         autoFlag: autoFlag,
       });
+    }
+
+    // Also sync a review submission so admins can see newly saved analysis.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.id) {
+      const analysisPayload = {
+        quizId,
+        analysis: analysisResults.map((item) => ({
+          questionId: item.question_id,
+          questionText: item.text || "",
+          bloomsLevel: item.status || "N/A",
+          thinkingOrder:
+            (item.status || "").toLowerCase() === "difficult" ? "HOTS" : "LOTS",
+          confidence: 1,
+          needsReview: (item.autoFlag || "").toLowerCase() === "needs_revision",
+        })),
+        summary: {
+          totalQuestions: analysisResults.length,
+          distribution: {
+            Easy: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "easy",
+            ).length,
+            Moderate: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "moderate",
+            ).length,
+            Difficult: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "difficult",
+            ).length,
+          },
+          lotsCount: analysisResults.filter(
+            (i) => (i.status || "").toLowerCase() !== "difficult",
+          ).length,
+          hotsCount: analysisResults.filter(
+            (i) => (i.status || "").toLowerCase() === "difficult",
+          ).length,
+          lotsPercentage:
+            analysisResults.length > 0
+              ? Math.round(
+                  (analysisResults.filter(
+                    (i) => (i.status || "").toLowerCase() !== "difficult",
+                  ).length /
+                    analysisResults.length) *
+                    100,
+                )
+              : 0,
+          hotsPercentage:
+            analysisResults.length > 0
+              ? Math.round(
+                  (analysisResults.filter(
+                    (i) => (i.status || "").toLowerCase() === "difficult",
+                  ).length /
+                    analysisResults.length) *
+                    100,
+                )
+              : 0,
+          flaggedCount: analysisResults.filter(
+            (i) => (i.autoFlag || "").toLowerCase() === "needs_revision",
+          ).length,
+        },
+      };
+
+      const { data: existingSubmission } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("id")
+        .eq("quiz_id", quizId)
+        .eq("instructor_id", user.id)
+        .order("created_at", { ascending: false })
+        .maybeSingle();
+
+      if (existingSubmission?.id) {
+        await supabase
+          .from("quiz_analysis_submissions")
+          .update({
+            analysis_results: analysisPayload,
+            status: "pending",
+            admin_feedback: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSubmission.id);
+      } else {
+        await supabase.from("quiz_analysis_submissions").insert({
+          quiz_id: quizId,
+          instructor_id: user.id,
+          analysis_results: analysisPayload,
+          status: "pending",
+        });
+      }
     }
 
     // Dispatch event to notify question list to refresh

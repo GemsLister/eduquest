@@ -1,8 +1,8 @@
 import { supabase } from "../supabaseClient.js";
+import { saveItemAnalysis as persistItemAnalysis } from "./item-analysis/saveItemAnalysis";
 
 export const itemAnalysisService = {
   saveItemAnalysis: async (quizId, analysis) => {
-    // Placeholder — partner will push the final implementation
-    return { data: null, error: null };
+    return await persistItemAnalysis(quizId, analysis);
   },
 };
