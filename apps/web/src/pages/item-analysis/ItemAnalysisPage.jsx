@@ -317,14 +317,21 @@ export const ItemAnalysisPage = () => {
 
           if (filteredAnalysis.length > 0) {
             return (
-              <ItemAnalysisTable
+        <ItemAnalysisTable
                 loading={loading}
-                analysis={filteredAnalysis}
+                analysis={filteredAnalysis.map((item, idx) => ({...item, index: idx}))}
                 expandedQuestion={expandedQuestion}
                 toggleDetails={(id) =>
                   setExpandedQuestion(expandedQuestion === id ? null : id)
                 }
+                onFlagClick={(item) => {
+                  if (item.autoFlag === 'revise') {
+                    // Open modal logic here or state
+                    alert('Revise popup - integrate EditChoiceModal');
+                  }
+                }}
               />
+
             );
           }
           if (searchTerm && filteredAnalysis.length === 0) {
