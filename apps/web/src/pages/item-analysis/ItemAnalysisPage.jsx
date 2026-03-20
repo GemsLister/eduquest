@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
@@ -20,10 +20,36 @@ export const ItemAnalysisPage = () => {
   const [saveError, setSaveError] = useState(null);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [selectedCohortFilter, setSelectedCohortFilter] = useState("all");
   const [cohortOptions, setCohortOptions] = useState([]);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+
+  // --- 0. Helper: Find Searched Student Info ---
+  const searchedStudentInfo = useMemo(() => {
+    if (!studentSearchTerm || analysis.length === 0) return null;
+    
+    // Use a map to collect unique attempts for this student name
+    const matchingAttempts = new Map();
+    
+    for (const item of analysis) {
+      (item.takersDetails || []).forEach(t => {
+        if (t.name.toLowerCase().includes(studentSearchTerm.toLowerCase())) {
+          // Key by a combination of name and score to identify unique attempts shown in your screenshot
+          const key = `${t.name}-${t.totalScore}`;
+          if (!matchingAttempts.has(key)) {
+            matchingAttempts.set(key, {
+              name: t.name,
+              totalScore: t.totalScore
+            });
+          }
+        }
+      });
+    }
+    
+    return Array.from(matchingAttempts.values());
+  }, [studentSearchTerm, analysis]);
 
   // --- 1. Fetch Sections ---
   useEffect(() => {
@@ -218,7 +244,7 @@ export const ItemAnalysisPage = () => {
         
         takersMap[att.id] = { 
           name: displayName, 
-          score: att.score || 0,
+          totalScore: att.score || 0,
           isGuest: !att.user_id,
           userId: att.user_id
         };
@@ -256,7 +282,7 @@ export const ItemAnalysisPage = () => {
 
         const sortedTakers = qResponses.map(r => ({
           isCorrect: r.is_correct,
-          totalScore: takersMap[r.attempt_id]?.score || 0
+          totalScore: takersMap[r.attempt_id]?.totalScore || 0
         })).sort((a, b) => b.totalScore - a.totalScore);
 
         const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
@@ -323,7 +349,8 @@ export const ItemAnalysisPage = () => {
           takersDetails: qResponses.map(r => ({
             name: takersMap[r.attempt_id]?.name || "Student",
             answer: getLetter(r.answer),
-            isCorrect: r.is_correct
+            isCorrect: r.is_correct,
+            totalScore: takersMap[r.attempt_id]?.totalScore || 0
           }))
         };
       });
@@ -351,9 +378,11 @@ export const ItemAnalysisPage = () => {
           onSectionChange={setSelectedSection}
           onQuizChange={setSelectedQuiz}
           onSearchChange={setSearchTerm}
+          onStudentSearchChange={setStudentSearchTerm}
           onCohortFilterChange={setSelectedCohortFilter}
           selectedCohortFilter={selectedCohortFilter}
           cohortOptions={cohortOptions}
+          searchedStudent={searchedStudentInfo}
         />
 
         <ItemAnalysisResults
@@ -376,6 +405,7 @@ export const ItemAnalysisPage = () => {
               <ItemAnalysisTable
                 loading={loading}
                 analysis={filteredAnalysis.map((item, idx) => ({...item, index: idx}))}
+                studentSearchTerm={studentSearchTerm}
                 expandedQuestion={expandedQuestion}
                 toggleDetails={(id) =>
                   setExpandedQuestion(expandedQuestion === id ? null : id)
