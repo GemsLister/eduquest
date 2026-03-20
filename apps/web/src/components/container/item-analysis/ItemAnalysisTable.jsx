@@ -51,12 +51,17 @@ export const ItemAnalysisTable = ({
                       )}
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${
-                        item.autoFlag === "retain" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
-                      }`}>
+                      <span 
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide cursor-pointer hover:shadow-md transition-all ${
+                          item.autoFlag === "retain" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                        }`}
+                        onClick={() => {}}
+                        title="Click to edit (revise only)"
+                      >
                         {item.autoFlag?.toUpperCase()}
                       </span>
                     </td>
+
                     <td className="p-3">
                       <button
                         onClick={() => toggleDetails(item.question_id)}
