@@ -25,6 +25,10 @@ out/
 # OS
 Thumbs.db
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Supabase
 supabase/.branches/
 supabase/.temp/
