@@ -174,7 +174,8 @@ export const AdminQuizReviewDetail = () => {
               {submission.quizzes?.title || "Quiz Analysis Review"}
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Submitted by {submission.profiles
+              Submitted by{" "}
+              {submission.profiles
                 ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
                   submission.profiles.username ||
                   submission.profiles.email ||

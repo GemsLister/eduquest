@@ -208,13 +208,13 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
 
       const { data: existingSubmission, error: existingSubmissionError } =
         await supabase
-        .from("quiz_analysis_submissions")
-        .select("id")
-        .eq("quiz_id", quizId)
-        .eq("instructor_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+          .from("quiz_analysis_submissions")
+          .select("id")
+          .eq("quiz_id", quizId)
+          .eq("instructor_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
       if (existingSubmissionError) {
         throw existingSubmissionError;
@@ -240,11 +240,11 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         const { error: insertSubmissionError } = await supabase
           .from("quiz_analysis_submissions")
           .insert({
-          quiz_id: quizId,
-          instructor_id: user.id,
-          analysis_results: analysisPayload,
-          status: "pending",
-        });
+            quiz_id: quizId,
+            instructor_id: user.id,
+            analysis_results: analysisPayload,
+            status: "pending",
+          });
 
         if (insertSubmissionError) {
           throw insertSubmissionError;
