@@ -12,10 +12,27 @@ const calculateAutoFlag = (difficultyStatus) => {
     case "Moderate":
       return "needs_revision";
     case "Difficult":
-      return "discard";
+      return "needs_revision";
     default:
       return "pending";
   }
+};
+
+const normalizeDifficultyStatus = (status) => {
+  const value = (status || "").toString().trim().toLowerCase();
+  if (value === "easy") return "Easy";
+  if (value === "moderate") return "Moderate";
+  if (value === "difficult") return "Difficult";
+  return null;
+};
+
+const normalizeDiscriminationStatus = (status) => {
+  const value = (status || "").toString().trim().toLowerCase();
+  if (value === "excellent") return "Excellent";
+  if (value === "good") return "Good";
+  if (value === "acceptable") return "Acceptable";
+  if (value === "poor") return "Poor";
+  return null;
 };
 
 /**
@@ -29,8 +46,13 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
     const results = [];
 
     for (const item of analysisResults) {
+      const normalizedDifficultyStatus = normalizeDifficultyStatus(item.status);
+      const normalizedDiscriminationStatus = normalizeDiscriminationStatus(
+        item.discStatus,
+      );
+
       // Calculate auto-flag based on difficulty status (Easy/Moderate/Difficult)
-      const autoFlag = calculateAutoFlag(item.status);
+      const autoFlag = calculateAutoFlag(normalizedDifficultyStatus);
 
       // First, try to delete existing analysis for this question
       await supabase
@@ -45,12 +67,22 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         .insert({
           quiz_id: quizId,
           question_id: item.question_id,
-          difficulty_index: parseFloat(item.difficulty),
-          difficulty_status: item.status,
-          discrimination_index: parseFloat(item.discrimination),
-          discrimination_status: item.discStatus,
-          total_takers: item.total,
-          correct_takers: Math.round(item.total * parseFloat(item.difficulty)),
+          difficulty_index: Number.isFinite(parseFloat(item.difficulty))
+            ? parseFloat(item.difficulty)
+            : null,
+          difficulty_status: normalizedDifficultyStatus,
+          discrimination_index: Number.isFinite(parseFloat(item.discrimination))
+            ? parseFloat(item.discrimination)
+            : null,
+          discrimination_status: normalizedDiscriminationStatus,
+          total_takers: Number.isFinite(Number(item.total))
+            ? Number(item.total)
+            : null,
+          correct_takers:
+            Number.isFinite(Number(item.total)) &&
+            Number.isFinite(parseFloat(item.difficulty))
+              ? Math.round(Number(item.total) * parseFloat(item.difficulty))
+              : null,
           auto_flag: autoFlag,
         })
         .select()

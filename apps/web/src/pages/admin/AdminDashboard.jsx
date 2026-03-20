@@ -64,30 +64,22 @@ export const AdminDashboard = () => {
       const quizIds = quizzes.map((q) => q.id);
       const instructorIds = [...new Set(quizzes.map((q) => q.instructor_id))];
 
-      // Some deployments may not yet have quiz_attempts.section_id.
-      // Try selecting it first, then gracefully fallback.
-      let attemptsRes;
-      const attemptsWithSection = await supabase
+      // Query all available fields to avoid referencing optional columns directly.
+      const attemptsRawRes = await supabase
         .from("quiz_attempts")
-        .select("id, quiz_id, section_id, status, score")
+        .select("*")
         .in("quiz_id", quizIds);
 
-      if (attemptsWithSection.error) {
-        const attemptsFallback = await supabase
-          .from("quiz_attempts")
-          .select("id, quiz_id, status, score")
-          .in("quiz_id", quizIds);
-
-        attemptsRes = {
-          data: (attemptsFallback.data || []).map((a) => ({
-            ...a,
-            section_id: null,
-          })),
-          error: attemptsFallback.error,
-        };
-      } else {
-        attemptsRes = attemptsWithSection;
-      }
+      const attemptsRes = {
+        data: (attemptsRawRes.data || []).map((a) => ({
+          id: a.id,
+          quiz_id: a.quiz_id,
+          status: a.status,
+          score: a.score,
+          section_id: a.section_id ?? null,
+        })),
+        error: attemptsRawRes.error,
+      };
 
       const [profilesRes, quizSectionsRes, sectionsRes, analysisRes] =
         await Promise.all([
