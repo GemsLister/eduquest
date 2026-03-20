@@ -22,7 +22,7 @@ export const ProtectedRoute = ({ children }) => {
             .from("profiles")
             .select("*")
             .eq("id", authUser.id)
-            .single();
+            .maybeSingle();
           setIsAdmin(!!profile?.is_admin);
           // Treat null (column not yet added) as approved to avoid locking out existing users
           setIsApproved(profile?.is_approved !== false);

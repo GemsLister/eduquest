@@ -22,6 +22,11 @@ const navItems = [
     icon: <Icon.SearchIcon />,
   },
   {
+    name: "Quiz Reviews",
+    path: "/admin-dashboard/quiz-reviews",
+    icon: <Icon.AnalyticsIcon />,
+  },
+  {
     name: "Create Instructor",
     path: "/admin-dashboard/create-instructor",
     icon: <Icon.SectionIcon />,

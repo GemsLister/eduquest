@@ -22,7 +22,7 @@ export const useUsername = () => {
           .from("profiles")
           .select("username, avatar_url, first_name, last_name")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         const fullName =
           dbRecord?.first_name && dbRecord?.last_name

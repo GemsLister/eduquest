@@ -127,6 +127,14 @@ export const router = createBrowserRouter(
               path: "registration-requests",
               element: <AdminIndex.AdminRegistrationRequests />,
             },
+            {
+              path: "quiz-reviews",
+              element: <AdminIndex.AdminQuizReviews />,
+            },
+            {
+              path: "quiz-reviews/:submissionId",
+              element: <AdminIndex.AdminQuizReviewDetail />,
+            },
           ],
         },
       ],
