@@ -35,30 +35,57 @@ export const SectionDetail = () => {
     );
   }
 
+  const sectionName = section.section_name || section.name;
+  const openCount = quizzes.filter((q) => q.is_open !== false).length;
+  const totalAttempts = quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-8">
+    <>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-hornblende-green via-emerald-700 to-hornblende-green px-6 py-8">
         <button
           onClick={() => navigate("/instructor-dashboard")}
-          className="text-casual-green font-semibold mb-4 hover:underline"
+          className="text-emerald-200 hover:text-white font-semibold mb-4 flex items-center gap-1 transition-colors"
         >
           ← Back to Sections
         </button>
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">
-          {section.section_name || section.name}
-        </h1>
-        <p className="text-gray-600">
-          Subject: {section.description || "No description provided"}
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Exam Code: <span className="font-semibold">{section.exam_code}</span>
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-emerald-200 text-sm font-semibold uppercase tracking-widest mb-1">
+              Section
+            </p>
+            <h1 className="text-2xl md:text-3xl font-black text-white">
+              {sectionName}
+            </h1>
+            <p className="text-white/60 text-sm mt-1">
+              {section.description || "No subject specified"}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
+              <p className="text-2xl font-black text-white">{quizzes.length}</p>
+              <p className="text-emerald-200 text-xs font-semibold">Quizzes</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
+              <p className="text-2xl font-black text-white">{openCount}</p>
+              <p className="text-emerald-200 text-xs font-semibold">Open</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
+              <p className="text-2xl font-black text-white">{totalAttempts}</p>
+              <p className="text-emerald-200 text-xs font-semibold">Attempts</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+              <p className="text-xs text-emerald-200 font-semibold mb-0.5">Exam Code</p>
+              <p className="text-lg font-black text-white tracking-wider">
+                {section.exam_code}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="px-6 py-6">
-        {/* Quizzes List */}
+      <div className="p-6">
         <Quiz.QuizzesList
           quizzes={quizzes}
           handleArchive={handleArchiveQuiz}
@@ -67,6 +94,6 @@ export const SectionDetail = () => {
           togglingQuizId={togglingQuizId}
         />
       </div>
-    </div>
+    </>
   );
 };
