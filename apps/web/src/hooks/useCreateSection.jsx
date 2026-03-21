@@ -25,14 +25,14 @@ export const useCreateSection = (onSectionCreated, userId) => {
 
     try {
       if (!formData.name.trim()) {
-        setError("Section name is required");
+        setError("Course name is required");
         return;
       }
 
       if (!userId) {
         console.log(userId);
 
-        setError("You must be logged in to create a section");
+        setError("You must be logged in to create a subject");
         return;
       }
 
@@ -60,7 +60,7 @@ export const useCreateSection = (onSectionCreated, userId) => {
         onSectionCreated(data[0]);
       }
     } catch (err) {
-      setError(err.message || "Failed to create section");
+      setError(err.message || "Failed to create subject");
       console.error("Error creating section:", err);
     } finally {
       setLoading(false);

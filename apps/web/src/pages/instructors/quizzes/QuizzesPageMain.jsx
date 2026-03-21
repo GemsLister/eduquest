@@ -233,7 +233,7 @@ export const QuizzesPageMain = () => {
       await fetchQuizzes();
       setShowSectionModal(false);
       setSectionTargetQuiz(null);
-      toast.success("Sections assigned successfully!");
+      toast.success("Subject sections assigned successfully!");
     } catch (error) {
       toast.error("Failed to save section assignments: " + error.message);
     } finally {
@@ -521,15 +521,15 @@ export const QuizzesPageMain = () => {
           />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Assign to Sections
+              Assign to Subjects
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Select which sections this quiz should appear in.
+              Select which subjects this quiz should appear in.
             </p>
 
             {availableSections.length === 0 ? (
               <div className="text-sm text-gray-500 py-4 text-center">
-                No sections available. Create one first!
+                No subjects available. Create one first!
               </div>
             ) : (
               <>
@@ -587,7 +587,7 @@ export const QuizzesPageMain = () => {
                       />
                       <div>
                         <span className="block text-sm font-medium text-gray-800">
-                          {sec.section_name || sec.name || "Untitled Section"}
+                          {sec.section_name || sec.name || "Untitled Subject"}
                         </span>
                         {sec.description && (
                           <span className="block text-xs text-gray-500">

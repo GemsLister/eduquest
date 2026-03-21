@@ -57,7 +57,7 @@ export const QuizzesList = ({
             No Quizzes Yet
           </h3>
           <p className="text-gray-500">
-            Go to the Quizzes page to create and assign quizzes to this section.
+            Go to the Quizzes page to create and assign quizzes to this subject.
           </p>
         </div>
       ) : (

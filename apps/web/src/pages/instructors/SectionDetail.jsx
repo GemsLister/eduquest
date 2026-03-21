@@ -30,7 +30,7 @@ export const SectionDetail = () => {
   if (!section) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-600">Section not found</p>
+        <p className="text-gray-600">Subject not found</p>
       </div>
     );
   }
@@ -47,12 +47,12 @@ export const SectionDetail = () => {
           onClick={() => navigate("/instructor-dashboard")}
           className="text-emerald-200 hover:text-white font-semibold mb-4 flex items-center gap-1 transition-colors"
         >
-          ← Back to Sections
+          ← Back to Subjects
         </button>
         <div className="flex items-start justify-between">
           <div>
             <p className="text-emerald-200 text-sm font-semibold uppercase tracking-widest mb-1">
-              Section
+              Subject
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               {sectionName}

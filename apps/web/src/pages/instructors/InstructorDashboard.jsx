@@ -47,7 +47,7 @@ export const InstructorDashboard = () => {
   };
 
   const handleArchiveSection = async (sectionId, sectionName) => {
-    if (!window.confirm(`Archive "${sectionName}"? You can restore it later.`)) return;
+    if (!window.confirm(`Archive "${sectionName}"? You can restore it later from the Archived tab.`)) return;
 
     try {
       const { error } = await sectionService.archiveSection(sectionId);
@@ -58,7 +58,7 @@ export const InstructorDashboard = () => {
       if (archived) {
         setArchivedSections((prev) => [archived, ...prev]);
       }
-      toast.success(`"${sectionName}" archived`);
+      toast.success(`"${sectionName}" archived!`);
     } catch (err) {
       toast.error("Failed to archive section: " + err.message);
     }
@@ -76,7 +76,7 @@ export const InstructorDashboard = () => {
       if (restored) {
         setSections((prev) => [restored, ...prev]);
       }
-      toast.success("Section restored!");
+      toast.success("Subject restored!");
     } catch (err) {
       toast.error("Failed to restore section: " + err.message);
     }
@@ -90,7 +90,7 @@ export const InstructorDashboard = () => {
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) {
-      toast.error("Section name is required");
+      toast.error("Course name is required");
       return;
     }
 
@@ -109,7 +109,7 @@ export const InstructorDashboard = () => {
             : s,
         ),
       );
-      toast.success("Section updated!");
+      toast.success("Subject updated!");
       setEditModal(null);
     } catch (err) {
       toast.error("Failed to update section: " + err.message);
@@ -162,10 +162,10 @@ export const InstructorDashboard = () => {
               Instructor
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              Your Sections
+              Your Subjects
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              {sections.length} {sections.length === 1 ? "class" : "classes"}{" "}
+              {sections.length} {sections.length === 1 ? "subject" : "subjects"}{" "}
               active
             </p>
           </div>
@@ -200,7 +200,7 @@ export const InstructorDashboard = () => {
               </svg>
               <input
                 type="text"
-                placeholder="Search sections..."
+                placeholder="Search subjects..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20 bg-white"
@@ -248,7 +248,7 @@ export const InstructorDashboard = () => {
         {/* Active Sections */}
         {filteredSections.length === 0 && !showArchived ? (
           <ClassCard.EmptyClassSection
-            title={search.trim() ? "No Sections Found" : "No Classes Found"}
+            title={search.trim() ? "No Subjects Found" : "No Subjects Found"}
             icon={search.trim() ? "🔍" : "📚"}
           />
         ) : (
@@ -278,7 +278,7 @@ export const InstructorDashboard = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
-              Archived Sections
+              Archived Subjects
             </h2>
             {archivedLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -288,8 +288,8 @@ export const InstructorDashboard = () => {
               <div className="bg-white rounded-lg p-8 text-center shadow-sm border border-gray-200">
                 <p className="text-gray-500 text-sm">
                   {search.trim()
-                    ? "No archived sections match your search."
-                    : "No archived sections."}
+                    ? "No archived subjects match your search."
+                    : "No archived subjects."}
                 </p>
               </div>
             ) : (
@@ -333,35 +333,35 @@ export const InstructorDashboard = () => {
           />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Edit Section
+              Edit Subject
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Update section name and subject.
+              Update subject details.
             </p>
 
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Section Name
+                  Course Name
                 </label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20"
-                  placeholder="e.g., T301 - 2nd Sem 25-26"
+                  placeholder="e.g., Application Development"
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Subject
+                  Section / Schedule
                 </label>
                 <input
                   type="text"
                   value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20"
-                  placeholder="e.g., Application Development"
+                  placeholder="e.g., T301 - 2nd Sem 25-26"
                 />
               </div>
             </div>

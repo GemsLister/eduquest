@@ -6,7 +6,7 @@ import * as Icon from "../assets/svg/sidebar/sidebarIcons.js";
 
 const navItems = [
   {
-    name: "Sections",
+    name: "Subjects",
     path: "/instructor-dashboard",
     icon: <Icon.SectionIcon />,
     end: true,
