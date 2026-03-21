@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
+import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const AdminQuizReviewDetail = () => {
   const navigate = useNavigate();
@@ -215,7 +216,32 @@ export const AdminQuizReviewDetail = () => {
                 : "Unknown"}
             </p>
           </div>
-          <div className="ml-auto">{getStatusBadge(submission.status)}</div>
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => {
+                const instructorName = submission.profiles
+                  ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
+                    submission.profiles.username ||
+                    submission.profiles.email
+                  : undefined;
+                exportBloomsPdf({
+                  quizTitle: submission.quizzes?.title,
+                  results: submission.analysis_results,
+                  instructorName,
+                  submittedAt: submission.created_at,
+                  adminFeedback: submission.admin_feedback,
+                  status: submission.status,
+                });
+              }}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </button>
+            {getStatusBadge(submission.status)}
+          </div>
         </div>
       </div>
 

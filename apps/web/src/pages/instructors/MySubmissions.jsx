@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
+import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const MySubmissions = () => {
   const navigate = useNavigate();
@@ -284,6 +285,23 @@ export const MySubmissions = () => {
                           Reviewed {formatDate(submission.reviewed_at)}
                         </span>
                       )}
+                      <button
+                        onClick={() =>
+                          exportBloomsPdf({
+                            quizTitle: submission.quizzes?.title,
+                            results: submission.analysis_results,
+                            submittedAt: submission.created_at,
+                            adminFeedback: submission.admin_feedback,
+                            status: submission.status,
+                          })
+                        }
+                        className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        PDF
+                      </button>
                       {submission.status === "revision_requested" && (
                         <button
                           onClick={() =>
