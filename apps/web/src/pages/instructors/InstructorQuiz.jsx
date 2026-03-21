@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
@@ -34,6 +34,42 @@ export const InstructorQuiz = () => {
   const [returnToQuizzesAfterAssign, setReturnToQuizzesAfterAssign] =
     useState(false);
   const [returnFilter, setReturnFilter] = useState("approved");
+  const [lastSaved, setLastSaved] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const autoSaveTimer = useRef(null);
+  const initialLoadDone = useRef(false);
+
+  // Track unsaved changes after initial load
+  const markDirty = useCallback(() => {
+    if (initialLoadDone.current) {
+      setHasUnsavedChanges(true);
+    }
+  }, []);
+
+  // Auto-save every 30 seconds when there are unsaved changes
+  useEffect(() => {
+    if (!quizId || isPublished || !hasUnsavedChanges) return;
+
+    autoSaveTimer.current = setTimeout(async () => {
+      if (!quizTitle.trim()) return;
+      try {
+        await supabase
+          .from("quizzes")
+          .update({
+            title: quizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+          })
+          .eq("id", quizId);
+        setLastSaved(new Date());
+        setHasUnsavedChanges(false);
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    }, 30000);
+
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished]);
 
   useEffect(() => {
     loadSections();
@@ -178,6 +214,7 @@ export const InstructorQuiz = () => {
       });
 
       setQuestions(transformedQuestions);
+      setTimeout(() => { initialLoadDone.current = true; }, 100);
     } catch (err) {
       setError(err.message || "Failed to load quiz");
       console.error(err);
@@ -537,59 +574,99 @@ export const InstructorQuiz = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      <div className="mb-8">
-        <button
-          onClick={() => navigate("/instructor-dashboard/quizzes")}
-          className="text-casual-green font-semibold mb-4 hover:underline"
-        >
-          ← Back
-        </button>
+    <div className="flex-1 overflow-auto bg-authentic-white">
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-casual-green to-hornblende-green px-6 py-5">
+        <div className="flex items-center gap-3 mb-3">
+          <button
+            onClick={() => navigate("/instructor-dashboard/quizzes")}
+            className="text-white/80 hover:text-white font-semibold text-sm transition-colors flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Quizzes
+          </button>
+          <span className="text-white/40">/</span>
+          <span className="text-white/70 text-sm">
+            {quizId ? "Edit Quiz" : "New Quiz"}
+          </span>
+        </div>
+
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-hornblende-green mb-2">
-              {quizId ? "Edit Quiz" : "Create Quiz"}
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
+              {quizTitle || (quizId ? "Untitled Quiz" : "Create Quiz")}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-white/70 text-sm mt-1">
               {quizId
                 ? isPublished
-                  ? "Published - Changes will be saved"
-                  : "Draft - Finish and publish when ready"
-                : "Build a new quiz with questions and answers"}
+                  ? "Published quiz — view results or manage questions"
+                  : "Draft — add questions and submit for review when ready"
+                : "Set up your quiz and start adding questions"}
             </p>
           </div>
-          {quizId && (
-            <div className="flex gap-4 items-center">
+          <div className="flex items-center gap-3">
+            {/* Auto-save indicator */}
+            {quizId && !isPublished && (
+              <span className="text-white/60 text-xs flex items-center gap-1.5">
+                {hasUnsavedChanges ? (
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full bg-yellow-300 animate-pulse" />
+                    Unsaved changes
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full bg-green-300" />
+                    Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </>
+                ) : null}
+              </span>
+            )}
+            {quizId && (
               <span
-                className={`px-4 py-2 rounded-lg font-semibold text-sm ${isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
+                className={`px-3 py-1.5 rounded-full font-bold text-xs ${
+                  isPublished
+                    ? "bg-white/20 text-white"
+                    : "bg-yellow-400/90 text-yellow-900"
+                }`}
               >
                 {isPublished ? "Published" : "Draft"}
               </span>
-              {isPublished && (
-                <>
-                  <button
-                    onClick={() =>
-                      navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-                    }
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    📊 View Results
-                  </button>
-                  <button
-                    onClick={() =>
-                      navigate(`/instructor-dashboard/question-bank/${quizId}`)
-                    }
-                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    📚 Question Bank
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Quick action buttons for published quizzes */}
+        {quizId && isPublished && (
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() =>
+                navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+              }
+              className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              View Results
+            </button>
+            <button
+              onClick={() =>
+                navigate(`/instructor-dashboard/question-bank/${quizId}`)
+              }
+              className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Question Bank
+            </button>
+          </div>
+        )}
       </div>
 
+      <div className="p-6">
       {error && (
         <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -649,7 +726,7 @@ export const InstructorQuiz = () => {
               required
               type="text"
               value={quizTitle}
-              onChange={(e) => setQuizTitle(e.target.value)}
+              onChange={(e) => { setQuizTitle(e.target.value); markDirty(); }}
               placeholder="e.g., Biology Chapter 5 Test"
               disabled={isPublished}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
@@ -663,7 +740,7 @@ export const InstructorQuiz = () => {
               required
               type="number"
               value={quizDuration}
-              onChange={(e) => setQuizDuration(e.target.value)}
+              onChange={(e) => { setQuizDuration(e.target.value); markDirty(); }}
               placeholder="Leave blank for unlimited"
               disabled={isPublished}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
@@ -717,10 +794,10 @@ export const InstructorQuiz = () => {
           />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Assign to Sections
+              Assign to Subjects
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Select which sections this quiz should appear in.
+              Select which subjects this quiz should appear in.
             </p>
 
             {availableSections.length === 0 ? (
@@ -1068,88 +1145,80 @@ export const InstructorQuiz = () => {
         )}
       </div>
 
-      <div className="flex gap-4 mb-8">
-        {!isPublished && (
-          <>
-            <button
-              onClick={() => handleSaveQuiz(false)}
-              disabled={loading}
-              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Saving..." : "Save as Draft"}
-            </button>
-            <button
-              onClick={() => setShowAnalysisModal(true)}
-              disabled={
-                questions.length === 0 || questions.some((q) => !q.text.trim())
-              }
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={
-                questions.length === 0
-                  ? "Add questions first"
-                  : "Analyze questions with AI"
-              }
-            >
-              🧠 Analyze with AI
-            </button>
-            {/* TEMPORARILY HIDDEN - Assign to Sections button (restore when needed)
-            <button
-              onClick={() => setShowSectionModal(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors relative"
-            >
-              Assign to Sections
-              {selectedSectionIds.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-white text-orange-600 border-2 border-orange-500 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                  {selectedSectionIds.length}
-                </span>
-              )}
-            </button>
-            */}
-            {/* TEMPORARILY HIDDEN - Publish Quiz button (restore when needed)
-            <button
-              onClick={() => handleSaveQuiz(true)}
-              disabled={loading || questions.length === 0}
-              className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={
-                questions.length === 0
-                  ? "Add at least one question to publish"
-                  : ""
-              }
-            >
-              {loading ? "Publishing..." : "Publish Quiz"}
-            </button>
-            */}
-          </>
-        )}
-        {quizId && (
-          <>
+      {/* Action Bar */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-8">
+        <div className="flex flex-wrap gap-3 items-center">
+          {/* Primary Actions */}
+          {!isPublished && (
+            <>
+              <button
+                onClick={() => {
+                  handleSaveQuiz(false);
+                  setHasUnsavedChanges(false);
+                  setLastSaved(new Date());
+                }}
+                disabled={loading}
+                className="bg-casual-green hover:bg-hornblende-green text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                {loading ? "Saving..." : "Save as Draft"}
+              </button>
+
+              <button
+                onClick={() => setShowAnalysisModal(true)}
+                disabled={
+                  questions.length === 0 || questions.some((q) => !q.text.trim())
+                }
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  questions.length === 0
+                    ? "Add questions first"
+                    : "Analyze questions with AI and submit for admin review"
+                }
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Submit for Review
+              </button>
+            </>
+          )}
+
+          {/* Divider between primary and secondary */}
+          {!isPublished && quizId && (
+            <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
+          )}
+
+          {/* Secondary Actions */}
+          {quizId && !isPublished && (
             <button
               onClick={() =>
                 navigate(`/instructor-dashboard/question-bank/${quizId}`)
               }
-              className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
             >
-              📚 Load from Archive
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Question Bank
             </button>
-            {isPublished && (
-              <button
-                onClick={() =>
-                  navigate(`/instructor-dashboard/quiz-results/${quizId}`)
-                }
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-              >
-                📊 View Results
-              </button>
-            )}
-          </>
-        )}
-        <button
-          onClick={() => navigate("/instructor-dashboard/quizzes")}
-          className="bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
-        >
-          {quizId ? "Close" : "Cancel"}
-        </button>
+          )}
+
+          {/* Right-aligned navigation */}
+          <div className="ml-auto">
+            <button
+              onClick={() => navigate("/instructor-dashboard/quizzes")}
+              className="text-gray-500 hover:text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+            >
+              {quizId ? "Close" : "Cancel"}
+            </button>
+          </div>
+        </div>
       </div>
+
+      </div>{/* end .p-6 wrapper */}
 
       {/* Bloom's Taxonomy Analysis Modal */}
       {showAnalysisModal && (

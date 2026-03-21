@@ -8,6 +8,7 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
   const [quizFormData, setQuizFormData] = useState({
     title: "",
     description: "",
+    duration: "",
   });
   const [showQuizForm, setShowQuizForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,7 +21,6 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
         return;
       }
 
-      // Check if user is authenticated
       if (!user?.id) {
         alert("You must be logged in to create a quiz");
         return;
@@ -28,13 +28,11 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
 
       setIsSubmitting(true);
 
-      console.log("Creating quiz with user:", user);
-      console.log("Section ID:", sectionId);
-
       const quizDataToInsert = {
-        instructor_id: user.id, // Ensure this matches auth.uid()
+        instructor_id: user.id,
         title: quizFormData.title.trim(),
         description: quizFormData.description.trim() || null,
+        duration: quizFormData.duration ? parseInt(quizFormData.duration) : null,
         is_published: false,
       };
 
@@ -53,14 +51,13 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
         throw error;
       }
 
-      setQuizFormData({ title: "", description: "" });
+      setQuizFormData({ title: "", description: "", duration: "" });
       setShowQuizForm(false);
 
       navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
     } catch (error) {
       console.error("Full error object:", error);
 
-      // More specific error handling
       if (error.code === "42501") {
         toast.error(
           "Permission denied: You don't have rights to create quizzes in this section. Please contact your administrator.",
