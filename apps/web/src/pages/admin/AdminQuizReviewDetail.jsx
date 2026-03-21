@@ -72,6 +72,37 @@ export const AdminQuizReviewDetail = () => {
 
       if (error) throw error;
 
+      // Send notification to instructor
+      const quizTitle = submission.quizzes?.title || "your quiz";
+      const notificationMap = {
+        approved: {
+          title: "Quiz Analysis Approved",
+          message: `Your quiz analysis for "${quizTitle}" has been approved by the admin.`,
+          type: "success",
+        },
+        revision_requested: {
+          title: "Revision Requested",
+          message: `The admin has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
+          type: "warning",
+        },
+        rejected: {
+          title: "Quiz Analysis Rejected",
+          message: `Your quiz analysis for "${quizTitle}" has been rejected.${feedback ? ` Feedback: ${feedback}` : ""}`,
+          type: "error",
+        },
+      };
+
+      const notification = notificationMap[status];
+      if (notification) {
+        await supabase.from("notifications").insert({
+          user_id: submission.instructor_id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          link: `/instructor-dashboard/my-submissions`,
+        });
+      }
+
       const messages = {
         approved: "Quiz analysis approved successfully!",
         revision_requested: "Revision request sent to instructor.",
@@ -188,6 +219,31 @@ export const AdminQuizReviewDetail = () => {
       </div>
 
       <div className="p-6">
+        {/* Resubmission Banner */}
+        {submission.updated_at &&
+          submission.updated_at !== submission.created_at &&
+          submission.status === "pending" && (
+            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-3">
+              <span className="text-2xl">🔄</span>
+              <div>
+                <p className="text-sm font-semibold text-indigo-700">
+                  Resubmission
+                </p>
+                <p className="text-xs text-indigo-600">
+                  This analysis was resubmitted by the instructor after revision.
+                  Updated on{" "}
+                  {new Date(submission.updated_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+          )}
+
         {/* Instructor Message */}
         {submission.instructor_message && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">

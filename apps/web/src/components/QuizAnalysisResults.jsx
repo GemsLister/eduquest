@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
@@ -19,6 +19,34 @@ export const QuizAnalysisResults = ({
   const [forwarded, setForwarded] = useState(false);
   const [forwardLoading, setForwardLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [existingSubmission, setExistingSubmission] = useState(null);
+
+  // Check for existing submission that needs revision
+  useEffect(() => {
+    if (quizId && quizId !== "draft") {
+      checkExistingSubmission();
+    }
+  }, [quizId]);
+
+  const checkExistingSubmission = async () => {
+    try {
+      const { data } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("id, status, admin_feedback")
+        .eq("quiz_id", quizId)
+        .eq("instructor_id", instructorId)
+        .in("status", ["revision_requested", "rejected"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setExistingSubmission(data);
+      }
+    } catch (err) {
+      console.error("Error checking existing submission:", err);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
@@ -58,21 +86,42 @@ export const QuizAnalysisResults = ({
     setError("");
 
     try {
-      // Save to Supabase quiz_analysis_submissions table
-      const { error: insertError } = await supabase
-        .from("quiz_analysis_submissions")
-        .insert({
-          quiz_id: quizId,
-          instructor_id: instructorId,
-          analysis_results: results,
-          instructor_message: message || null,
-          status: "pending",
-        });
+      if (existingSubmission) {
+        // Resubmission: update existing submission
+        const { error: updateError } = await supabase
+          .from("quiz_analysis_submissions")
+          .update({
+            analysis_results: results,
+            instructor_message: message || null,
+            status: "pending",
+            admin_feedback: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSubmission.id);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
 
-      setForwarded(true);
-      toast.success("Quiz analysis forwarded to admin for review!");
+        setForwarded(true);
+        toast.success("Quiz analysis resubmitted for admin review!");
+      } else {
+        // New submission
+        const { error: insertError } = await supabase
+          .from("quiz_analysis_submissions")
+          .insert({
+            quiz_id: quizId,
+            instructor_id: instructorId,
+            analysis_results: results,
+            instructor_message: message || null,
+            status: "pending",
+          });
+
+        if (insertError) throw insertError;
+
+        setForwarded(true);
+        toast.success("Quiz analysis forwarded to admin for review!");
+      }
     } catch (err) {
       console.error("Forward error:", err);
       setError(err.message || "Failed to forward to admin.");
@@ -123,11 +172,50 @@ export const QuizAnalysisResults = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Resubmission Banner */}
+          {existingSubmission && !results && (
+            <div
+              className={`mb-4 p-4 rounded-lg border ${
+                existingSubmission.status === "revision_requested"
+                  ? "bg-orange-50 border-orange-200"
+                  : "bg-red-50 border-red-200"
+              }`}
+            >
+              <p
+                className={`text-sm font-semibold mb-1 ${
+                  existingSubmission.status === "revision_requested"
+                    ? "text-orange-700"
+                    : "text-red-700"
+                }`}
+              >
+                {existingSubmission.status === "revision_requested"
+                  ? "Revision Requested by Admin"
+                  : "Previously Rejected"}
+              </p>
+              {existingSubmission.admin_feedback && (
+                <p
+                  className={`text-sm ${
+                    existingSubmission.status === "revision_requested"
+                      ? "text-orange-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  Feedback: {existingSubmission.admin_feedback}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Re-analyze your questions and resubmit for review.
+              </p>
+            </div>
+          )}
+
           {!results ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🧠</div>
               <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                Ready to Analyze
+                {existingSubmission
+                  ? "Re-analyze Your Quiz"
+                  : "Ready to Analyze"}
               </h3>
               <p className="text-gray-500 mb-6">
                 Classify your {questions?.length || 0} questions according to
@@ -327,10 +415,16 @@ export const QuizAnalysisResults = ({
                 } disabled:opacity-75 disabled:cursor-not-allowed`}
               >
                 {forwarded
-                  ? "✓ Forwarded to Admin"
+                  ? existingSubmission
+                    ? "✓ Resubmitted to Admin"
+                    : "✓ Forwarded to Admin"
                   : forwardLoading
-                    ? "Forwarding..."
-                    : "Forward to Admin"}
+                    ? existingSubmission
+                      ? "Resubmitting..."
+                      : "Forwarding..."
+                    : existingSubmission
+                      ? "Resubmit to Admin"
+                      : "Forward to Admin"}
               </button>
             </div>
           </div>
