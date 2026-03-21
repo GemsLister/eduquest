@@ -100,6 +100,10 @@ export const router = createBrowserRouter(
               path: "item-difficulty-analysis",
               element: <ItemAnalysisPage />,
             },
+            {
+              path: "my-submissions",
+              element: <InstructorIndex.MySubmissions />,
+            },
           ],
         },
         // Admin dashboard routing

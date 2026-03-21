@@ -27,6 +27,11 @@ const navItems = [
     icon: <Icon.AnalyticsIcon />,
   },
   {
+    name: "My Submissions",
+    path: "/instructor-dashboard/my-submissions",
+    icon: <Icon.SubmissionIcon />,
+  },
+  {
     name: "Profile",
     path: "/instructor-dashboard/instructor-profile",
     icon: <Icon.ProfileIcon />,

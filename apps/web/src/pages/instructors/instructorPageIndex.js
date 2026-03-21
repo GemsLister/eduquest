@@ -8,3 +8,4 @@ export { SectionDetail } from "./SectionDetail.jsx";
 export { QuizResults } from "./QuizResults.jsx";
 export { QuizResultDetail } from "./QuizResultDetail.jsx";
 export { QuizzesPageMain } from "./quizzes/QuizzesPageMain.jsx";
+export { MySubmissions } from "./MySubmissions.jsx";
