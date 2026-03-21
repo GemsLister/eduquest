@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
+import {
+  BloomsDistributionChart,
+  LotsHotsBar,
+} from "../../components/BloomsVisualization";
 
 export const AdminDashboard = () => {
   const { instructors, loading } = useAdminInstructors();
@@ -9,6 +13,8 @@ export const AdminDashboard = () => {
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [publishedQuizRows, setPublishedQuizRows] = useState([]);
   const [publishedLoading, setPublishedLoading] = useState(true);
+  const [bloomsStats, setBloomsStats] = useState(null);
+  const [bloomsLoading, setBloomsLoading] = useState(true);
 
   useEffect(() => {
     const getAdmin = async () => {
@@ -24,6 +30,7 @@ export const AdminDashboard = () => {
     getAdmin();
     loadPendingReviews();
     loadPublishedQuizOverview();
+    loadBloomsStats();
   }, []);
 
   const loadPendingReviews = async () => {
@@ -40,6 +47,83 @@ export const AdminDashboard = () => {
       console.error("Error loading pending reviews:", err);
     } finally {
       setReviewsLoading(false);
+    }
+  };
+
+  const loadBloomsStats = async () => {
+    setBloomsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("status, analysis_results");
+
+      if (error) throw error;
+
+      const submissions = data || [];
+      const total = submissions.length;
+      const approved = submissions.filter((s) => s.status === "approved").length;
+      const rejected = submissions.filter((s) => s.status === "rejected").length;
+      const revisionRequested = submissions.filter(
+        (s) => s.status === "revision_requested",
+      ).length;
+      const reviewed = approved + rejected + revisionRequested;
+      const revisionRate =
+        reviewed > 0 ? Math.round((revisionRequested / reviewed) * 100) : 0;
+      const approvalRate =
+        reviewed > 0 ? Math.round((approved / reviewed) * 100) : 0;
+
+      // Aggregate Bloom's distribution across all submissions
+      let totalLots = 0;
+      let totalHots = 0;
+      const aggDistribution = {
+        Remembering: 0,
+        Understanding: 0,
+        Applying: 0,
+        Analyzing: 0,
+        Evaluating: 0,
+        Creating: 0,
+      };
+
+      submissions.forEach((s) => {
+        const summary = s.analysis_results?.summary;
+        if (summary) {
+          totalLots += summary.lotsCount || 0;
+          totalHots += summary.hotsCount || 0;
+          if (summary.distribution) {
+            Object.entries(summary.distribution).forEach(([level, count]) => {
+              if (aggDistribution[level] !== undefined) {
+                aggDistribution[level] += count;
+              }
+            });
+          }
+        }
+      });
+
+      const totalQuestions = totalLots + totalHots;
+      const lotsPercentage =
+        totalQuestions > 0 ? Math.round((totalLots / totalQuestions) * 100) : 0;
+      const hotsPercentage =
+        totalQuestions > 0 ? Math.round((totalHots / totalQuestions) * 100) : 0;
+
+      setBloomsStats({
+        total,
+        approved,
+        rejected,
+        revisionRequested,
+        reviewed,
+        revisionRate,
+        approvalRate,
+        totalQuestions,
+        totalLots,
+        totalHots,
+        lotsPercentage,
+        hotsPercentage,
+        aggDistribution,
+      });
+    } catch (err) {
+      console.error("Error loading Bloom's stats:", err);
+    } finally {
+      setBloomsLoading(false);
     }
   };
 
@@ -233,7 +317,7 @@ export const AdminDashboard = () => {
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
             <div className="text-3xl">👥</div>
             <div>
@@ -253,7 +337,7 @@ export const AdminDashboard = () => {
             <div className="text-3xl">🧠</div>
             <div>
               <p className="text-sm text-gray-500 font-medium">
-                Pending Quiz Reviews
+                Pending Reviews
               </p>
               <p className="text-3xl font-black text-indigo-600">
                 {reviewsLoading ? "—" : pendingReviews}
@@ -269,19 +353,180 @@ export const AdminDashboard = () => {
           </a>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
-            <div className="text-3xl">📅</div>
+            <div className="text-3xl">✅</div>
             <div>
-              <p className="text-sm text-gray-500 font-medium">Today</p>
-              <p className="text-base font-bold text-gray-700">
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
+              <p className="text-sm text-gray-500 font-medium">Approved</p>
+              <p className="text-3xl font-black text-green-600">
+                {bloomsLoading ? "—" : bloomsStats?.approved || 0}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
+            <div className="text-3xl">❌</div>
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Rejected</p>
+              <p className="text-3xl font-black text-red-600">
+                {bloomsLoading ? "—" : bloomsStats?.rejected || 0}
               </p>
             </div>
           </div>
         </div>
+
+        {/* Bloom's Analytics Section */}
+        {!bloomsLoading && bloomsStats && bloomsStats.total > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">
+              Bloom's Taxonomy Analytics
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Review Stats */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h3 className="text-sm font-bold text-gray-700 mb-4">
+                  Review Overview
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      Total Submissions
+                    </span>
+                    <span className="text-lg font-bold text-gray-800">
+                      {bloomsStats.total}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Approval Rate</span>
+                    <span className="text-lg font-bold text-green-600">
+                      {bloomsStats.approvalRate}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Revision Rate</span>
+                    <span className="text-lg font-bold text-orange-600">
+                      {bloomsStats.revisionRate}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      Total Questions Analyzed
+                    </span>
+                    <span className="text-lg font-bold text-indigo-600">
+                      {bloomsStats.totalQuestions}
+                    </span>
+                  </div>
+
+                  {/* Status breakdown bar */}
+                  <div className="pt-2">
+                    <p className="text-xs text-gray-400 mb-2">
+                      Status Breakdown
+                    </p>
+                    <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+                      {bloomsStats.approved > 0 && (
+                        <div
+                          className="bg-green-500"
+                          style={{
+                            width: `${(bloomsStats.approved / bloomsStats.total) * 100}%`,
+                          }}
+                          title={`Approved: ${bloomsStats.approved}`}
+                        />
+                      )}
+                      {pendingReviews > 0 && (
+                        <div
+                          className="bg-yellow-400"
+                          style={{
+                            width: `${(pendingReviews / bloomsStats.total) * 100}%`,
+                          }}
+                          title={`Pending: ${pendingReviews}`}
+                        />
+                      )}
+                      {bloomsStats.revisionRequested > 0 && (
+                        <div
+                          className="bg-orange-500"
+                          style={{
+                            width: `${(bloomsStats.revisionRequested / bloomsStats.total) * 100}%`,
+                          }}
+                          title={`Revision: ${bloomsStats.revisionRequested}`}
+                        />
+                      )}
+                      {bloomsStats.rejected > 0 && (
+                        <div
+                          className="bg-red-500"
+                          style={{
+                            width: `${(bloomsStats.rejected / bloomsStats.total) * 100}%`,
+                          }}
+                          title={`Rejected: ${bloomsStats.rejected}`}
+                        />
+                      )}
+                    </div>
+                    <div className="flex gap-3 mt-2 text-[10px] text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        Approved
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                        Pending
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        Revision
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        Rejected
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* LOTS vs HOTS */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h3 className="text-sm font-bold text-gray-700 mb-4">
+                  Aggregate LOTS vs HOTS
+                </h3>
+                <div className="mb-6">
+                  <LotsHotsBar
+                    lotsCount={bloomsStats.totalLots}
+                    hotsCount={bloomsStats.totalHots}
+                    lotsPercentage={bloomsStats.lotsPercentage}
+                    hotsPercentage={bloomsStats.hotsPercentage}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  <div className="bg-emerald-50 rounded-lg p-3">
+                    <p className="text-2xl font-black text-emerald-600">
+                      {bloomsStats.totalLots}
+                    </p>
+                    <p className="text-xs text-emerald-500 font-medium">
+                      LOTS Questions
+                    </p>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg p-3">
+                    <p className="text-2xl font-black text-amber-600">
+                      {bloomsStats.totalHots}
+                    </p>
+                    <p className="text-xs text-amber-500 font-medium">
+                      HOTS Questions
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Distribution Chart */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">
+                  Aggregate Bloom's Distribution
+                </h3>
+                <BloomsDistributionChart
+                  distribution={bloomsStats.aggDistribution}
+                  size="sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8">
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">
