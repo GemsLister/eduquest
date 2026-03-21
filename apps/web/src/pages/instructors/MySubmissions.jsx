@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 
 export const MySubmissions = () => {
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     loadSubmissions();
@@ -234,6 +236,42 @@ export const MySubmissions = () => {
                       >
                         {submission.admin_feedback}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Expandable Charts */}
+                  {submission.analysis_results?.summary && (
+                    <div>
+                      <button
+                        onClick={() =>
+                          setExpandedId(
+                            expandedId === submission.id
+                              ? null
+                              : submission.id,
+                          )
+                        }
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                      >
+                        <span
+                          className={`transition-transform duration-200 inline-block ${
+                            expandedId === submission.id
+                              ? "rotate-90"
+                              : ""
+                          }`}
+                        >
+                          ▶
+                        </span>
+                        {expandedId === submission.id
+                          ? "Hide Charts"
+                          : "View Charts"}
+                      </button>
+                      {expandedId === submission.id && (
+                        <div className="mt-3">
+                          <BloomsVisualizationPanel
+                            summary={submission.analysis_results.summary}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
+import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 
 export const AdminQuizReviewDetail = () => {
   const navigate = useNavigate();
@@ -321,6 +322,11 @@ export const AdminQuizReviewDetail = () => {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Bloom's Visualization Charts */}
+        <div className="mb-8">
+          <BloomsVisualizationPanel summary={results?.summary} />
         </div>
 
         {/* Question Analysis */}

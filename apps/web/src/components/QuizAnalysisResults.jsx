@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
+import { BloomsVisualizationPanel } from "./BloomsVisualization";
 
 /**
  * QuizAnalysisResults Component
@@ -311,6 +312,11 @@ export const QuizAnalysisResults = ({
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* Bloom's Visualization Charts */}
+              <div className="mb-8">
+                <BloomsVisualizationPanel summary={results.summary} />
               </div>
 
               {/* Per-Question Results */}
