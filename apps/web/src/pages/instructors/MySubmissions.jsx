@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
+import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const MySubmissions = () => {
@@ -267,8 +268,11 @@ export const MySubmissions = () => {
                           : "View Charts"}
                       </button>
                       {expandedId === submission.id && (
-                        <div className="mt-3">
+                        <div className="mt-3 space-y-4">
                           <BloomsVisualizationPanel
+                            summary={submission.analysis_results.summary}
+                          />
+                          <QuizSuggestions
                             summary={submission.analysis_results.summary}
                           />
                         </div>

@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
+import { QuizSuggestions } from "./QuizSuggestions";
 import { exportBloomsPdf } from "../utils/exportBloomsPdf";
 
 /**
@@ -318,6 +319,11 @@ export const QuizAnalysisResults = ({
               {/* Bloom's Visualization Charts */}
               <div className="mb-8">
                 <BloomsVisualizationPanel summary={results.summary} />
+              </div>
+
+              {/* Quiz Improvement Suggestions */}
+              <div className="mb-8">
+                <QuizSuggestions summary={results.summary} />
               </div>
 
               {/* Per-Question Results */}

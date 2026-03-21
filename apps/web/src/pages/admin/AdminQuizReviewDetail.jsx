@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
+import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const AdminQuizReviewDetail = () => {
@@ -353,6 +354,11 @@ export const AdminQuizReviewDetail = () => {
         {/* Bloom's Visualization Charts */}
         <div className="mb-8">
           <BloomsVisualizationPanel summary={results?.summary} />
+        </div>
+
+        {/* Quiz Improvement Suggestions */}
+        <div className="mb-8">
+          <QuizSuggestions summary={results?.summary} />
         </div>
 
         {/* Question Analysis */}
