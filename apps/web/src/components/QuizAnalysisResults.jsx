@@ -7,6 +7,64 @@ import { QuizSuggestions } from "./QuizSuggestions";
 import { exportBloomsPdf } from "../utils/exportBloomsPdf";
 
 /**
+ * Progress Stepper — shows 3 workflow steps
+ */
+const ProgressStepper = ({ currentStep }) => {
+  const steps = [
+    { label: "Analyze", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
+    { label: "Review Results", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+    { label: "Submit to Admin", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
+  ];
+
+  return (
+    <div className="flex items-center justify-center gap-1 px-6 py-3 bg-indigo-950/30">
+      {steps.map((step, idx) => {
+        const isActive = idx === currentStep;
+        const isCompleted = idx < currentStep;
+
+        return (
+          <div key={step.label} className="flex items-center">
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  isCompleted
+                    ? "bg-green-400 text-white"
+                    : isActive
+                      ? "bg-white text-indigo-700"
+                      : "bg-white/20 text-white/50"
+                }`}
+              >
+                {isCompleted ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  idx + 1
+                )}
+              </div>
+              <span
+                className={`text-xs font-semibold transition-colors ${
+                  isActive ? "text-white" : isCompleted ? "text-green-300" : "text-white/40"
+                }`}
+              >
+                {step.label}
+              </span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div
+                className={`w-8 h-px mx-2 ${
+                  isCompleted ? "bg-green-400" : "bg-white/20"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
  * QuizAnalysisResults Component
  * Displays Bloom's Taxonomy analysis results for quiz questions
  */
@@ -23,6 +81,7 @@ export const QuizAnalysisResults = ({
   const [forwardLoading, setForwardLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [existingSubmission, setExistingSubmission] = useState(null);
+  const [showQuestionDetails, setShowQuestionDetails] = useState(false);
 
   // Check for existing submission that needs revision
   useEffect(() => {
@@ -61,7 +120,6 @@ export const QuizAnalysisResults = ({
     setError("");
 
     try {
-      // Transform questions to the format expected by the API
       const questionsForApi = questions.map((q) => ({
         id: String(q.id),
         text: q.text,
@@ -79,9 +137,8 @@ export const QuizAnalysisResults = ({
   const handleForward = async () => {
     if (!results) return;
 
-    // Check if quizId is a draft (not saved yet)
     if (quizId === "draft" || !quizId) {
-      setError("Please save the quiz first before forwarding to admin.");
+      setError("Please save the quiz first before submitting for review.");
       return;
     }
 
@@ -90,7 +147,6 @@ export const QuizAnalysisResults = ({
 
     try {
       if (existingSubmission) {
-        // Resubmission: update existing submission
         const { error: updateError } = await supabase
           .from("quiz_analysis_submissions")
           .update({
@@ -109,7 +165,6 @@ export const QuizAnalysisResults = ({
         setForwarded(true);
         toast.success("Quiz analysis resubmitted for admin review!");
       } else {
-        // New submission
         const { error: insertError } = await supabase
           .from("quiz_analysis_submissions")
           .insert({
@@ -123,11 +178,11 @@ export const QuizAnalysisResults = ({
         if (insertError) throw insertError;
 
         setForwarded(true);
-        toast.success("Quiz analysis forwarded to admin for review!");
+        toast.success("Quiz submitted for admin review!");
       }
     } catch (err) {
       console.error("Forward error:", err);
-      setError(err.message || "Failed to forward to admin.");
+      setError(err.message || "Failed to submit for review.");
     } finally {
       setForwardLoading(false);
     }
@@ -152,25 +207,34 @@ export const QuizAnalysisResults = ({
       : "bg-emerald-500 text-white";
   };
 
+  // Determine current step for stepper
+  const currentStep = forwarded ? 2 : results ? 1 : 0;
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-indigo-600 to-purple-600">
-          <div>
-            <h2 className="text-2xl font-bold text-white">
-              Bloom's Taxonomy Analysis
-            </h2>
-            <p className="text-indigo-100 text-sm mt-1">
-              AI-powered cognitive level classification
-            </p>
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600">
+          <div className="p-5 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                Bloom's Taxonomy Analysis
+              </h2>
+              <p className="text-indigo-200 text-sm mt-0.5">
+                AI-powered cognitive level classification
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white text-3xl font-bold leading-none"
-          >
-            &times;
-          </button>
+          {/* Progress Stepper */}
+          <ProgressStepper currentStep={currentStep} />
         </div>
 
         {/* Content */}
@@ -178,7 +242,7 @@ export const QuizAnalysisResults = ({
           {/* Resubmission Banner */}
           {existingSubmission && !results && (
             <div
-              className={`mb-4 p-4 rounded-lg border ${
+              className={`mb-5 p-4 rounded-lg border ${
                 existingSubmission.status === "revision_requested"
                   ? "bg-orange-50 border-orange-200"
                   : "bg-red-50 border-red-200"
@@ -213,16 +277,30 @@ export const QuizAnalysisResults = ({
           )}
 
           {!results ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🧠</div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            /* ─── Step 1: Ready to Analyze ─── */
+            <div className="text-center py-10">
+              <div className="w-20 h-20 mx-auto mb-5 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
                 {existingSubmission
                   ? "Re-analyze Your Quiz"
                   : "Ready to Analyze"}
               </h3>
-              <p className="text-gray-500 mb-6">
-                Classify your {questions?.length || 0} questions according to
-                Bloom's Taxonomy cognitive levels.
+              <p className="text-gray-500 mb-2 max-w-md mx-auto">
+                Our AI will classify your{" "}
+                <span className="font-semibold text-gray-700">
+                  {questions?.length || 0} questions
+                </span>{" "}
+                into Bloom's Taxonomy cognitive levels and check compliance with
+                the school's Table of Specifications.
+              </p>
+              <p className="text-xs text-gray-400 mb-6 max-w-sm mx-auto">
+                Each question will be categorized as LOTS (Remembering,
+                Understanding, Applying) or HOTS (Analyzing, Evaluating,
+                Creating) with a confidence score.
               </p>
 
               {error && (
@@ -234,230 +312,357 @@ export const QuizAnalysisResults = ({
               <button
                 onClick={handleAnalyze}
                 disabled={loading || !questions?.length}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
               >
                 {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin">⏳</span> Analyzing...
-                  </span>
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Analyzing...
+                  </>
                 ) : (
-                  "Analyze with AI"
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Analyze with AI
+                  </>
                 )}
               </button>
             </div>
           ) : (
+            /* ─── Step 2: Review Results ─── */
             <>
-              {/* Summary Section */}
-              <div className="mb-8 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">
-                  Analysis Summary
-                </h3>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-                    <p className="text-3xl font-bold text-gray-800">
-                      {results.summary.totalQuestions}
-                    </p>
-                    <p className="text-sm text-gray-500">Total Questions</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-                    <p className="text-3xl font-bold text-emerald-600">
-                      {results.summary.lotsCount}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      LOTS ({results.summary.lotsPercentage}%)
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-                    <p className="text-3xl font-bold text-amber-600">
-                      {results.summary.hotsCount}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      HOTS ({results.summary.hotsPercentage}%)
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-                    <p className="text-3xl font-bold text-red-600">
-                      {results.summary.flaggedCount}
-                    </p>
-                    <p className="text-sm text-gray-500">Needs Review</p>
-                  </div>
-                </div>
-
-                {/* Distribution Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm font-semibold text-gray-600 mb-3">
-                    Bloom's Level Distribution
+              {/* Summary Cards — color-coded */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center">
+                  <p className="text-3xl font-bold text-indigo-700">
+                    {results.summary.totalQuestions}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(results.summary.distribution).map(
-                      ([level, count]) => (
-                        <div
-                          key={level}
-                          className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}
-                        >
-                          <span className="font-semibold">{level}:</span>
-                          <span className="font-bold">{count}</span>
-                        </div>
-                      ),
-                    )}
-                  </div>
+                  <p className="text-xs font-semibold text-indigo-500 mt-1">
+                    Total Questions
+                  </p>
                 </div>
-
-                {results.summary.flaggedCount > 0 && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm flex items-center gap-2">
-                    <span className="text-xl">⚠️</span>
-                    <span>
-                      <strong>{results.summary.flaggedCount}</strong>{" "}
-                      question(s) have low confidence and may need manual
-                      review.
-                    </span>
-                  </div>
-                )}
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+                  <p className="text-3xl font-bold text-emerald-600">
+                    {results.summary.lotsCount}
+                  </p>
+                  <p className="text-xs font-semibold text-emerald-500 mt-1">
+                    LOTS ({results.summary.lotsPercentage}%)
+                  </p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-center">
+                  <p className="text-3xl font-bold text-amber-600">
+                    {results.summary.hotsCount}
+                  </p>
+                  <p className="text-xs font-semibold text-amber-500 mt-1">
+                    HOTS ({results.summary.hotsPercentage}%)
+                  </p>
+                </div>
+                <div className={`p-4 rounded-xl text-center ${
+                  results.summary.flaggedCount > 0
+                    ? "bg-red-50 border border-red-200"
+                    : "bg-gray-50 border border-gray-200"
+                }`}>
+                  <p className={`text-3xl font-bold ${
+                    results.summary.flaggedCount > 0
+                      ? "text-red-600"
+                      : "text-gray-400"
+                  }`}>
+                    {results.summary.flaggedCount}
+                  </p>
+                  <p className={`text-xs font-semibold mt-1 ${
+                    results.summary.flaggedCount > 0
+                      ? "text-red-500"
+                      : "text-gray-400"
+                  }`}>
+                    Needs Review
+                  </p>
+                </div>
               </div>
 
+              {/* TOS Compliance Badge — prominent */}
+              {(() => {
+                const lotsPct = results.summary.lotsPercentage || 0;
+                const hotsPct = results.summary.hotsPercentage || 0;
+                const isCompliant =
+                  Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5;
+
+                return (
+                  <div
+                    className={`mb-6 p-4 rounded-xl border-2 flex items-center gap-4 ${
+                      isCompliant
+                        ? "bg-green-50 border-green-300"
+                        : "bg-red-50 border-red-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
+                        isCompliant
+                          ? "bg-green-500 text-white"
+                          : "bg-red-500 text-white"
+                      }`}
+                    >
+                      {isCompliant ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p
+                        className={`font-bold text-sm ${
+                          isCompliant ? "text-green-800" : "text-red-800"
+                        }`}
+                      >
+                        {isCompliant
+                          ? "TOS Compliant"
+                          : "TOS Non-Compliant"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        School requirement: 30% LOTS / 70% HOTS (with 5%
+                        tolerance)
+                      </p>
+                      <div className="flex gap-4 mt-1">
+                        <span
+                          className={`text-xs font-semibold ${
+                            Math.abs(lotsPct - 30) <= 5
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          LOTS: {lotsPct}%
+                          {lotsPct !== 30 &&
+                            ` (${lotsPct > 30 ? "+" : ""}${lotsPct - 30}%)`}
+                        </span>
+                        <span
+                          className={`text-xs font-semibold ${
+                            Math.abs(hotsPct - 70) <= 5
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          HOTS: {hotsPct}%
+                          {hotsPct !== 70 &&
+                            ` (${hotsPct > 70 ? "+" : ""}${hotsPct - 70}%)`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Bloom's Visualization Charts */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <BloomsVisualizationPanel summary={results.summary} />
               </div>
 
               {/* Quiz Improvement Suggestions */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <QuizSuggestions summary={results.summary} />
               </div>
 
-              {/* Per-Question Results */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-4">
-                  Question Analysis
-                </h3>
-                <div className="space-y-4">
-                  {results.analysis.map((item, idx) => (
-                    <div
-                      key={item.questionId}
-                      className={`border-2 rounded-lg p-4 transition-colors ${
-                        item.needsReview
-                          ? "border-yellow-400 bg-yellow-50"
-                          : "border-gray-200 bg-white"
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-bold text-gray-500">
-                              Q{idx + 1}
-                            </span>
+              {/* Per-Question Breakdown — collapsible */}
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowQuestionDetails(!showQuestionDetails)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span className="font-bold text-gray-800">
+                      Per-Question Breakdown
+                    </span>
+                    <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
+                      {results.analysis.length} questions
+                    </span>
+                  </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 text-gray-400 transition-transform ${
+                      showQuestionDetails ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showQuestionDetails && (
+                  <div className="mt-3 border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <div className="col-span-1">#</div>
+                      <div className="col-span-5">Question</div>
+                      <div className="col-span-2">Level</div>
+                      <div className="col-span-2">Type</div>
+                      <div className="col-span-2 text-right">Confidence</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {results.analysis.map((item, idx) => (
+                        <div
+                          key={item.questionId}
+                          className={`grid grid-cols-12 gap-2 px-4 py-3 items-center text-sm ${
+                            item.needsReview ? "bg-yellow-50" : "bg-white"
+                          }`}
+                        >
+                          <div className="col-span-1 text-gray-400 font-semibold">
+                            {idx + 1}
+                          </div>
+                          <div className="col-span-5 text-gray-700 truncate" title={item.questionText}>
+                            {item.questionText}
+                          </div>
+                          <div className="col-span-2">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
-                            >
-                              {item.thinkingOrder}
-                            </span>
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${getLevelColor(
+                                item.bloomsLevel,
+                              )}`}
                             >
                               {item.bloomsLevel}
                             </span>
+                          </div>
+                          <div className="col-span-2">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${getThinkingOrderStyle(
+                                item.thinkingOrder,
+                              )}`}
+                            >
+                              {item.thinkingOrder}
+                            </span>
                             {item.needsReview && (
-                              <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
-                                ⚠️ Low Confidence
+                              <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">
+                                !
                               </span>
                             )}
                           </div>
-                          <p className="text-gray-800">{item.questionText}</p>
+                          <div className="col-span-2 text-right">
+                            <span
+                              className={`font-semibold ${
+                                item.confidence >= 0.9
+                                  ? "text-green-600"
+                                  : item.confidence >= 0.75
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
+                              }`}
+                            >
+                              {(item.confidence * 100).toFixed(0)}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right ml-4">
-                          <p className="text-sm text-gray-500">Confidence</p>
-                          <p
-                            className={`text-lg font-bold ${
-                              item.confidence >= 0.9
-                                ? "text-green-600"
-                                : item.confidence >= 0.75
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                            }`}
-                          >
-                            {(item.confidence * 100).toFixed(1)}%
-                          </p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
+
+              {/* Submit to Admin — grouped card */}
+              {!forwarded ? (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+                  <h4 className="font-bold text-gray-800 mb-1">
+                    Submit for Admin Review
+                  </h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Send your analysis results to the admin for approval. You can
+                    include a message for context.
+                  </p>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Add any notes or context for the admin reviewer..."
+                    rows="2"
+                    className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-20 text-sm mb-3 bg-white"
+                  />
+                  {error && (
+                    <div className="mb-3 p-2.5 bg-red-100 border border-red-300 text-red-700 rounded-lg text-xs">
+                      {error}
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleForward}
+                      disabled={forwardLoading || quizId === "draft"}
+                      title={quizId === "draft" ? "Save the quiz first" : ""}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {forwardLoading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          {existingSubmission ? "Resubmitting..." : "Submitting..."}
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                          {existingSubmission
+                            ? "Resubmit for Review"
+                            : "Submit for Review"}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="font-bold text-green-800">
+                    {existingSubmission
+                      ? "Resubmitted Successfully!"
+                      : "Submitted for Review!"}
+                  </p>
+                  <p className="text-sm text-green-600 mt-1">
+                    The admin will review your quiz analysis and provide feedback.
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>
 
         {/* Footer */}
-        {results && (
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
-            {!forwarded && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Message to Admin (optional)
-                </label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Add any notes or context for the admin reviewer..."
-                  rows="2"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-20"
-                />
-              </div>
-            )}
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() =>
-                    exportBloomsPdf({
-                      quizTitle: `Quiz ${quizId}`,
-                      results,
-                    })
-                  }
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export PDF
-                </button>
-              </div>
-              <button
-                onClick={handleForward}
-                disabled={forwarded || forwardLoading || quizId === "draft"}
-                title={quizId === "draft" ? "Save the quiz first" : ""}
-                className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                  forwarded
-                    ? "bg-green-500 text-white cursor-default"
-                    : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                } disabled:opacity-75 disabled:cursor-not-allowed`}
-              >
-                {forwarded
-                  ? existingSubmission
-                    ? "✓ Resubmitted to Admin"
-                    : "✓ Forwarded to Admin"
-                  : forwardLoading
-                    ? existingSubmission
-                      ? "Resubmitting..."
-                      : "Forwarding..."
-                    : existingSubmission
-                      ? "Resubmit to Admin"
-                      : "Forward to Admin"}
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors"
+          >
+            Close
+          </button>
+          {results && (
+            <button
+              onClick={() =>
+                exportBloomsPdf({
+                  quizTitle: `Quiz ${quizId}`,
+                  results,
+                })
+              }
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
