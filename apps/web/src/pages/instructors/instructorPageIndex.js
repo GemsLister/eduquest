@@ -9,3 +9,6 @@ export { QuizResults } from "./QuizResults.jsx";
 export { QuizResultDetail } from "./QuizResultDetail.jsx";
 export { QuizzesPageMain } from "./quizzes/QuizzesPageMain.jsx";
 export { MySubmissions } from "./MySubmissions.jsx";
+export { StudentProfile } from "./StudentProfile.jsx";
+export { StudentProfileNav } from "./StudentProfileNav.jsx";
+export { AllStudentsBloomsAnalysis } from "./AllStudentsBloomsAnalysis.jsx";
