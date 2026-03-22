@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 
 const cardThemes = [
   {
@@ -43,14 +42,12 @@ const cardThemes = [
 export const ClassInfo = ({
   sectionId,
   sectionName,
-  examCode,
   subject,
   quizzes = [],
   onEdit,
   onArchive,
 }) => {
   const navigate = useNavigate();
-  const [copiedCode, setCopiedCode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
   const theme = cardThemes[sectionName?.charCodeAt(0) % cardThemes.length];
@@ -60,17 +57,6 @@ export const ClassInfo = ({
   const openQuizzes = quizzes.filter((q) => q.is_open !== false).length;
   const totalAttempts = quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0);
 
-  const handleCopyCode = (e) => {
-    e.stopPropagation();
-    navigator.clipboard
-      .writeText(examCode)
-      .then(() => {
-        setCopiedCode(true);
-        toast.success("Exam code copied!");
-        setTimeout(() => setCopiedCode(false), 2000);
-      })
-      .catch(() => toast.error("Failed to copy"));
-  };
 
   return (
     <div className="flex flex-col h-full relative">
@@ -144,24 +130,6 @@ export const ClassInfo = ({
 
       {/* Card Body */}
       <div className="p-4 flex flex-col flex-1">
-        {/* Exam Code — clickable to copy */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Exam Code
-          </span>
-          <button
-            onClick={handleCopyCode}
-            className={`ml-auto font-mono font-bold text-xs px-2 py-1 rounded-md border transition-colors cursor-pointer ${
-              copiedCode
-                ? "bg-green-50 text-green-700 border-green-300"
-                : `${theme.badge} hover:opacity-80`
-            }`}
-            title="Click to copy"
-          >
-            {copiedCode ? "Copied!" : examCode}
-          </button>
-        </div>
-
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2 py-3 border-t border-gray-100">
           <div className={`rounded-lg px-2 py-1.5 text-center ${theme.statBg}`}>

@@ -125,8 +125,7 @@ export const InstructorDashboard = () => {
     return sections.filter(
       (s) =>
         s.name?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q) ||
-        s.exam_code?.toLowerCase().includes(q),
+        s.description?.toLowerCase().includes(q),
     );
   }, [sections, search]);
 
@@ -136,8 +135,7 @@ export const InstructorDashboard = () => {
     return archivedSections.filter(
       (s) =>
         s.name?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q) ||
-        s.exam_code?.toLowerCase().includes(q),
+        s.description?.toLowerCase().includes(q),
     );
   }, [archivedSections, search]);
 
@@ -258,7 +256,6 @@ export const InstructorDashboard = () => {
                 <ClassCard.ClassInfo
                   sectionId={section.id}
                   sectionName={section.name}
-                  examCode={section.exam_code}
                   subject={section.description}
                   quizzes={sectionQuizzes[section.id] || []}
                   onEdit={() => handleEditSection(section)}
@@ -306,9 +303,6 @@ export const InstructorDashboard = () => {
                       <p className="text-xs text-gray-500">
                         {section.description || "No subject"}
                       </p>
-                      <span className="inline-block mt-1 font-mono text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                        {section.exam_code}
-                      </span>
                     </div>
                     <button
                       onClick={() => handleRestoreSection(section.id)}

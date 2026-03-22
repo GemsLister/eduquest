@@ -74,12 +74,6 @@ export const SectionDetail = () => {
               <p className="text-2xl font-black text-white">{totalAttempts}</p>
               <p className="text-emerald-200 text-xs font-semibold">Attempts</p>
             </div>
-            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
-              <p className="text-xs text-emerald-200 font-semibold mb-0.5">Exam Code</p>
-              <p className="text-lg font-black text-white tracking-wider">
-                {section.exam_code}
-              </p>
-            </div>
           </div>
         </div>
       </div>
