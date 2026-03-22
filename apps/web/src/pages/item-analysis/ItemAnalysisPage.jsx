@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
 import { ItemAnalysisResults } from "../../components/container/item-analysis/ItemAnalysisResults";
 import { ItemAnalysisTable } from "../../components/container/item-analysis/ItemAnalysisTable";
+import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 
 export const ItemAnalysisPage = () => {
   const [sections, setSections] = useState([]);
@@ -19,8 +20,36 @@ export const ItemAnalysisPage = () => {
   const [saveError, setSaveError] = useState(null);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [selectedCohortFilter, setSelectedCohortFilter] = useState("all");
   const [cohortOptions, setCohortOptions] = useState([]);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
+
+  // --- 0. Helper: Find Searched Student Info ---
+  const searchedStudentInfo = useMemo(() => {
+    if (!studentSearchTerm || analysis.length === 0) return null;
+    
+    // Use a map to collect unique attempts for this student name
+    const matchingAttempts = new Map();
+    
+    for (const item of analysis) {
+      (item.takersDetails || []).forEach(t => {
+        if (t.name.toLowerCase().includes(studentSearchTerm.toLowerCase())) {
+          // Key by a combination of name and score to identify unique attempts shown in your screenshot
+          const key = `${t.name}-${t.totalScore}`;
+          if (!matchingAttempts.has(key)) {
+            matchingAttempts.set(key, {
+              name: t.name,
+              totalScore: t.totalScore
+            });
+          }
+        }
+      });
+    }
+    
+    return Array.from(matchingAttempts.values());
+  }, [studentSearchTerm, analysis]);
 
   // --- 1. Fetch Sections ---
   useEffect(() => {
@@ -64,6 +93,18 @@ export const ItemAnalysisPage = () => {
     else setAnalysis([]);
   }, [selectedQuiz, selectedCohortFilter]);
 
+  // --- 3.1. Listen for question updates ---
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (selectedQuiz) {
+        console.log("Question updated, re-fetching analysis...");
+        fetchAndAnalyze(selectedQuiz);
+      }
+    };
+    window.addEventListener("questions-updated", handleUpdate);
+    return () => window.removeEventListener("questions-updated", handleUpdate);
+  }, [selectedQuiz]);
+
   // --- 3.5. Update cohort options when section changes ---
   useEffect(() => {
     if (selectedSection) {
@@ -100,6 +141,14 @@ export const ItemAnalysisPage = () => {
     }
   };
 
+  const onManualEdit = () => {
+    // Redirect to manual edit page or form
+    if (selectedQuestion) {
+      window.location.href = `/instructor-dashboard/edit-question/${selectedQuestion.question_id}`;
+    }
+    setEditModalOpen(false);
+  };
+
   // Helper function to map answer to letter A/B/C/D
   const getLetter = (answer) => {
     const num = parseInt(answer);
@@ -108,11 +157,14 @@ export const ItemAnalysisPage = () => {
 
   // --- 5. Fetch and Analyze Logic ---
   const fetchAndAnalyze = async (quizId) => {
+    setLoading(true);
     try {
-      setLoading(true);
-
-      // 1. Fetch Questions and ALL Student Attempts
-      const { data: questions } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
+      // 1. Fetch Quiz Data (Questions)
+      const { data: questions, error: qError } = await supabase
+        .from("questions")
+        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer")
+        .eq("quiz_id", quizId);
+      if (qError) throw qError;
       
       let attemptsQuery = supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
       
@@ -148,7 +200,7 @@ export const ItemAnalysisPage = () => {
           // Middle 50% performers
           const startIndex = Math.floor(totalAttempts * 0.25);
           const endIndex = Math.ceil(totalAttempts * 0.75);
-          filteredAttempts = sortedAttempts.slice(startIndex, endIndex);
+          filteredAnalysis = sortedAttempts.slice(startIndex, endIndex);
         } else if (selectedCohortFilter === "perfect_scores") {
           // Only students with perfect scores (100% of possible points)
           // First get total possible points for this quiz
@@ -192,7 +244,7 @@ export const ItemAnalysisPage = () => {
         
         takersMap[att.id] = { 
           name: displayName, 
-          score: att.score || 0,
+          totalScore: att.score || 0,
           isGuest: !att.user_id,
           userId: att.user_id
         };
@@ -230,7 +282,7 @@ export const ItemAnalysisPage = () => {
 
         const sortedTakers = qResponses.map(r => ({
           isCorrect: r.is_correct,
-          totalScore: takersMap[r.attempt_id]?.score || 0
+          totalScore: takersMap[r.attempt_id]?.totalScore || 0
         })).sort((a, b) => b.totalScore - a.totalScore);
 
         const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
@@ -252,22 +304,53 @@ export const ItemAnalysisPage = () => {
         // --- 6. AI DECISION (Flag Logic) ---
         const isGoodItem = fi >= 0.3 && fi <= 0.8 && discrimination >= 0.2;
 
+        // --- 7. ICC / Decile Performance Calculation ---
+        const decilePerformance = Array.from({ length: 10 }, (_, i) => {
+          const decile = (i + 1) * 10;
+          // Ability level based on score ranges (e.g., 0-10%, 10-20%...)
+          const minScore = (highestScore * i) / 10;
+          const maxScore = (highestScore * (i + 1)) / 10;
+          
+          const group = sortedTakers.filter(t => 
+            t.totalScore > minScore && t.totalScore <= maxScore
+          );
+          
+          const proportionRight = group.length > 0 
+            ? (group.filter(t => t.isCorrect).length / group.length) * 100 
+            : 0;
+            
+          return {
+            ability: decile,
+            proportion: Math.round(proportionRight)
+          };
+        });
+
         return {
           question_id: q.id,
           text: q.text,
           type: q.type,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          revised_content: q.revised_content,
+          revised_options: q.revised_options,
+          original_text: q.original_text,
+          original_options: q.original_options,
+          original_correct_answer: q.original_correct_answer,
           difficulty: total > 0 ? fi.toFixed(2) : "N/A",
           status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
           discStatus: discStatus,
-          autoFlag: isGoodItem ? "retain" : "revise",
+          autoFlag: isGoodItem ? "approved" : "revise",
           highestScore,
           lowestScore,
+          totalResponses: total,
+          decilePerformance,
           distractorAnalysis: distractorData,
           takersDetails: qResponses.map(r => ({
             name: takersMap[r.attempt_id]?.name || "Student",
             answer: getLetter(r.answer),
-            isCorrect: r.is_correct
+            isCorrect: r.is_correct,
+            totalScore: takersMap[r.attempt_id]?.totalScore || 0
           }))
         };
       });
@@ -295,9 +378,11 @@ export const ItemAnalysisPage = () => {
           onSectionChange={setSelectedSection}
           onQuizChange={setSelectedQuiz}
           onSearchChange={setSearchTerm}
+          onStudentSearchChange={setStudentSearchTerm}
           onCohortFilterChange={setSelectedCohortFilter}
           selectedCohortFilter={selectedCohortFilter}
           cohortOptions={cohortOptions}
+          searchedStudent={searchedStudentInfo}
         />
 
         <ItemAnalysisResults
@@ -310,8 +395,14 @@ export const ItemAnalysisPage = () => {
           selectedCohortFilter={selectedCohortFilter}
         />
 
+
+
         {(() => {
-          const filteredAnalysis = analysis.filter(item => 
+          if (!selectedQuiz) return null;
+          if (loading) return <div className="text-center py-8">Analyzing...</div>;
+          if (analysis.length === 0) return <div className="text-center py-8">No responses found for this quiz.</div>;
+
+          const filteredAnalysis = analysis.filter((item) =>
             item.text.toLowerCase().includes(searchTerm.toLowerCase())
           );
 
@@ -319,11 +410,16 @@ export const ItemAnalysisPage = () => {
             return (
               <ItemAnalysisTable
                 loading={loading}
-                analysis={filteredAnalysis}
+                analysis={filteredAnalysis.map((item, idx) => ({...item, index: idx}))}
+                studentSearchTerm={studentSearchTerm}
                 expandedQuestion={expandedQuestion}
                 toggleDetails={(id) =>
                   setExpandedQuestion(expandedQuestion === id ? null : id)
                 }
+                onFlagClick={(item) => {
+                  setSelectedQuestion(item);
+                  setEditModalOpen(true);
+                }}
               />
             );
           }
@@ -337,7 +433,16 @@ export const ItemAnalysisPage = () => {
           return null;
         })()}
 
+        <EditChoiceModal 
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          questionData={selectedQuestion}
+          onManualEdit={onManualEdit}
+          questionId={selectedQuestion?.question_id}
+        />
+
       </div>
     </div>
   );
 };
+

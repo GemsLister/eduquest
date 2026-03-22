@@ -186,13 +186,12 @@ export const AddEditForm = ({
               >
                 <option value="pending">Pending Review</option>
                 <option value="approved">Approved</option>
-                <option value="retain">Retain (Good Question)</option>
                 <option value="needs_revision">Needs Revision</option>
                 <option value="discard">Discard</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 Set the status to help track question quality. 
-                Use "Retain" for good questions, "Needs Revision" for questions that need improvement, 
+                Use "Approved" for good questions, "Needs Revision" for questions that need improvement, 
                 and "Discard" for questions to remove.
               </p>
             </div>

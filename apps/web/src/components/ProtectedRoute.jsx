@@ -27,6 +27,7 @@ export const ProtectedRoute = ({ children }) => {
           // Treat null (column not yet added) as approved to avoid locking out existing users
           setIsApproved(profile?.is_approved !== false);
           setIsDisabled(profile?.is_disabled === true);
+          
 
           if (profile?.is_disabled === true) {
             await supabase.auth.signOut();

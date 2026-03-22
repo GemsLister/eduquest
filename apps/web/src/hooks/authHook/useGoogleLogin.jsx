@@ -9,6 +9,7 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
+          hd: "student.buksu.edu.ph"
         },
       },
     });
@@ -22,7 +23,7 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
-          hd: "student.buksu.edu.ph"
+          hd: "gmail.com"
         },
       },
     });

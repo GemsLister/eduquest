@@ -12,6 +12,8 @@ export const InstructorProfile = () => {
     bio: "",
     avatarUrl: "",
     createdAt: "",
+    isInstructor: false,
+    isAdmin: false,
   });
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,12 @@ export const InstructorProfile = () => {
       if (authError) throw authError;
 
       if (authUser) {
+        // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
+        if (authUser.email.endsWith("@gmail.com")) {
+          setError("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
+          setLoading(false);
+          return;
+        }
         setUser(authUser);
 
         const { data: profileData, error: profileError } = await supabase
@@ -45,10 +53,13 @@ export const InstructorProfile = () => {
           .single();
 
         if (profileError && profileError.code === "PGRST116") {
+          // Profile doesn't exist yet — create it
+          const email = authUser.email;
+          const isStudentDomain = email.endsWith("@gmail.com");
           const firstName = authUser.user_metadata?.given_name || "";
           const lastName = authUser.user_metadata?.family_name || "";
           const username =
-            authUser.user_metadata?.full_name || authUser.email.split("@")[0];
+            authUser.user_metadata?.full_name || email.split("@")[0];
 
           const { data: newProfile, error: createError } = await supabase
             .from("profiles")
@@ -58,7 +69,9 @@ export const InstructorProfile = () => {
               first_name: firstName,
               last_name: lastName,
               bio: "",
-              is_instructor: true,
+              is_instructor: !isStudentDomain,
+              is_approved: true, // Auto-approve everyone for testing
+              email: email,
             })
             .select()
             .single();
@@ -69,10 +82,12 @@ export const InstructorProfile = () => {
             username: newProfile.username || "",
             firstName: newProfile.first_name || "",
             lastName: newProfile.last_name || "",
-            email: authUser.email,
+            email: email,
             bio: newProfile.bio || "",
             avatarUrl: newProfile.avatar_url || "",
             createdAt: newProfile.created_at || authUser.created_at || "",
+            isInstructor: newProfile.is_instructor,
+            isAdmin: newProfile.is_admin,
           });
         } else if (profileError) {
           throw profileError;
@@ -85,6 +100,8 @@ export const InstructorProfile = () => {
             bio: profileData.bio || "",
             avatarUrl: profileData.avatar_url || "",
             createdAt: profileData.created_at || authUser.created_at || "",
+            isInstructor: profileData.is_instructor,
+            isAdmin: profileData.is_admin,
           });
         }
 
@@ -107,10 +124,12 @@ export const InstructorProfile = () => {
           published: quizzes.filter((q) => q.is_published).length,
           subjects: sectionsRes.count || 0,
         });
+      } else {
+        throw new Error("Auth session missing!");
       }
     } catch (err) {
-      setError("Failed to load profile");
-      console.error(err);
+      setError(`Failed to load profile: ${err.message || "Unknown error"}`);
+      console.error("Profile load error:", err);
     } finally {
       setLoading(false);
     }

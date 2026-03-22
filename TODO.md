@@ -1,15 +1,8 @@
-# Google Sign-In for Public Quiz
+# Item Analysis Legend Addition
 
-## Step 1: DB Migration ✅
-- Created `supabase/migrations/20241025_add_student_id_to_student_profile.sql`
-- User needs to run migration: `supabase migration up` or apply in Supabase dashboard.
+## Steps:
+- [x] 1. Edit ItemAnalysisTable.jsx to add Difficulty/Flag legend footer.
+- [x] 2. Verify rendering and styling.
+- [x] 3. Complete task.
 
-## Step 2: Update Auth Hook ✅
-- Added `handleGoogleQuizLogin` to `apps/web/src/hooks/authHook/useGoogleLogin.jsx`
-
-## Step 3: Update PublicQuizPage ⏳
-- Edit `apps/web/src/pages/PublicQuizPage.jsx`
-
-## Step 4: Test ⏳
-- `cd apps/web && npm run dev`
 
