@@ -4,6 +4,7 @@ import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
 export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) => {
   const { generateSuggestion, updateQuestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
   const [isManualEdit, setIsManualEdit] = useState(false);
+  const [showFullHistory, setShowFullHistory] = useState(false);
   const [formData, setFormData] = useState({
     text: '',
     options: ['', ''],
@@ -84,6 +85,28 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
 
   const hasDraft = !!(questionData?.revised_content || questionData?.revised_options);
   const isRevised = !!questionData?.previous_text;
+  const history = Array.isArray(questionData?.revision_history) 
+    ? [...questionData.revision_history].reverse() // Show newest revisions first
+    : [];
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatTime = (dateStr) => {
+    return new Date(dateStr).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
@@ -160,7 +183,65 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
             </div>
           </div>
 
+          {/* Revision History Section (Browser Style) */}
+          {history.length > 0 && (
+            <div className="px-6 py-4 bg-slate-50 border-b">
+              <button 
+                onClick={() => setShowFullHistory(!showFullHistory)}
+                className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
+              >
+                <span>📜 View Full Revision History ({history.length})</span>
+                <span className={`transition-transform duration-300 ${showFullHistory ? "rotate-180" : ""}`}>▼</span>
+              </button>
+
+              {showFullHistory && (
+                <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-top-2">
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+                    {history.map((rev, hIdx) => (
+                      <div key={hIdx} className="group px-4 py-3 hover:bg-slate-50 transition-all">
+                        <div className="flex items-center gap-4">
+                          <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">{formatTime(rev.revised_at)}</span>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-slate-600 truncate font-medium group-hover:text-indigo-600 transition-colors">
+                              {rev.text}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
+                                {formatDate(rev.revised_at)}
+                              </span>
+                              <span className="text-[9px] text-slate-300 font-medium italic">
+                                Version {history.length - hIdx}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 grid grid-cols-4 gap-1">
+                            {rev.options.map((opt, oIdx) => {
+                              const isCorrect = String(opt) === String(rev.correct_answer);
+                              return (
+                                <div key={oIdx} className={`w-4 h-4 rounded-sm border flex items-center justify-center text-[8px] font-bold ${isCorrect ? "bg-emerald-500 border-emerald-600 text-white" : "bg-slate-100 border-slate-200 text-slate-400"}`}>
+                                  {String.fromCharCode(65 + oIdx)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI Suggestions / Form */}
           <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {hasDraft ? "📝 Draft Revision" : "🛠️ Active Workspace"}
+              </h3>
+            </div>
             {!isManualEdit ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Manual Edit Card */}
