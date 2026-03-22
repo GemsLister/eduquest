@@ -76,6 +76,7 @@ export const ItemDifficulty = () => {
           .from("quizzes")
           .select("id, title, is_published")
           .eq("section_id", selectedSection)
+          .eq("is_archived", false)
           .order("created_at", { ascending: false });
 
         if (quizzesError) throw quizzesError;
