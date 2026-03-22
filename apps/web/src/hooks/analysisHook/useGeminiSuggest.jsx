@@ -150,7 +150,7 @@ Output ONLY valid JSON object with NO markdown formatting:
       correctAnswerValue = newOptions[parseInt(newCorrect)];
     }
 
-    // 1. Fetch current question to preserve it as "original" if it's not already preserved
+    // 1. Fetch current question to preserve it
     const { data: current } = await supabase
       .from('questions')
       .select('original_text, text, options, correct_answer')
@@ -164,15 +164,16 @@ Output ONLY valid JSON object with NO markdown formatting:
       flag: 'approved',
       revised_content: null, // CLEAR PENDING STATUS
       revised_options: null, // CLEAR PENDING STATUS
+      // Shift current live version to "previous" before overwriting
+      previous_text: current.text,
+      previous_options: current.options,
+      previous_correct_answer: current.correct_answer,
+      // Always update "original" columns to the previous version
+      original_text: current.text,
+      original_options: current.options,
+      original_correct_answer: current.correct_answer,
       updated_at: new Date().toISOString()
     };
-
-    // If first time editing, preserve original version
-    if (current && !current.original_text) {
-      updateData.original_text = current.text;
-      updateData.original_options = current.options;
-      updateData.original_correct_answer = current.correct_answer;
-    }
 
     const { error } = await supabase
       .from('questions')
