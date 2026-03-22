@@ -80,7 +80,8 @@ export const ItemAnalysisPage = () => {
       const { data } = await supabase
         .from("quizzes")
         .select("id, title")
-        .eq("section_id", selectedSection);
+        .eq("section_id", selectedSection)
+        .eq("is_archived", false);
       setQuizzes(data || []);
       setLoadingQuizzes(false);
     };
