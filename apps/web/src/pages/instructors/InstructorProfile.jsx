@@ -11,6 +11,8 @@ export const InstructorProfile = () => {
     email: "",
     bio: "",
     avatarUrl: "",
+    isInstructor: false,
+    isAdmin: false,
   });
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,12 @@ export const InstructorProfile = () => {
       if (authError) throw authError;
 
       if (authUser) {
+        // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
+        if (authUser.email.endsWith("@gmail.com")) {
+          setError("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
+          setLoading(false);
+          return;
+        }
         setUser(authUser);
 
         // Fetch profile from database
@@ -45,10 +53,12 @@ export const InstructorProfile = () => {
 
         if (profileError && profileError.code === "PGRST116") {
           // Profile doesn't exist yet — create it
+          const email = authUser.email;
+          const isStudentDomain = email.endsWith("@gmail.com");
           const firstName = authUser.user_metadata?.given_name || "";
           const lastName = authUser.user_metadata?.family_name || "";
           const username =
-            authUser.user_metadata?.full_name || authUser.email.split("@")[0];
+            authUser.user_metadata?.full_name || email.split("@")[0];
 
           const { data: newProfile, error: createError } = await supabase
             .from("profiles")
@@ -58,7 +68,9 @@ export const InstructorProfile = () => {
               first_name: firstName,
               last_name: lastName,
               bio: "",
-              is_instructor: true,
+              is_instructor: !isStudentDomain,
+              is_approved: true, // Auto-approve everyone for testing
+              email: email,
             })
             .select()
             .single();
@@ -69,9 +81,11 @@ export const InstructorProfile = () => {
             username: newProfile.username || "",
             firstName: newProfile.first_name || "",
             lastName: newProfile.last_name || "",
-            email: authUser.email,
+            email: email,
             bio: newProfile.bio || "",
             avatarUrl: newProfile.avatar_url || "",
+            isInstructor: newProfile.is_instructor,
+            isAdmin: newProfile.is_admin,
           });
         } else if (profileError) {
           throw profileError;
@@ -84,12 +98,16 @@ export const InstructorProfile = () => {
             email: authUser.email,
             bio: profileData.bio || "",
             avatarUrl: profileData.avatar_url || "",
+            isInstructor: profileData.is_instructor,
+            isAdmin: profileData.is_admin,
           });
         }
+      } else {
+        throw new Error("Auth session missing!");
       }
     } catch (err) {
-      setError("Failed to load profile");
-      console.error(err);
+      setError(`Failed to load profile: ${err.message || "Unknown error"}`);
+      console.error("Profile load error:", err);
     } finally {
       setLoading(false);
     }
@@ -439,7 +457,15 @@ export const InstructorProfile = () => {
           <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
             <div>
               <p className="text-sm font-semibold text-gray-700">Role</p>
-              <p className="text-gray-600">Instructor</p>
+              <p className="text-gray-600">
+                {profile.isAdmin
+                  ? "Admin"
+                  : profile.isInstructor
+                    ? "Instructor"
+                    : profile.email?.endsWith("@gmail.com")
+                      ? "Student"
+                      : "User"}
+              </p>
             </div>
           </div>
 
