@@ -25,7 +25,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
 
     try {
       if (!formData.name.trim()) {
-        setError("Section name is required");
+        setError("Course name is required");
         return;
       }
 
@@ -53,8 +53,8 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
         onSectionCreated(data[0]);
       }
     } catch (err) {
-      setError(err.message || "Failed to create section");
-      console.error("Error creating section:", err);
+      setError(err.message || "Failed to create subject");
+      console.error("Error creating subject:", err);
     } finally {
       setLoading(false);
     }
@@ -68,38 +68,38 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
           className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors shadow-md"
         >
           <span className="text-lg">+</span>
-          Create New Class
+          Create New Subject
         </button>
       ) : (
         <div className="bg-white rounded-lg p-4 md:p-6 shadow-md border border-casual-green">
           <h3 className="text-lg md:text-xl font-bold text-hornblende-green mb-4">
-            Create New Class
+            Create New Subject
           </h3>
 
           <form onSubmit={handleCreateSection} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Class Name *
+                Course Name *
               </label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="e.g., Period 1, Block A, Biology 101"
+                placeholder="e.g., Application Development and Emerging Technologies"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
               />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Description
+                Section / Schedule
               </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Optional class description"
+                placeholder="e.g., T301 - 2nd Sem 25-26"
                 rows="3"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
               />
@@ -128,7 +128,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
                 disabled={loading}
                 className="px-4 py-2 bg-casual-green text-white rounded-lg font-semibold text-sm md:text-base hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Creating..." : "Create Class"}
+                {loading ? "Creating..." : "Create Subject"}
               </button>
             </div>
           </form>

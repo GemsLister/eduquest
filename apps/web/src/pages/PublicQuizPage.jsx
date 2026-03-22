@@ -8,6 +8,8 @@ import { useSearchParams } from "react-router-dom";
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedSectionId = searchParams.get("section");
 
   // --- STATES ---
   const [studentName, setStudentName] = useState("");
@@ -31,13 +33,48 @@ export const PublicQuizPage = () => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  const isQuizAssignedToSection = async (quizId, sectionId) => {
+    if (!sectionId) return true;
+
+    const { data: mappedSections, error: mappedError } = await supabase
+      .from("quiz_sections")
+      .select("section_id")
+      .eq("quiz_id", quizId)
+      .eq("section_id", sectionId);
+
+    if (!mappedError && mappedSections && mappedSections.length > 0) {
+      return true;
+    }
+
+    const { data: quizRow, error: quizRowError } = await supabase
+      .from("quizzes")
+      .select("section_id")
+      .eq("id", quizId)
+      .single();
+
+    if (quizRowError) return false;
+    return quizRow?.section_id === sectionId;
+  };
+
+  const resolveExamCode = async () => {
+    if (!requestedSectionId) return quiz?.sections?.exam_code;
+
+    const { data: sectionRow } = await supabase
+      .from("sections")
+      .select("exam_code")
+      .eq("id", requestedSectionId)
+      .maybeSingle();
+
+    return sectionRow?.exam_code || quiz?.sections?.exam_code;
+  };
+
   // --- LOAD QUIZ DATA ---
   useEffect(() => {
     const loadQuiz = async () => {
       setError("");
       try {
         console.log("Loading quiz with share token:", shareToken);
-        
+
         const { data: quizData, error: quizError } = await supabase
           .from("quizzes")
           .select(
@@ -63,6 +100,16 @@ export const PublicQuizPage = () => {
 
         if (!quizData) {
           setError("Quiz not found. Invalid link.");
+          setLoading(false);
+          return;
+        }
+
+        const assignedToRequestedSection = await isQuizAssignedToSection(
+          quizData.id,
+          requestedSectionId,
+        );
+        if (!assignedToRequestedSection) {
+          setError("This quiz link is not valid for this section.");
           setLoading(false);
           return;
         }
@@ -93,7 +140,7 @@ export const PublicQuizPage = () => {
       }
     };
     if (shareToken) loadQuiz();
-  }, [shareToken]);
+  }, [shareToken, requestedSectionId]);
 
   // Auth state listener
   useEffect(() => {
@@ -107,9 +154,13 @@ export const PublicQuizPage = () => {
   }, []);
 
   // Auto-start quiz after Google auth
-  const [searchParams] = useSearchParams();
   useEffect(() => {
-    if (session?.user && searchParams.get('auth') === 'success' && !hasStarted && quiz) {
+    if (
+      session?.user &&
+      searchParams.get("auth") === "success" &&
+      !hasStarted &&
+      quiz
+    ) {
       handleGoogleQuizStart();
     }
   }, [session, searchParams, hasStarted, quiz]);
@@ -128,38 +179,58 @@ export const PublicQuizPage = () => {
     // Check if user already has an attempt for this quiz
     const user = session.user;
     const email = user.email;
-    const studentId = email.split('@')[0];
+    const studentId = email.split("@")[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-    if (!email.endsWith('@gmail.com')) {
-      setError('You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.');
+<<<<<<< HEAD
+    if (!email.endsWith("@student.buksu.edu.ph")) {
+      setError("Only @student.buksu.edu.ph email addresses are allowed.");
+      await supabase.auth.signOut();
+      setSession(null);
+=======
+    if (!email.endsWith("@student.buksu.edu.ph")) {
+      setError("Only @student.buksu.edu.ph email addresses are allowed.");
+      await supabase.auth.signOut();
+      setSession(null);
+=======
+    if (!email.endsWith("@student.buksu.edu.ph")) {
+      setError("Only @student.buksu.edu.ph email addresses are allowed.");
+      await supabase.auth.signOut();
+      setSession(null);
+>>>>>>> origin/milcky-branch
       setAuthenticating(false);
       return;
     }
 
     try {
       setAuthenticating(true);
-      const currentExamCode = quiz?.sections?.exam_code;
+      const currentExamCode = await resolveExamCode();
 
-      let { data: student, error: fetchError } = await studentService.getStudentByEmail(email);
-      if (fetchError && fetchError.code !== 'PGRST116') throw new Error(fetchError.message);
+      let { data: student, error: fetchError } =
+        await studentService.getStudentByEmail(email);
+      if (fetchError && fetchError.code !== "PGRST116")
+        throw new Error(fetchError.message);
 
       if (!student) {
-        const { data: newStudent, error: createError } = await studentService.createStudent({
-          student_email: email,
-          student_name: studentName,
-          student_id: studentId,
-          exam_code: currentExamCode,
-        });
+        const { data: newStudent, error: createError } =
+          await studentService.createStudent({
+            student_email: email,
+            student_name: studentName,
+            student_id: studentId,
+            exam_code: currentExamCode,
+          });
         if (createError) throw new Error(createError.message);
         student = newStudent;
       } else {
         // Update existing
-        const { error: updateError } = await studentService.updateStudent(student.id, {
-          student_id: studentId,
-          student_name: studentName,
-          exam_code: currentExamCode,
-        });
+        const { error: updateError } = await studentService.updateStudent(
+          student.id,
+          {
+            student_id: studentId,
+            student_name: studentName,
+            exam_code: currentExamCode,
+          },
+        );
         if (updateError) throw new Error(updateError.message);
       }
 
@@ -168,18 +239,26 @@ export const PublicQuizPage = () => {
       }
 
       // Check for existing attempt
-      const { data: existingAttempts, error: checkError } = await supabase
+      let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("id, status")
         .eq("quiz_id", quiz.id)
         .eq("student_id", student.id)
         .in("status", ["in_progress", "completed"]);
 
+      attemptsQuery = requestedSectionId
+        ? attemptsQuery.eq("section_id", requestedSectionId)
+        : attemptsQuery.is("section_id", null);
+
+      const { data: existingAttempts, error: checkError } = await attemptsQuery;
+
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
         // User already has an attempt, use the existing one
-        const existingAttempt = existingAttempts.find(a => a.status === "in_progress") || existingAttempts[0];
+        const existingAttempt =
+          existingAttempts.find((a) => a.status === "in_progress") ||
+          existingAttempts[0];
         setAttemptId(existingAttempt.id);
         setHasStarted(true);
         if (existingAttempt.status === "completed") {
@@ -189,7 +268,8 @@ export const PublicQuizPage = () => {
             .from("quiz_responses")
             .select("points_earned")
             .eq("attempt_id", existingAttempt.id);
-          const totalScore = responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
+          const totalScore =
+            responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
           setScore(totalScore);
         }
         return;
@@ -201,6 +281,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
+            section_id: requestedSectionId || null,
             student_id: student.id,
             student_name: studentName,
             student_email: email,
@@ -216,7 +297,7 @@ export const PublicQuizPage = () => {
       setAttemptId(attempt.id);
       setHasStarted(true);
     } catch (err) {
-      setError(err.message || 'Failed to start quiz');
+      setError(err.message || "Failed to start quiz");
     } finally {
       setAuthenticating(false);
     }
@@ -237,7 +318,7 @@ export const PublicQuizPage = () => {
 
     try {
       setSubmitting(true);
-      const currentExamCode = quiz?.sections?.exam_code;
+      const currentExamCode = await resolveExamCode();
 
       let { data: student, error: fetchError } = await supabase
         .from("student_profile")
@@ -275,18 +356,26 @@ export const PublicQuizPage = () => {
       }
 
       // Check for existing attempt
-      const { data: existingAttempts, error: checkError } = await supabase
+      let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("id, status")
         .eq("quiz_id", quiz.id)
         .eq("student_id", student.id)
         .in("status", ["in_progress", "completed"]);
 
+      attemptsQuery = requestedSectionId
+        ? attemptsQuery.eq("section_id", requestedSectionId)
+        : attemptsQuery.is("section_id", null);
+
+      const { data: existingAttempts, error: checkError } = await attemptsQuery;
+
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
         // User already has an attempt, use the existing one
-        const existingAttempt = existingAttempts.find(a => a.status === "in_progress") || existingAttempts[0];
+        const existingAttempt =
+          existingAttempts.find((a) => a.status === "in_progress") ||
+          existingAttempts[0];
         setAttemptId(existingAttempt.id);
         setHasStarted(true);
         if (existingAttempt.status === "completed") {
@@ -296,7 +385,8 @@ export const PublicQuizPage = () => {
             .from("quiz_responses")
             .select("points_earned")
             .eq("attempt_id", existingAttempt.id);
-          const totalScore = responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
+          const totalScore =
+            responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
           setScore(totalScore);
         }
         return;
@@ -308,6 +398,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
+            section_id: requestedSectionId || null,
             student_id: student.id,
             student_name: studentName,
             student_email: studentEmail,
@@ -505,7 +596,7 @@ export const PublicQuizPage = () => {
               )}
               <h1 className="text-2xl font-bold">{quiz?.title || "Loading Quiz..."}</h1>
               <p className="mt-2 text-gray-600">{quiz?.description}</p>
-              
+
               {authenticating ? (
                 <div className="mt-6 flex flex-col items-center space-y-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -514,13 +605,18 @@ export const PublicQuizPage = () => {
               ) : (
                 <div className="mt-6">
                   <p className="text-sm text-gray-600 mb-4 text-center">
-                    Sign in with your institutional Google account (@student.buksu.edu.ph) to start the exam quickly.
+                    Sign in with your institutional Google account
+                    (@student.buksu.edu.ph) to start the exam quickly.
                   </p>
                   <button
                     onClick={handleGoogleQuizLoginClick}
                     className="w-full flex items-center justify-center gap-2 rounded-lg bg-white border-2 border-gray-300 py-3 px-4 font-semibold text-gray-800 hover:border-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-all shadow-md"
                   >
-                    <img src="/src/assets/google-icon.png" alt="Google" className="h-5 w-5" />
+                    <img
+                      src="/src/assets/google-icon.png"
+                      alt="Google"
+                      className="h-5 w-5"
+                    />
                     Sign in with Google
                   </button>
                 </div>

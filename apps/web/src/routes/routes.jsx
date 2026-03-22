@@ -61,6 +61,10 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.SectionDetail />,
             },
             {
+              path: "quizzes",
+              element: <InstructorIndex.QuizzesPageMain />,
+            },
+            {
               path: "instructor-quiz",
               element: <InstructorIndex.InstructorQuiz />,
             },
@@ -96,6 +100,10 @@ export const router = createBrowserRouter(
               path: "item-difficulty-analysis",
               element: <ItemAnalysisPage />,
             },
+            {
+              path: "my-submissions",
+              element: <InstructorIndex.MySubmissions />,
+            },
           ],
         },
         // Admin dashboard routing
@@ -122,6 +130,14 @@ export const router = createBrowserRouter(
             {
               path: "registration-requests",
               element: <AdminIndex.AdminRegistrationRequests />,
+            },
+            {
+              path: "quiz-reviews",
+              element: <AdminIndex.AdminQuizReviews />,
+            },
+            {
+              path: "quiz-reviews/:submissionId",
+              element: <AdminIndex.AdminQuizReviewDetail />,
             },
           ],
         },

@@ -22,7 +22,7 @@ export const AdminProtectedRoute = ({ children }) => {
           .from("profiles")
           .select("is_admin")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profile?.is_admin) {
           setStatus("unauthorized");

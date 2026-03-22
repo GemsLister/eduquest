@@ -1,6 +1,7 @@
 import { useUsername } from "../hooks/useUsername";
 import defaultAvatar from "../assets/instructor-profile.png";
 import { Link, useLocation } from "react-router-dom";
+import { NotificationBell } from "./NotificationBell";
 
 const pageTitles = {
   "/instructor-dashboard": "Sections",
@@ -31,22 +32,25 @@ export const Header = () => {
       </h1>
 
       {/* Right side */}
-      <Link
-        to="/instructor-dashboard/instructor-profile"
-        className="flex items-center gap-3 group"
-      >
-        <div className="text-right hidden sm:block">
-          <p className="text-sm font-semibold text-gray-800 group-hover:text-hornblende-green transition-colors">
-            {userData.googleName || userData.dbName}
-          </p>
-          <p className="text-xs text-gray-400">Instructor</p>
-        </div>
-        <img
-          src={userData.avatarUrl || defaultAvatar}
-          alt="instructor-image"
-          className="h-10 w-10 rounded-full object-cover aspect-square ring-2 ring-casual-green/40 group-hover:ring-casual-green transition-all"
-        />
-      </Link>
+      <div className="flex items-center gap-3">
+        <NotificationBell />
+        <Link
+          to="/instructor-dashboard/instructor-profile"
+          className="flex items-center gap-3 group"
+        >
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-semibold text-gray-800 group-hover:text-hornblende-green transition-colors">
+              {userData.googleName || userData.dbName}
+            </p>
+            <p className="text-xs text-gray-400">Instructor</p>
+          </div>
+          <img
+            src={userData.avatarUrl || defaultAvatar}
+            alt="instructor-image"
+            className="h-10 w-10 rounded-full object-cover aspect-square ring-2 ring-casual-green/40 group-hover:ring-casual-green transition-all"
+          />
+        </Link>
+      </div>
     </header>
   );
 };

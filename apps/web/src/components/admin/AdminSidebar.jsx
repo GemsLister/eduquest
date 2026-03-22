@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../../supabaseClient.js";
+import { useConfirm } from "../ui/ConfirmModal.jsx";
 import eduquestLogo from "../../assets/eduquest-logo.png";
 import * as Icon from "../../assets/svg/sidebar/sidebarIcons.js";
 
@@ -20,14 +22,37 @@ const navItems = [
     icon: <Icon.SearchIcon />,
   },
   {
+    name: "Quiz Reviews",
+    path: "/admin-dashboard/quiz-reviews",
+    icon: <Icon.AnalyticsIcon />,
+  },
+  {
     name: "Create Instructor",
     path: "/admin-dashboard/create-instructor",
     icon: <Icon.SectionIcon />,
   },
-  { name: "Logout", path: "/", icon: <Icon.LogoutIcon /> },
+  { name: "Logout", path: "/", icon: <Icon.LogoutIcon />, isLogout: true },
 ];
 
 export const AdminSidebar = () => {
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+
+  const handleLogout = async (e) => {
+    e.preventDefault();
+    const confirmed = await confirm({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      confirmText: "Logout",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+    if (confirmed) {
+      await supabase.auth.signOut();
+      navigate("/");
+    }
+  };
+
   return (
     <aside className="group static flex flex-col bg-hornblende-green w-[68px] hover:w-[220px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
       {/* Logo */}
@@ -50,9 +75,10 @@ export const AdminSidebar = () => {
               <NavLink
                 to={nav.path}
                 end={nav.end}
+                onClick={nav.isLogout ? handleLogout : undefined}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                    isActive
+                    isActive && !nav.isLogout
                       ? "bg-white/20 text-white shadow-inner"
                       : "text-white/60 hover:bg-white/10 hover:text-white"
                   }`

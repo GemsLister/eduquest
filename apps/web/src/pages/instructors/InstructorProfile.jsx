@@ -221,14 +221,6 @@ export const InstructorProfile = () => {
 
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-hornblende-green mb-2">
-          My Profile
-        </h1>
-        <p className="text-gray-600">Manage your account information</p>
-      </div>
-
       {error && (
         <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -477,24 +469,6 @@ export const InstructorProfile = () => {
               <p className="text-green-600 font-semibold">Active</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Security Settings */}
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h3 className="text-xl font-bold text-hornblende-green mb-6">
-          Security
-        </h3>
-
-        <div className="space-y-4">
-          <p className="text-gray-600 mb-4">
-            For your account security, you can change your password or manage
-            your account settings.
-          </p>
-
-          <button className="w-full bg-gray-100 text-gray-800 border-2 border-gray-300 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
-            Change Password
-          </button>
         </div>
       </div>
     </div>

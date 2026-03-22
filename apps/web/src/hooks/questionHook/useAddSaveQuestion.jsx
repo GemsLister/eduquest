@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient.js";
 
 export const useAddSaveQuestion = () => {
@@ -28,11 +29,11 @@ export const useAddSaveQuestion = () => {
 
   const handleSaveQuestion = async () => {
     if (!formData.text.trim()) {
-      alert("Question text is required");
+      toast.warning("Question text is required");
       return;
     }
     if (formData.type === "mcq" && formData.options.some((o) => !o.trim())) {
-      alert("All options must be filled");
+      toast.warning("All options must be filled");
       return;
     }
 
@@ -58,35 +59,33 @@ export const useAddSaveQuestion = () => {
 
         if (error) {
           console.error("Error updating question:", error);
-          alert("Failed to update question: " + error.message);
+          toast.error("Failed to update question: " + error.message);
           return;
         }
-        alert("Question updated successfully!");
+        toast.success("Question updated successfully!");
       } else {
         // Create new question - need quiz_id
         if (!formData.quiz_id) {
-          alert("Please select a quiz first");
+          toast.warning("Please select a quiz first");
           return;
         }
 
-        const { error } = await supabase
-          .from("questions")
-          .insert({
-            quiz_id: formData.quiz_id,
-            type: "mcq", // Default type
-            text: formData.text,
-            options: formData.options,
-            correct_answer: formData.correctAnswer,
-            points: formData.points,
-            flag: formData.flag,
-          });
+        const { error } = await supabase.from("questions").insert({
+          quiz_id: formData.quiz_id,
+          type: "mcq", // Default type
+          text: formData.text,
+          options: formData.options,
+          correct_answer: formData.correctAnswer,
+          points: formData.points,
+          flag: formData.flag,
+        });
 
         if (error) {
           console.error("Error creating question:", error);
-          alert("Failed to create question: " + error.message);
+          toast.error("Failed to create question: " + error.message);
           return;
         }
-        alert("Question created successfully!");
+        toast.success("Question created successfully!");
       }
 
       setShowForm(false);
@@ -103,7 +102,7 @@ export const useAddSaveQuestion = () => {
       window.dispatchEvent(new Event("questions-updated"));
     } catch (error) {
       console.error("Error saving question:", error);
-      alert("An error occurred while saving the question");
+      toast.error("An error occurred while saving the question");
     }
   };
 
@@ -125,9 +124,7 @@ export const useAddSaveQuestion = () => {
 
       // Update local state
       setQuestions((prev) =>
-        prev.map((q) =>
-          q.id === questionId ? { ...q, flag: newFlag } : q
-        )
+        prev.map((q) => (q.id === questionId ? { ...q, flag: newFlag } : q)),
       );
 
       return true;

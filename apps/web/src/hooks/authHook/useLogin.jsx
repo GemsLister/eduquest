@@ -22,7 +22,7 @@ export const useLogin = () => {
         .from("profiles")
         .select("*")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.is_disabled) {
         await supabase.auth.signOut();

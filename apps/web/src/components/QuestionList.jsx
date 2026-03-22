@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
+import { useConfirm } from "./ui/ConfirmModal.jsx";
 import { supabase } from "../supabaseClient";
 
 export const QuestionList = ({
@@ -9,20 +11,38 @@ export const QuestionList = ({
   setShowForm,
 }) => {
   const [updatingFlag, setUpdatingFlag] = useState(null);
+  const confirm = useConfirm();
 
   // Get flag badge configuration
   const getFlagBadge = (flag) => {
     const flagConfig = {
-      pending: { label: "Pending", className: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-      approved: { label: "Approved", className: "bg-green-100 text-green-700 border-green-300" },
-      retain: { label: "Retain", className: "bg-blue-100 text-blue-700 border-blue-300" },
-      needs_revision: { label: "Needs Revision", className: "bg-orange-100 text-orange-700 border-orange-300" },
-      discard: { label: "Discard", className: "bg-red-100 text-red-700 border-red-300" },
+      pending: {
+        label: "Pending",
+        className: "bg-yellow-100 text-yellow-700 border-yellow-300",
+      },
+      approved: {
+        label: "Approved",
+        className: "bg-green-100 text-green-700 border-green-300",
+      },
+      retain: {
+        label: "Retain",
+        className: "bg-blue-100 text-blue-700 border-blue-300",
+      },
+      needs_revision: {
+        label: "Needs Revision",
+        className: "bg-orange-100 text-orange-700 border-orange-300",
+      },
+      discard: {
+        label: "Discard",
+        className: "bg-red-100 text-red-700 border-red-300",
+      },
     };
-    
+
     const config = flagConfig[flag] || flagConfig.pending;
     return (
-      <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${config.className}`}>
+      <span
+        className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${config.className}`}
+      >
         {config.label}
       </span>
     );
@@ -31,7 +51,7 @@ export const QuestionList = ({
   // Handle flag change
   const handleFlagChange = async (questionId, newFlag) => {
     if (updatingFlag) return;
-    
+
     setUpdatingFlag(questionId);
     try {
       const { error } = await supabase
@@ -44,14 +64,14 @@ export const QuestionList = ({
 
       if (error) {
         console.error("Error updating flag:", error);
-        alert("Failed to update flag: " + error.message);
+        toast.error("Failed to update flag: " + error.message);
       } else {
         // Dispatch event to refresh
         window.dispatchEvent(new Event("questions-updated"));
       }
     } catch (error) {
       console.error("Error updating flag:", error);
-      alert("An error occurred while updating the flag");
+      toast.error("An error occurred while updating the flag");
     } finally {
       setUpdatingFlag(null);
     }
@@ -113,9 +133,17 @@ export const QuestionList = ({
                     Edit
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this question?")) {
-                        handleDeleteQuestion(question.id);
+                    onClick={async () => {
+                      const confirmed = await confirm({
+                        title: "Delete Question",
+                        message:
+                          "Are you sure you want to delete this question?",
+                        confirmText: "Delete",
+                        cancelText: "Cancel",
+                        variant: "danger",
+                      });
+                      if (confirmed) {
+                        handleDeleteQuestionFn(question.id);
                       }
                     }}
                     className="text-red-500 hover:text-red-700 font-semibold text-sm"
@@ -141,7 +169,9 @@ export const QuestionList = ({
                     ✓ Approved
                   </button>
                   <button
-                    onClick={() => handleFlagChange(question.id, "needs_revision")}
+                    onClick={() =>
+                      handleFlagChange(question.id, "needs_revision")
+                    }
                     disabled={updatingFlag === question.id}
                     className={`text-xs px-2 py-1 rounded border transition-colors ${
                       question.flag === "needs_revision"
@@ -208,23 +238,20 @@ export const QuestionList = ({
 };
 
 // Helper function for delete
-async function handleDeleteQuestion(id) {
+async function handleDeleteQuestionFn(id) {
   try {
-    const { error } = await supabase
-      .from("questions")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("questions").delete().eq("id", id);
 
     if (error) {
       console.error("Error deleting question:", error);
-      alert("Failed to delete question: " + error.message);
+      toast.error("Failed to delete question: " + error.message);
       return;
     }
 
-    alert("Question deleted successfully!");
+    toast.success("Question deleted successfully!");
     window.dispatchEvent(new Event("questions-updated"));
   } catch (error) {
     console.error("Error deleting question:", error);
-    alert("An error occurred while deleting the question");
+    toast.error("An error occurred while deleting the question");
   }
 }

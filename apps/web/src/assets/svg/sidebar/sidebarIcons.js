@@ -7,3 +7,5 @@ export { QuestionIcon } from "./QuestionIcon.jsx";
 export { LogoutIcon } from "./LogoutIcon.jsx";
 export { SectionIcon } from "./SectionIcon.jsx";
 export { AnalyticsIcon } from "./AnalyticsIcon.jsx";
+export { QuizIcon } from "../QuizIcon.jsx";
+export { SubmissionIcon } from "./SubmissionIcon.jsx";

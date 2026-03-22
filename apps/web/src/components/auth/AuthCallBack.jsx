@@ -16,7 +16,7 @@ export const AuthCallBack = () => {
           .from("profiles")
           .select("role")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.role === "teacher") navigate("/instructor-dashboard");
         else if (profile?.role === "student") navigate("/student-dashboard");

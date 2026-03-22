@@ -12,10 +12,27 @@ const calculateAutoFlag = (difficultyStatus) => {
     case "Moderate":
       return "needs_revision";
     case "Difficult":
-      return "discard";
+      return "needs_revision";
     default:
       return "pending";
   }
+};
+
+const normalizeDifficultyStatus = (status) => {
+  const value = (status || "").toString().trim().toLowerCase();
+  if (value === "easy") return "Easy";
+  if (value === "moderate") return "Moderate";
+  if (value === "difficult") return "Difficult";
+  return null;
+};
+
+const normalizeDiscriminationStatus = (status) => {
+  const value = (status || "").toString().trim().toLowerCase();
+  if (value === "excellent") return "Excellent";
+  if (value === "good") return "Good";
+  if (value === "acceptable") return "Acceptable";
+  if (value === "poor") return "Poor";
+  return null;
 };
 
 /**
@@ -29,8 +46,13 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
     const results = [];
 
     for (const item of analysisResults) {
+      const normalizedDifficultyStatus = normalizeDifficultyStatus(item.status);
+      const normalizedDiscriminationStatus = normalizeDiscriminationStatus(
+        item.discStatus,
+      );
+
       // Calculate auto-flag based on difficulty status (Easy/Moderate/Difficult)
-      const autoFlag = calculateAutoFlag(item.status);
+      const autoFlag = calculateAutoFlag(normalizedDifficultyStatus);
 
       // First, try to delete existing analysis for this question
       await supabase
@@ -45,12 +67,22 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         .insert({
           quiz_id: quizId,
           question_id: item.question_id,
-          difficulty_index: parseFloat(item.difficulty),
-          difficulty_status: item.status,
-          discrimination_index: parseFloat(item.discrimination),
-          discrimination_status: item.discStatus,
-          total_takers: item.total,
-          correct_takers: Math.round(item.total * parseFloat(item.difficulty)),
+          difficulty_index: Number.isFinite(parseFloat(item.difficulty))
+            ? parseFloat(item.difficulty)
+            : null,
+          difficulty_status: normalizedDifficultyStatus,
+          discrimination_index: Number.isFinite(parseFloat(item.discrimination))
+            ? parseFloat(item.discrimination)
+            : null,
+          discrimination_status: normalizedDiscriminationStatus,
+          total_takers: Number.isFinite(Number(item.total))
+            ? Number(item.total)
+            : null,
+          correct_takers:
+            Number.isFinite(Number(item.total)) &&
+            Number.isFinite(parseFloat(item.difficulty))
+              ? Math.round(Number(item.total) * parseFloat(item.difficulty))
+              : null,
           auto_flag: autoFlag,
         })
         .select()
@@ -85,7 +117,7 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
       // Insert distractor analysis if available
       if (item.distractorAnalysis && analysisData) {
         const distractorInserts = Object.entries(item.distractorAnalysis)
-          .filter(([key]) => key !== 'distractors')
+          .filter(([key]) => key !== "distractors")
           .map(([key, value]) => ({
             item_analysis_id: analysisData.id,
             option_identifier: key,
@@ -110,6 +142,114 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         id: analysisData?.id,
         autoFlag: autoFlag,
       });
+    }
+
+    // Also sync a review submission so admins can see newly saved analysis.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.id) {
+      const analysisPayload = {
+        quizId,
+        analysis: analysisResults.map((item) => ({
+          questionId: item.question_id,
+          questionText: item.text || "",
+          bloomsLevel: item.status || "N/A",
+          thinkingOrder:
+            (item.status || "").toLowerCase() === "difficult" ? "HOTS" : "LOTS",
+          confidence: 1,
+          needsReview: (item.autoFlag || "").toLowerCase() === "needs_revision",
+        })),
+        summary: {
+          totalQuestions: analysisResults.length,
+          distribution: {
+            Easy: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "easy",
+            ).length,
+            Moderate: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "moderate",
+            ).length,
+            Difficult: analysisResults.filter(
+              (i) => (i.status || "").toLowerCase() === "difficult",
+            ).length,
+          },
+          lotsCount: analysisResults.filter(
+            (i) => (i.status || "").toLowerCase() !== "difficult",
+          ).length,
+          hotsCount: analysisResults.filter(
+            (i) => (i.status || "").toLowerCase() === "difficult",
+          ).length,
+          lotsPercentage:
+            analysisResults.length > 0
+              ? Math.round(
+                  (analysisResults.filter(
+                    (i) => (i.status || "").toLowerCase() !== "difficult",
+                  ).length /
+                    analysisResults.length) *
+                    100,
+                )
+              : 0,
+          hotsPercentage:
+            analysisResults.length > 0
+              ? Math.round(
+                  (analysisResults.filter(
+                    (i) => (i.status || "").toLowerCase() === "difficult",
+                  ).length /
+                    analysisResults.length) *
+                    100,
+                )
+              : 0,
+          flaggedCount: analysisResults.filter(
+            (i) => (i.autoFlag || "").toLowerCase() === "needs_revision",
+          ).length,
+        },
+      };
+
+      const { data: existingSubmission, error: existingSubmissionError } =
+        await supabase
+          .from("quiz_analysis_submissions")
+          .select("id")
+          .eq("quiz_id", quizId)
+          .eq("instructor_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (existingSubmissionError) {
+        throw existingSubmissionError;
+      }
+
+      if (existingSubmission?.id) {
+        const { error: updateSubmissionError } = await supabase
+          .from("quiz_analysis_submissions")
+          .update({
+            analysis_results: analysisPayload,
+            status: "pending",
+            admin_feedback: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSubmission.id);
+
+        if (updateSubmissionError) {
+          throw updateSubmissionError;
+        }
+      } else {
+        const { error: insertSubmissionError } = await supabase
+          .from("quiz_analysis_submissions")
+          .insert({
+            quiz_id: quizId,
+            instructor_id: user.id,
+            analysis_results: analysisPayload,
+            status: "pending",
+          });
+
+        if (insertSubmissionError) {
+          throw insertSubmissionError;
+        }
+      }
     }
 
     // Dispatch event to notify question list to refresh

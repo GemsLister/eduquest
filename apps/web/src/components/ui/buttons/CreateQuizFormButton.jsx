@@ -7,6 +7,7 @@ export const CreateQuizFormButton = ({
   setQuizFormData,
 }) => {
   const [showQuizForm, setShowQuizForm] = useState(false);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onCreateQuiz(e);
@@ -14,116 +15,110 @@ export const CreateQuizFormButton = ({
   };
 
   return (
-    <div>
-      {!showQuizForm ? (
-        <div className="mb-8">
-          <button
-            onClick={() => setShowQuizForm(true)}
-            className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
-          >
-            <span className="text-lg">+</span> Create Quiz
-          </button>
-        </div>
-      ) : (
-        <div className="absolute bg-white rounded-lg p-6 shadow-md border border-gray-200 mb-8 z-10">
-          <h3 className="text-xl font-bold text-hornblende-green mb-4">
-            Create New Quiz
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* ... Your existing input fields ... */}
-            <div className="flex flex-col gap-3 justify-end w-2xs">
-              <article className="flex flex-col gap-3">
-                {/* Input for Quiz Title */}
-                <label className="font-bold text-gray-800">Quiz Title</label>
+    <>
+      <button
+        onClick={() => setShowQuizForm(true)}
+        className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
+      >
+        <span className="text-lg">+</span> Create Quiz
+      </button>
+
+      {showQuizForm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowQuizForm(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Green gradient header */}
+            <div className="bg-gradient-to-r from-casual-green to-hornblende-green px-6 py-5">
+              <h3 className="text-xl font-bold text-white">Create New Quiz</h3>
+              <p className="text-white/70 text-sm mt-1">
+                Set up your quiz details before adding questions.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Quiz Title *
+                </label>
                 <input
                   type="text"
-                  className="border border-gray-400 p-2 rounded-lg"
                   value={quizFormData.title}
                   onChange={(e) =>
                     setQuizFormData({ ...quizFormData, title: e.target.value })
                   }
+                  placeholder="e.g., Biology Chapter 5 Test"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm"
+                  autoFocus
                 />
-              </article>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-casual-green text-white rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-              >
-                {isSubmitting ? "Creating..." : "Create Quiz"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQuizForm(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={quizFormData.description}
+                  onChange={(e) =>
+                    setQuizFormData({
+                      ...quizFormData,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Brief description of the quiz topic or instructions"
+                  rows="3"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quizFormData.duration || ""}
+                  onChange={(e) =>
+                    setQuizFormData({
+                      ...quizFormData,
+                      duration: e.target.value,
+                    })
+                  }
+                  placeholder="Leave blank for unlimited time"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm"
+                />
+              </div>
+
+              {/* Info box */}
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <p className="text-xs text-green-700">
+                  You can always edit these details later in the quiz editor.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuizForm(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 bg-casual-green text-white rounded-lg font-semibold text-sm hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? "Creating..." : "Create Quiz"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
-// import * as UIComponent from "../uiComponent";
-
-// // Add quizFormData and setQuizFormData to the props
-// export const CreateQuizFormButton = ({
-//   onCreateQuiz,
-//   isSubmitting,
-//   quizFormData,
-//   setQuizFormData,
-// }) => {
-//   const [showQuizForm, setShowQuizForm] = useState(false);
-
-//   // DELETE the local useState that was here!
-
-//   const handleSubmit = (e) => {
-//     e.preventDefault();
-//     onCreateQuiz(e);
-//     // We don't reset state here anymore; the hook handles it after success
-//     setShowQuizForm(false);
-//   };
-
-//   return (
-//     <div>
-//       {!showQuizForm ? (
-//         <div className="mb-8">
-//           <UIComponent.PrimaryButton
-//             onClick={() => setShowQuizForm(true)}
-//             className="..."
-//           >
-//             + Create Quiz Box
-//           </UIComponent.PrimaryButton>
-//         </div>
-//       ) : (
-//         <div className="...">
-//           <form onSubmit={handleSubmit} className="space-y-4">
-//             <article className="flex flex-col">
-//               <label className="font-bold text-gray-800">Quiz Title</label>
-//               <input
-//                 type="text"
-//                 className="border border-gray-400 p-2 rounded-lg"
-//                 value={quizFormData.title} // This now refers to the HOOK'S state
-//                 onChange={(e) =>
-//                   setQuizFormData({ ...quizFormData, title: e.target.value })
-//                 }
-//               />
-//             </article>
-
-//             <UIComponent.PrimaryButton type="submit" disabled={isSubmitting}>
-//               {isSubmitting ? "Creating..." : "Create"}
-//             </UIComponent.PrimaryButton>
-//             <button
-//               type="button"
-//               onClick={() => setShowQuizForm(false)}
-//               className="..."
-//             >
-//               Cancel
-//             </button>
-//           </form>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };

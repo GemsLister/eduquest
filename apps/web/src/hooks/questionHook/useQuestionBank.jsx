@@ -6,6 +6,45 @@ export const useQuestionBank = () => {
   const [archivedQuestions, setArchivedQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const normalizeText = (value) => (value || "").toLowerCase().trim();
+
+  const buildQuestionKey = (question) => {
+    const options = Array.isArray(question.options)
+      ? question.options.map((opt) => normalizeText(opt)).join("|")
+      : "";
+
+    return [
+      normalizeText(question.text),
+      normalizeText(question.type),
+      options,
+      normalizeText(question.correct_answer),
+      String(question.points ?? 1),
+    ].join("::");
+  };
+
+  const dedupeQuestions = (questions) => {
+    const byKey = new Map();
+
+    for (const question of questions) {
+      const key = buildQuestionKey(question);
+      const existing = byKey.get(key);
+
+      if (!existing) {
+        byKey.set(key, question);
+        continue;
+      }
+
+      // Keep the oldest version as the canonical bank entry.
+      const existingTime = new Date(existing.created_at || 0).getTime();
+      const currentTime = new Date(question.created_at || 0).getTime();
+      if (currentTime < existingTime) {
+        byKey.set(key, question);
+      }
+    }
+
+    return Array.from(byKey.values());
+  };
+
   const fetchQuestions = async () => {
     try {
       const {
@@ -37,9 +76,11 @@ export const useQuestionBank = () => {
 
       if (error) throw error;
 
-      // Separate active and archived questions
-      const active = data?.filter((q) => !q.is_archived) || [];
-      const archived = data?.filter((q) => q.is_archived) || [];
+      // Separate active and archived questions, then remove content duplicates.
+      const active = dedupeQuestions(data?.filter((q) => !q.is_archived) || []);
+      const archived = dedupeQuestions(
+        data?.filter((q) => q.is_archived) || [],
+      );
 
       setActiveQuestions(active);
       setArchivedQuestions(archived);
@@ -64,7 +105,10 @@ export const useQuestionBank = () => {
       const question = activeQuestions.find((q) => q.id === questionId);
       if (question) {
         setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
-        setArchivedQuestions((prev) => [...prev, { ...question, is_archived: true }]);
+        setArchivedQuestions((prev) => [
+          ...prev,
+          { ...question, is_archived: true },
+        ]);
       }
 
       return { success: true };
@@ -88,7 +132,10 @@ export const useQuestionBank = () => {
       const question = archivedQuestions.find((q) => q.id === questionId);
       if (question) {
         setArchivedQuestions((prev) => prev.filter((q) => q.id !== questionId));
-        setActiveQuestions((prev) => [...prev, { ...question, is_archived: false }]);
+        setActiveQuestions((prev) => [
+          ...prev,
+          { ...question, is_archived: false },
+        ]);
       }
 
       return { success: true };
@@ -148,17 +195,15 @@ export const useQuestionBank = () => {
       if (quizError) throw quizError;
 
       // Add question to the draft quiz
-      const { error: questionError } = await supabase
-        .from("questions")
-        .insert({
-          quiz_id: quiz.id,
-          type: questionData.type || "mcq",
-          text: questionData.text,
-          options: questionData.options,
-          correct_answer: questionData.correctAnswer,
-          points: questionData.points || 1,
-          is_archived: false,
-        });
+      const { error: questionError } = await supabase.from("questions").insert({
+        quiz_id: quiz.id,
+        type: questionData.type || "mcq",
+        text: questionData.text,
+        options: questionData.options,
+        correct_answer: questionData.correctAnswer,
+        points: questionData.points || 1,
+        is_archived: false,
+      });
 
       if (questionError) throw questionError;
 
@@ -185,4 +230,3 @@ export const useQuestionBank = () => {
     addToBank,
   };
 };
-
