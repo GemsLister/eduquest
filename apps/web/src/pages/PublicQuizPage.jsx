@@ -34,6 +34,7 @@ export const PublicQuizPage = () => {
   // --- LOAD QUIZ DATA ---
   useEffect(() => {
     const loadQuiz = async () => {
+      setError("");
       try {
         console.log("Loading quiz with share token:", shareToken);
         
@@ -122,6 +123,7 @@ export const PublicQuizPage = () => {
 
   const handleGoogleQuizStart = async () => {
     if (!session?.user) return;
+    setError("");
 
     // Check if user already has an attempt for this quiz
     const user = session.user;
@@ -129,10 +131,8 @@ export const PublicQuizPage = () => {
     const studentId = email.split('@')[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-    if (!email.endsWith('@student.buksu.edu.ph')) {
-      setError('Only @student.buksu.edu.ph email addresses are allowed.');
-      await supabase.auth.signOut();
-      setSession(null);
+    if (!email.endsWith('@gmail.com')) {
+      setError('You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.');
       setAuthenticating(false);
       return;
     }
@@ -429,14 +429,32 @@ export const PublicQuizPage = () => {
 
   if (completed) {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
+    
+    const handleExit = async () => {
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    };
+
     return (
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         <h1 className="text-3xl font-bold">Quiz Complete!</h1>
-        <div className="mt-4 rounded-lg bg-full-white p-8">
+        <div className="mt-4 rounded-lg bg-full-white p-8 shadow-xl max-w-md w-full">
           <p className="text-5xl font-bold text-hornblende-green">
             {score}/{totalPoints}
           </p>
           <p className="mt-2 text-gray-600">Your responses are recorded.</p>
+          
+          <div className="mt-8 border-t pt-6">
+            <p className="text-xs text-gray-500 mb-4 italic">
+              Note: You will be signed out when you exit to protect your account.
+            </p>
+            <button
+              onClick={handleExit}
+              className="w-full py-3 px-6 bg-casual-green text-white rounded-lg font-semibold hover:bg-hornblende-green transition-all shadow-md"
+            >
+              Finish & Logout
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -446,14 +464,46 @@ export const PublicQuizPage = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-          {error ? (
+          {error && !quiz ? (
             <div className="text-center">
               <h1 className="text-2xl font-bold text-red-600 mb-2">Oops!</h1>
-              <p className="text-gray-700">{error}</p>
+              <p className="text-gray-700 mb-6">{error}</p>
+              
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  Retry
+                </button>
+                <button 
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.reload();
+                  }}
+                  className="w-full px-4 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  Switch Account
+                </button>
+              </div>
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold">{quiz?.title}</h1>
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-sm">
+                  <p className="text-red-700 text-sm font-medium">{error}</p>
+                  <button 
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      window.location.reload();
+                    }}
+                    className="mt-3 text-xs font-bold text-red-600 hover:text-red-800 underline uppercase tracking-wider"
+                  >
+                    Logout and Switch Account
+                  </button>
+                </div>
+              )}
+              <h1 className="text-2xl font-bold">{quiz?.title || "Loading Quiz..."}</h1>
               <p className="mt-2 text-gray-600">{quiz?.description}</p>
               
               {authenticating ? (
