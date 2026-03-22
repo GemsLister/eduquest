@@ -97,28 +97,7 @@ export const useFetchQuizzes = () => {
             .select("*", { count: "exact", head: true })
             .eq("quiz_id", quiz.id);
 
-          let attemptsCount = quiz.quiz_attempts?.[0]?.count || 0;
-          if (sectionId) {
-            const sectionAttemptRes = await supabase
-              .from("quiz_attempts")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id)
-              .eq("section_id", sectionId);
-
-            if (!sectionAttemptRes.error) {
-              attemptsCount = sectionAttemptRes.count || 0;
-            } else {
-              // Backward compatibility: some DB deployments don't have quiz_attempts.section_id.
-              const fallbackAttemptRes = await supabase
-                .from("quiz_attempts")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.id);
-
-              if (!fallbackAttemptRes.error) {
-                attemptsCount = fallbackAttemptRes.count || 0;
-              }
-            }
-          }
+          const attemptsCount = quiz.quiz_attempts?.[0]?.count || 0;
 
           return {
             ...quiz,

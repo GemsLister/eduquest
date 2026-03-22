@@ -458,6 +458,72 @@ export const QuizAnalysisResults = ({
                 );
               })()}
 
+              {/* LOTS vs HOTS Visual Bar Chart */}
+              {(() => {
+                const lotsPct = results.summary.lotsPercentage || 0;
+                const hotsPct = results.summary.hotsPercentage || 0;
+                const lotsTarget = 30;
+                const hotsTarget = 70;
+
+                return (
+                  <div className="mb-6 p-5 bg-white rounded-xl border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-800 mb-4">
+                      LOTS vs HOTS Distribution
+                    </h4>
+
+                    {/* Stacked horizontal bar */}
+                    <div className="relative mb-2">
+                      <div className="flex h-10 rounded-lg overflow-hidden">
+                        {lotsPct > 0 && (
+                          <div
+                            className="bg-emerald-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                            style={{ width: `${lotsPct}%` }}
+                          >
+                            {lotsPct >= 10 && `LOTS ${lotsPct}%`}
+                          </div>
+                        )}
+                        {hotsPct > 0 && (
+                          <div
+                            className="bg-amber-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                            style={{ width: `${hotsPct}%` }}
+                          >
+                            {hotsPct >= 10 && `HOTS ${hotsPct}%`}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 30/70 target line */}
+                      <div
+                        className="absolute top-0 bottom-0 border-l-2 border-dashed border-gray-800"
+                        style={{ left: `${lotsTarget}%` }}
+                      >
+                        <div className="absolute -top-5 -translate-x-1/2 text-[10px] font-semibold text-gray-600 whitespace-nowrap">
+                          Target 30/70
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded bg-emerald-500" />
+                          <span>LOTS ({results.summary.lotsCount} questions)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded bg-amber-500" />
+                          <span>HOTS ({results.summary.hotsCount} questions)</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-4 border-t-2 border-dashed border-gray-800" />
+                        <span>30/70 Target</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Bloom's Visualization Charts */}
               <div className="mb-6">
                 <BloomsVisualizationPanel summary={results.summary} />
