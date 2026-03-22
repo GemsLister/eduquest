@@ -104,6 +104,18 @@ export const router = createBrowserRouter(
               path: "my-submissions",
               element: <InstructorIndex.MySubmissions />,
             },
+            {
+              path: "student-profiles",
+              element: <InstructorIndex.StudentProfileNav />,
+            },
+            {
+              path: "student-profile/:studentId",
+              element: <InstructorIndex.StudentProfile />,
+            },
+            {
+              path: "class-blooms-analysis",
+              element: <InstructorIndex.AllStudentsBloomsAnalysis />,
+            },
           ],
         },
         // Admin dashboard routing
