@@ -13,7 +13,12 @@ export const QuestionBank = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [selectedActiveQuestions, setSelectedActiveQuestions] = useState([]); // For bulk archive
+  const [selectedArchivedQuestions, setSelectedArchivedQuestions] = useState([]); // For bulk delete
   const [importing, setImporting] = useState(false);
+  const [availableQuizzes, setAvailableQuizzes] = useState([]);
+  const [filterByQuizId, setFilterByQuizId] = useState(""); // Filter by subject
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const {
     activeQuestions,
@@ -25,6 +30,29 @@ export const QuestionBank = () => {
     addToBank,
     fetchQuestions,
   } = useQuestionBank();
+
+  // Extract available quizzes from loaded questions (only show quizzes with questions)
+  useEffect(() => {
+    const quizMap = new Map();
+    
+    // Collect unique quizzes from active and archived questions
+    [...activeQuestions, ...archivedQuestions].forEach((question) => {
+      if (question.quiz_id && question.quizzes?.title) {
+        if (!quizMap.has(question.quiz_id)) {
+          quizMap.set(question.quiz_id, {
+            id: question.quiz_id,
+            title: question.quizzes.title,
+          });
+        }
+      }
+    });
+    
+    // Convert to array and sort by title
+    const quizzes = Array.from(quizMap.values()).sort((a, b) =>
+      a.title.localeCompare(b.title),
+    );
+    setAvailableQuizzes(quizzes);
+  }, [activeQuestions, archivedQuestions]);
 
   // Form state for adding new question
   const [newQuestion, setNewQuestion] = useState({
@@ -55,6 +83,13 @@ export const QuestionBank = () => {
       );
     }
 
+    // Apply subject/quiz filter
+    if (filterByQuizId) {
+      filteredList = filteredList.filter(
+        (q) => String(q.quiz_id) === String(filterByQuizId),
+      );
+    }
+
     if (!searchTerm) return filteredList;
 
     return filteredList.filter(
@@ -73,13 +108,99 @@ export const QuestionBank = () => {
 
   const selectAll =
     displayedQuestions.length > 0 &&
-    selectedQuestions.length === displayedQuestions.length;
+    (activeTab === "import"
+      ? selectedQuestions.length === displayedQuestions.length
+      : activeTab === "active"
+        ? selectedActiveQuestions.length === displayedQuestions.length
+        : selectedArchivedQuestions.length === displayedQuestions.length);
 
   const handleSelectAllToggle = () => {
     if (selectAll) {
-      setSelectedQuestions([]);
+      if (activeTab === "import") {
+        setSelectedQuestions([]);
+      } else if (activeTab === "active") {
+        setSelectedActiveQuestions([]);
+      } else {
+        setSelectedArchivedQuestions([]);
+      }
     } else {
-      setSelectedQuestions([...displayedQuestions]);
+      if (activeTab === "import") {
+        setSelectedQuestions([...displayedQuestions]);
+      } else if (activeTab === "active") {
+        setSelectedActiveQuestions([...displayedQuestions]);
+      } else {
+        setSelectedArchivedQuestions([...displayedQuestions]);
+      }
+    }
+  };
+
+  // Bulk archive active questions
+  const handleBulkArchive = async () => {
+    if (selectedActiveQuestions.length === 0) {
+      toast.warning("Please select at least one question to archive");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Archive Questions",
+      message: `Are you sure you want to archive ${selectedActiveQuestions.length} question(s)?`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    setBulkProcessing(true);
+    try {
+      for (const q of selectedActiveQuestions) {
+        await archiveQuestion(q.id);
+      }
+      toast.success(
+        `Successfully archived ${selectedActiveQuestions.length} question(s)!`,
+      );
+      setSelectedActiveQuestions([]);
+      await fetchQuestions();
+    } catch (error) {
+      console.error("Error archiving questions:", error);
+      toast.error("Error archiving questions");
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  // Bulk delete archived questions
+  const handleBulkDelete = async () => {
+    if (selectedArchivedQuestions.length === 0) {
+      toast.warning("Please select at least one question to delete");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Delete Questions Permanently",
+      message: `Are you sure you want to permanently delete ${selectedArchivedQuestions.length} question(s)? This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
+    setBulkProcessing(true);
+    try {
+      for (const q of selectedArchivedQuestions) {
+        await deleteQuestion(q.id);
+      }
+      toast.success(
+        `Successfully deleted ${selectedArchivedQuestions.length} question(s)!`,
+      );
+      setSelectedArchivedQuestions([]);
+      await fetchQuestions();
+    } catch (error) {
+      console.error("Error deleting questions:", error);
+      toast.error("Error deleting questions");
+    } finally {
+      setBulkProcessing(false);
     }
   };
 
@@ -176,6 +297,30 @@ export const QuestionBank = () => {
   // Toggle question selection for import
   const toggleQuestionSelection = (question) => {
     setSelectedQuestions((prev) => {
+      const isSelected = prev.some((q) => q.id === question.id);
+      if (isSelected) {
+        return prev.filter((q) => q.id !== question.id);
+      } else {
+        return [...prev, question];
+      }
+    });
+  };
+
+  // Toggle question selection for active tab
+  const toggleActiveQuestionSelection = (question) => {
+    setSelectedActiveQuestions((prev) => {
+      const isSelected = prev.some((q) => q.id === question.id);
+      if (isSelected) {
+        return prev.filter((q) => q.id !== question.id);
+      } else {
+        return [...prev, question];
+      }
+    });
+  };
+
+  // Toggle question selection for archived tab
+  const toggleArchivedQuestionSelection = (question) => {
+    setSelectedArchivedQuestions((prev) => {
       const isSelected = prev.some((q) => q.id === question.id);
       if (isSelected) {
         return prev.filter((q) => q.id !== question.id);
@@ -288,15 +433,40 @@ export const QuestionBank = () => {
         )}
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <input
-          type="text"
-          placeholder="Search questions..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
-        />
+      {/* Filter and Search */}
+      <div className="mb-6 space-y-4">
+        {/* Subject/Quiz Filter */}
+        {!quizId && (
+          <div className="flex gap-4">
+            <div className="flex-1 max-w-xs">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Filter by Subject
+              </label>
+              <select
+                value={filterByQuizId}
+                onChange={(e) => setFilterByQuizId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 bg-white"
+              >
+                <option value="">-- All Subjects --</option>
+                {availableQuizzes.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+        {/* Search */}
+        <div>
+          <input
+            type="text"
+            placeholder="Search questions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+          />
+        </div>
       </div>
 
       {/* Import Action Bar */}
@@ -330,6 +500,74 @@ export const QuestionBank = () => {
         </div>
       )}
 
+      {/* Active Tab Action Bar */}
+      {activeTab === "active" && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg flex justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={handleSelectAllToggle}
+                className="mr-2 h-5 w-5 text-casual-green rounded"
+              />
+              <span className="text-yellow-800 font-semibold text-sm">
+                Select All ({displayedQuestions.length})
+              </span>
+            </label>
+            <span className="text-yellow-700 font-semibold">
+              {selectedActiveQuestions.length} / {displayedQuestions.length}{" "}
+              selected
+            </span>
+          </div>
+          {selectedActiveQuestions.length > 0 && (
+            <button
+              onClick={handleBulkArchive}
+              disabled={bulkProcessing}
+              className="bg-yellow-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bulkProcessing
+                ? "Processing..."
+                : `📁 Archive ${selectedActiveQuestions.length}`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Archived Tab Action Bar */}
+      {activeTab === "archived" && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg flex justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={handleSelectAllToggle}
+                className="mr-2 h-5 w-5 text-casual-green rounded"
+              />
+              <span className="text-red-800 font-semibold text-sm">
+                Select All ({displayedQuestions.length})
+              </span>
+            </label>
+            <span className="text-red-700 font-semibold">
+              {selectedArchivedQuestions.length} / {displayedQuestions.length}{" "}
+              selected
+            </span>
+          </div>
+          {selectedArchivedQuestions.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkProcessing}
+              className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bulkProcessing
+                ? "Processing..."
+                : `🗑️ Delete ${selectedArchivedQuestions.length}`}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Questions List */}
       {displayedQuestions.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -345,30 +583,48 @@ export const QuestionBank = () => {
               onClick={
                 activeTab === "import"
                   ? () => toggleQuestionSelection(question)
-                  : undefined
+                  : activeTab === "active"
+                    ? () => toggleActiveQuestionSelection(question)
+                    : activeTab === "archived"
+                      ? () => toggleArchivedQuestionSelection(question)
+                      : undefined
               }
               className={`transition-colors bg-white border-2 rounded-lg p-4 ${
-                activeTab === "import" ? "cursor-pointer " : ""
+                activeTab !== "active" && activeTab !== "archived"
+                  ? "cursor-pointer"
+                  : "cursor-pointer"
               }${
-                activeTab === "import" &&
-                selectedQuestions.some((q) => q.id === question.id)
-                  ? "border-casual-green bg-green-50"
-                  : "border-gray-200 hover:border-casual-green"
+                (activeTab === "import" &&
+                  selectedQuestions.some((q) => q.id === question.id)) ||
+                (activeTab === "active" &&
+                  selectedActiveQuestions.some((q) => q.id === question.id)) ||
+                (activeTab === "archived" &&
+                  selectedArchivedQuestions.some((q) => q.id === question.id))
+                  ? " border-casual-green bg-green-50"
+                  : " border-gray-200 hover:border-casual-green"
               }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  {/* Import checkbox */}
-                  {activeTab === "import" && (
-                    <input
-                      type="checkbox"
-                      checked={selectedQuestions.some(
-                        (q) => q.id === question.id,
-                      )}
-                      onChange={(e) => {}}
-                      className="mr-3 h-5 w-5 text-casual-green pointer-events-none"
-                    />
-                  )}
+                  {/* Checkbox for all tabs */}
+                  <input
+                    type="checkbox"
+                    checked={
+                      activeTab === "import"
+                        ? selectedQuestions.some((q) => q.id === question.id)
+                        : activeTab === "active"
+                          ? selectedActiveQuestions.some(
+                              (q) => q.id === question.id,
+                            )
+                          : activeTab === "archived"
+                            ? selectedArchivedQuestions.some(
+                                (q) => q.id === question.id,
+                              )
+                            : false
+                    }
+                    onChange={(e) => {}}
+                    className="mr-3 h-5 w-5 text-casual-green rounded pointer-events-none"
+                  />
 
                   <div className="inline">
                     <span className="text-sm text-gray-500 mr-2">
@@ -417,7 +673,10 @@ export const QuestionBank = () => {
                   {activeTab === "active" && (
                     <>
                       <button
-                        onClick={() => archiveQuestion(question.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archiveQuestion(question.id);
+                        }}
                         className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold px-3 py-1"
                         title="Archive this question"
                       >
@@ -425,7 +684,8 @@ export const QuestionBank = () => {
                       </button>
                       {quizId && (
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedQuestions([question]);
                             setActiveTab("import");
                           }}
@@ -439,14 +699,18 @@ export const QuestionBank = () => {
                   {activeTab === "archived" && (
                     <>
                       <button
-                        onClick={() => restoreQuestion(question.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          restoreQuestion(question.id);
+                        }}
                         className="text-green-600 hover:text-green-800 text-sm font-semibold px-3 py-1"
                         title="Restore this question"
                       >
                         ♻️ Restore
                       </button>
                       <button
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           const confirmed = await confirm({
                             title: "Delete Question Permanently",
                             message:
