@@ -153,9 +153,21 @@ Output ONLY valid JSON object with NO markdown formatting:
     // 1. Fetch current question to preserve it
     const { data: current } = await supabase
       .from('questions')
-      .select('original_text, text, options, correct_answer')
+      .select('original_text, text, options, correct_answer, revision_history')
       .eq('id', questionId)
       .single();
+
+    // Prepare revision object for history
+    const revisionObject = {
+      text: current.text,
+      options: current.options,
+      correct_answer: current.correct_answer,
+      revised_at: new Date().toISOString()
+    };
+
+    const newHistory = Array.isArray(current.revision_history) 
+      ? [...current.revision_history, revisionObject] 
+      : [revisionObject];
 
     const updateData = {
       text: newText,
@@ -164,10 +176,12 @@ Output ONLY valid JSON object with NO markdown formatting:
       flag: 'approved',
       revised_content: null, // CLEAR PENDING STATUS
       revised_options: null, // CLEAR PENDING STATUS
-      // Shift current live version to "previous" before overwriting
+      // Shift current live version to "previous" for quick comparison
       previous_text: current.text,
       previous_options: current.options,
       previous_correct_answer: current.correct_answer,
+      // Update full history array
+      revision_history: newHistory,
       // Always update "original" columns to the previous version
       original_text: current.text,
       original_options: current.options,
