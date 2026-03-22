@@ -18,7 +18,7 @@ export const CreateQuizFormButton = ({
     <>
       <button
         onClick={() => setShowQuizForm(true)}
-        className="flex items-center gap-2 bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors shadow-md"
+        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors shadow-md"
       >
         <span className="text-lg">+</span> Create Quiz
       </button>
@@ -31,7 +31,7 @@ export const CreateQuizFormButton = ({
           />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             {/* Green gradient header */}
-            <div className="bg-gradient-to-r from-casual-green to-hornblende-green px-6 py-5">
+            <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
               <h3 className="text-xl font-bold text-white">Create New Quiz</h3>
               <p className="text-white/70 text-sm mt-1">
                 Set up your quiz details before adding questions.
@@ -50,7 +50,7 @@ export const CreateQuizFormButton = ({
                     setQuizFormData({ ...quizFormData, title: e.target.value })
                   }
                   placeholder="e.g., Biology Chapter 5 Test"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
                   autoFocus
                 />
               </div>
@@ -69,7 +69,7 @@ export const CreateQuizFormButton = ({
                   }
                   placeholder="Brief description of the quiz topic or instructions"
                   rows="3"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm resize-none"
                 />
               </div>
 
@@ -88,7 +88,7 @@ export const CreateQuizFormButton = ({
                     })
                   }
                   placeholder="Leave blank for unlimited time"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
                 />
               </div>
 
@@ -110,7 +110,7 @@ export const CreateQuizFormButton = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-casual-green text-white rounded-lg font-semibold text-sm hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? "Creating..." : "Create Quiz"}
                 </button>

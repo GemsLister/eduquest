@@ -97,7 +97,7 @@ export const AuthButton = ({ name, user }) => {
     <button
       type="submit"
       onClick={handleClick}
-      className="bg-sea-green hover:bg-hornblende-green mt-7 text-white p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full"
+      className="bg-brand-navy hover:bg-brand-indigo mt-7 text-white p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full"
     >
       {name}
     </button>

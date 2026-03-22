@@ -143,8 +143,8 @@ export const InstructorDashboard = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -153,16 +153,16 @@ export const InstructorDashboard = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
+      <div className="bg-brand-navy px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+            <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
               Instructor
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               Your Subjects
             </h1>
-            <p className="text-white/60 text-sm mt-1">
+            <p className="text-white/50 text-sm mt-1">
               {sections.length} {sections.length === 1 ? "subject" : "subjects"}{" "}
               active
             </p>
@@ -201,7 +201,7 @@ export const InstructorDashboard = () => {
                 placeholder="Search subjects..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20 bg-white"
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20 bg-white"
               />
               {search && (
                 <button
@@ -306,7 +306,7 @@ export const InstructorDashboard = () => {
                     </div>
                     <button
                       onClick={() => handleRestoreSection(section.id)}
-                      className="px-3 py-1.5 bg-casual-green text-white text-xs font-semibold rounded-lg hover:bg-hornblende-green transition-colors"
+                      className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark transition-colors"
                     >
                       Restore
                     </button>
@@ -342,7 +342,7 @@ export const InstructorDashboard = () => {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
                   placeholder="e.g., Application Development"
                 />
               </div>
@@ -354,7 +354,7 @@ export const InstructorDashboard = () => {
                   type="text"
                   value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
                   placeholder="e.g., T301 - 2nd Sem 25-26"
                 />
               </div>
@@ -370,7 +370,7 @@ export const InstructorDashboard = () => {
               <button
                 onClick={handleSaveEdit}
                 disabled={editSaving || !editName.trim()}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-hornblende-green hover:bg-dark-aquamarine-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-navy hover:bg-brand-indigo transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {editSaving ? "Saving..." : "Save Changes"}
               </button>

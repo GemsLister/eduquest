@@ -86,17 +86,17 @@ export const QuizzesPageMain = () => {
   }, [quizzes, filter, search]);
 
   const filterTabs = [
-    { key: "all", label: "All", activeClass: "bg-hornblende-green text-white" },
-    { key: "drafts", label: "Drafts", activeClass: "bg-yellow-500 text-white" },
-    { key: "in_review", label: "In Review", activeClass: "bg-indigo-600 text-white" },
-    { key: "published", label: "Published", activeClass: "bg-blue-600 text-white" },
+    { key: "all", label: "All", activeClass: "bg-brand-navy text-white" },
+    { key: "drafts", label: "Drafts", activeClass: "bg-brand-gold text-brand-navy" },
+    { key: "in_review", label: "In Review", activeClass: "bg-brand-navy text-white" },
+    { key: "published", label: "Published", activeClass: "bg-brand-indigo text-white" },
     { key: "archived", label: "Archived", activeClass: "bg-gray-700 text-white" },
   ];
 
   // ── Quiz state badge ──
   const getQuizState = (quiz) => {
     if (quiz.is_archived) return { label: "Archived", bg: "bg-gray-100 text-gray-600 border-gray-300" };
-    if (quiz.is_published) return { label: "Published", bg: "bg-blue-100 text-blue-700 border-blue-300" };
+    if (quiz.is_published) return { label: "Published", bg: "bg-brand-indigo/10 text-brand-indigo border-brand-indigo/30" };
     if (quiz.admin_review_status === "approved") return { label: "Approved", bg: "bg-green-100 text-green-700 border-green-300" };
     if (quiz.admin_review_status === "revision_requested") return { label: "Revision", bg: "bg-orange-100 text-orange-700 border-orange-300" };
     if (quiz.admin_review_status === "rejected") return { label: "Rejected", bg: "bg-red-100 text-red-700 border-red-300" };
@@ -106,12 +106,18 @@ export const QuizzesPageMain = () => {
 
   const getCardGradient = (quiz) => {
     if (quiz.is_archived) return "from-gray-400 to-gray-500";
-    if (quiz.is_published) return "from-blue-400 to-blue-500";
-    if (quiz.admin_review_status === "approved") return "from-emerald-400 to-emerald-500";
-    if (quiz.admin_review_status === "revision_requested") return "from-orange-400 to-orange-500";
-    if (quiz.admin_review_status === "rejected") return "from-red-400 to-red-500";
-    if (quiz.admin_review_status === "pending") return "from-yellow-400 to-yellow-500";
-    return "from-yellow-400 to-yellow-500";
+    if (quiz.is_published) return "from-brand-navy to-brand-indigo";
+    if (quiz.admin_review_status === "approved") return "from-brand-navy to-brand-indigo-dark";
+    if (quiz.admin_review_status === "revision_requested") return "from-amber-600 to-amber-700";
+    if (quiz.admin_review_status === "rejected") return "from-rose-700 to-rose-800";
+    if (quiz.admin_review_status === "pending") return "from-brand-gold to-brand-gold-dark";
+    return "from-brand-gold to-brand-gold-dark";
+  };
+
+  const getCardTextColor = (quiz) => {
+    if (!quiz.is_archived && !quiz.is_published && !quiz.admin_review_status) return "text-brand-navy";
+    if (quiz.admin_review_status === "pending" && !quiz.is_published) return "text-brand-navy";
+    return "text-white";
   };
 
   // ── Empty state messages ──
@@ -284,7 +290,7 @@ export const QuizzesPageMain = () => {
             placeholder="Search quizzes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-hornblende-green focus:ring-2 focus:ring-hornblende-green/20"
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
           />
           {search && (
             <button
@@ -331,7 +337,7 @@ export const QuizzesPageMain = () => {
       <div>
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-casual-green"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
           </div>
         ) : filteredQuizzes.length === 0 ? (
           (() => {
@@ -367,11 +373,11 @@ export const QuizzesPageMain = () => {
                     >
                       {state.label}
                     </span>
-                    <h3 className="font-bold text-lg text-white pr-20 leading-snug line-clamp-2">
+                    <h3 className={`font-bold text-lg pr-20 leading-snug line-clamp-2 ${getCardTextColor(quiz)}`}>
                       {quiz.title}
                     </h3>
                     {quiz.description && (
-                      <p className="text-white/70 text-xs mt-1 line-clamp-1">
+                      <p className={`text-xs mt-1 line-clamp-1 ${getCardTextColor(quiz)} opacity-70`}>
                         {quiz.description}
                       </p>
                     )}
@@ -421,7 +427,7 @@ export const QuizzesPageMain = () => {
                                 `/instructor-dashboard/quiz-results/${quiz.id}`,
                               )
                             }
-                            className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                            className="flex-1 bg-brand-navy text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand-indigo transition-colors"
                           >
                             Results
                           </button>
@@ -454,18 +460,18 @@ export const QuizzesPageMain = () => {
                         <>
                           <button
                             onClick={() => openAssignSectionsModal(quiz)}
-                            className="relative flex-1 bg-indigo-50 text-indigo-700 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors border border-indigo-200"
+                            className="relative flex-1 bg-brand-gold/10 text-brand-gold-dark py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold/20 transition-colors border border-brand-gold/30"
                           >
                             Assign
                             {(quiz.section_count || 0) > 0 && (
-                              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white border-2 border-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                              <span className="absolute -top-2 -right-2 bg-brand-gold text-brand-navy border-2 border-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                                 {quiz.section_count}
                               </span>
                             )}
                           </button>
                           <button
                             onClick={() => handlePublishQuiz(quiz.id)}
-                            className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
                           >
                             Publish
                           </button>
@@ -476,7 +482,7 @@ export const QuizzesPageMain = () => {
                       {quiz.is_archived ? (
                         <button
                           onClick={() => handleRestoreQuiz(quiz.id)}
-                          className="flex-1 bg-casual-green text-white py-2 rounded-lg text-sm font-semibold hover:bg-hornblende-green transition-colors"
+                          className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
                         >
                           Restore
                         </button>
@@ -548,7 +554,7 @@ export const QuizzesPageMain = () => {
                         setSelectedSectionIds([]);
                       }
                     }}
-                    className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                    className="form-checkbox h-4 w-4 text-brand-navy border-gray-300 rounded"
                   />
                   <span className="text-sm font-semibold text-gray-800">
                     Select All
@@ -564,7 +570,7 @@ export const QuizzesPageMain = () => {
                       key={sec.id}
                       className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedSectionIds.includes(sec.id)
-                          ? "border-casual-green bg-green-50"
+                          ? "border-brand-gold bg-green-50"
                           : "border-gray-200 hover:bg-gray-50"
                       }`}
                     >
@@ -583,7 +589,7 @@ export const QuizzesPageMain = () => {
                             );
                           }
                         }}
-                        className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                        className="form-checkbox h-4 w-4 text-brand-navy border-gray-300 rounded"
                       />
                       <div>
                         <span className="block text-sm font-medium text-gray-800">

@@ -59,8 +59,8 @@ export const ItemAnalysisResults = ({
                   savingAnalysis || !analysis || analysis.length === 0
                     ? "bg-gray-400 cursor-not-allowed"
                     : analysisSaved
-                      ? "bg-casual-green hover:bg-green-600"
-                      : "bg-sea-green hover:bg-hornblende-green"
+                      ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
+                      : "bg-brand-navy hover:bg-brand-indigo"
                 }`}
               >
                 {savingAnalysis 

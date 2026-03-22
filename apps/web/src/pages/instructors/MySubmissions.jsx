@@ -68,17 +68,48 @@ export const MySubmissions = () => {
   };
 
   const getStatusIcon = (status) => {
+    const base = "w-8 h-8 rounded-full flex items-center justify-center shrink-0";
     switch (status) {
       case "pending":
-        return "🕐";
+        return (
+          <span className={`${base} bg-brand-gold/15`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+        );
       case "approved":
-        return "✅";
+        return (
+          <span className={`${base} bg-green-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+        );
       case "revision_requested":
-        return "⚠️";
+        return (
+          <span className={`${base} bg-amber-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </span>
+        );
       case "rejected":
-        return "❌";
+        return (
+          <span className={`${base} bg-rose-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </span>
+        );
       default:
-        return "📋";
+        return (
+          <span className={`${base} bg-gray-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </span>
+        );
     }
   };
 
@@ -95,8 +126,8 @@ export const MySubmissions = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-hornblende-green via-emerald-700 to-hornblende-green px-6 py-8">
-        <p className="text-emerald-200 text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-brand-navy px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           My Submissions
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -122,7 +153,7 @@ export const MySubmissions = () => {
               onClick={() => setFilter(tab.key)}
               className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm ${
                 filter === tab.key
-                  ? "bg-hornblende-green text-white"
+                  ? "bg-brand-navy text-white"
                   : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
               }`}
             >
@@ -134,11 +165,15 @@ export const MySubmissions = () => {
         {/* Submissions List */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-hornblende-green"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
           </div>
         ) : submissions.length === 0 ? (
           <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
-            <div className="text-6xl mb-4">📋</div>
+            <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-brand-navy/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
               No Submissions Found
             </h3>
@@ -158,9 +193,7 @@ export const MySubmissions = () => {
                 <div className="flex flex-col gap-4">
                   {/* Title and Status */}
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">
-                      {getStatusIcon(submission.status)}
-                    </span>
+                    {getStatusIcon(submission.status)}
                     <h3 className="text-lg font-bold text-gray-800 flex-1">
                       {submission.quizzes?.title || "Unknown Quiz"}
                     </h3>

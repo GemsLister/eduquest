@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../supabaseClient.js";
 import profileImage from "../../assets/instructor-profile.png";
+import citlCover from "../../assets/CITL_cover_photo.png";
 
 export const InstructorProfile = () => {
   const [user, setUser] = useState(null);
@@ -235,8 +236,8 @@ export const InstructorProfile = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -245,7 +246,8 @@ export const InstructorProfile = () => {
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
       {/* Banner */}
-      <div className="relative h-44 bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green">
+      <div className="relative h-52 bg-brand-navy overflow-hidden">
+        <img src={citlCover} alt="CITL Cover" className="absolute inset-0 w-full h-full object-cover object-[center_55%] opacity-30" />
         {/* Edit button in banner */}
         {!editMode && (
           <button
@@ -311,7 +313,7 @@ export const InstructorProfile = () => {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={avatarUploading}
-                  className="absolute -bottom-1 -right-1 bg-casual-green hover:bg-hornblende-green text-white rounded-lg p-1.5 shadow-md transition-colors"
+                  className="absolute -bottom-1 -right-1 bg-brand-gold hover:bg-brand-gold-dark text-white rounded-lg p-1.5 shadow-md transition-colors"
                   title="Change profile picture"
                 >
                   {avatarUploading ? (
@@ -336,7 +338,7 @@ export const InstructorProfile = () => {
                     ? `${profile.firstName} ${profile.lastName}`.trim()
                     : profile.username || "No Name"}
                 </h1>
-                <span className="px-2.5 py-0.5 bg-casual-green/10 text-casual-green text-xs font-bold rounded-full">
+                <span className="px-2.5 py-0.5 bg-brand-gold/10 text-brand-gold-dark text-xs font-bold rounded-full">
                   Instructor
                 </span>
               </div>
@@ -397,7 +399,7 @@ export const InstructorProfile = () => {
                     onChange={(e) =>
                       setProfile({ ...profile, firstName: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
                   />
                 </div>
                 <div>
@@ -410,7 +412,7 @@ export const InstructorProfile = () => {
                     onChange={(e) =>
                       setProfile({ ...profile, lastName: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
                   />
                 </div>
               </div>
@@ -425,7 +427,7 @@ export const InstructorProfile = () => {
                   onChange={(e) =>
                     setProfile({ ...profile, username: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
                 />
               </div>
 
@@ -452,7 +454,7 @@ export const InstructorProfile = () => {
                   }
                   placeholder="Tell others about yourself, your teaching focus, or interests..."
                   rows="3"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none"
                 />
               </div>
 
@@ -466,7 +468,7 @@ export const InstructorProfile = () => {
                 <button
                   onClick={handleUpdateProfile}
                   disabled={saveLoading}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-casual-green text-white rounded-lg font-semibold text-sm hover:bg-hornblende-green transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
                 >
                   {saveLoading ? (
                     <>

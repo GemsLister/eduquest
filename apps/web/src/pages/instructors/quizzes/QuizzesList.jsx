@@ -75,7 +75,7 @@ export const QuizzesList = ({
                 <div
                   className={`px-5 py-4 relative ${
                     quiz.is_published
-                      ? "bg-gradient-to-r from-casual-green to-hornblende-green"
+                      ? "bg-gradient-to-r from-brand-navy to-brand-indigo"
                       : "bg-gradient-to-r from-yellow-400 to-yellow-500"
                   }`}
                 >
@@ -211,7 +211,7 @@ export const QuizzesList = ({
                           `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                         )
                       }
-                      className="flex-1 bg-casual-green text-white py-2 rounded-lg text-sm font-semibold hover:bg-hornblende-green transition-colors"
+                      className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
                     >
                       {quiz.is_published ? "View" : "Continue"}
                     </button>

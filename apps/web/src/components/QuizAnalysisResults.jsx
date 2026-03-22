@@ -17,7 +17,7 @@ const ProgressStepper = ({ currentStep }) => {
   ];
 
   return (
-    <div className="flex items-center justify-center gap-1 px-6 py-3 bg-indigo-950/30">
+    <div className="flex items-center justify-center gap-1 px-6 py-3 bg-black/20">
       {steps.map((step, idx) => {
         const isActive = idx === currentStep;
         const isCompleted = idx < currentStep;
@@ -30,7 +30,7 @@ const ProgressStepper = ({ currentStep }) => {
                   isCompleted
                     ? "bg-green-400 text-white"
                     : isActive
-                      ? "bg-white text-indigo-700"
+                      ? "bg-brand-gold text-brand-navy"
                       : "bg-white/20 text-white/50"
                 }`}
               >
@@ -214,13 +214,13 @@ export const QuizAnalysisResults = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo">
           <div className="p-5 flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold text-white">
                 Bloom's Taxonomy Analysis
               </h2>
-              <p className="text-indigo-200 text-sm mt-0.5">
+              <p className="text-white/60 text-sm mt-0.5">
                 AI-powered cognitive level classification
               </p>
             </div>
@@ -279,8 +279,8 @@ export const QuizAnalysisResults = ({
           {!results ? (
             /* ─── Step 1: Ready to Analyze ─── */
             <div className="text-center py-10">
-              <div className="w-20 h-20 mx-auto mb-5 bg-indigo-100 rounded-2xl flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="w-20 h-20 mx-auto mb-5 bg-brand-gold/15 rounded-2xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
@@ -312,7 +312,7 @@ export const QuizAnalysisResults = ({
               <button
                 onClick={handleAnalyze}
                 disabled={loading || !questions?.length}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-8 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
               >
                 {loading ? (
                   <>
@@ -337,11 +337,11 @@ export const QuizAnalysisResults = ({
             <>
               {/* Summary Cards — color-coded */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center">
-                  <p className="text-3xl font-bold text-indigo-700">
+                <div className="bg-brand-navy/5 border border-brand-navy/20 p-4 rounded-xl text-center">
+                  <p className="text-3xl font-bold text-brand-navy">
                     {results.summary.totalQuestions}
                   </p>
-                  <p className="text-xs font-semibold text-indigo-500 mt-1">
+                  <p className="text-xs font-semibold text-brand-navy/60 mt-1">
                     Total Questions
                   </p>
                 </div>
@@ -635,7 +635,7 @@ export const QuizAnalysisResults = ({
 
               {/* Submit to Admin — grouped card */}
               {!forwarded ? (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+                <div className="bg-brand-navy/5 border border-brand-navy/20 rounded-xl p-5">
                   <h4 className="font-bold text-gray-800 mb-1">
                     Submit for Admin Review
                   </h4>
@@ -648,7 +648,7 @@ export const QuizAnalysisResults = ({
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Add any notes or context for the admin reviewer..."
                     rows="2"
-                    className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-20 text-sm mb-3 bg-white"
+                    className="w-full px-4 py-2 border border-brand-navy/20 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 text-sm mb-3 bg-white"
                   />
                   {error && (
                     <div className="mb-3 p-2.5 bg-red-100 border border-red-300 text-red-700 rounded-lg text-xs">
@@ -660,7 +660,7 @@ export const QuizAnalysisResults = ({
                       onClick={handleForward}
                       disabled={forwardLoading || quizId === "draft"}
                       title={quizId === "draft" ? "Save the quiz first" : ""}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="bg-brand-navy hover:bg-brand-indigo text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {forwardLoading ? (
                         <>

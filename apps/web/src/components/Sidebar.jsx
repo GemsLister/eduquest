@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
-import eduquestLogo from "../assets/eduquest-logo.png";
+import citlLogo from "../assets/BUKSU_CITL.jpg";
 import * as Icon from "../assets/svg/sidebar/sidebarIcons.js";
 
 const navItems = [
@@ -59,16 +59,16 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="group static flex flex-col bg-hornblende-green w-[72px] hover:w-[240px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
+    <aside className="group static flex flex-col bg-brand-navy w-[72px] hover:w-[240px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10 rounded-r-2xl">
       {/* Logo */}
       <div className="flex items-center gap-3 py-6 px-4 border-b border-white/10">
         <img
-          src={eduquestLogo}
-          alt="eduquest-logo"
-          className="h-10 w-10 shrink-0 rounded-lg"
+          src={citlLogo}
+          alt="citl-logo"
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
         <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-lg whitespace-nowrap tracking-wide">
-          EduQuest
+          BUKSU CITL
         </span>
       </div>
 
@@ -83,7 +83,7 @@ export const Sidebar = () => {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
                     isActive && !nav.isLogout
-                      ? "bg-white/20 text-white shadow-inner"
+                      ? "bg-brand-gold/20 text-brand-gold shadow-inner"
                       : "text-white/60 hover:bg-white/10 hover:text-white"
                   }`
                 }
@@ -103,7 +103,7 @@ export const Sidebar = () => {
       {/* Bottom accent */}
       <div className="px-3 pb-6 mt-auto">
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-xs px-3 whitespace-nowrap">
-          © 2026 EduQuest
+          © 2026 BUKSU CITL
         </div>
       </div>
     </aside>

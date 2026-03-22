@@ -16,7 +16,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
     <>
       <button
         onClick={() => setShowForm(true)}
-        className="flex items-center gap-2 bg-white text-hornblende-green px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-casual-green hover:text-white transition-all duration-200 shadow-md"
+        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-brand-gold-dark transition-all duration-200 shadow-md"
       >
         <span className="text-lg leading-none">+</span>
         New Subject
