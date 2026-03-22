@@ -48,29 +48,6 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
     }
   };
 
-  const handleAIApplyAsDraft = async () => {
-    try {
-      const cleanSuggestion = typeof suggestion === 'string' 
-        ? suggestion.replace(/```json|```/g, '').trim() 
-        : suggestion;
-        
-      const parsed = typeof cleanSuggestion === 'string' ? JSON.parse(cleanSuggestion) : cleanSuggestion;
-      
-      const correctVal = typeof parsed.correct_answer === 'string' 
-        ? parsed.options.indexOf(parsed.correct_answer) 
-        : parsed.correct_answer;
-
-      // Save as DRAFT (Badge will stay)
-      await saveRevision(questionId, parsed.text, parsed.options, correctVal);
-      alert('AI Suggestion applied as draft. Click "Save & Update" to finalize.');
-      // Keep modal open so they can review/finalize
-      setIsManualEdit(true); 
-    } catch (err) {
-      console.error(err);
-      alert('Error parsing or saving AI revision: ' + err.message);
-    }
-  };
-
   const handleSaveDraft = async () => {
     if (!formData.text.trim()) return alert("Question text is required");
     if (formData.options.some(opt => !opt?.trim())) return alert("All options must be filled");
@@ -106,6 +83,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   if (!isOpen) return null;
 
   const hasDraft = !!(questionData?.revised_content || questionData?.revised_options);
+  const isRevised = !!questionData?.previous_text;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
@@ -120,9 +98,14 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                   {questionData.autoFlag}
                 </span>
               )}
+              {isRevised && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase">
+                  ✓ Item Revised
+                </span>
+              )}
               {hasDraft && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-bold uppercase">
-                  Revision History Active
+                  Revision Draft Active
                 </span>
               )}
             </div>
@@ -136,12 +119,16 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Previous Version */}
               <div className="flex flex-col">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">⏮️ Previous Version</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                  {isRevised ? "⏮️ Previous Revision" : "📄 Original Version"}
+                </h3>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 flex-1">
-                  <p className="text-gray-700 text-sm mb-4 font-medium">{questionData?.original_text || questionData?.text}</p>
+                  <p className="text-gray-700 text-sm mb-4 font-medium">
+                    {questionData?.previous_text || questionData?.original_text || questionData?.text}
+                  </p>
                   <div className="space-y-2">
-                    {(questionData?.original_options || questionData?.options)?.map((opt, idx) => {
-                      const isCorrect = String(opt) === String(questionData?.original_correct_answer || questionData?.correct_answer);
+                    {(questionData?.previous_options || questionData?.original_options || questionData?.options)?.map((opt, idx) => {
+                      const isCorrect = String(opt) === String(questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer);
                       return (
                         <div key={idx} className={`text-[11px] p-2 rounded-lg border flex items-center gap-2 ${isCorrect ? "bg-emerald-50 border-emerald-100 text-emerald-700 font-bold" : "bg-slate-50 text-slate-500"}`}>
                           <span className="w-5 h-5 flex items-center justify-center rounded bg-white border text-[10px]">{String.fromCharCode(65 + idx)}</span>
@@ -193,23 +180,22 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                     {loading ? 'Generating...' : 'Suggest with AI'}
                   </button>
                 </div>
-
-                {suggestion && (
-                  <div className="col-span-full mt-4 p-5 bg-gray-50 rounded-2xl border border-gray-200">
-                    <h4 className="font-bold text-gray-700 mb-3">✨ AI Suggestion Ready</h4>
-                    <div className="bg-white p-4 rounded-xl border mb-4 max-h-40 overflow-y-auto">
-                      <pre className="text-xs font-mono whitespace-pre-wrap">{suggestion}</pre>
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={handleAIApplyAsDraft} className="flex-1 bg-emerald-500 text-white font-bold py-3 rounded-xl">Apply AI Revision</button>
-                      <button onClick={handleAIGenerate} className="bg-gray-200 px-6 rounded-xl">Regenerate</button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="space-y-6">
-                <button onClick={() => setIsManualEdit(false)} className="text-blue-600 font-semibold hover:underline">← Back</button>
+                <div className="flex justify-between items-center">
+                  <button onClick={() => setIsManualEdit(false)} className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                    <span>←</span> Back to Options
+                  </button>
+                  <button 
+                    onClick={handleAIGenerate} 
+                    disabled={loading}
+                    className="text-emerald-600 font-bold hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <span>{loading ? '⏳' : '🤖'}</span>
+                    {loading ? 'Regenerating...' : 'Regenerate with AI'}
+                  </button>
+                </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Question Text</label>
                   <textarea 
