@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
 import {
@@ -7,14 +8,17 @@ import {
 } from "../../components/BloomsVisualization";
 
 export const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { instructors, loading } = useAdminInstructors();
   const [adminName, setAdminName] = useState("");
   const [pendingReviews, setPendingReviews] = useState(0);
   const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [publishedQuizRows, setPublishedQuizRows] = useState([]);
-  const [publishedLoading, setPublishedLoading] = useState(true);
   const [bloomsStats, setBloomsStats] = useState(null);
   const [bloomsLoading, setBloomsLoading] = useState(true);
+  const [pendingRequests, setPendingRequests] = useState(0);
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [tosCompliance, setTosCompliance] = useState(null);
 
   useEffect(() => {
     const getAdmin = async () => {
@@ -29,8 +33,9 @@ export const AdminDashboard = () => {
     };
     getAdmin();
     loadPendingReviews();
-    loadPublishedQuizOverview();
     loadBloomsStats();
+    loadPendingRequests();
+    loadRecentSubmissions();
   }, []);
 
   const loadPendingReviews = async () => {
@@ -127,177 +132,124 @@ export const AdminDashboard = () => {
     }
   };
 
-  const loadPublishedQuizOverview = async () => {
-    setPublishedLoading(true);
+  const loadPendingRequests = async () => {
     try {
-      const { data: publishedQuizzes, error: quizError } = await supabase
-        .from("quizzes")
-        .select("id, title, description, instructor_id, is_open, created_at")
-        .eq("is_published", true)
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("is_approved", false)
+        .eq("is_admin", false);
 
-      if (quizError) throw quizError;
+      if (!error) setPendingRequests(count || 0);
+    } catch (err) {
+      console.error("Error loading pending requests:", err);
+    }
+  };
 
-      const quizzes = publishedQuizzes || [];
-      if (quizzes.length === 0) {
-        setPublishedQuizRows([]);
+  const loadRecentSubmissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("id, quiz_id, instructor_id, status, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      const submissions = data || [];
+      if (submissions.length === 0) {
+        setRecentSubmissions([]);
+        setRecentLoading(false);
         return;
       }
 
-      const quizIds = quizzes.map((q) => q.id);
-      const instructorIds = [...new Set(quizzes.map((q) => q.instructor_id))];
+      const quizIds = [...new Set(submissions.map((s) => s.quiz_id))];
+      const instructorIds = [...new Set(submissions.map((s) => s.instructor_id))];
 
-      // Query all available fields to avoid referencing optional columns directly.
-      const attemptsRawRes = await supabase
-        .from("quiz_attempts")
-        .select("*")
-        .in("quiz_id", quizIds);
+      const [quizRes, profileRes] = await Promise.all([
+        supabase.from("quizzes").select("id, title").in("id", quizIds),
+        supabase
+          .from("profiles")
+          .select("id, first_name, last_name, username, email")
+          .in("id", instructorIds),
+      ]);
 
-      const attemptsRes = {
-        data: (attemptsRawRes.data || []).map((a) => ({
-          id: a.id,
-          quiz_id: a.quiz_id,
-          status: a.status,
-          score: a.score,
-          section_id: a.section_id ?? null,
-        })),
-        error: attemptsRawRes.error,
-      };
-
-      const [profilesRes, quizSectionsRes, sectionsRes, analysisRes] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select("id, first_name, last_name, username, email")
-            .in("id", instructorIds),
-          supabase
-            .from("quiz_sections")
-            .select("quiz_id, section_id")
-            .in("quiz_id", quizIds),
-          supabase.from("sections").select("*"),
-          supabase
-            .from("item_analysis")
-            .select("quiz_id, difficulty_status, discrimination_status")
-            .in("quiz_id", quizIds),
-        ]);
-
-      if (profilesRes.error) throw profilesRes.error;
-      if (attemptsRes.error) throw attemptsRes.error;
-      if (quizSectionsRes.error) throw quizSectionsRes.error;
-      if (sectionsRes.error) throw sectionsRes.error;
-      if (analysisRes.error) throw analysisRes.error;
-
+      const quizMap = new Map(
+        (quizRes.data || []).map((q) => [q.id, q.title]),
+      );
       const profileMap = new Map(
-        (profilesRes.data || []).map((p) => {
-          const fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
-          const label =
-            fullName || p.username || p.email || "Unknown Instructor";
-          return [p.id, label];
+        (profileRes.data || []).map((p) => {
+          const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+          return [p.id, name || p.username || p.email || "Unknown"];
         }),
       );
 
-      const sectionNameMap = new Map(
-        (sectionsRes.data || []).map((s) => [
-          s.id,
-          s.section_name || s.name || s.description || "Unnamed Section",
-        ]),
-      );
+      const enriched = submissions.map((s) => ({
+        ...s,
+        quizTitle: quizMap.get(s.quiz_id) || "Untitled Quiz",
+        instructorName: profileMap.get(s.instructor_id) || "Unknown",
+      }));
 
-      const attemptsByQuiz = new Map();
-      (attemptsRes.data || []).forEach((attempt) => {
-        const list = attemptsByQuiz.get(attempt.quiz_id) || [];
-        list.push(attempt);
-        attemptsByQuiz.set(attempt.quiz_id, list);
-      });
+      setRecentSubmissions(enriched);
 
-      const sectionMapByQuiz = new Map();
-      (quizSectionsRes.data || []).forEach((row) => {
-        const set = sectionMapByQuiz.get(row.quiz_id) || new Set();
-        set.add(row.section_id);
-        sectionMapByQuiz.set(row.quiz_id, set);
-      });
+      // TOS compliance calculation from approved submissions
+      const { data: approvedData } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("analysis_results")
+        .eq("status", "approved");
 
-      const itemAnalysisByQuiz = new Map();
-      (analysisRes.data || []).forEach((row) => {
-        const list = itemAnalysisByQuiz.get(row.quiz_id) || [];
-        list.push(row);
-        itemAnalysisByQuiz.set(row.quiz_id, list);
-      });
-
-      const rows = quizzes.map((quiz) => {
-        const attempts = attemptsByQuiz.get(quiz.id) || [];
-        const completedAttempts = attempts.filter(
-          (a) => a.status === "completed",
-        );
-
-        const sectionIds = Array.from(sectionMapByQuiz.get(quiz.id) || []);
-        const perSectionResults = sectionIds.map((sectionId) => {
-          const sectionAttempts = attempts.filter(
-            (a) => a.section_id === sectionId,
-          );
-          const completed = sectionAttempts.filter(
-            (a) => a.status === "completed",
-          );
-          const avgScore =
-            completed.length > 0
-              ? Math.round(
-                  completed.reduce((sum, a) => sum + (a.score || 0), 0) /
-                    completed.length,
-                )
-              : 0;
-
-          return {
-            sectionId,
-            sectionName: sectionNameMap.get(sectionId) || "Unnamed Section",
-            attempts: sectionAttempts.length,
-            completed: completed.length,
-            averageScore: avgScore,
-          };
+      if (approvedData && approvedData.length > 0) {
+        let compliant = 0;
+        let nonCompliant = 0;
+        approvedData.forEach((s) => {
+          const summary = s.analysis_results?.summary;
+          if (summary) {
+            const lotsPct = summary.lotsPercentage || 0;
+            const hotsPct = summary.hotsPercentage || 0;
+            if (Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5) {
+              compliant++;
+            } else {
+              nonCompliant++;
+            }
+          }
         });
-
-        const itemAnalysis = itemAnalysisByQuiz.get(quiz.id) || [];
-        const easyCount = itemAnalysis.filter(
-          (i) => (i.difficulty_status || "").toLowerCase() === "easy",
-        ).length;
-        const moderateCount = itemAnalysis.filter(
-          (i) => (i.difficulty_status || "").toLowerCase() === "moderate",
-        ).length;
-        const difficultCount = itemAnalysis.filter(
-          (i) => (i.difficulty_status || "").toLowerCase() === "difficult",
-        ).length;
-
-        return {
-          ...quiz,
-          instructorName:
-            profileMap.get(quiz.instructor_id) || "Unknown Instructor",
-          totalAttempts: attempts.length,
-          completedAttempts: completedAttempts.length,
-          averageScore:
-            completedAttempts.length > 0
-              ? Math.round(
-                  completedAttempts.reduce(
-                    (sum, a) => sum + (a.score || 0),
-                    0,
-                  ) / completedAttempts.length,
-                )
-              : 0,
-          sectionCount: sectionIds.length,
-          perSectionResults,
-          analysisCount: itemAnalysis.length,
-          easyCount,
-          moderateCount,
-          difficultCount,
-        };
-      });
-
-      setPublishedQuizRows(rows);
+        setTosCompliance({ compliant, nonCompliant, total: compliant + nonCompliant });
+      }
     } catch (err) {
-      console.error("Error loading published quiz overview:", err);
-      setPublishedQuizRows([]);
+      console.error("Error loading recent submissions:", err);
     } finally {
-      setPublishedLoading(false);
+      setRecentLoading(false);
     }
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: "bg-yellow-100 text-yellow-700",
+      approved: "bg-green-100 text-green-700",
+      rejected: "bg-red-100 text-red-700",
+      revision_requested: "bg-orange-100 text-orange-700",
+    };
+    const labels = {
+      pending: "Pending",
+      approved: "Approved",
+      rejected: "Rejected",
+      revision_requested: "Revision",
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-gray-100 text-gray-600"}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
+
+  const timeAgo = (dateStr) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
   };
 
   return (
@@ -528,139 +480,249 @@ export const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Quick Actions */}
         <div className="mt-8">
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">
-            Published Quiz Results and Item Analysis
+            Quick Actions
           </h2>
-
-          {publishedLoading ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-              Loading published quiz overview...
-            </div>
-          ) : publishedQuizRows.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-              No published quizzes found.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {publishedQuizRows.map((quiz) => (
-                <div
-                  key={quiz.id}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm p-6"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">
-                        {quiz.title}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Instructor: {quiz.instructorName}
-                      </p>
-                    </div>
-                    <div className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold w-fit">
-                      {quiz.is_open === false ? "Closed" : "Open"}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 text-sm">
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-gray-500">Total Attempts</p>
-                      <p className="text-lg font-bold text-gray-800">
-                        {quiz.totalAttempts}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-gray-500">Completed</p>
-                      <p className="text-lg font-bold text-green-600">
-                        {quiz.completedAttempts}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-gray-500">Average Score</p>
-                      <p className="text-lg font-bold text-indigo-600">
-                        {quiz.averageScore}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-gray-500">Assigned Sections</p>
-                      <p className="text-lg font-bold text-hornblende-green">
-                        {quiz.sectionCount}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="border border-gray-200 rounded-lg p-3">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">
-                        Results by Section
-                      </p>
-                      {quiz.perSectionResults.length === 0 ? (
-                        <p className="text-xs text-gray-500">
-                          No assigned sections.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {quiz.perSectionResults.map((row) => (
-                            <div
-                              key={row.sectionId}
-                              className="text-xs bg-gray-50 rounded-md px-3 py-2"
-                            >
-                              <p className="font-semibold text-gray-700">
-                                {row.sectionName}
-                              </p>
-                              <p className="text-gray-500">
-                                Attempts: {row.attempts} | Completed:{" "}
-                                {row.completed} | Avg Score: {row.averageScore}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border border-gray-200 rounded-lg p-3">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">
-                        Item Analysis Summary
-                      </p>
-                      {quiz.analysisCount === 0 ? (
-                        <p className="text-xs text-gray-500">
-                          No item analysis saved for this quiz yet.
-                        </p>
-                      ) : (
-                        <div className="space-y-1 text-xs text-gray-600">
-                          <p>
-                            Total Analyzed Items:{" "}
-                            <span className="font-semibold text-gray-800">
-                              {quiz.analysisCount}
-                            </span>
-                          </p>
-                          <p>
-                            Easy:{" "}
-                            <span className="font-semibold text-green-600">
-                              {quiz.easyCount}
-                            </span>
-                          </p>
-                          <p>
-                            Moderate:{" "}
-                            <span className="font-semibold text-amber-600">
-                              {quiz.moderateCount}
-                            </span>
-                          </p>
-                          <p>
-                            Difficult:{" "}
-                            <span className="font-semibold text-red-600">
-                              {quiz.difficultCount}
-                            </span>
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
                 </div>
-              ))}
-            </div>
-          )}
+                {pendingReviews > 0 && (
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                    {pendingReviews}
+                  </span>
+                )}
+              </div>
+              <p className="font-bold text-gray-800 text-sm group-hover:text-indigo-600 transition-colors">
+                Review Submissions
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Review pending quiz analyses
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/admin-dashboard/registration-requests")}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-green-300 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                </div>
+                {pendingRequests > 0 && (
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
+                    {pendingRequests}
+                  </span>
+                )}
+              </div>
+              <p className="font-bold text-gray-800 text-sm group-hover:text-green-600 transition-colors">
+                Registration Requests
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Approve new instructor accounts
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/admin-dashboard/instructors")}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-blue-300 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">
+                Manage Instructors
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                View and manage instructor accounts
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/admin-dashboard/create-instructor")}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-purple-300 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+              </div>
+              <p className="font-bold text-gray-800 text-sm group-hover:text-purple-600 transition-colors">
+                Create Instructor
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Add a new instructor account
+              </p>
+            </button>
+          </div>
         </div>
+
+        {/* TOS Compliance Overview + Recent Submissions — side by side */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* TOS Compliance Overview */}
+          <div>
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">
+              TOS Compliance Overview
+            </h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              {tosCompliance && tosCompliance.total > 0 ? (
+                <>
+                  {/* Donut-style visual */}
+                  <div className="flex items-center gap-6 mb-5">
+                    <div className="relative w-28 h-28 shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                        <circle
+                          cx="18" cy="18" r="15.915"
+                          fill="none" stroke="#f3f4f6" strokeWidth="3"
+                        />
+                        <circle
+                          cx="18" cy="18" r="15.915"
+                          fill="none"
+                          stroke="#22c55e"
+                          strokeWidth="3"
+                          strokeDasharray={`${(tosCompliance.compliant / tosCompliance.total) * 100} ${100 - (tosCompliance.compliant / tosCompliance.total) * 100}`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-xl font-black text-gray-800">
+                          {Math.round((tosCompliance.compliant / tosCompliance.total) * 100)}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium">Compliant</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-green-500" />
+                          <span className="text-sm text-gray-600">Compliant</span>
+                        </div>
+                        <span className="text-sm font-bold text-green-600">
+                          {tosCompliance.compliant} quizzes
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-red-500" />
+                          <span className="text-sm text-gray-600">Non-Compliant</span>
+                        </div>
+                        <span className="text-sm font-bold text-red-600">
+                          {tosCompliance.nonCompliant} quizzes
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <span className="text-sm text-gray-500">Total Approved</span>
+                        <span className="text-sm font-bold text-gray-700">
+                          {tosCompliance.total} quizzes
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">
+                      School TOS requires <span className="font-semibold text-gray-700">30% LOTS / 70% HOTS</span> distribution with 5% tolerance. Quizzes outside this range are flagged as non-compliant.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 mx-auto mb-3 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-600">No Compliance Data Yet</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    TOS compliance will appear once quizzes are approved.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Submissions */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">
+                Recent Submissions
+              </h2>
+              <button
+                onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+              >
+                View All
+              </button>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              {recentLoading ? (
+                <div className="p-8 text-center text-sm text-gray-400">
+                  Loading recent submissions...
+                </div>
+              ) : recentSubmissions.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 mx-auto mb-3 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-600">No Submissions Yet</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Submissions will appear here when instructors submit quizzes for review.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {recentSubmissions.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() =>
+                        navigate(`/admin-dashboard/quiz-reviews/${sub.id}`)
+                      }
+                      className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          {sub.quizTitle}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          by {sub.instructorName}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {getStatusBadge(sub.status)}
+                        <span className="text-xs text-gray-400 w-12 text-right">
+                          {timeAgo(sub.created_at)}
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
     </>
   );
