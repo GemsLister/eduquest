@@ -179,25 +179,14 @@ export const PublicQuizPage = () => {
     // Check if user already has an attempt for this quiz
     const user = session.user;
     const email = user.email;
+
     const studentId = email.split("@")[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-<<<<<<< HEAD
     if (!email.endsWith("@student.buksu.edu.ph")) {
       setError("Only @student.buksu.edu.ph email addresses are allowed.");
       await supabase.auth.signOut();
       setSession(null);
-=======
-    if (!email.endsWith("@student.buksu.edu.ph")) {
-      setError("Only @student.buksu.edu.ph email addresses are allowed.");
-      await supabase.auth.signOut();
-      setSession(null);
-=======
-    if (!email.endsWith("@student.buksu.edu.ph")) {
-      setError("Only @student.buksu.edu.ph email addresses are allowed.");
-      await supabase.auth.signOut();
-      setSession(null);
->>>>>>> origin/milcky-branch
       setAuthenticating(false);
       return;
     }
