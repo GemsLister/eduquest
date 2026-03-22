@@ -395,8 +395,14 @@ export const ItemAnalysisPage = () => {
           selectedCohortFilter={selectedCohortFilter}
         />
 
+
+
         {(() => {
-          const filteredAnalysis = analysis.filter(item => 
+          if (!selectedQuiz) return null;
+          if (loading) return <div className="text-center py-8">Analyzing...</div>;
+          if (analysis.length === 0) return <div className="text-center py-8">No responses found for this quiz.</div>;
+
+          const filteredAnalysis = analysis.filter((item) =>
             item.text.toLowerCase().includes(searchTerm.toLowerCase())
           );
 
