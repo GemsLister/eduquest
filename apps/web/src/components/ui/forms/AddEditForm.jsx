@@ -26,6 +26,7 @@ export const AddEditForm = ({
               .from("quizzes")
               .select("id, title")
               .eq("instructor_id", user.id)
+              .eq("is_archived", false)
               .order("title", { ascending: true });
             
             if (!error) {
