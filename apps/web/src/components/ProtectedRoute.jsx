@@ -5,7 +5,6 @@ import { supabase } from "../supabaseClient.js";
 export const ProtectedRoute = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isInstructor, setIsInstructor] = useState(false);
   const [isApproved, setIsApproved] = useState(null);
   const [isDisabled, setIsDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,10 +24,10 @@ export const ProtectedRoute = ({ children }) => {
             .eq("id", authUser.id)
             .single();
           setIsAdmin(!!profile?.is_admin);
-          setIsInstructor(!!profile?.is_instructor);
           // Treat null (column not yet added) as approved to avoid locking out existing users
           setIsApproved(profile?.is_approved !== false);
           setIsDisabled(profile?.is_disabled === true);
+          
 
           if (profile?.is_disabled === true) {
             await supabase.auth.signOut();
@@ -67,17 +66,6 @@ export const ProtectedRoute = ({ children }) => {
 
   if (isAdmin) {
     return <Navigate to="/admin-dashboard" replace />;
-  }
-
-  // STRICT GUARD: If logged in as student (gmail) but trying to access instructor dashboard
-  if (user?.email?.endsWith("@gmail.com")) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (!isInstructor && !isAdmin) {
-    // If they are logged in but not an instructor/admin, they shouldn't be here
-    // This handles the "session switch" when testing student accounts
-    return <Navigate to="/" replace />;
   }
 
   if (!isApproved) {
