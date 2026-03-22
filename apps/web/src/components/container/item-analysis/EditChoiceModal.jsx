@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
+import { RevisionHistoryModal } from './RevisionHistoryModal';
 
 export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) => {
   const { generateSuggestion, updateQuestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
   const [isManualEdit, setIsManualEdit] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [selectedRevision, setSelectedRevision] = useState(null);
+  const [selectedRevisionIndex, setSelectedRevisionIndex] = useState(null);
   const [formData, setFormData] = useState({
     text: '',
     options: ['', ''],
@@ -111,6 +114,16 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Revision History Modal */}
+        {selectedRevision && (
+          <RevisionHistoryModal
+            isOpen={!!selectedRevision}
+            onClose={() => { setSelectedRevision(null); setSelectedRevisionIndex(null); }}
+            revision={selectedRevision}
+            revisionIndex={selectedRevisionIndex}
+            totalRevisions={history.length}
+          />
+        )}
         {/* Header */}
         <div className="p-6 border-b flex justify-between items-center shrink-0">
           <div>
@@ -198,7 +211,14 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                 <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-top-2">
                   <div className="max-h-[300px] overflow-y-auto custom-scrollbar divide-y divide-slate-100">
                     {history.map((rev, hIdx) => (
-                      <div key={hIdx} className="group px-4 py-3 hover:bg-slate-50 transition-all">
+                      <button
+                        key={hIdx}
+                        onClick={() => {
+                          setSelectedRevision(rev);
+                          setSelectedRevisionIndex(hIdx);
+                        }}
+                        className="w-full text-left group px-4 py-3 hover:bg-indigo-50 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-inset"
+                      >
                         <div className="flex items-center gap-4">
                           <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">{formatTime(rev.revised_at)}</span>
                           
@@ -226,8 +246,12 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                               );
                             })}
                           </div>
+
+                          <span className="text-indigo-600 group-hover:text-indigo-700 transition-colors ml-2 shrink-0">
+                            →
+                          </span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
