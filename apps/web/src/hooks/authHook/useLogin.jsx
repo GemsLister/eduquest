@@ -4,11 +4,13 @@ import { toast } from "react-toastify";
 
 export const useLogin = () => {
   const navigate = useNavigate();
+  const captchaRequired = import.meta.env.VITE_DISABLE_TURNSTILE !== "true";
+
   const handleLogin = async (userData) => {
     try {
       const email = userData.email.trim();
 
-      if (!userData.captchaToken) {
+      if (captchaRequired && !userData.captchaToken) {
         toast.error("Please complete the captcha verification");
         return;
       }
