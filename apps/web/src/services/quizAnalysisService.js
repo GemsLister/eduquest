@@ -3,7 +3,7 @@
  * Handles communication with the Bloom's Taxonomy Classifier API
  */
 
-const API_URL = "http://localhost:8000";
+const API_URL = import.meta.env.VITE_BLOOM_API_URL || "http://localhost:8000";
 
 /**
  * Analyze a quiz's questions using the Bloom's Taxonomy classifier
