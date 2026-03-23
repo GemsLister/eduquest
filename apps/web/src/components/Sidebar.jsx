@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
 import citlLogo from "../assets/BUKSU_CITL.jpg";
+import * as Icon from "../assets/svg/sidebar/sidebarIcons.js"
 
 const navItems = [
   {
