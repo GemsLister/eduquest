@@ -90,7 +90,8 @@ export const useFetchInstructorQuizzes = () => {
           const { count, error: countError } = await supabase
             .from("questions")
             .select("*", { count: "exact", head: true })
-            .eq("quiz_id", quiz.id);
+            .eq("quiz_id", quiz.id)
+            .is("is_archived", false);
 
           const latestSubmission = latestSubmissionByQuiz.get(quiz.id);
 
