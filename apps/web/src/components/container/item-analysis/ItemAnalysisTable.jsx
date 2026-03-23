@@ -48,10 +48,10 @@ export const ItemAnalysisTable = ({
                             </div>
                           )}
 
-                          {item.previous_text && !item.revised_content && (
+{(item.previous_text || item.revision_history?.length > 0) && !item.revised_content && (
                             <div className="mt-1 flex items-center gap-1.5">
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
-                                ✓ Item Revised
+                                ✓ Item Revised {item.revision_history?.length > 0 ? `(${item.revision_history.length})` : ''}
                               </span>
                               <span className="text-[10px] text-slate-400 italic font-normal">(Click to see history)</span>
                             </div>
