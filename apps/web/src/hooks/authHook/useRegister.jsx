@@ -11,6 +11,8 @@ const validatePassword = (password) => {
 };
 
 export const useRegister = () => {
+  const captchaRequired = import.meta.env.VITE_DISABLE_TURNSTILE !== "true";
+
   const handleRegister = async (userData) => {
     try {
       const passwordError = validatePassword(userData.password);
@@ -19,7 +21,7 @@ export const useRegister = () => {
         return { success: false, message: passwordError };
       }
 
-      if (!userData.captchaToken) {
+      if (captchaRequired && !userData.captchaToken) {
         toast.error("Please complete the captcha verification");
         return { success: false, message: "Captcha required" };
       }
