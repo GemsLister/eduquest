@@ -163,7 +163,7 @@ export const ItemAnalysisPage = () => {
       // 1. Fetch Quiz Data (Questions)
       const { data: questions, error: qError } = await supabase
         .from("questions")
-        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer")
+.select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, previous_text, previous_options, previous_correct_answer, revision_history")
         .eq("quiz_id", quizId);
       if (qError) throw qError;
       
@@ -336,7 +336,11 @@ export const ItemAnalysisPage = () => {
           revised_options: q.revised_options,
           original_text: q.original_text,
           original_options: q.original_options,
-          original_correct_answer: q.original_correct_answer,
+original_correct_answer: q.original_correct_answer,
+          previous_text: q.previous_text,
+          previous_options: q.previous_options,
+          previous_correct_answer: q.previous_correct_answer,
+          revision_history: q.revision_history,
           difficulty: total > 0 ? fi.toFixed(2) : "N/A",
           status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
