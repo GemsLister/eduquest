@@ -28,6 +28,7 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
+fastapi_blooms/venv
 
 # Supabase
 supabase/.branches/
