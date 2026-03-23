@@ -167,7 +167,7 @@ export const AdminQuizReviewDetail = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
           <p className="mt-4 text-gray-600 font-semibold">Loading...</p>
         </div>
       </div>
@@ -195,12 +195,12 @@ export const AdminQuizReviewDetail = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-purple-800 to-indigo-700 px-6 py-8">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
           onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-          className="text-indigo-200 hover:text-white font-semibold mb-4 flex items-center gap-1"
+          className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
         >
-          ← Back to Reviews
+          Back to Reviews
         </button>
         <div className="flex items-center gap-4">
           <div>
@@ -251,13 +251,13 @@ export const AdminQuizReviewDetail = () => {
         {submission.updated_at &&
           submission.updated_at !== submission.created_at &&
           submission.status === "pending" && (
-            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-3">
+            <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
               <span className="text-2xl">🔄</span>
               <div>
-                <p className="text-sm font-semibold text-indigo-700">
+                <p className="text-sm font-semibold text-brand-navy">
                   Resubmission
                 </p>
-                <p className="text-xs text-indigo-600">
+                <p className="text-xs text-brand-navy">
                   This analysis was resubmitted by the instructor after revision.
                   Updated on{" "}
                   {new Date(submission.updated_at).toLocaleDateString("en-US", {
@@ -431,7 +431,7 @@ export const AdminQuizReviewDetail = () => {
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Enter feedback for the instructor..."
               rows="3"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-20"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
             />
           </div>
         )}
@@ -498,7 +498,7 @@ export const AdminQuizReviewDetail = () => {
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Enter your feedback..."
               rows="4"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 mb-4"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold mb-4"
               autoFocus
             />
             <div className="flex gap-3 justify-end">
@@ -511,7 +511,7 @@ export const AdminQuizReviewDetail = () => {
               <button
                 onClick={() => handleAction(pendingAction)}
                 disabled={!feedback.trim() || actionLoading}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo disabled:opacity-50"
               >
                 {actionLoading ? "Submitting..." : "Submit"}
               </button>

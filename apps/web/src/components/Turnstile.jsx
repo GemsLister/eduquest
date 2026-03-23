@@ -14,11 +14,18 @@ export const Turnstile = ({ onToken }) => {
   );
 
   useEffect(() => {
+    let intervalId = null;
+
     const renderWidget = () => {
       if (!containerRef.current || !window.turnstile) return;
       // Clear previous widget if any
       if (widgetIdRef.current !== null) {
-        window.turnstile.remove(widgetIdRef.current);
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {
+          // Widget already removed
+        }
+        widgetIdRef.current = null;
       }
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: SITE_KEY,
@@ -34,18 +41,24 @@ export const Turnstile = ({ onToken }) => {
     if (window.turnstile) {
       renderWidget();
     } else {
-      const interval = setInterval(() => {
+      intervalId = setInterval(() => {
         if (window.turnstile) {
-          clearInterval(interval);
+          clearInterval(intervalId);
+          intervalId = null;
           renderWidget();
         }
       }, 100);
-      return () => clearInterval(interval);
     }
 
     return () => {
+      if (intervalId) clearInterval(intervalId);
       if (widgetIdRef.current !== null && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {
+          // Widget already removed
+        }
+        widgetIdRef.current = null;
       }
     };
   }, [handleToken, onToken]);
