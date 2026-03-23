@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
+import { RevisionHistoryModal } from "./RevisionHistoryModal.jsx";
 import { supabase } from "../supabaseClient";
 
 export const QuestionList = ({
@@ -11,6 +12,7 @@ export const QuestionList = ({
   setShowForm,
 }) => {
   const [updatingFlag, setUpdatingFlag] = useState(null);
+  const [showHistoryId, setShowHistoryId] = useState(null);
   const confirm = useConfirm();
 
   // Get flag badge configuration
@@ -44,6 +46,15 @@ export const QuestionList = ({
         className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${config.className}`}
       >
         {config.label}
+      </span>
+    );
+  };
+
+  const getRevisedBadge = (hasRevisions) => {
+    if (!hasRevisions) return null;
+    return (
+      <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase border bg-purple-100 text-purple-700 border-purple-300">
+        Item Revised
       </span>
     );
   };
@@ -110,6 +121,7 @@ export const QuestionList = ({
                     </span>
                     <span className="text-gray-300">|</span>
                     {getFlagBadge(question.flag)}
+                    {getRevisedBadge(question.revision_history && question.revision_history.length > 0)}
                   </div>
                   <p className="text-gray-800 font-semibold">{question.text}</p>
                   {question.quiz_title && (
@@ -132,6 +144,15 @@ export const QuestionList = ({
                   >
                     Edit
                   </button>
+                  {question.flag === 'needs_revision' && question.revision_history && question.revision_history.length > 0 && (
+                    <button
+                      onClick={() => setShowHistoryId(question.id)}
+                      className="text-purple-600 hover:text-purple-800 font-semibold text-sm"
+                    >
+                      Revision History
+                    </button>
+                  )}
+
                   <button
                     onClick={async () => {
                       const confirmed = await confirm({
@@ -233,6 +254,12 @@ export const QuestionList = ({
           ))}
         </div>
       )}
+      <RevisionHistoryModal 
+        isOpen={showHistoryId !== null}
+        onClose={() => setShowHistoryId(null)}
+        revisions={filteredQuestions.find(q => q.id === showHistoryId)?.revision_history || []}
+        questionId={showHistoryId} 
+      />
     </div>
   );
 };
