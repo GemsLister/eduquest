@@ -365,7 +365,14 @@ export const ItemAnalysisPage = () => {
   };
 
   if (loadingSections)
-    return <div className="p-20 text-center">Loading Sections...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Loading sections...</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -400,7 +407,14 @@ export const ItemAnalysisPage = () => {
 
         {(() => {
           if (!selectedQuiz) return null;
-          if (loading) return <div className="text-center py-8">Analyzing...</div>;
+          if (loading) return (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold"></div>
+                <p className="mt-3 text-brand-navy font-semibold text-sm">Analyzing...</p>
+              </div>
+            </div>
+          );
           if (analysis.length === 0) return <div className="text-center py-8">No responses found for this quiz.</div>;
 
           const filteredAnalysis = analysis.filter((item) =>

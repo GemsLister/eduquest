@@ -20,6 +20,12 @@
   --color-sea-green: #30675C;
   --color-hornblende-green: #234E4D;
   --color-casual-green: #8BC1A1;
+  /* Brand Palette */
+  --color-brand-gold: #F2BF51;
+  --color-brand-gold-dark: #EEBB48;
+  --color-brand-navy: #121E31;
+  --color-brand-indigo: #08035D;
+  --color-brand-indigo-dark: #0F0C4D;
   /* Font */
   --font-mona-sans: "Mona Sans", sans-serif;
 }
@@ -30,4 +36,11 @@ body {
 
 button {
     cursor: pointer;
+}
+
+/* Hide browser's built-in password reveal icon */
+input::-ms-reveal,
+input::-ms-clear,
+input::-webkit-credentials-auto-fill-button {
+    display: none;
 }

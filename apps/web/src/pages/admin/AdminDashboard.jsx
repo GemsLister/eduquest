@@ -255,8 +255,8 @@ export const AdminDashboard = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
-        <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Admin
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -276,7 +276,7 @@ export const AdminDashboard = () => {
               <p className="text-sm text-gray-500 font-medium">
                 Total Instructors
               </p>
-              <p className="text-3xl font-black text-hornblende-green">
+              <p className="text-3xl font-black text-brand-navy">
                 {loading ? "—" : instructors.length}
               </p>
             </div>
@@ -284,14 +284,14 @@ export const AdminDashboard = () => {
 
           <a
             href="/admin-dashboard/quiz-reviews"
-            className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+            className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-brand-gold/30 hover:shadow-md transition-all cursor-pointer"
           >
             <div className="text-3xl">🧠</div>
             <div>
               <p className="text-sm text-gray-500 font-medium">
                 Pending Reviews
               </p>
-              <p className="text-3xl font-black text-indigo-600">
+              <p className="text-3xl font-black text-brand-navy">
                 {reviewsLoading ? "—" : pendingReviews}
               </p>
             </div>
@@ -363,7 +363,7 @@ export const AdminDashboard = () => {
                     <span className="text-sm text-gray-500">
                       Total Questions Analyzed
                     </span>
-                    <span className="text-lg font-bold text-indigo-600">
+                    <span className="text-lg font-bold text-brand-navy">
                       {bloomsStats.totalQuestions}
                     </span>
                   </div>
@@ -447,11 +447,11 @@ export const AdminDashboard = () => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className="bg-emerald-50 rounded-lg p-3">
-                    <p className="text-2xl font-black text-emerald-600">
+                  <div className="bg-brand-navy/5 rounded-lg p-3">
+                    <p className="text-2xl font-black text-brand-navy">
                       {bloomsStats.totalLots}
                     </p>
-                    <p className="text-xs text-emerald-500 font-medium">
+                    <p className="text-xs text-brand-navy font-medium">
                       LOTS Questions
                     </p>
                   </div>
@@ -488,11 +488,11 @@ export const AdminDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
               onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
                 </div>
@@ -502,7 +502,7 @@ export const AdminDashboard = () => {
                   </span>
                 )}
               </div>
-              <p className="font-bold text-gray-800 text-sm group-hover:text-indigo-600 transition-colors">
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
                 Review Submissions
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -512,7 +512,7 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/registration-requests")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-green-300 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
@@ -526,7 +526,7 @@ export const AdminDashboard = () => {
                   </span>
                 )}
               </div>
-              <p className="font-bold text-gray-800 text-sm group-hover:text-green-600 transition-colors">
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
                 Registration Requests
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -536,16 +536,16 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/instructors")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-blue-300 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
               </div>
-              <p className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
                 Manage Instructors
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -555,16 +555,16 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/create-instructor")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-purple-300 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="w-10 h-10 rounded-lg bg-brand-gold/15 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </div>
               </div>
-              <p className="font-bold text-gray-800 text-sm group-hover:text-purple-600 transition-colors">
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-gold-dark transition-colors">
                 Create Instructor
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -666,7 +666,7 @@ export const AdminDashboard = () => {
               </h2>
               <button
                 onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors"
               >
                 View All
               </button>

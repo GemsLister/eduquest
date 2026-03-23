@@ -24,15 +24,15 @@ export const AdminCreateInstructor = () => {
   return (
     <>
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
-        <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Admin
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Create Instructor
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Add a new instructor account to EduQuest.
+          Add a new instructor account to BUKSU CITL.
         </p>
       </div>
 

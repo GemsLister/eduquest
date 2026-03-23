@@ -631,8 +631,8 @@ export const InstructorQuiz = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">
             Loading quiz...
           </p>
         </div>
@@ -643,7 +643,7 @@ export const InstructorQuiz = () => {
   return (
     <div className="flex-1 overflow-auto bg-authentic-white">
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-casual-green to-hornblende-green px-6 py-5">
+      <div className="bg-brand-navy px-6 py-5">
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={() => navigate("/instructor-dashboard/quizzes")}
@@ -746,11 +746,14 @@ export const InstructorQuiz = () => {
       )}
 
       {(showShareUrl || isPublished) && shareToken && (
-        <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-lg">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">
-            ✅ Quiz Published Successfully!
+        <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
+          <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Quiz Published Successfully!
           </h3>
-          <p className="text-blue-800 mb-4">
+          <p className="text-gray-700 mb-4">
             Share this link with students so they can take the quiz:
           </p>
           <div className="flex gap-2">
@@ -758,24 +761,24 @@ export const InstructorQuiz = () => {
               type="text"
               value={`${window.location.origin}/quiz/${shareToken}`}
               readOnly
-              className="flex-1 px-4 py-3 bg-white border border-blue-300 rounded-lg font-mono text-sm"
+              className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
             />
             <button
               onClick={copyToClipboard}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+              className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
             >
               Copy Link
             </button>
           </div>
-          <p className="text-sm text-blue-700 mt-3 bg-white p-3 rounded">
-            📌 <strong>Share Code:</strong>{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded">{shareToken}</code>
+          <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
+            <strong>Share Code:</strong>{" "}
+            <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
           </p>
         </div>
       )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-hornblende-green mb-4">
+        <h2 className="text-xl font-bold text-brand-navy mb-4">
           Quiz Information
         </h2>
 
@@ -796,7 +799,7 @@ export const InstructorQuiz = () => {
               onChange={(e) => { setQuizTitle(e.target.value); markDirty(); }}
               placeholder="e.g., Biology Chapter 5 Test"
               disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
           <div>
@@ -810,7 +813,7 @@ export const InstructorQuiz = () => {
               onChange={(e) => { setQuizDuration(e.target.value); markDirty(); }}
               placeholder="Leave blank for unlimited"
               disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
         </div>
@@ -819,7 +822,7 @@ export const InstructorQuiz = () => {
       {showAddQuestionPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
-            <h3 className="text-lg font-bold text-hornblende-green mb-4">
+            <h3 className="text-lg font-bold text-brand-navy mb-4">
               How many questions do you want to add?
             </h3>
             <input
@@ -830,12 +833,12 @@ export const InstructorQuiz = () => {
               onChange={(e) =>
                 setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 mb-4 text-center text-lg"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
             />
             <div className="flex gap-3">
               <button
                 onClick={() => addMultipleQuestions(questionCount)}
-                className="flex-1 bg-casual-green text-white py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+                className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
               >
                 Add {questionCount} Question{questionCount > 1 ? "s" : ""}
               </button>
@@ -890,7 +893,7 @@ export const InstructorQuiz = () => {
                       }
                     }}
                     disabled={isPublished}
-                    className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                    className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
                   />
                   <span className="text-sm font-semibold text-gray-800">
                     Select All
@@ -907,7 +910,7 @@ export const InstructorQuiz = () => {
                       key={sec.id}
                       className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedSectionIds.includes(sec.id)
-                          ? "border-casual-green bg-green-50"
+                          ? "border-brand-gold bg-brand-gold/10"
                           : "border-gray-200 hover:bg-gray-50"
                       } ${isPublished ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
@@ -926,7 +929,7 @@ export const InstructorQuiz = () => {
                             );
                         }}
                         disabled={isPublished}
-                        className="form-checkbox h-4 w-4 text-casual-green border-gray-300 rounded"
+                        className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
                       />
                       <div>
                         <span className="block text-sm font-medium text-gray-800">
@@ -960,7 +963,7 @@ export const InstructorQuiz = () => {
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6 gap-4">
           <div>
-            <h2 className="text-xl font-bold text-hornblende-green">
+            <h2 className="text-xl font-bold text-brand-navy">
               Questions ({questions.length})
             </h2>
           </div>
@@ -982,7 +985,7 @@ export const InstructorQuiz = () => {
               
               <button
                 onClick={addQuestion}
-                className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors text-sm"
+                className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
               >
                 + Add Question
               </button>
@@ -994,10 +997,13 @@ export const InstructorQuiz = () => {
                   );
                   setQuestions(shuffled);
                 }}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1"
+                className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5"
                 title="Randomize question order for students"
               >
-                🔀 Shuffle
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Shuffle
               </button>
 
               <button
@@ -1033,7 +1039,7 @@ export const InstructorQuiz = () => {
             {!isPublished && (
               <button
                 onClick={addQuestion}
-                className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+                className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
               >
                 Add First Question
               </button>
@@ -1047,7 +1053,7 @@ export const InstructorQuiz = () => {
                 className={`border-2 rounded-lg p-5 transition-colors ${
                   selectedQuestionIds.includes(question.id)
                     ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-casual-green"
+                    : "border-gray-200 hover:border-brand-gold"
                 }`}
               >
                 <div className="flex justify-between items-start mb-4">
@@ -1088,16 +1094,16 @@ export const InstructorQuiz = () => {
                       >
                         {deletingQuestionId === question.id
                           ? "..."
-                          : "📁 Archive"}
+                          : <><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>Archive</>}
                       </button>
                       <button
                         onClick={async (e) => {
                           e.preventDefault();
                           const confirmed = await confirm({
-                            title: "Delete Question",
+                            title: "Remove Question",
                             message:
-                              "Delete this question permanently? This cannot be undone.",
-                            confirmText: "Delete",
+                              "Remove this question permanently? This cannot be undone.",
+                            confirmText: "Remove",
                             cancelText: "Cancel",
                             variant: "danger",
                           });
@@ -1118,7 +1124,7 @@ export const InstructorQuiz = () => {
                                   if (error) {
                                     console.error("Delete error:", error);
                                     toast.error(
-                                      "Delete failed: " + error.message,
+                                      "Remove failed: " + error.message,
                                     );
                                   } else {
                                     setQuestions(
@@ -1133,7 +1139,8 @@ export const InstructorQuiz = () => {
                         }}
                         className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
                       >
-                        🗑️ Delete
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Remove
                       </button>
                     </div>
                   )}
@@ -1151,7 +1158,7 @@ export const InstructorQuiz = () => {
                     placeholder="Enter the question"
                     rows="2"
                     disabled={isPublished}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                   />
                 </div>
 
@@ -1186,7 +1193,7 @@ export const InstructorQuiz = () => {
                               updateOption(question.id, optIdx, e.target.value)
                             }
                             placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
                           />
                           {question.options.length > 2 && (
                             <button
@@ -1201,7 +1208,7 @@ export const InstructorQuiz = () => {
                     </div>
                     <button
                       onClick={() => addOption(question.id)}
-                      className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
+                      className="text-sm text-brand-gold-dark font-semibold mt-2 hover:text-brand-navy"
                     >
                       + Add Option
                     </button>
@@ -1257,7 +1264,7 @@ export const InstructorQuiz = () => {
                       )
                     }
                     min="1"
-                    className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                    className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
                   />
                 </div>
               </div>
@@ -1279,7 +1286,7 @@ export const InstructorQuiz = () => {
                   setLastSaved(new Date());
                 }}
                 disabled={loading}
-                className="bg-casual-green hover:bg-hornblende-green text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -1292,7 +1299,7 @@ export const InstructorQuiz = () => {
                 disabled={
                   questions.length === 0 || questions.some((q) => !q.text.trim())
                 }
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   questions.length === 0
                     ? "Add questions first"

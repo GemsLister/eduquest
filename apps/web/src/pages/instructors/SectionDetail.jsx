@@ -20,8 +20,8 @@ export const SectionDetail = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -42,16 +42,17 @@ export const SectionDetail = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-hornblende-green via-emerald-700 to-hornblende-green px-6 py-8">
+      <div className="bg-brand-navy px-6 py-8">
         <button
           onClick={() => navigate("/instructor-dashboard")}
-          className="text-emerald-200 hover:text-white font-semibold mb-4 flex items-center gap-1 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-lg transition-colors mb-4"
         >
-          ← Back to Subjects
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back to Subjects
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-emerald-200 text-sm font-semibold uppercase tracking-widest mb-1">
+            <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
               Subject
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -64,21 +65,15 @@ export const SectionDetail = () => {
           <div className="flex items-center gap-3">
             <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
               <p className="text-2xl font-black text-white">{quizzes.length}</p>
-              <p className="text-emerald-200 text-xs font-semibold">Quizzes</p>
+              <p className="text-white/60 text-xs font-semibold">Quizzes</p>
             </div>
             <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
               <p className="text-2xl font-black text-white">{openCount}</p>
-              <p className="text-emerald-200 text-xs font-semibold">Open</p>
+              <p className="text-white/60 text-xs font-semibold">Open</p>
             </div>
             <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
               <p className="text-2xl font-black text-white">{totalAttempts}</p>
-              <p className="text-emerald-200 text-xs font-semibold">Attempts</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
-              <p className="text-xs text-emerald-200 font-semibold mb-0.5">Exam Code</p>
-              <p className="text-lg font-black text-white tracking-wider">
-                {section.exam_code}
-              </p>
+              <p className="text-white/60 text-xs font-semibold">Attempts</p>
             </div>
           </div>
         </div>

@@ -1,56 +1,36 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 
 const cardThemes = [
   {
-    gradient: "from-violet-500 to-purple-700",
-    button: "bg-violet-600 hover:bg-violet-700",
-    badge: "bg-violet-50 text-violet-700 border-violet-200",
-    statBg: "bg-violet-50",
-    statText: "text-violet-700",
+    gradient: "from-brand-navy to-brand-indigo",
+    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    statBg: "bg-brand-navy/5",
+    statText: "text-brand-navy",
   },
   {
-    gradient: "from-sky-500 to-blue-700",
-    button: "bg-blue-600 hover:bg-blue-700",
-    badge: "bg-sky-50 text-blue-700 border-sky-200",
-    statBg: "bg-sky-50",
-    statText: "text-blue-700",
+    gradient: "from-brand-indigo to-brand-indigo-dark",
+    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    statBg: "bg-brand-indigo/5",
+    statText: "text-brand-indigo",
   },
   {
-    gradient: "from-amber-400 to-orange-600",
-    button: "bg-orange-500 hover:bg-orange-600",
-    badge: "bg-amber-50 text-orange-700 border-amber-200",
-    statBg: "bg-amber-50",
-    statText: "text-orange-700",
-  },
-  {
-    gradient: "from-rose-500 to-pink-700",
-    button: "bg-rose-600 hover:bg-rose-700",
-    badge: "bg-rose-50 text-rose-700 border-rose-200",
-    statBg: "bg-rose-50",
-    statText: "text-rose-700",
-  },
-  {
-    gradient: "from-hornblende-green to-sea-green",
-    button: "bg-hornblende-green hover:bg-dark-aquamarine-green",
-    badge: "bg-green-50 text-hornblende-green border-green-200",
-    statBg: "bg-green-50",
-    statText: "text-hornblende-green",
+    gradient: "from-brand-indigo-dark to-brand-navy",
+    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    statBg: "bg-brand-navy/5",
+    statText: "text-brand-navy",
   },
 ];
 
 export const ClassInfo = ({
   sectionId,
   sectionName,
-  examCode,
   subject,
   quizzes = [],
   onEdit,
   onArchive,
 }) => {
   const navigate = useNavigate();
-  const [copiedCode, setCopiedCode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
   const theme = cardThemes[sectionName?.charCodeAt(0) % cardThemes.length];
@@ -60,17 +40,6 @@ export const ClassInfo = ({
   const openQuizzes = quizzes.filter((q) => q.is_open !== false).length;
   const totalAttempts = quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0);
 
-  const handleCopyCode = (e) => {
-    e.stopPropagation();
-    navigator.clipboard
-      .writeText(examCode)
-      .then(() => {
-        setCopiedCode(true);
-        toast.success("Exam code copied!");
-        setTimeout(() => setCopiedCode(false), 2000);
-      })
-      .catch(() => toast.error("Failed to copy"));
-  };
 
   return (
     <div className="flex flex-col h-full relative">
@@ -93,7 +62,7 @@ export const ClassInfo = ({
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-white"
+            className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
@@ -144,24 +113,6 @@ export const ClassInfo = ({
 
       {/* Card Body */}
       <div className="p-4 flex flex-col flex-1">
-        {/* Exam Code — clickable to copy */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Exam Code
-          </span>
-          <button
-            onClick={handleCopyCode}
-            className={`ml-auto font-mono font-bold text-xs px-2 py-1 rounded-md border transition-colors cursor-pointer ${
-              copiedCode
-                ? "bg-green-50 text-green-700 border-green-300"
-                : `${theme.badge} hover:opacity-80`
-            }`}
-            title="Click to copy"
-          >
-            {copiedCode ? "Copied!" : examCode}
-          </button>
-        </div>
-
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2 py-3 border-t border-gray-100">
           <div className={`rounded-lg px-2 py-1.5 text-center ${theme.statBg}`}>
@@ -189,9 +140,9 @@ export const ClassInfo = ({
         {/* Action */}
         <button
           onClick={() => navigate(`/instructor-dashboard/section/${sectionId}`)}
-          className={`mt-auto w-full text-white py-2.5 rounded-lg font-semibold text-sm transition-colors ${theme.button}`}
+          className={`mt-auto w-full py-2.5 rounded-lg font-bold text-sm transition-colors ${theme.button}`}
         >
-          View Subject →
+          View Subject
         </button>
       </div>
     </div>

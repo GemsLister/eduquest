@@ -168,8 +168,8 @@ export const AdminQuizReviews = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-purple-800 to-indigo-700 px-6 py-8">
-        <p className="text-indigo-200 text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Admin
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
@@ -208,7 +208,7 @@ export const AdminQuizReviews = () => {
               placeholder="Search by quiz title or instructor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent"
             />
             {search && (
               <button
@@ -239,7 +239,7 @@ export const AdminQuizReviews = () => {
                 <span
                   className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${
                     filter === tab.key
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-brand-navy text-white"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >
@@ -254,16 +254,16 @@ export const AdminQuizReviews = () => {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">Loading submissions...</p>
             </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
-            <div className="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-2xl flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8 text-indigo-500"
+                className="h-8 w-8 text-brand-navy"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -298,7 +298,7 @@ export const AdminQuizReviews = () => {
                   onClick={() =>
                     navigate(`/admin-dashboard/quiz-reviews/${submission.id}`)
                   }
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all p-5 cursor-pointer group"
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
                 >
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
@@ -314,7 +314,7 @@ export const AdminQuizReviews = () => {
                     <div className="flex-1 min-w-0">
                       {/* Title Row */}
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors truncate">
+                        <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
                           {submission.quizzes?.title || "Untitled Quiz"}
                         </h3>
                         {getStatusBadge(submission.status)}
@@ -360,7 +360,7 @@ export const AdminQuizReviews = () => {
                       {summary && (
                         <div className="flex items-center gap-3 flex-wrap">
                           {/* Question count pill */}
-                          <span className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 rounded-lg text-xs font-semibold text-indigo-600">
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-brand-navy/10 rounded-lg text-xs font-semibold text-brand-navy">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -454,10 +454,10 @@ export const AdminQuizReviews = () => {
 
                     {/* Review Arrow */}
                     <div className="shrink-0 flex items-center self-center">
-                      <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+                      <div className="w-9 h-9 rounded-lg bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-navy transition-colors">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 text-indigo-500 group-hover:text-white transition-colors"
+                          className="h-4 w-4 text-brand-navy group-hover:text-white transition-colors"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"

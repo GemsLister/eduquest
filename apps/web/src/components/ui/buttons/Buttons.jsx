@@ -14,7 +14,7 @@ export const GoogleButton = () => {
     <button
       type="button"
       onClick={handleGoogleLogin}
-      className="flex items-center justify-center border-[2px] rounded-[8px] border-pale-silver hover:bg-fur-white p-2.5 text-[clamp(10px,3dvw,14px)] gap-2.5"
+      className="flex items-center justify-center border-[2px] rounded-[8px] border-pale-silver hover:bg-brand-gold/5 hover:border-brand-gold/30 p-2.5 text-[clamp(10px,3dvw,14px)] gap-2.5 transition-colors"
     >
       <img
         src={googleIcon}
@@ -97,7 +97,7 @@ export const AuthButton = ({ name, user }) => {
     <button
       type="submit"
       onClick={handleClick}
-      className="bg-sea-green hover:bg-hornblende-green mt-7 text-white p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full"
+      className="bg-brand-gold hover:bg-brand-gold-dark mt-7 text-brand-navy font-semibold p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full transition-colors"
     >
       {name}
     </button>

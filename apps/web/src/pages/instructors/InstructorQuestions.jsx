@@ -57,8 +57,8 @@ export const InstructorQuestions = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -69,7 +69,7 @@ export const InstructorQuestions = () => {
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-hornblende-green mb-2">
+          <h1 className="text-3xl font-bold text-brand-navy mb-2">
             Question Bank
           </h1>
           <p className="text-gray-600">
@@ -78,7 +78,7 @@ export const InstructorQuestions = () => {
         </div>
         <button
           onClick={handleAddQuestion}
-          className="bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+          className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
         >
           + New Question
         </button>

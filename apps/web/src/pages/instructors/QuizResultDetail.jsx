@@ -81,8 +81,8 @@ export const QuizResultDetail = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">
             Loading details...
           </p>
         </div>
@@ -95,9 +95,10 @@ export const QuizResultDetail = () => {
       <div className="flex-1 overflow-auto bg-authentic-white p-6">
         <button
           onClick={() => navigate(-1)}
-          className="text-casual-green font-semibold mb-4 hover:underline"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
         >
-          ← Back
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
         </button>
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -116,12 +117,13 @@ export const QuizResultDetail = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="text-casual-green font-semibold mb-4 hover:underline"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
         >
-          ← Back to Results
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
         </button>
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-3xl font-bold text-hornblende-green mb-4">
+          <h1 className="text-3xl font-bold text-brand-navy mb-4">
             {quiz?.title}
           </h1>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -147,7 +149,7 @@ export const QuizResultDetail = () => {
         </div>
 
         {/* Score Card */}
-        <div className="bg-gradient-to-r from-casual-green to-hornblende-green rounded-lg shadow-lg p-8 text-white mb-8">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo rounded-lg shadow-lg p-8 text-white mb-8">
           <h2 className="text-2xl font-bold mb-4">Final Score</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
@@ -191,7 +193,7 @@ export const QuizResultDetail = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Points</p>
-                  <p className="text-2xl font-bold text-casual-green">
+                  <p className="text-2xl font-bold text-brand-gold-dark">
                     {response?.points_earned || 0}/{question.points || 1}
                   </p>
                 </div>

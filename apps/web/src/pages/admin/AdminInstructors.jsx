@@ -57,8 +57,8 @@ export const AdminInstructors = () => {
   return (
     <>
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
-        <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Admin
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -101,7 +101,7 @@ export const AdminInstructors = () => {
               placeholder="Search by name, email, or username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-casual-green focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent"
             />
             {search && (
               <button
@@ -142,7 +142,7 @@ export const AdminInstructors = () => {
                 <span
                   className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
                     statusFilter === f.key
-                      ? "bg-casual-green text-white"
+                      ? "bg-brand-gold text-brand-navy"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >
@@ -156,7 +156,7 @@ export const AdminInstructors = () => {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-casual-green mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">Loading instructors...</p>
             </div>
           </div>
@@ -260,10 +260,10 @@ export const AdminInstructors = () => {
               <button
                 onClick={handleConfirmStatus}
                 disabled={statusLoading === statusTarget.id}
-                className={`flex-1 px-4 py-2.5 text-white rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 ${
+                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 ${
                   statusTarget.is_disabled
-                    ? "bg-casual-green hover:bg-hornblende-green"
-                    : "bg-amber-500 hover:bg-amber-600"
+                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
+                    : "bg-amber-500 hover:bg-amber-600 text-white"
                 }`}
               >
                 {statusLoading === statusTarget.id

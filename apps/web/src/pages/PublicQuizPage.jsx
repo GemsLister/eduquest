@@ -183,8 +183,8 @@ export const PublicQuizPage = () => {
     const studentId = email.split("@")[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-    if (!email.endsWith("@student.buksu.edu.ph")) {
-      setError("Only @student.buksu.edu.ph email addresses are allowed.");
+    if (!email.endsWith('@gmail.com')) {
+      setError('You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.');
       await supabase.auth.signOut();
       setSession(null);
       setAuthenticating(false);

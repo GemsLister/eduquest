@@ -405,12 +405,12 @@ export const InstructorTable = ({
                 placeholder="New password (min. 6 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 pr-16 text-sm focus:outline-none focus:border-casual-green"
+                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 pr-16 text-sm focus:outline-none focus:border-brand-gold"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-sea-green transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors"
               >
                 {showNewPassword ? "Hide" : "Show"}
               </button>
@@ -425,7 +425,7 @@ export const InstructorTable = ({
               <button
                 onClick={handleChangePwdSubmit}
                 disabled={pwdLoading}
-                className="flex-1 px-4 py-2.5 bg-casual-green text-white rounded-lg font-semibold text-sm hover:bg-hornblende-green transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
               >
                 {pwdLoading ? "Saving..." : "Save Password"}
               </button>

@@ -365,10 +365,10 @@ export const QuestionBank = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">
             Loading questions...
           </p>
         </div>
@@ -383,11 +383,12 @@ export const QuestionBank = () => {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="text-casual-green font-semibold mb-2 hover:underline"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-2"
           >
-            ← Back
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back
           </button>
-          <h1 className="text-3xl font-bold text-hornblende-green mb-2">
+          <h1 className="text-3xl font-bold text-brand-navy mb-2">
             Question Bank
           </h1>
           <p className="text-gray-600">
@@ -398,7 +399,7 @@ export const QuestionBank = () => {
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+          className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
         >
           + Add to Bank
         </button>
@@ -410,7 +411,7 @@ export const QuestionBank = () => {
           onClick={() => setActiveTab("active")}
           className={`px-6 py-3 font-semibold ${
             activeTab === "active"
-              ? "text-casual-green border-b-2 border-casual-green"
+              ? "text-brand-gold border-b-2 border-brand-gold"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -420,7 +421,7 @@ export const QuestionBank = () => {
           onClick={() => setActiveTab("archived")}
           className={`px-6 py-3 font-semibold ${
             activeTab === "archived"
-              ? "text-casual-green border-b-2 border-casual-green"
+              ? "text-brand-gold border-b-2 border-brand-gold"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -431,7 +432,7 @@ export const QuestionBank = () => {
             onClick={() => setActiveTab("import")}
             className={`px-6 py-3 font-semibold ${
               activeTab === "import"
-                ? "text-casual-green border-b-2 border-casual-green"
+                ? "text-brand-gold border-b-2 border-brand-gold"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -471,7 +472,7 @@ export const QuestionBank = () => {
             placeholder="Search questions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
           />
         </div>
       </div>
@@ -485,7 +486,7 @@ export const QuestionBank = () => {
                 type="checkbox"
                 checked={selectAll}
                 onChange={handleSelectAllToggle}
-                className="mr-2 h-5 w-5 text-casual-green rounded"
+                className="mr-2 h-5 w-5 text-brand-gold rounded"
               />
               <span className="text-blue-800 font-semibold text-sm">
                 Select All ({displayedQuestions.length})
@@ -607,8 +608,8 @@ export const QuestionBank = () => {
                   selectedActiveQuestions.some((q) => q.id === question.id)) ||
                 (activeTab === "archived" &&
                   selectedArchivedQuestions.some((q) => q.id === question.id))
-                  ? " border-casual-green bg-green-50"
-                  : " border-gray-200 hover:border-casual-green"
+                  ? " border-brand-gold bg-green-50"
+                  : " border-gray-200 hover:border-brand-gold"
               }`}
             >
               <div className="flex justify-between items-start">
@@ -630,7 +631,7 @@ export const QuestionBank = () => {
                             : false
                     }
                     onChange={(e) => {}}
-                    className="mr-3 h-5 w-5 text-casual-green rounded pointer-events-none"
+                    className="mr-3 h-5 w-5 text-brand-gold rounded pointer-events-none"
                   />
 
                   <div className="inline">
@@ -702,10 +703,11 @@ export const QuestionBank = () => {
                           e.stopPropagation();
                           archiveQuestion(question.id);
                         }}
-                        className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold px-3 py-1"
+                        className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold px-3 py-1 flex items-center gap-1"
                         title="Archive this question"
                       >
-                        📁 Archive
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        Archive
                       </button>
                       {quizId && (
                         <button
@@ -714,9 +716,10 @@ export const QuestionBank = () => {
                             setSelectedQuestions([question]);
                             setActiveTab("import");
                           }}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-semibold px-3 py-1"
+                          className="text-brand-navy hover:text-brand-indigo text-sm font-semibold px-3 py-1 flex items-center gap-1"
                         >
-                          📥 Import
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          Import
                         </button>
                       )}
                     </>
@@ -728,19 +731,20 @@ export const QuestionBank = () => {
                           e.stopPropagation();
                           restoreQuestion(question.id);
                         }}
-                        className="text-green-600 hover:text-green-800 text-sm font-semibold px-3 py-1"
+                        className="text-green-600 hover:text-green-800 text-sm font-semibold px-3 py-1 flex items-center gap-1"
                         title="Restore this question"
                       >
-                        ♻️ Restore
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Restore
                       </button>
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
                           const confirmed = await confirm({
-                            title: "Delete Question Permanently",
+                            title: "Remove Question Permanently",
                             message:
-                              "Are you sure you want to permanently delete this question?",
-                            confirmText: "Delete",
+                              "Are you sure you want to permanently remove this question?",
+                            confirmText: "Remove",
                             cancelText: "Cancel",
                             variant: "danger",
                           });
@@ -748,10 +752,11 @@ export const QuestionBank = () => {
                             deleteQuestion(question.id);
                           }
                         }}
-                        className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1"
-                        title="Permanently delete"
+                        className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 flex items-center gap-1"
+                        title="Permanently remove"
                       >
-                        🗑️ Delete
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Remove
                       </button>
                     </>
                   )}
@@ -768,7 +773,7 @@ export const QuestionBank = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-hornblende-green">
+                <h2 className="text-2xl font-bold text-brand-navy">
                   Add Question to Bank
                 </h2>
                 <button
@@ -808,7 +813,7 @@ export const QuestionBank = () => {
                   }
                   placeholder="Enter your question"
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
                 />
               </div>
 
@@ -853,7 +858,7 @@ export const QuestionBank = () => {
                   </div>
                   <button
                     onClick={addOption}
-                    className="text-casual-green font-semibold mt-2"
+                    className="text-brand-gold font-semibold mt-2"
                   >
                     + Add Option
                   </button>
@@ -918,7 +923,7 @@ export const QuestionBank = () => {
               <div className="flex gap-4">
                 <button
                   onClick={handleAddToBank}
-                  className="flex-1 bg-casual-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+                  className="flex-1 bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
                 >
                   Add to Bank
                 </button>

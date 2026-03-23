@@ -19,7 +19,7 @@ export const ItemAnalysisHeader = ({
     <div>
       <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
         {/* Header Title Section */}
-        <div className="p-6 bg-hornblende-green text-white flex justify-between items-center">
+        <div className="p-6 bg-brand-navy text-white flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold uppercase tracking-wider">
               Item Analysis Report

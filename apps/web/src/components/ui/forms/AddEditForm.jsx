@@ -46,8 +46,8 @@ export const AddEditForm = ({
   return (
     <div>
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-casual-green">
-          <h2 className="text-xl font-bold text-hornblende-green mb-4">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-brand-gold">
+          <h2 className="text-xl font-bold text-brand-navy mb-4">
             {editingId ? "Edit Question" : "Add New Question"}
           </h2>
 
@@ -63,7 +63,7 @@ export const AddEditForm = ({
                   setFormData({ ...formData, quiz_id: e.target.value })
                 }
                 disabled={loadingQuizzes}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 bg-white"
               >
                 <option value="">
                   {loadingQuizzes ? "Loading quizzes..." : "-- Select a Quiz --"}
@@ -90,7 +90,7 @@ export const AddEditForm = ({
                 }
                 placeholder="Enter the question"
                 rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
               />
             </div>
 
@@ -123,7 +123,7 @@ export const AddEditForm = ({
                         setFormData({ ...formData, options: newOptions });
                       }}
                       placeholder={`Option ${idx + 1}`}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
                     />
                     {formData.options.length > 2 && (
                       <button
@@ -148,7 +148,7 @@ export const AddEditForm = ({
                     options: [...formData.options, ""],
                   })
                 }
-                className="text-sm text-casual-green font-semibold mt-2 hover:text-hornblende-green"
+                className="text-sm text-brand-gold-dark font-semibold mt-2 hover:text-brand-navy"
               >
                 + Add Option
               </button>
@@ -169,7 +169,7 @@ export const AddEditForm = ({
                   })
                 }
                 min="1"
-                className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green"
+                className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
               />
             </div>
 
@@ -183,7 +183,7 @@ export const AddEditForm = ({
                 onChange={(e) =>
                   setFormData({ ...formData, flag: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-casual-green focus:ring-2 focus:ring-casual-green focus:ring-opacity-20 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 bg-white"
               >
                 <option value="pending">Pending Review</option>
                 <option value="approved">Approved</option>
@@ -201,7 +201,7 @@ export const AddEditForm = ({
           <div className="flex gap-2 mt-6">
             <button
               onClick={handleSaveQuestion}
-              className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
+              className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
             >
               Save Question
             </button>

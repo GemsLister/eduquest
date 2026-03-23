@@ -67,8 +67,8 @@ export const AdminRegistrationRequests = () => {
   return (
     <>
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-hornblende-green to-sea-green px-6 py-8">
-        <p className="text-casual-green text-sm font-semibold uppercase tracking-widest mb-1">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Admin
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
@@ -99,7 +99,7 @@ export const AdminRegistrationRequests = () => {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-casual-green mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">Loading requests...</p>
             </div>
           </div>
@@ -134,11 +134,11 @@ export const AdminRegistrationRequests = () => {
           <>
             {/* Approve All Bar */}
             {requests.length > 1 && (
-              <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3.5 mb-5">
+              <div className="flex items-center justify-between bg-brand-gold/10 border border-brand-gold/20 rounded-xl px-5 py-3.5 mb-5">
                 <div className="flex items-center gap-2">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-indigo-500"
+                    className="h-5 w-5 text-brand-gold-dark"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -150,7 +150,7 @@ export const AdminRegistrationRequests = () => {
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <p className="text-sm text-indigo-700">
+                  <p className="text-sm text-brand-navy">
                     <span className="font-semibold">{requests.length} requests</span>{" "}
                     are waiting for your review.
                   </p>
@@ -158,7 +158,7 @@ export const AdminRegistrationRequests = () => {
                 <button
                   onClick={handleApproveAll}
                   disabled={bulkLoading}
-                  className="px-4 py-2 bg-casual-green hover:bg-hornblende-green text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {bulkLoading ? (
                     <>
@@ -218,7 +218,7 @@ export const AdminRegistrationRequests = () => {
                   >
                     {/* Top: Avatar + Info */}
                     <div className="flex items-start gap-3 mb-4">
-                      <div className="w-11 h-11 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      <div className="w-11 h-11 rounded-full bg-brand-navy flex items-center justify-center text-white font-bold text-sm shrink-0">
                         {getInitials(req)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -271,7 +271,7 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleApprove(req.id)}
                         disabled={isActioning}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-casual-green text-white rounded-lg font-semibold text-xs hover:bg-hornblende-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isActioning ? (
                           <>

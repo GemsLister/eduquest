@@ -81,8 +81,8 @@ export const QuizResults = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-casual-green"></div>
-          <p className="mt-4 text-hornblende-green font-semibold">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+          <p className="mt-4 text-brand-navy font-semibold">
             Loading results...
           </p>
         </div>
@@ -95,9 +95,10 @@ export const QuizResults = () => {
       <div className="flex-1 overflow-auto bg-authentic-white p-6">
         <button
           onClick={() => navigate(-1)}
-          className="text-casual-green font-semibold mb-4 hover:underline"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
         >
-          ? Back
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
         </button>
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -111,12 +112,13 @@ export const QuizResults = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="text-casual-green font-semibold mb-4 hover:underline"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
         >
-          ? Back
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-hornblende-green mb-2">
+          <h1 className="text-3xl font-bold text-brand-navy mb-2">
             Quiz Results: {quiz?.title}
           </h1>
           <p className="text-gray-600">
@@ -140,7 +142,7 @@ export const QuizResults = () => {
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <table className="w-full">
-            <thead className="bg-casual-green text-white">
+            <thead className="bg-brand-navy text-white">
               <tr>
                 <th className="px-6 py-4 text-left font-semibold">
                   Student Name
@@ -183,7 +185,7 @@ export const QuizResults = () => {
                             `/instructor-dashboard/quiz-results/${quizId}/attempt/${attempt.id}`,
                           )
                         }
-                        className="bg-casual-green hover:bg-hornblende-green text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                        className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
                       >
                         View Details
                       </button>
@@ -205,7 +207,7 @@ export const QuizResults = () => {
             <p className="text-gray-600 text-sm font-semibold mb-2">
               Total Attempts
             </p>
-            <p className="text-3xl font-bold text-hornblende-green">
+            <p className="text-3xl font-bold text-brand-navy">
               {attempts.length}
             </p>
           </div>
