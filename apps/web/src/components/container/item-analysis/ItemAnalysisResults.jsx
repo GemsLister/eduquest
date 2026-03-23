@@ -21,6 +21,16 @@ export const ItemAnalysisResults = ({
   allTakers,
   selectedCohortFilter
 }) => {
+  const handleCreateV2 = async () => {
+    if (confirm('Create "v2" quiz with revised questions & approved originals?')) {
+      const result = await window.ItemAnalysisService.duplicateQuizWithRevisions(selectedQuiz, analysis);
+      if (result.success) {
+        alert(`✅ Created "${result.newQuizTitle}" (${result.revisedQuestionsCount} questions)`);
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    }
+  };
   return (
     <div>
       {/* Analysis Results */}
@@ -68,6 +78,23 @@ export const ItemAnalysisResults = ({
                   : analysisSaved 
                     ? "Saved ✓" 
                     : "Save Analysis"}
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm('Create "v2" quiz with revised questions & approved originals?')) {
+                    const { duplicateQuizWithRevisions } = ItemAnalysisService;
+                    const result = await duplicateQuizWithRevisions(selectedQuiz, analysis);
+                    if (result.success) {
+                      alert(`✅ Created "${result.newQuizTitle}" (${result.revisedQuestionsCount} questions)`);
+                    } else {
+                      alert(`❌ Error: ${result.error}`);
+                    }
+                  }
+                }}
+                disabled={!analysis || analysis.length === 0}
+                className="px-6 py-2 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all disabled:opacity-50"
+              >
+                🚀 Create Revised Quiz v2
               </button>
             </div>
           </div>
