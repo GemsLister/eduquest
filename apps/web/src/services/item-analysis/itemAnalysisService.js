@@ -11,6 +11,7 @@ export { getQuizAttempts } from "./getQuizAttempts";
 export { getInstructorsSection } from "./getInstructorsSection";
 export { getQuizzes } from "./getQuizzes";
 export { updateQuestionFlag } from "./updateQuestionFlag";
+export { duplicateQuizWithRevisions } from "./duplicateRevisedQuiz";
 
 // Sync analysis data to database
 import { supabase } from "../../supabaseClient";
