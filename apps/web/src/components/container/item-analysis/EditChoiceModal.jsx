@@ -92,14 +92,18 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
     ? [...questionData.revision_history].reverse() // Show newest revisions first
     : [];
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+const formatRelativeDate = (dateStr) => {
+    if (!dateStr) return "Unknown";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', day: 'numeric', year: 'numeric' 
     });
   };
 
@@ -220,7 +224,10 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                         className="w-full text-left group px-4 py-3 hover:bg-indigo-50 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-inset"
                       >
                         <div className="flex items-center gap-4">
-                          <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">{formatTime(rev.revised_at)}</span>
+<div className="text-[10px] font-bold text-slate-400 w-24 shrink-0">
+  <div>{formatRelativeDate(rev.revised_at)}</div>
+  <div className="text-[9px] opacity-75">{formatTime(rev.revised_at)}</div>
+</div>
                           
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-slate-600 truncate font-medium group-hover:text-indigo-600 transition-colors">
@@ -228,7 +235,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
-                                {formatDate(rev.revised_at)}
+                                {formatRelativeDate(rev.revised_at)}
                               </span>
                               <span className="text-[9px] text-slate-300 font-medium italic">
                                 Version {history.length - hIdx}
