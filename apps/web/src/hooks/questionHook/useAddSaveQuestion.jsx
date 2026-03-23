@@ -45,6 +45,20 @@ export const useAddSaveQuestion = () => {
 
       if (editingId) {
         // Update existing question
+        const { data: currentQuestion } = await supabase
+          .from("questions")
+          .select("text, options, revision_history")
+          .eq("id", editingId)
+          .single();
+
+        const now = new Date().toISOString();
+        const oldVersion = {
+          text: currentQuestion.text,
+          options: currentQuestion.options || [],
+          timestamp: now
+        };
+        const newHistory = [...(currentQuestion.revision_history || []), oldVersion];
+
         const { error } = await supabase
           .from("questions")
           .update({
@@ -53,7 +67,8 @@ export const useAddSaveQuestion = () => {
             correct_answer: formData.correctAnswer,
             points: formData.points,
             flag: formData.flag,
-            updated_at: new Date().toISOString(),
+            revision_history: newHistory,
+            updated_at: now,
           })
           .eq("id", editingId);
 
@@ -62,7 +77,7 @@ export const useAddSaveQuestion = () => {
           toast.error("Failed to update question: " + error.message);
           return;
         }
-        toast.success("Question updated successfully!");
+        toast.success("Question updated successfully! Revision history saved.");
       } else {
         // Create new question - need quiz_id
         if (!formData.quiz_id) {
