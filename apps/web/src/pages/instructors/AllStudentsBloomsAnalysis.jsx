@@ -55,19 +55,30 @@ export const AllStudentsBloomsAnalysis = () => {
 
           const sectionIds = sectionsData.map((s) => s.id);
 
-          // Get all quiz attempts for students in these sections
+          // Get quizzes assigned to these sections
+          const { data: quizSectionsData } = await supabase
+            .from("quiz_sections")
+            .select("quiz_id")
+            .in("section_id", sectionIds);
+
+          console.log("Quiz sections:", quizSectionsData);
+
+          if (!quizSectionsData || quizSectionsData.length === 0) {
+            console.log("No quizzes found in sections");
+            setLoading(false);
+            return;
+          }
+
+          const quizIds = [
+            ...new Set(quizSectionsData.map((qs) => qs.quiz_id)),
+          ];
+
+          // Get all quiz attempts for these quizzes
           const { data: attemptsData } = await supabase
             .from("quiz_attempts")
-            .select(
-              `
-              id,
-              student_id,
-              quiz_id,
-              score,
-              total_points
-            `
-            )
-            .in("section_id", sectionIds);
+            .select("id, user_id, quiz_id, score, total_points")
+            .in("quiz_id", quizIds)
+            .eq("status", "completed");
 
           console.log("Quiz attempts:", attemptsData);
 
@@ -77,18 +88,18 @@ export const AllStudentsBloomsAnalysis = () => {
             return;
           }
 
-          // Get unique student IDs
-          const studentIds = [
-            ...new Set(attemptsData.map((a) => a.student_id)),
+          // Get unique user IDs
+          const userIds = [
+            ...new Set(attemptsData.map((a) => a.user_id)),
           ];
 
-          console.log("Student IDs:", studentIds);
+          console.log("User IDs:", userIds);
 
-          // Get student profiles
+          // Get student profiles using user IDs
           const { data: studentProfilesData } = await supabase
             .from("student_profile")
-            .select("id, name, email, student_id, avatar_url")
-            .in("id", studentIds);
+            .select("id, name, email, student_id, avatar_url, user_id")
+            .in("user_id", userIds);
 
           console.log("Student profiles:", studentProfilesData);
 
@@ -127,12 +138,6 @@ export const AllStudentsBloomsAnalysis = () => {
 
           setStudents(studentProfilesData || []);
 
-          // Create a map of attempts for quick lookup
-          const attemptsMap = {};
-          attemptsData.forEach((attempt) => {
-            attemptsMap[attempt.id] = attempt;
-          });
-
           // Calculate stats for each student
           const stats = {};
           const classBloomsData = {};
@@ -148,8 +153,9 @@ export const AllStudentsBloomsAnalysis = () => {
           });
 
           studentProfilesData?.forEach((student) => {
+            // Match attempts using user_id
             const studentAttempts = attemptsData.filter(
-              (a) => a.student_id === student.id,
+              (a) => a.user_id === student.user_id,
             );
 
             const bloomsAnalysis = {};
