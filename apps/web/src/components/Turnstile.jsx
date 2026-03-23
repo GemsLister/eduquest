@@ -5,6 +5,20 @@ const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 export const Turnstile = ({ onToken }) => {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  const isConfigured = SITE_KEY && SITE_KEY.trim().length > 0;
+
+  if (!isConfigured) {
+    console.error(
+      "Cloudflare Turnstile site key is missing. Set VITE_TURNSTILE_SITE_KEY in your environment."
+    );
+    // Signal parent form that captcha is unavailable
+    if (onToken) onToken(null);
+    return (
+      <div className="mt-4 text-sm text-red-600">
+        Turnstile is not configured. Please set VITE_TURNSTILE_SITE_KEY.
+      </div>
+    );
+  }
 
   const handleToken = useCallback(
     (token) => {
