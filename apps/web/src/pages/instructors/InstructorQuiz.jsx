@@ -71,7 +71,14 @@ export const InstructorQuiz = () => {
     }, 30000);
 
     return () => clearTimeout(autoSaveTimer.current);
-  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished]);
+  }, [
+    hasUnsavedChanges,
+    quizTitle,
+    quizDescription,
+    quizDuration,
+    quizId,
+    isPublished,
+  ]);
 
   useEffect(() => {
     loadSections();
@@ -216,7 +223,9 @@ export const InstructorQuiz = () => {
       });
 
       setQuestions(transformedQuestions);
-      setTimeout(() => { initialLoadDone.current = true; }, 100);
+      setTimeout(() => {
+        initialLoadDone.current = true;
+      }, 100);
     } catch (err) {
       setError(err.message || "Failed to load quiz");
       console.error(err);
@@ -632,9 +641,7 @@ export const InstructorQuiz = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading quiz...
-          </p>
+          <p className="mt-4 text-brand-navy font-semibold">Loading quiz...</p>
         </div>
       </div>
     );
@@ -649,8 +656,19 @@ export const InstructorQuiz = () => {
             onClick={() => navigate("/instructor-dashboard/quizzes")}
             className="text-white/80 hover:text-white font-semibold text-sm transition-colors flex items-center gap-1"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             Quizzes
           </button>
@@ -685,7 +703,11 @@ export const InstructorQuiz = () => {
                 ) : lastSaved ? (
                   <>
                     <span className="inline-block h-2 w-2 rounded-full bg-green-300" />
-                    Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    Saved{" "}
+                    {lastSaved.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </>
                 ) : null}
               </span>
@@ -713,8 +735,19 @@ export const InstructorQuiz = () => {
               }
               className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
               </svg>
               View Results
             </button>
@@ -724,8 +757,19 @@ export const InstructorQuiz = () => {
               }
               className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
               </svg>
               Question Bank
             </button>
@@ -734,619 +778,736 @@ export const InstructorQuiz = () => {
       </div>
 
       <div className="p-6">
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error}
-        </div>
-      )}
-      {saveStatus && (
-        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-          {saveStatus}
-        </div>
-      )}
-
-      {(showShareUrl || isPublished) && shareToken && (
-        <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
-          <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Quiz Published Successfully!
-          </h3>
-          <p className="text-gray-700 mb-4">
-            Share this link with students so they can take the quiz:
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={`${window.location.origin}/quiz/${shareToken}`}
-              readOnly
-              className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-            />
-            <button
-              onClick={copyToClipboard}
-              className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-            >
-              Copy Link
-            </button>
-          </div>
-          <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
-            <strong>Share Code:</strong>{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
-          </p>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-brand-navy mb-4">
-          Quiz Information
-        </h2>
-
-        {isPublished && (
-          <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
-            🔒 This quiz is published and cannot be edited.
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
           </div>
         )}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Quiz Title *
-            </label>
-            <input
-              required
-              type="text"
-              value={quizTitle}
-              onChange={(e) => { setQuizTitle(e.target.value); markDirty(); }}
-              placeholder="e.g., Biology Chapter 5 Test"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
-            />
+        {saveStatus && (
+          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            {saveStatus}
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Duration (minutes)
-            </label>
-            <input
-              required
-              type="number"
-              value={quizDuration}
-              onChange={(e) => { setQuizDuration(e.target.value); markDirty(); }}
-              placeholder="Leave blank for unlimited"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
-            />
-          </div>
-        </div>
-      </div>
+        )}
 
-      {showAddQuestionPopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
-            <h3 className="text-lg font-bold text-brand-navy mb-4">
-              How many questions do you want to add?
-            </h3>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={questionCount}
-              onChange={(e) =>
-                setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => addMultipleQuestions(questionCount)}
-                className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+        {(showShareUrl || isPublished) && shareToken && (
+          <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
+            <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
               >
-                Add {questionCount} Question{questionCount > 1 ? "s" : ""}
-              </button>
-              <button
-                onClick={() => setShowAddQuestionPopup(false)}
-                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Section Selection Modal */}
-      {showSectionModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              handleCloseSectionModal();
-            }}
-          />
-          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Assign to Subjects
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              Quiz Published Successfully!
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Select which subjects this quiz should appear in.
+            <p className="text-gray-700 mb-4">
+              Share this link with students so they can take the quiz:
             </p>
-
-            {availableSections.length === 0 ? (
-              <div className="text-sm text-gray-500 py-4 text-center">
-                No sections available. Create one first!
-              </div>
-            ) : (
-              <>
-                {/* Select All */}
-                <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedSectionIds.length === availableSections.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSectionIds(
-                          availableSections.map((s) => s.id),
-                        );
-                      } else {
-                        setSelectedSectionIds([]);
-                      }
-                    }}
-                    disabled={isPublished}
-                    className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
-                  />
-                  <span className="text-sm font-semibold text-gray-800">
-                    Select All
-                  </span>
-                  <span className="ml-auto text-xs text-gray-400">
-                    {selectedSectionIds.length}/{availableSections.length}
-                  </span>
-                </label>
-
-                {/* Section List */}
-                <div className="max-h-64 overflow-y-auto space-y-2">
-                  {availableSections.map((sec) => (
-                    <label
-                      key={sec.id}
-                      className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedSectionIds.includes(sec.id)
-                          ? "border-brand-gold bg-brand-gold/10"
-                          : "border-gray-200 hover:bg-gray-50"
-                      } ${isPublished ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSectionIds.includes(sec.id)}
-                        onChange={(e) => {
-                          if (e.target.checked)
-                            setSelectedSectionIds([
-                              ...selectedSectionIds,
-                              sec.id,
-                            ]);
-                          else
-                            setSelectedSectionIds(
-                              selectedSectionIds.filter((id) => id !== sec.id),
-                            );
-                        }}
-                        disabled={isPublished}
-                        className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
-                      />
-                      <div>
-                        <span className="block text-sm font-medium text-gray-800">
-                          {sec.section_name || sec.name || "Untitled Section"}
-                        </span>
-                        {sec.description && (
-                          <span className="block text-xs text-gray-500">
-                            {sec.description}
-                          </span>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={`${window.location.origin}/quiz/${shareToken}`}
+                readOnly
+                className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
+              />
               <button
-                onClick={() => handleCloseSectionModal()}
-                disabled={saveSectionsLoading}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={copyToClipboard}
+                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
               >
-                {saveSectionsLoading ? "Saving..." : "Done"}
+                Copy Link
               </button>
+            </div>
+            <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
+              <strong>Share Code:</strong>{" "}
+              <code className="bg-gray-100 px-2 py-1 rounded font-mono">
+                {shareToken}
+              </code>
+            </p>
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-brand-navy mb-4">
+            Quiz Information
+          </h2>
+
+          {isPublished && (
+            <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
+              🔒 This quiz is published and cannot be edited.
+            </div>
+          )}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Quiz Title *
+              </label>
+              <input
+                required
+                type="text"
+                value={quizTitle}
+                onChange={(e) => {
+                  setQuizTitle(e.target.value);
+                  markDirty();
+                }}
+                placeholder="e.g., Biology Chapter 5 Test"
+                disabled={isPublished}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Duration (minutes)
+              </label>
+              <input
+                required
+                type="number"
+                value={quizDuration}
+                onChange={(e) => {
+                  setQuizDuration(e.target.value);
+                  markDirty();
+                }}
+                placeholder="Leave blank for unlimited"
+                disabled={isPublished}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              />
             </div>
           </div>
         </div>
-      )}
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-6 gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-brand-navy">
-              Questions ({questions.length})
-            </h2>
-          </div>
-          {!isPublished && (
-            <div className="flex gap-2 flex-wrap">
-              {bulkDeleteMode && (
-                <label className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
-                  <input
-                    type="checkbox"
-                    checked={selectedQuestionIds.length === questions.length && questions.length > 0}
-                    onChange={toggleSelectAll}
-                    className="form-checkbox h-4 w-4 text-blue-600"
-                  />
-                  <span className="text-sm font-semibold text-blue-700">
-                    Select All ({selectedQuestionIds.length}/{questions.length})
-                  </span>
-                </label>
-              )}
-              
-              <button
-                onClick={addQuestion}
-                className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
-              >
-                + Add Question
-              </button>
-
-              <button
-                onClick={() => {
-                  const shuffled = [...questions].sort(
-                    () => Math.random() - 0.5,
-                  );
-                  setQuestions(shuffled);
-                }}
-                className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5"
-                title="Randomize question order for students"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Shuffle
-              </button>
-
-              <button
-                onClick={() => {
-                  setBulkDeleteMode(!bulkDeleteMode);
-                  setSelectedQuestionIds([]);
-                }}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
-                  bulkDeleteMode
-                    ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-              >
-                {bulkDeleteMode ? "✕ Cancel" : "🗑️ Bulk Delete"}
-              </button>
-
-              {bulkDeleteMode && selectedQuestionIds.length > 0 && (
+        {showAddQuestionPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
+              <h3 className="text-lg font-bold text-brand-navy mb-4">
+                How many questions do you want to add?
+              </h3>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={questionCount}
+                onChange={(e) =>
+                  setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
+              />
+              <div className="flex gap-3">
                 <button
-                  onClick={handleBulkArchive}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm"
-                  title="Archive selected questions"
+                  onClick={() => addMultipleQuestions(questionCount)}
+                  className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
                 >
-                  Archive Selected ({selectedQuestionIds.length})
+                  Add {questionCount} Question{questionCount > 1 ? "s" : ""}
+                </button>
+                <button
+                  onClick={() => setShowAddQuestionPopup(false)}
+                  className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section Selection Modal */}
+        {showSectionModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => {
+                handleCloseSectionModal();
+              }}
+            />
+            <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-bold text-gray-800 mb-1">
+                Assign to Subjects
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Select which subjects this quiz should appear in.
+              </p>
+
+              {availableSections.length === 0 ? (
+                <div className="text-sm text-gray-500 py-4 text-center">
+                  No sections available. Create one first!
+                </div>
+              ) : (
+                <>
+                  {/* Select All */}
+                  <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedSectionIds.length === availableSections.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSectionIds(
+                            availableSections.map((s) => s.id),
+                          );
+                        } else {
+                          setSelectedSectionIds([]);
+                        }
+                      }}
+                      disabled={isPublished}
+                      className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
+                    />
+                    <span className="text-sm font-semibold text-gray-800">
+                      Select All
+                    </span>
+                    <span className="ml-auto text-xs text-gray-400">
+                      {selectedSectionIds.length}/{availableSections.length}
+                    </span>
+                  </label>
+
+                  {/* Section List */}
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {availableSections.map((sec) => (
+                      <label
+                        key={sec.id}
+                        className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedSectionIds.includes(sec.id)
+                            ? "border-brand-gold bg-brand-gold/10"
+                            : "border-gray-200 hover:bg-gray-50"
+                        } ${isPublished ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSectionIds.includes(sec.id)}
+                          onChange={(e) => {
+                            if (e.target.checked)
+                              setSelectedSectionIds([
+                                ...selectedSectionIds,
+                                sec.id,
+                              ]);
+                            else
+                              setSelectedSectionIds(
+                                selectedSectionIds.filter(
+                                  (id) => id !== sec.id,
+                                ),
+                              );
+                          }}
+                          disabled={isPublished}
+                          className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
+                        />
+                        <div>
+                          <span className="block text-sm font-medium text-gray-800">
+                            {sec.section_name || sec.name || "Untitled Section"}
+                          </span>
+                          {sec.description && (
+                            <span className="block text-xs text-gray-500">
+                              {sec.description}
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => handleCloseSectionModal()}
+                  disabled={saveSectionsLoading}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saveSectionsLoading ? "Saving..." : "Done"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6 gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-brand-navy">
+                Questions ({questions.length})
+              </h2>
+            </div>
+            {!isPublished && (
+              <div className="flex gap-2 flex-wrap">
+                {bulkDeleteMode && (
+                  <label className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedQuestionIds.length === questions.length &&
+                        questions.length > 0
+                      }
+                      onChange={toggleSelectAll}
+                      className="form-checkbox h-4 w-4 text-blue-600"
+                    />
+                    <span className="text-sm font-semibold text-blue-700">
+                      Select All ({selectedQuestionIds.length}/
+                      {questions.length})
+                    </span>
+                  </label>
+                )}
+
+                <button
+                  onClick={addQuestion}
+                  className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
+                >
+                  + Add Question
+                </button>
+
+                <button
+                  onClick={() => {
+                    const shuffled = [...questions].sort(
+                      () => Math.random() - 0.5,
+                    );
+                    setQuestions(shuffled);
+                  }}
+                  className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5"
+                  title="Randomize question order for students"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Shuffle
+                </button>
+
+                <button
+                  onClick={() => {
+                    setBulkDeleteMode(!bulkDeleteMode);
+                    setSelectedQuestionIds([]);
+                  }}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                    bulkDeleteMode
+                      ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  }`}
+                >
+                  {bulkDeleteMode ? "✕ Cancel" : "🗑️ Bulk Delete"}
+                </button>
+
+                {bulkDeleteMode && selectedQuestionIds.length > 0 && (
+                  <button
+                    onClick={handleBulkArchive}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm"
+                    title="Archive selected questions"
+                  >
+                    Archive Selected ({selectedQuestionIds.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {questions.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-4">No questions added yet</p>
+              {!isPublished && (
+                <button
+                  onClick={addQuestion}
+                  className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+                >
+                  Add First Question
                 </button>
               )}
             </div>
-          )}
-        </div>
-
-        {questions.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <p className="text-gray-500 mb-4">No questions added yet</p>
-            {!isPublished && (
-              <button
-                onClick={addQuestion}
-                className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
-              >
-                Add First Question
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {questions.map((question, idx) => (
-              <div
-                key={question.id}
-                className={`border-2 rounded-lg p-5 transition-colors ${
-                  selectedQuestionIds.includes(question.id)
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-brand-gold"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    {bulkDeleteMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedQuestionIds.includes(question.id)}
-                        onChange={() => toggleQuestionSelection(question.id)}
-                        className="form-checkbox h-5 w-5 text-blue-600 mt-0.5"
-                      />
-                    )}
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {idx + 1}. {question.text.substring(0, 50)}...
-                    </h3>
-                  </div>
-                  {!bulkDeleteMode && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          const confirmed = await confirm({
-                            title: "Archive Question",
-                            message:
-                              "Archive this question to Question Bank? You can restore it later.",
-                            confirmText: "Archive",
-                            cancelText: "Cancel",
-                            variant: "warning",
-                          });
-                          if (confirmed) {
-                            archiveQuestion(question.id).catch((err) =>
-                              console.error("Failed to archive question:", err),
-                            );
-                          }
-                        }}
-                        disabled={deletingQuestionId === question.id}
-                        className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
-                      >
-                        {deletingQuestionId === question.id
-                          ? "..."
-                          : <><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>Archive</>}
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          const confirmed = await confirm({
-                            title: "Remove Question",
-                            message:
-                              "Remove this question permanently? This cannot be undone.",
-                            confirmText: "Remove",
-                            cancelText: "Cancel",
-                            variant: "danger",
-                          });
-                          if (confirmed) {
-                            if (
-                              typeof question.id === "number" &&
-                              question.id > 10000000000
-                            ) {
-                              setQuestions(
-                                questions.filter((q) => q.id !== question.id),
+          ) : (
+            <div className="space-y-6">
+              {questions.map((question, idx) => (
+                <div
+                  key={question.id}
+                  className={`border-2 rounded-lg p-5 transition-colors ${
+                    selectedQuestionIds.includes(question.id)
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-brand-gold"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      {bulkDeleteMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedQuestionIds.includes(question.id)}
+                          onChange={() => toggleQuestionSelection(question.id)}
+                          className="form-checkbox h-5 w-5 text-blue-600 mt-0.5"
+                        />
+                      )}
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {idx + 1}. {question.text.substring(0, 50)}...
+                      </h3>
+                    </div>
+                    {!bulkDeleteMode && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const confirmed = await confirm({
+                              title: "Archive Question",
+                              message:
+                                "Archive this question to Question Bank? You can restore it later.",
+                              confirmText: "Archive",
+                              cancelText: "Cancel",
+                              variant: "warning",
+                            });
+                            if (confirmed) {
+                              archiveQuestion(question.id).catch((err) =>
+                                console.error(
+                                  "Failed to archive question:",
+                                  err,
+                                ),
                               );
-                            } else {
-                              supabase
-                                .from("questions")
-                                .delete()
-                                .eq("id", question.id)
-                                .then(({ error }) => {
-                                  if (error) {
-                                    console.error("Delete error:", error);
-                                    toast.error(
-                                      "Remove failed: " + error.message,
-                                    );
-                                  } else {
-                                    setQuestions(
-                                      questions.filter(
-                                        (q) => q.id !== question.id,
-                                      ),
-                                    );
-                                  }
-                                });
                             }
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
+                          }}
+                          disabled={deletingQuestionId === question.id}
+                          className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
+                        >
+                          {deletingQuestionId === question.id ? (
+                            "..."
+                          ) : (
+                            <>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5 inline mr-1"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                                />
+                              </svg>
+                              Archive
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const confirmed = await confirm({
+                              title: "Remove Question",
+                              message:
+                                "Remove this question permanently? This cannot be undone.",
+                              confirmText: "Remove",
+                              cancelText: "Cancel",
+                              variant: "danger",
+                            });
+                            if (confirmed) {
+                              if (
+                                typeof question.id === "number" &&
+                                question.id > 10000000000
+                              ) {
+                                setQuestions(
+                                  questions.filter((q) => q.id !== question.id),
+                                );
+                              } else {
+                                supabase
+                                  .from("questions")
+                                  .delete()
+                                  .eq("id", question.id)
+                                  .then(({ error }) => {
+                                    if (error) {
+                                      console.error("Delete error:", error);
+                                      toast.error(
+                                        "Remove failed: " + error.message,
+                                      );
+                                    } else {
+                                      setQuestions(
+                                        questions.filter(
+                                          (q) => q.id !== question.id,
+                                        ),
+                                      );
+                                    }
+                                  });
+                              }
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5 inline mr-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Question Text *
+                    </label>
+                    <textarea
+                      value={question.text}
+                      onChange={(e) =>
+                        updateQuestion(question.id, "text", e.target.value)
+                      }
+                      placeholder="Enter the question"
+                      rows="2"
+                      disabled={isPublished}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    />
+                  </div>
+
+                  {question.type === "mcq" && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Options *
+                      </label>
+                      <div className="space-y-2">
+                        {question.options.map((option, optIdx) => (
+                          <div key={optIdx} className="flex gap-2 items-center">
+                            <input
+                              type="radio"
+                              name={`correct-${question.id}`}
+                              checked={question.correctAnswer === optIdx}
+                              onChange={() =>
+                                updateQuestion(
+                                  question.id,
+                                  "correctAnswer",
+                                  optIdx,
+                                )
+                              }
+                              className="mt-0.5"
+                            />
+                            <span className="text-sm font-semibold text-gray-500 w-5">
+                              ({String.fromCharCode(97 + optIdx)})
+                            </span>
+                            <input
+                              type="text"
+                              value={option}
+                              onChange={(e) =>
+                                updateOption(
+                                  question.id,
+                                  optIdx,
+                                  e.target.value,
+                                )
+                              }
+                              placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
+                            />
+                            {question.options.length > 2 && (
+                              <button
+                                onClick={() =>
+                                  removeOption(question.id, optIdx)
+                                }
+                                className="text-red-500 hover:text-red-700 px-3 py-2"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => addOption(question.id)}
+                        className="text-sm text-brand-gold-dark font-semibold mt-2 hover:text-brand-navy"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      Remove
+                        + Add Option
                       </button>
                     </div>
                   )}
-                </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Question Text *
-                  </label>
-                  <textarea
-                    value={question.text}
-                    onChange={(e) =>
-                      updateQuestion(question.id, "text", e.target.value)
-                    }
-                    placeholder="Enter the question"
-                    rows="2"
-                    disabled={isPublished}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
-                  />
-                </div>
-
-                {question.type === "mcq" && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Options *
-                    </label>
-                    <div className="space-y-2">
-                      {question.options.map((option, optIdx) => (
-                        <div key={optIdx} className="flex gap-2 items-center">
+                  {question.type === "true_false" && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Correct Answer *
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center">
                           <input
                             type="radio"
-                            name={`correct-${question.id}`}
-                            checked={question.correctAnswer === optIdx}
+                            name={`tf-${question.id}`}
+                            checked={question.correctAnswer === 0}
                             onChange={() =>
-                              updateQuestion(
-                                question.id,
-                                "correctAnswer",
-                                optIdx,
-                              )
+                              updateQuestion(question.id, "correctAnswer", 0)
                             }
-                            className="mt-0.5"
+                            className="mr-2"
                           />
-                          <span className="text-sm font-semibold text-gray-500 w-5">
-                            ({String.fromCharCode(97 + optIdx)})
-                          </span>
+                          <span className="text-gray-700">True</span>
+                        </label>
+                        <label className="flex items-center">
                           <input
-                            type="text"
-                            value={option}
-                            onChange={(e) =>
-                              updateOption(question.id, optIdx, e.target.value)
+                            type="radio"
+                            name={`tf-${question.id}`}
+                            checked={question.correctAnswer === 1}
+                            onChange={() =>
+                              updateQuestion(question.id, "correctAnswer", 1)
                             }
-                            placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
+                            className="mr-2"
                           />
-                          {question.options.length > 2 && (
-                            <button
-                              onClick={() => removeOption(question.id, optIdx)}
-                              className="text-red-500 hover:text-red-700 px-3 py-2"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                          <span className="text-gray-700">False</span>
+                        </label>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => addOption(question.id)}
-                      className="text-sm text-brand-gold-dark font-semibold mt-2 hover:text-brand-navy"
-                    >
-                      + Add Option
-                    </button>
-                  </div>
-                )}
+                  )}
 
-                {question.type === "true_false" && (
-                  <div className="mb-4">
+                  <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Correct Answer *
+                      Points
                     </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`tf-${question.id}`}
-                          checked={question.correctAnswer === 0}
-                          onChange={() =>
-                            updateQuestion(question.id, "correctAnswer", 0)
-                          }
-                          className="mr-2"
-                        />
-                        <span className="text-gray-700">True</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`tf-${question.id}`}
-                          checked={question.correctAnswer === 1}
-                          onChange={() =>
-                            updateQuestion(question.id, "correctAnswer", 1)
-                          }
-                          className="mr-2"
-                        />
-                        <span className="text-gray-700">False</span>
-                      </label>
-                    </div>
+                    <input
+                      type="number"
+                      value={question.points}
+                      onChange={(e) =>
+                        updateQuestion(
+                          question.id,
+                          "points",
+                          parseInt(e.target.value),
+                        )
+                      }
+                      min="1"
+                      className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
+                    />
                   </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Points
-                  </label>
-                  <input
-                    type="number"
-                    value={question.points}
-                    onChange={(e) =>
-                      updateQuestion(
-                        question.id,
-                        "points",
-                        parseInt(e.target.value),
-                      )
-                    }
-                    min="1"
-                    className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
-                  />
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Action Bar */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-8">
-        <div className="flex flex-wrap gap-3 items-center">
-          {/* Primary Actions */}
-          {!isPublished && (
-            <>
-              <button
-                onClick={() => {
-                  handleSaveQuiz(false);
-                  setHasUnsavedChanges(false);
-                  setLastSaved(new Date());
-                }}
-                disabled={loading}
-                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                {loading ? "Saving..." : "Save as Draft"}
-              </button>
-
-              <button
-                onClick={() => setShowAnalysisModal(true)}
-                disabled={
-                  questions.length === 0 || questions.some((q) => !q.text.trim())
-                }
-                className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={
-                  questions.length === 0
-                    ? "Add questions first"
-                    : "Analyze questions with AI and submit for admin review"
-                }
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                Submit for Review
-              </button>
-            </>
+              ))}
+            </div>
           )}
+        </div>
 
-          {/* Divider between primary and secondary */}
-          {!isPublished && quizId && (
-            <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-          )}
+        {/* Action Bar */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-8">
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Primary Actions */}
+            {!isPublished && (
+              <>
+                <button
+                  onClick={() => {
+                    handleSaveQuiz(false);
+                    setHasUnsavedChanges(false);
+                    setLastSaved(new Date());
+                  }}
+                  disabled={loading}
+                  className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                    />
+                  </svg>
+                  {loading ? "Saving..." : "Save as Draft"}
+                </button>
 
-          {/* Secondary Actions */}
-          {quizId && !isPublished && (
+                <button
+                  onClick={() => setShowAnalysisModal(true)}
+                  disabled={
+                    questions.length === 0 ||
+                    questions.some((q) => !q.text.trim())
+                  }
+                  className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    questions.length === 0
+                      ? "Add questions first"
+                      : "Analyze questions with AI and submit for admin review"
+                  }
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                  Submit for Review
+                </button>
+              </>
+            )}
+
             <button
-              onClick={() =>
-                navigate(`/instructor-dashboard/question-bank/${quizId}`)
-              }
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+              onClick={addQuestion}
+              className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Question Bank
+              + Add Question
             </button>
-          )}
 
-          {/* Right-aligned navigation */}
-          <div className="ml-auto">
-            <button
-              onClick={() => navigate("/instructor-dashboard/quizzes")}
-              className="text-gray-500 hover:text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors"
-            >
-              {quizId ? "Close" : "Cancel"}
-            </button>
+            {/* Divider between primary and secondary */}
+            {!isPublished && quizId && (
+              <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
+            )}
+
+            {/* Secondary Actions */}
+            {quizId && !isPublished && (
+              <button
+                onClick={() =>
+                  navigate(`/instructor-dashboard/question-bank/${quizId}`)
+                }
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+                Question Bank
+              </button>
+            )}
+
+            {/* Right-aligned navigation */}
+            <div className="ml-auto">
+              <button
+                onClick={() => navigate("/instructor-dashboard/quizzes")}
+                className="text-gray-500 hover:text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+              >
+                {quizId ? "Close" : "Cancel"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      </div>{/* end .p-6 wrapper */}
+      {/* end .p-6 wrapper */}
 
       {/* Bloom's Taxonomy Analysis Modal */}
       {showAnalysisModal && (
