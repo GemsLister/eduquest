@@ -36,6 +36,8 @@ export const InstructorQuiz = () => {
   const [returnFilter, setReturnFilter] = useState("approved");
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]); // For bulk delete
+  const [bulkDeleteMode, setBulkDeleteMode] = useState(false); // Toggle bulk delete UI
   const autoSaveTimer = useRef(null);
   const initialLoadDone = useRef(false);
 
@@ -189,7 +191,7 @@ export const InstructorQuiz = () => {
         .from("questions")
         .select("*")
         .eq("quiz_id", quizId)
-        .or("is_archived.is.null,is_archived.eq.false")
+        .eq("is_archived", false)
         .order("created_at", { ascending: true });
 
       if (questionsError) throw questionsError;
@@ -327,6 +329,71 @@ export const InstructorQuiz = () => {
       toast.error("Error archiving question: " + err.message);
     } finally {
       setDeletingQuestionId(null);
+    }
+  };
+
+  // Toggle question selection for bulk delete
+  const toggleQuestionSelection = (questionId) => {
+    setSelectedQuestionIds((prev) => {
+      if (prev.includes(questionId)) {
+        return prev.filter((id) => id !== questionId);
+      } else {
+        return [...prev, questionId];
+      }
+    });
+  };
+
+  // Select/Deselect all questions
+  const toggleSelectAll = () => {
+    if (selectedQuestionIds.length === questions.length) {
+      setSelectedQuestionIds([]);
+    } else {
+      setSelectedQuestionIds(questions.map((q) => q.id));
+    }
+  };
+
+  // Bulk archive questions
+  const handleBulkArchive = async () => {
+    if (selectedQuestionIds.length === 0) {
+      toast.warning("Please select at least one question");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Archive Questions",
+      message: `Are you sure you want to archive ${selectedQuestionIds.length} question(s)?`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      for (const id of selectedQuestionIds) {
+        // If it's a new question (temp ID), just remove from state
+        if (typeof id === "number" && id > 10000000000) {
+          setQuestions((prev) => prev.filter((q) => q.id !== id));
+        } else {
+          // Archive saved questions from database
+          const { error } = await supabase
+            .from("questions")
+            .update({ is_archived: true, updated_at: new Date().toISOString() })
+            .eq("id", id);
+
+          if (error) throw error;
+          setQuestions((prev) => prev.filter((q) => q.id !== id));
+        }
+      }
+      toast.success(
+        `Successfully archived ${selectedQuestionIds.length} question(s)!`,
+      );
+      setSelectedQuestionIds([]);
+      setBulkDeleteMode(false);
+      markDirty();
+    } catch (err) {
+      console.error("Error archiving questions:", err);
+      toast.error("Error archiving questions: " + err.message);
     }
   };
 
@@ -898,7 +965,21 @@ export const InstructorQuiz = () => {
             </h2>
           </div>
           {!isPublished && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {bulkDeleteMode && (
+                <label className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                  <input
+                    type="checkbox"
+                    checked={selectedQuestionIds.length === questions.length && questions.length > 0}
+                    onChange={toggleSelectAll}
+                    className="form-checkbox h-4 w-4 text-blue-600"
+                  />
+                  <span className="text-sm font-semibold text-blue-700">
+                    Select All ({selectedQuestionIds.length}/{questions.length})
+                  </span>
+                </label>
+              )}
+              
               <button
                 onClick={addQuestion}
                 className="bg-casual-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors text-sm"
@@ -918,6 +999,30 @@ export const InstructorQuiz = () => {
               >
                 🔀 Shuffle
               </button>
+
+              <button
+                onClick={() => {
+                  setBulkDeleteMode(!bulkDeleteMode);
+                  setSelectedQuestionIds([]);
+                }}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                  bulkDeleteMode
+                    ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                }`}
+              >
+                {bulkDeleteMode ? "✕ Cancel" : "🗑️ Bulk Delete"}
+              </button>
+
+              {bulkDeleteMode && selectedQuestionIds.length > 0 && (
+                <button
+                  onClick={handleBulkArchive}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm"
+                  title="Archive selected questions"
+                >
+                  Archive Selected ({selectedQuestionIds.length})
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -939,83 +1044,99 @@ export const InstructorQuiz = () => {
             {questions.map((question, idx) => (
               <div
                 key={question.id}
-                className="border-2 border-gray-200 rounded-lg p-5 hover:border-casual-green transition-colors"
+                className={`border-2 rounded-lg p-5 transition-colors ${
+                  selectedQuestionIds.includes(question.id)
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-casual-green"
+                }`}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    {idx + 1}. {question.text.substring(0, 50)}...
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        const confirmed = await confirm({
-                          title: "Archive Question",
-                          message:
-                            "Archive this question to Question Bank? You can restore it later.",
-                          confirmText: "Archive",
-                          cancelText: "Cancel",
-                          variant: "warning",
-                        });
-                        if (confirmed) {
-                          archiveQuestion(question.id).catch((err) =>
-                            console.error("Failed to archive question:", err),
-                          );
-                        }
-                      }}
-                      disabled={deletingQuestionId === question.id}
-                      className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
-                    >
-                      {deletingQuestionId === question.id
-                        ? "..."
-                        : "📁 Archive"}
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        const confirmed = await confirm({
-                          title: "Delete Question",
-                          message:
-                            "Delete this question permanently? This cannot be undone.",
-                          confirmText: "Delete",
-                          cancelText: "Cancel",
-                          variant: "danger",
-                        });
-                        if (confirmed) {
-                          if (
-                            typeof question.id === "number" &&
-                            question.id > 10000000000
-                          ) {
-                            setQuestions(
-                              questions.filter((q) => q.id !== question.id),
-                            );
-                          } else {
-                            supabase
-                              .from("questions")
-                              .delete()
-                              .eq("id", question.id)
-                              .then(({ error }) => {
-                                if (error) {
-                                  console.error("Delete error:", error);
-                                  toast.error(
-                                    "Delete failed: " + error.message,
-                                  );
-                                } else {
-                                  setQuestions(
-                                    questions.filter(
-                                      (q) => q.id !== question.id,
-                                    ),
-                                  );
-                                }
-                              });
-                          }
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
-                    >
-                      🗑️ Delete
-                    </button>
+                  <div className="flex items-start gap-3 flex-1">
+                    {bulkDeleteMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestionIds.includes(question.id)}
+                        onChange={() => toggleQuestionSelection(question.id)}
+                        className="form-checkbox h-5 w-5 text-blue-600 mt-0.5"
+                      />
+                    )}
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      {idx + 1}. {question.text.substring(0, 50)}...
+                    </h3>
                   </div>
+                  {!bulkDeleteMode && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          const confirmed = await confirm({
+                            title: "Archive Question",
+                            message:
+                              "Archive this question to Question Bank? You can restore it later.",
+                            confirmText: "Archive",
+                            cancelText: "Cancel",
+                            variant: "warning",
+                          });
+                          if (confirmed) {
+                            archiveQuestion(question.id).catch((err) =>
+                              console.error("Failed to archive question:", err),
+                            );
+                          }
+                        }}
+                        disabled={deletingQuestionId === question.id}
+                        className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
+                      >
+                        {deletingQuestionId === question.id
+                          ? "..."
+                          : "📁 Archive"}
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          const confirmed = await confirm({
+                            title: "Delete Question",
+                            message:
+                              "Delete this question permanently? This cannot be undone.",
+                            confirmText: "Delete",
+                            cancelText: "Cancel",
+                            variant: "danger",
+                          });
+                          if (confirmed) {
+                            if (
+                              typeof question.id === "number" &&
+                              question.id > 10000000000
+                            ) {
+                              setQuestions(
+                                questions.filter((q) => q.id !== question.id),
+                              );
+                            } else {
+                              supabase
+                                .from("questions")
+                                .delete()
+                                .eq("id", question.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    console.error("Delete error:", error);
+                                    toast.error(
+                                      "Delete failed: " + error.message,
+                                    );
+                                  } else {
+                                    setQuestions(
+                                      questions.filter(
+                                        (q) => q.id !== question.id,
+                                      ),
+                                    );
+                                  }
+                                });
+                            }
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-4">
