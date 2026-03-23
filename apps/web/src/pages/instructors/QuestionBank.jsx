@@ -259,20 +259,27 @@ export const QuestionBank = () => {
 
       // Import each selected question
       for (const q of selectedQuestions) {
+        // Determine the correct answer to save
+        let correctAnswerValue = q.correct_answer || q.correctAnswer;
+        
+        // For MCQ questions, if correctAnswer is an index, convert to actual option text
+        if (q.type === "mcq" && typeof correctAnswerValue === "number" && q.options) {
+          correctAnswerValue = q.options[correctAnswerValue];
+        }
+        // For true/false, ensure it's stored as string "true" or "false"
+        else if (q.type === "true_false") {
+          if (typeof correctAnswerValue === "number") {
+            correctAnswerValue = correctAnswerValue === 0 ? "true" : "false";
+          }
+        }
+
         const { error } = await supabase.from("questions").insert({
           quiz_id: quizId,
           type: q.type,
           text: q.text,
           options: q.options,
-          correct_answer:
-            q.type === "mcq"
-              ? q.options[q.correctAnswer]
-              : q.type === "true_false"
-                ? q.correctAnswer === 0
-                  ? "true"
-                  : "false"
-                : q.correctAnswer,
-          points: q.points,
+          correct_answer: correctAnswerValue,
+          points: q.points || 1,
         });
 
         if (error) throw error;
@@ -664,6 +671,24 @@ export const QuestionBank = () => {
                           {opt === question.correct_answer && " ✓"}
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* True/False Answer Display */}
+                  {question.type === "true_false" && (
+                    <div className="mt-2 p-2 bg-green-50 border-l-4 border-green-600 rounded">
+                      <p className="text-sm text-green-700">
+                        <span className="font-semibold">Correct Answer:</span> {question.correct_answer} ✓
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Other Types Answer Display */}
+                  {question.type !== "mcq" && question.type !== "true_false" && question.correct_answer && (
+                    <div className="mt-2 p-2 bg-green-50 border-l-4 border-green-600 rounded">
+                      <p className="text-sm text-green-700">
+                        <span className="font-semibold">Correct Answer:</span> {question.correct_answer} ✓
+                      </p>
                     </div>
                   )}
                 </div>
