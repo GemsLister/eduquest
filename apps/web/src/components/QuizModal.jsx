@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { supabase } from "../supabaseClient.js";
 
 export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
@@ -55,6 +56,9 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
 
       document.getElementById(id).close();
       setTitle('');
+      setDescription('');
+      setDuration('');
+      toast.success(`Quiz "${newQuiz.title}" created successfully!`);
       navigate(`/instructor-dashboard/instructor-quiz/${newQuiz.id}`);
     } catch (err) {
       setError(err.message || "Failed to create quiz");

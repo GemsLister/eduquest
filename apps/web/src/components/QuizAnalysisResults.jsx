@@ -623,7 +623,7 @@ export const QuizAnalysisResults = ({
                                     : "text-red-600"
                               }`}
                             >
-                              {(item.confidence * 100).toFixed(0)}%
+                              {(item.confidence * 100).toFixed(1)}%
                             </span>
                           </div>
                         </div>
