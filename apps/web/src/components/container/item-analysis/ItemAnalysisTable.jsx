@@ -30,32 +30,40 @@ export const ItemAnalysisTable = ({
                 <React.Fragment key={item.question_id}>
                   <tr className="hover:bg-gray-50 transition-colors h-14">
                     <td className="p-3 text-sm font-medium" title={item.text}>
-                      {item.autoFlag === 'revise' || item.revised_content || item.previous_text ? (
+                      {item.autoFlag === 'revise' || item.revised_content || item.previous_text || item.revision_history?.length > 0 ? (
                         <div 
-                          className="cursor-pointer group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
-                          onClick={() => onFlagClick(item)}
-                          title="Click to view comparison and history"
+                          className="group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
+                          title="Item has revision history"
                         >
                           <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{index + 1}:</span>
                           <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
                           
-                          {item.revised_content && (
-                            <div className="mt-1 flex items-center gap-1.5">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
-                                📝 Revision Pending
-                              </span>
-                              <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
-                            </div>
-                          )}
+                          {item.revision_history && item.revision_history.length > 0 && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
+                              📜 Has Revisions
+                            </span>
+                            <span className="text-[10px] text-slate-400 italic font-normal">({item.revision_history.length} version{item.revision_history.length !== 1 ? 's' : ''})</span>
+                          </div>
+                        )}
+                        
+                        {item.revised_content && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
+                              📝 Revision Pending
+                            </span>
+                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
+                          </div>
+                        )}
 
-                          {item.previous_text && !item.revised_content && (
-                            <div className="mt-1 flex items-center gap-1.5">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
-                                ✓ Item Revised
-                              </span>
-                              <span className="text-[10px] text-slate-400 italic font-normal">(Click to see history)</span>
-                            </div>
-                          )}
+                        {item.previous_text && !item.revised_content && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
+                              ✓ Item Revised
+                            </span>
+                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see history)</span>
+                          </div>
+                        )}
                         </div>
                       ) : (
                         <div className="p-2">
@@ -100,12 +108,14 @@ export const ItemAnalysisTable = ({
                     </td>
 
                     <td className="p-3">
-                      <button
-                        onClick={() => toggleDetails(item.question_id)}
-                        className="w-full text-indigo-600 font-bold text-xs uppercase hover:underline px-3 py-1 rounded hover:bg-indigo-50 transition-colors text-center block"
-                      >
-                        {expandedQuestion === item.question_id ? "Hide" : "View"}
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => toggleDetails(item.question_id)}
+                          className="w-full text-indigo-600 font-bold text-xs uppercase hover:underline px-3 py-1 rounded hover:bg-indigo-50 transition-colors text-center block"
+                        >
+                          {expandedQuestion === item.question_id ? "Hide" : "View"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {expandedQuestion === item.question_id && (
@@ -173,8 +183,17 @@ export const ItemAnalysisTable = ({
                   ✓ Item Revised
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 italic">
+              <p className="text-[10px] text-slate-500 italic mb-2">
                 This item has been finalized with a revision.
+              </p>
+
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
+                  📜 Has Revisions
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 italic">
+                This item has revision history. Click "Revision History" to view past versions.
               </p>
             </div>
           </div>
