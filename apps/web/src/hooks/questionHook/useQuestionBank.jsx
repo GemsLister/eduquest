@@ -70,7 +70,7 @@ export const useQuestionBank = () => {
       // Fetch all questions from instructor's quizzes
       const { data, error } = await supabase
         .from("questions")
-        .select("*, quizzes(title)")
+        .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title)")
         .in("quiz_id", quizIds)
         .order("created_at", { ascending: false });
 
