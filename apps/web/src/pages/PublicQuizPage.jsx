@@ -30,6 +30,8 @@ export const PublicQuizPage = () => {
   const [authenticating, setAuthenticating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasExited, setHasExited] = useState(false);
+  const [alreadyTaken, setAlreadyTaken] = useState(false);
+  const [sectionName, setSectionName] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const [timeExpired, setTimeExpired] = useState(false);
@@ -177,6 +179,16 @@ export const PublicQuizPage = () => {
           return;
         }
 
+        // Fetch section name for display
+        if (requestedSectionId) {
+          const { data: sectionData } = await supabase
+            .from("sections")
+            .select("*")
+            .eq("id", requestedSectionId)
+            .maybeSingle();
+          if (sectionData) setSectionName(sectionData.section_name || sectionData.name || "");
+        }
+
         if (quizData.is_open === false) {
           setError("This quiz is currently closed by the instructor.");
           setLoading(false);
@@ -194,7 +206,9 @@ export const PublicQuizPage = () => {
         console.log("Questions result:", { questionsData, questionsError });
 
         if (questionsError) throw questionsError;
-        setQuestions(questionsData || []);
+        // Auto-shuffle questions for each student
+        const shuffled = (questionsData || []).sort(() => Math.random() - 0.5);
+        setQuestions(shuffled);
       } catch (err) {
         console.error("Full error loading quiz:", err);
         setError(err.message || "Failed to load quiz");
@@ -217,13 +231,16 @@ export const PublicQuizPage = () => {
   }, []);
 
   // Auto-start quiz after Google auth
+  const googleStartRef = useRef(false);
   useEffect(() => {
     if (
       session?.user &&
       searchParams.get("auth") === "success" &&
       !hasStarted &&
-      quiz
+      quiz &&
+      !googleStartRef.current
     ) {
+      googleStartRef.current = true;
       handleGoogleQuizStart();
     }
   }, [session, searchParams, hasStarted, quiz]);
@@ -231,7 +248,7 @@ export const PublicQuizPage = () => {
   const { handleGoogleQuizLogin } = useGoogleLogin();
 
   const handleGoogleQuizLoginClick = () => {
-    handleGoogleQuizLogin(shareToken);
+    handleGoogleQuizLogin(shareToken, requestedSectionId);
     setAuthenticating(true);
   };
 
@@ -306,24 +323,19 @@ export const PublicQuizPage = () => {
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
-        // User already has an attempt, use the existing one
-        const existingAttempt =
-          existingAttempts.find((a) => a.status === "in_progress") ||
-          existingAttempts[0];
-        setAttemptId(existingAttempt.id);
-        setHasStarted(true);
-        if (existingAttempt.status === "completed") {
-          setCompleted(true);
-          // Load the existing score
-          const { data: responses } = await supabase
-            .from("quiz_responses")
-            .select("points_earned")
-            .eq("attempt_id", existingAttempt.id);
-          const totalScore =
-            responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
-          setScore(totalScore);
+        const completedAttempt = existingAttempts.find((a) => a.status === "completed");
+        if (completedAttempt) {
+          setAlreadyTaken(true);
+          setAuthenticating(false);
+          return;
         }
-        return;
+        // Resume in-progress attempt
+        const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
+        if (inProgressAttempt) {
+          setAttemptId(inProgressAttempt.id);
+          setHasStarted(true);
+          return;
+        }
       }
 
       // Create new attempt only if none exists
@@ -423,24 +435,19 @@ export const PublicQuizPage = () => {
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
-        // User already has an attempt, use the existing one
-        const existingAttempt =
-          existingAttempts.find((a) => a.status === "in_progress") ||
-          existingAttempts[0];
-        setAttemptId(existingAttempt.id);
-        setHasStarted(true);
-        if (existingAttempt.status === "completed") {
-          setCompleted(true);
-          // Load the existing score
-          const { data: responses } = await supabase
-            .from("quiz_responses")
-            .select("points_earned")
-            .eq("attempt_id", existingAttempt.id);
-          const totalScore =
-            responses?.reduce((sum, r) => sum + (r.points_earned || 0), 0) || 0;
-          setScore(totalScore);
+        const completedAttempt = existingAttempts.find((a) => a.status === "completed");
+        if (completedAttempt) {
+          setAlreadyTaken(true);
+          setAuthenticating(false);
+          return;
         }
-        return;
+        // Resume in-progress attempt
+        const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
+        if (inProgressAttempt) {
+          setAttemptId(inProgressAttempt.id);
+          setHasStarted(true);
+          return;
+        }
       }
 
       // Create new attempt only if none exists
@@ -577,6 +584,46 @@ export const PublicQuizPage = () => {
       </div>
     );
 
+  if (alreadyTaken) {
+    const handleExitAlreadyTaken = async () => {
+      await supabase.auth.signOut();
+      setHasExited(true);
+    };
+
+    if (hasExited) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
+          <div className="rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
+            <h1 className="text-2xl font-bold text-brand-navy mb-2">Signed Out</h1>
+            <p className="text-gray-600">You may now close this tab.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
+        <div className="rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
+          <div className="text-5xl mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-brand-navy mb-2">Quiz Already Taken</h1>
+          <p className="text-gray-600 mb-6">
+            You have already completed this quiz. Each student is only allowed one attempt.
+          </p>
+          <button
+            onClick={handleExitAlreadyTaken}
+            className="w-full py-3 px-6 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo transition-all shadow-md"
+          >
+            Logout & Exit
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (completed) {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
 
@@ -616,6 +663,17 @@ export const PublicQuizPage = () => {
               Finish & Logout
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasStarted && searchParams.get("auth") === "success" && !error && !alreadyTaken) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-navy"></div>
+          <p className="mt-4 text-brand-navy font-semibold">Signing you in...</p>
         </div>
       </div>
     );
@@ -663,6 +721,9 @@ export const PublicQuizPage = () => {
                     Logout and Switch Account
                   </button>
                 </div>
+              )}
+              {sectionName && (
+                <p className="text-sm font-semibold text-brand-navy/60 uppercase tracking-wider">{sectionName}</p>
               )}
               <h1 className="text-2xl font-bold text-brand-navy">{quiz?.title || "Loading Quiz..."}</h1>
               {quiz?.description && (

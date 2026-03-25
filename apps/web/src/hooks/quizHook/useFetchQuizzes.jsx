@@ -63,7 +63,7 @@ export const useFetchQuizzes = () => {
       if (quizIds.length > 0) {
         const { data, error: quizzesError } = await supabase
           .from("quizzes")
-          .select("*, quiz_attempts(count)")
+          .select("*")
           .in("id", quizIds)
           .eq("is_archived", false)
           .eq("is_published", true)
@@ -89,20 +89,24 @@ export const useFetchQuizzes = () => {
         }
       }
 
-      // Fetch question counts for each quiz
+      // Fetch question counts and section-specific attempt counts for each quiz
       const quizzesWithCounts = await Promise.all(
         (quizzesData || []).map(async (quiz) => {
-          const { count, error: countError } = await supabase
+          const { count: qCount, error: countError } = await supabase
             .from("questions")
             .select("*", { count: "exact", head: true })
             .eq("quiz_id", quiz.id);
 
-          const attemptsCount = quiz.quiz_attempts?.[0]?.count || 0;
+          const { count: aCount } = await supabase
+            .from("quiz_attempts")
+            .select("*", { count: "exact", head: true })
+            .eq("quiz_id", quiz.id)
+            .eq("section_id", sectionId);
 
           return {
             ...quiz,
-            attempts: attemptsCount,
-            questions_count: !countError ? count : 0,
+            attempts: aCount || 0,
+            questions_count: !countError ? qCount : 0,
           };
         }),
       );

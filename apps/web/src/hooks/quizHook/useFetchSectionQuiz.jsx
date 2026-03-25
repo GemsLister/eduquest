@@ -101,6 +101,22 @@ export const useFetchSectionQuiz = () => {
           }
         });
 
+        // Re-count attempts per section (filter by section_id)
+        for (const sectionId of Object.keys(grouped)) {
+          const quizzesInSection = grouped[sectionId];
+          const updatedQuizzes = await Promise.all(
+            quizzesInSection.map(async (quiz) => {
+              const { count } = await supabase
+                .from("quiz_attempts")
+                .select("*", { count: "exact", head: true })
+                .eq("quiz_id", quiz.id)
+                .eq("section_id", sectionId);
+              return { ...quiz, attempts: count || 0 };
+            }),
+          );
+          grouped[sectionId] = updatedQuizzes;
+        }
+
         setSectionQuizzes(grouped);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);

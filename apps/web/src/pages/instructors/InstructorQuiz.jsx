@@ -306,8 +306,7 @@ export const InstructorQuiz = () => {
     return token;
   };
 
-  const copyToClipboard = () => {
-    const url = `${window.location.origin}/quiz/${shareToken}`;
+  const copyToClipboard = (url) => {
     navigator.clipboard.writeText(url).then(() => {
       setSaveStatus("URL copied to clipboard!");
       setTimeout(() => setSaveStatus(""), 2000);
@@ -658,7 +657,11 @@ export const InstructorQuiz = () => {
           <div className="flex gap-2 mt-4">
             <button
               onClick={() =>
-                navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                navigate(
+                  selectedSectionIds.length > 0
+                    ? `/instructor-dashboard/quiz-results/${quizId}?section=${selectedSectionIds[0]}`
+                    : `/instructor-dashboard/quiz-results/${quizId}`
+                )
               }
               className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
             >
@@ -703,22 +706,52 @@ export const InstructorQuiz = () => {
             Quiz Published Successfully!
           </h3>
           <p className="text-gray-700 mb-4">
-            Share this link with students so they can take the quiz:
+            Share the link for each subject with the corresponding students:
           </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={`${window.location.origin}/quiz/${shareToken}`}
-              readOnly
-              className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-            />
-            <button
-              onClick={copyToClipboard}
-              className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-            >
-              Copy Link
-            </button>
-          </div>
+          {selectedSectionIds.length > 0 ? (
+            <div className="space-y-3">
+              {selectedSectionIds.map((sId) => {
+                const sec = availableSections.find((s) => s.id === sId);
+                const sectionUrl = `${window.location.origin}/quiz/${shareToken}?section=${sId}`;
+                return (
+                  <div key={sId}>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      {sec?.section_name || sec?.name || sId}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sectionUrl}
+                        readOnly
+                        className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(sectionUrl)}
+                        className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={`${window.location.origin}/quiz/${shareToken}`}
+                readOnly
+                className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
+              />
+              <button
+                onClick={() => copyToClipboard(`${window.location.origin}/quiz/${shareToken}`)}
+                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
+              >
+                Copy Link
+              </button>
+            </div>
+          )}
           <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
             <strong>Share Code:</strong>{" "}
             <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
@@ -948,21 +981,6 @@ export const InstructorQuiz = () => {
                 + Add Question
               </button>
 
-              <button
-                onClick={() => {
-                  const shuffled = [...questions].sort(
-                    () => Math.random() - 0.5,
-                  );
-                  setQuestions(shuffled);
-                }}
-                className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5"
-                title="Randomize question order for students"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Shuffle
-              </button>
             </div>
           )}
         </div>

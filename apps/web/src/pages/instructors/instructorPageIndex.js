@@ -5,7 +5,7 @@ export { InstructorQuestions } from "./InstructorQuestions.jsx";
 export { QuestionBank } from "./QuestionBank.jsx";
 export { InstructorProfile } from "./InstructorProfile.jsx";
 export { SectionDetail } from "./SectionDetail.jsx";
-export { QuizResults } from "./QuizResults.jsx";
+export { QuizResults } from "./quizzes/QuizResults.jsx";
 export { QuizResultDetail } from "./QuizResultDetail.jsx";
 export { QuizzesPageMain } from "./quizzes/QuizzesPageMain.jsx";
 export { MySubmissions } from "./MySubmissions.jsx";
