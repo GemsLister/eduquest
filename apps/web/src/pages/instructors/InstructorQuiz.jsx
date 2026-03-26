@@ -1310,6 +1310,7 @@ export const InstructorQuiz = () => {
       {showAnalysisModal && (
         <QuizAnalysisResults
           quizId={quizId || "draft"}
+          quizTitle={quizTitle}
           questions={questions.filter((q) => q.text.trim())}
           instructorId={userId}
           onClose={() => setShowAnalysisModal(false)}

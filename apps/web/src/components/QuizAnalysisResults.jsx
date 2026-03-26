@@ -70,6 +70,7 @@ const ProgressStepper = ({ currentStep }) => {
  */
 export const QuizAnalysisResults = ({
   quizId,
+  quizTitle,
   questions,
   instructorId,
   onClose,
@@ -716,7 +717,7 @@ export const QuizAnalysisResults = ({
             <button
               onClick={() =>
                 exportBloomsPdf({
-                  quizTitle: `Quiz ${quizId}`,
+                  quizTitle: quizTitle || `Quiz ${quizId}`,
                   results,
                 })
               }
