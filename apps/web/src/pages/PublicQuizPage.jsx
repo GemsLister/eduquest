@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { studentService } from "../services/studentService.js";
+import { quizService } from "../services/quizService.js";
 import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
 import { useSearchParams } from "react-router-dom";
 
@@ -44,8 +45,8 @@ export const PublicQuizPage = () => {
   // --- TIMER (elapsed + countdown) ---
   useEffect(() => {
     if (hasStarted && !completed) {
-      // Initialize countdown
-      if (quizDurationSeconds) {
+      // Initialize countdown only if not already set by restoreAttemptState
+      if (quizDurationSeconds && remainingSeconds === null) {
         setRemainingSeconds(quizDurationSeconds);
       }
 
@@ -94,8 +95,119 @@ export const PublicQuizPage = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasStarted, completed, handleBeforeUnload]);
 
+  // Save a single response: update if exists, insert if new
+  const saveResponseToDB = async (attemptId, questionId, answer, isCorrect, pointsEarned) => {
+    try {
+      const saveData = { answer, is_correct: isCorrect, points_earned: pointsEarned };
+
+      // Check if a response already exists for this question
+      const { data: existing } = await supabase
+        .from("quiz_responses")
+        .select("id")
+        .eq("attempt_id", attemptId)
+        .eq("question_id", questionId)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing response
+        await supabase
+          .from("quiz_responses")
+          .update(saveData)
+          .eq("id", existing.id);
+      } else {
+        // Insert new response
+        await supabase.from("quiz_responses").insert([{
+          attempt_id: attemptId,
+          question_id: questionId,
+          ...saveData,
+        }]);
+      }
+    } catch (err) {
+      console.warn("Auto-save failed for question", questionId, err);
+    }
+  };
+
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
+
+    // Auto-save answer to database (fire and forget)
+    if (attemptId) {
+      const question = questions.find((q) => q.id === questionId);
+      if (question) {
+        let isCorrect = false;
+        let pointsEarned = 0;
+        if (question.type === "mcq") {
+          isCorrect = question.options[parseInt(value)] === question.correct_answer;
+          pointsEarned = isCorrect ? question.points : 0;
+        } else if (question.type === "true_false") {
+          const answerText = value === "0" ? "true" : "false";
+          isCorrect = answerText === question.correct_answer;
+          pointsEarned = isCorrect ? question.points : 0;
+        }
+        saveResponseToDB(attemptId, questionId, value, isCorrect, pointsEarned);
+      }
+    }
+  };
+
+  // Shuffle questions and save order to the attempt record
+  const shuffleAndSaveOrder = async (questionsArr, newAttemptId) => {
+    const shuffled = [...questionsArr].sort(() => Math.random() - 0.5);
+    const order = shuffled.map((q) => q.id);
+    setQuestions(shuffled);
+    await supabase
+      .from("quiz_attempts")
+      .update({ question_order: order })
+      .eq("id", newAttemptId);
+  };
+
+  // Restore question order from a saved attempt, and load saved answers
+  const restoreAttemptState = async (existingAttemptId, questionsArr) => {
+    // Load saved question order
+    const { data: attemptData } = await supabase
+      .from("quiz_attempts")
+      .select("question_order, started_at")
+      .eq("id", existingAttemptId)
+      .single();
+
+    if (attemptData?.question_order) {
+      const orderIds = attemptData.question_order;
+      const ordered = orderIds
+        .map((id) => questionsArr.find((q) => q.id === id))
+        .filter(Boolean);
+      // Append any questions not in the saved order (edge case)
+      const remaining = questionsArr.filter((q) => !orderIds.includes(q.id));
+      setQuestions([...ordered, ...remaining]);
+    } else {
+      // No saved order — shuffle and save now
+      await shuffleAndSaveOrder(questionsArr, existingAttemptId);
+    }
+
+    // Load saved answers
+    const { data: savedResponses } = await quizService.getResponsesDetailsByAttempt(existingAttemptId);
+    if (savedResponses && savedResponses.length > 0) {
+      const restoredAnswers = {};
+      savedResponses.forEach((r) => {
+        restoredAnswers[r.question_id] = r.answer;
+      });
+      setAnswers(restoredAnswers);
+    }
+
+    // Restore timer from started_at
+    if (attemptData?.started_at) {
+      const startedAt = new Date(attemptData.started_at).getTime();
+      const now = Date.now();
+      const elapsedSec = Math.floor((now - startedAt) / 1000);
+      setElapsedSeconds(elapsedSec);
+      if (quizDurationSeconds) {
+        const remaining = quizDurationSeconds - elapsedSec;
+        if (remaining <= 0) {
+          setTimeExpired(true);
+          setRemainingSeconds(0);
+        } else {
+          setRemainingSeconds(remaining);
+        }
+      }
+    }
   };
 
   const isQuizAssignedToSection = async (quizId, sectionId) => {
@@ -206,9 +318,8 @@ export const PublicQuizPage = () => {
         console.log("Questions result:", { questionsData, questionsError });
 
         if (questionsError) throw questionsError;
-        // Auto-shuffle questions for each student
-        const shuffled = (questionsData || []).sort(() => Math.random() - 0.5);
-        setQuestions(shuffled);
+        // Store questions in original order; shuffling happens when starting/resuming
+        setQuestions(questionsData || []);
       } catch (err) {
         console.error("Full error loading quiz:", err);
         setError(err.message || "Failed to load quiz");
@@ -230,7 +341,7 @@ export const PublicQuizPage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Auto-start quiz after Google auth
+  // Auto-start quiz after Google auth (wait for both quiz AND questions to be loaded)
   const googleStartRef = useRef(false);
   useEffect(() => {
     if (
@@ -238,12 +349,13 @@ export const PublicQuizPage = () => {
       searchParams.get("auth") === "success" &&
       !hasStarted &&
       quiz &&
+      questions.length > 0 &&
       !googleStartRef.current
     ) {
       googleStartRef.current = true;
       handleGoogleQuizStart();
     }
-  }, [session, searchParams, hasStarted, quiz]);
+  }, [session, searchParams, hasStarted, quiz, questions]);
 
   const { handleGoogleQuizLogin } = useGoogleLogin();
 
@@ -333,6 +445,7 @@ export const PublicQuizPage = () => {
         const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
         if (inProgressAttempt) {
           setAttemptId(inProgressAttempt.id);
+          await restoreAttemptState(inProgressAttempt.id, questions);
           setHasStarted(true);
           return;
         }
@@ -358,6 +471,7 @@ export const PublicQuizPage = () => {
       if (!attempt) throw new Error("Failed to create quiz attempt.");
 
       setAttemptId(attempt.id);
+      await shuffleAndSaveOrder(questions, attempt.id);
       setHasStarted(true);
     } catch (err) {
       setError(err.message || "Failed to start quiz");
@@ -445,6 +559,7 @@ export const PublicQuizPage = () => {
         const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
         if (inProgressAttempt) {
           setAttemptId(inProgressAttempt.id);
+          await restoreAttemptState(inProgressAttempt.id, questions);
           setHasStarted(true);
           return;
         }
@@ -468,6 +583,7 @@ export const PublicQuizPage = () => {
 
       if (attemptError) throw attemptError;
       setAttemptId(attempt.id);
+      await shuffleAndSaveOrder(questions, attempt.id);
       setHasStarted(true);
     } catch (err) {
       setError(err.message);
@@ -528,12 +644,30 @@ export const PublicQuizPage = () => {
         };
       });
 
-      // Insert all responses
-      const { error: responseError } = await supabase
-        .from("quiz_responses")
-        .insert(responses);
+      // Check which responses were already auto-saved
+      const { data: existingResponses } = await quizService.getResponsesDetailsByAttempt(attemptId);
+      const existingQuestionIds = new Set((existingResponses || []).map((r) => r.question_id));
 
-      if (responseError) throw responseError;
+      // Update existing auto-saved responses with final grades
+      const toUpdate = responses.filter((r) => existingQuestionIds.has(r.question_id));
+      const toInsert = responses.filter((r) => !existingQuestionIds.has(r.question_id));
+
+      await Promise.all(
+        toUpdate.map((r) =>
+          supabase
+            .from("quiz_responses")
+            .update({ answer: r.answer, is_correct: r.is_correct, points_earned: r.points_earned })
+            .eq("attempt_id", attemptId)
+            .eq("question_id", r.question_id)
+        )
+      );
+
+      if (toInsert.length > 0) {
+        const { error: responseError } = await supabase
+          .from("quiz_responses")
+          .insert(toInsert);
+        if (responseError) throw responseError;
+      }
 
       // Calculate total score
       const totalScore = responses.reduce(
@@ -645,7 +779,7 @@ export const PublicQuizPage = () => {
 
     return (
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
-        <h1 className="text-3xl font-bold text-brand-navy">Quiz Complete!</h1>
+        <h1 className="text-3xl font-bold text-white drop-shadow-lg">Quiz Complete!</h1>
         <div className="mt-4 rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
           <p className="text-5xl font-bold text-brand-navy">
             {score}/{totalPoints}

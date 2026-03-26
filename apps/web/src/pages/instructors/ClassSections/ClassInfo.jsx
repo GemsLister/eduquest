@@ -56,7 +56,7 @@ export const ClassInfo = ({
         />
 
         {/* 3-dot menu */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 z-[2]">
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -199,18 +199,6 @@ export const QuizResultDetail = () => {
                 </div>
               </div>
 
-              {/* Question Details */}
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm font-semibold text-gray-700 mb-2">Type</p>
-                <p className="text-gray-900 capitalize">
-                  {question.type === "mcq"
-                    ? "Multiple Choice"
-                    : question.type === "true_false"
-                      ? "True/False"
-                      : "Short Answer"}
-                </p>
-              </div>
-
               {/* MCQ Options */}
               {question.type === "mcq" && (
                 <div className="space-y-2 mb-4">

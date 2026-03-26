@@ -248,4 +248,28 @@ export const quizService = {
       .select("*")
       .eq("attempt_id", attemptId);
   },
+
+  /**
+   * Upsert a single quiz response (auto-save)
+   * Requires unique constraint on (attempt_id, question_id)
+   * @param {object} responseData - Response data
+   * @returns {Promise<{data, error}>}
+   */
+  upsertResponse: async (responseData) => {
+    return await supabase
+      .from("quiz_responses")
+      .upsert(responseData, { onConflict: "attempt_id,question_id" });
+  },
+
+  /**
+   * Delete all responses for an attempt (used before final submission re-insert)
+   * @param {string} attemptId - Attempt ID
+   * @returns {Promise<{error}>}
+   */
+  deleteResponsesByAttempt: async (attemptId) => {
+    return await supabase
+      .from("quiz_responses")
+      .delete()
+      .eq("attempt_id", attemptId);
+  },
 };
