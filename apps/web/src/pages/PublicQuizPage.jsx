@@ -82,18 +82,6 @@ export const PublicQuizPage = () => {
   // Low time warning (last 5 minutes)
   const isLowTime = remainingSeconds !== null && remainingSeconds <= 300 && remainingSeconds > 0;
 
-  // --- BROWSER LEAVE CONFIRMATION ---
-  const handleBeforeUnload = useCallback((e) => {
-    e.preventDefault();
-    e.returnValue = "";
-  }, []);
-
-  useEffect(() => {
-    if (hasStarted && !completed) {
-      window.addEventListener("beforeunload", handleBeforeUnload);
-    }
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasStarted, completed, handleBeforeUnload]);
 
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -104,7 +92,7 @@ export const PublicQuizPage = () => {
         p_attempt_id: attemptId,
         p_question_id: questionId,
         p_answer: value,
-      }).catch(() => {});
+      }).then(() => {});
     }
   };
 
