@@ -95,57 +95,16 @@ export const PublicQuizPage = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasStarted, completed, handleBeforeUnload]);
 
-  // Save a single response: update if exists, insert if new
-  const saveResponseToDB = async (attemptId, questionId, answer, isCorrect, pointsEarned) => {
-    try {
-      const saveData = { answer, is_correct: isCorrect, points_earned: pointsEarned };
-
-      // Check if a response already exists for this question
-      const { data: existing } = await supabase
-        .from("quiz_responses")
-        .select("id")
-        .eq("attempt_id", attemptId)
-        .eq("question_id", questionId)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing response
-        await supabase
-          .from("quiz_responses")
-          .update(saveData)
-          .eq("id", existing.id);
-      } else {
-        // Insert new response
-        await supabase.from("quiz_responses").insert([{
-          attempt_id: attemptId,
-          question_id: questionId,
-          ...saveData,
-        }]);
-      }
-    } catch (err) {
-      console.warn("Auto-save failed for question", questionId, err);
-    }
-  };
-
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
 
-    // Auto-save answer to database (fire and forget)
+    // Auto-save answer via server-side grading (fire and forget)
     if (attemptId) {
-      const question = questions.find((q) => q.id === questionId);
-      if (question) {
-        let isCorrect = false;
-        let pointsEarned = 0;
-        if (question.type === "mcq") {
-          isCorrect = question.options[parseInt(value)] === question.correct_answer;
-          pointsEarned = isCorrect ? question.points : 0;
-        } else if (question.type === "true_false") {
-          const answerText = value === "0" ? "true" : "false";
-          isCorrect = answerText === question.correct_answer;
-          pointsEarned = isCorrect ? question.points : 0;
-        }
-        saveResponseToDB(attemptId, questionId, value, isCorrect, pointsEarned);
-      }
+      supabase.rpc("save_quiz_response", {
+        p_attempt_id: attemptId,
+        p_question_id: questionId,
+        p_answer: value,
+      }).catch(() => {});
     }
   };
 
@@ -250,7 +209,6 @@ export const PublicQuizPage = () => {
     const loadQuiz = async () => {
       setError("");
       try {
-        console.log("Loading quiz with share token:", shareToken);
 
         const { data: quizData, error: quizError } = await supabase
           .from("quizzes")
@@ -266,7 +224,6 @@ export const PublicQuizPage = () => {
           .eq("is_published", true)
           .single();
 
-        console.log("Quiz data result:", { quizData, quizError });
 
         if (quizError) {
           console.error("Quiz loading error:", quizError);
@@ -311,11 +268,9 @@ export const PublicQuizPage = () => {
 
         const { data: questionsData, error: questionsError } = await supabase
           .from("questions")
-          .select("*")
+          .select("id, quiz_id, type, text, options, points, created_at")
           .eq("quiz_id", quizData.id)
           .order("created_at", { ascending: true });
-
-        console.log("Questions result:", { questionsData, questionsError });
 
         if (questionsError) throw questionsError;
         // Store questions in original order; shuffling happens when starting/resuming
@@ -620,70 +575,22 @@ export const PublicQuizPage = () => {
     try {
       setSubmitting(true);
 
-      // Build all responses
-      const responses = questions.map((q) => {
-        const userAnswer = answers[q.id] || "";
-        let isCorrect = false;
-        let pointsEarned = 0;
+      // Build answers array for server-side grading
+      const answersPayload = questions.map((q) => ({
+        question_id: q.id,
+        answer: answers[q.id] || "",
+      }));
 
-        if (q.type === "mcq") {
-          isCorrect = q.options[parseInt(userAnswer)] === q.correct_answer;
-          pointsEarned = isCorrect ? q.points : 0;
-        } else if (q.type === "true_false") {
-          const answerText = userAnswer === "0" ? "true" : "false";
-          isCorrect = answerText === q.correct_answer;
-          pointsEarned = isCorrect ? q.points : 0;
-        }
-
-        return {
-          attempt_id: attemptId,
-          question_id: q.id,
-          answer: userAnswer,
-          is_correct: isCorrect,
-          points_earned: pointsEarned,
-        };
-      });
-
-      // Check which responses were already auto-saved
-      const { data: existingResponses } = await quizService.getResponsesDetailsByAttempt(attemptId);
-      const existingQuestionIds = new Set((existingResponses || []).map((r) => r.question_id));
-
-      // Update existing auto-saved responses with final grades
-      const toUpdate = responses.filter((r) => existingQuestionIds.has(r.question_id));
-      const toInsert = responses.filter((r) => !existingQuestionIds.has(r.question_id));
-
-      await Promise.all(
-        toUpdate.map((r) =>
-          supabase
-            .from("quiz_responses")
-            .update({ answer: r.answer, is_correct: r.is_correct, points_earned: r.points_earned })
-            .eq("attempt_id", attemptId)
-            .eq("question_id", r.question_id)
-        )
+      // Submit to server — grading happens in the database
+      const { data: totalScore, error: rpcError } = await supabase.rpc(
+        "submit_quiz_attempt",
+        {
+          p_attempt_id: attemptId,
+          p_answers: answersPayload,
+        },
       );
 
-      if (toInsert.length > 0) {
-        const { error: responseError } = await supabase
-          .from("quiz_responses")
-          .insert(toInsert);
-        if (responseError) throw responseError;
-      }
-
-      // Calculate total score
-      const totalScore = responses.reduce(
-        (sum, r) => sum + (r.points_earned || 0),
-        0,
-      );
-
-      // Update attempt
-      const { error: updateError } = await supabase
-        .from("quiz_attempts")
-        .update({
-          score: totalScore,
-          status: "completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", attemptId);
+      if (rpcError) throw rpcError;
 
       setScore(totalScore);
       setCompleted(true);
