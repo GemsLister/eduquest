@@ -36,6 +36,16 @@ export const InstructorQuiz = () => {
   const [returnFilter, setReturnFilter] = useState("approved");
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+
+  const toggleQuestion = (questionId) => {
+    setExpandedQuestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(questionId)) next.delete(questionId);
+      else next.add(questionId);
+      return next;
+    });
+  };
   const autoSaveTimer = useRef(null);
   const initialLoadDone = useRef(false);
 
@@ -233,10 +243,16 @@ export const InstructorQuiz = () => {
       id: Date.now() + i,
       type: "mcq",
       text: "",
-      options: ["", ""],
+      options: ["", "", "", ""],
       correctAnswer: 0,
       points: 1,
     }));
+    // Auto-expand new questions
+    setExpandedQuestions((prev) => {
+      const next = new Set(prev);
+      newQuestions.forEach((q) => next.add(q.id));
+      return next;
+    });
     setQuestions([...questions, ...newQuestions]);
     setShowAddQuestionPopup(false);
   };
@@ -290,8 +306,7 @@ export const InstructorQuiz = () => {
     return token;
   };
 
-  const copyToClipboard = () => {
-    const url = `${window.location.origin}/quiz/${shareToken}`;
+  const copyToClipboard = (url) => {
     navigator.clipboard.writeText(url).then(() => {
       setSaveStatus("URL copied to clipboard!");
       setTimeout(() => setSaveStatus(""), 2000);
@@ -642,7 +657,11 @@ export const InstructorQuiz = () => {
           <div className="flex gap-2 mt-4">
             <button
               onClick={() =>
-                navigate(`/instructor-dashboard/quiz-results/${quizId}`)
+                navigate(
+                  selectedSectionIds.length > 0
+                    ? `/instructor-dashboard/quiz-results/${quizId}?section=${selectedSectionIds[0]}`
+                    : `/instructor-dashboard/quiz-results/${quizId}`
+                )
               }
               className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
             >
@@ -687,22 +706,52 @@ export const InstructorQuiz = () => {
             Quiz Published Successfully!
           </h3>
           <p className="text-gray-700 mb-4">
-            Share this link with students so they can take the quiz:
+            Share the link for each subject with the corresponding students:
           </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={`${window.location.origin}/quiz/${shareToken}`}
-              readOnly
-              className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-            />
-            <button
-              onClick={copyToClipboard}
-              className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-            >
-              Copy Link
-            </button>
-          </div>
+          {selectedSectionIds.length > 0 ? (
+            <div className="space-y-3">
+              {selectedSectionIds.map((sId) => {
+                const sec = availableSections.find((s) => s.id === sId);
+                const sectionUrl = `${window.location.origin}/quiz/${shareToken}?section=${sId}`;
+                return (
+                  <div key={sId}>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      {sec?.section_name || sec?.name || sId}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sectionUrl}
+                        readOnly
+                        className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(sectionUrl)}
+                        className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={`${window.location.origin}/quiz/${shareToken}`}
+                readOnly
+                className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
+              />
+              <button
+                onClick={() => copyToClipboard(`${window.location.origin}/quiz/${shareToken}`)}
+                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
+              >
+                Copy Link
+              </button>
+            </div>
+          )}
           <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
             <strong>Share Code:</strong>{" "}
             <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
@@ -737,6 +786,19 @@ export const InstructorQuiz = () => {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Description / Instructions
+            </label>
+            <textarea
+              value={quizDescription}
+              onChange={(e) => { setQuizDescription(e.target.value); markDirty(); }}
+              placeholder="Enter quiz instructions or description for students (optional)"
+              disabled={isPublished}
+              rows={3}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Duration (minutes)
             </label>
             <input
@@ -763,17 +825,27 @@ export const InstructorQuiz = () => {
               min="1"
               max="100"
               value={questionCount}
-              onChange={(e) =>
-                setQuestionCount(Math.max(1, parseInt(e.target.value) || 1))
-              }
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setQuestionCount("");
+                } else {
+                  setQuestionCount(Math.max(1, Math.min(100, parseInt(val) || 1)));
+                }
+              }}
+              onBlur={() => {
+                if (questionCount === "" || questionCount < 1) setQuestionCount(1);
+              }}
+              autoFocus
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
             />
             <div className="flex gap-3">
               <button
-                onClick={() => addMultipleQuestions(questionCount)}
+                onClick={() => addMultipleQuestions(parseInt(questionCount) || 1)}
                 className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
               >
-                Add {questionCount} Question{questionCount > 1 ? "s" : ""}
+                Add {parseInt(questionCount) || 1} Question{(parseInt(questionCount) || 1) > 1 ? "s" : ""}
               </button>
               <button
                 onClick={() => setShowAddQuestionPopup(false)}
@@ -909,21 +981,6 @@ export const InstructorQuiz = () => {
                 + Add Question
               </button>
 
-              <button
-                onClick={() => {
-                  const shuffled = [...questions].sort(
-                    () => Math.random() - 0.5,
-                  );
-                  setQuestions(shuffled);
-                }}
-                className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5"
-                title="Randomize question order for students"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Shuffle
-              </button>
             </div>
           )}
         </div>
@@ -947,11 +1004,32 @@ export const InstructorQuiz = () => {
                 key={question.id}
                 className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold transition-colors"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    {idx + 1}. {question.text.substring(0, 50)}...
-                  </h3>
-                  <div className="flex gap-2">
+                {/* Collapsible header */}
+                <div
+                  className="flex justify-between items-center cursor-pointer select-none"
+                  onClick={() => toggleQuestion(question.id)}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <svg
+                      className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${expandedQuestions.has(question.id) ? "rotate-90" : ""}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-gray-800 truncate">
+                      {idx + 1}. {question.text || <span className="text-gray-400 italic">Untitled question</span>}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <span className="text-xs text-gray-400 uppercase">{question.type === "mcq" ? "MCQ" : question.type === "true_false" ? "T/F" : question.type}</span>
+                    <span className="text-xs bg-brand-navy/10 text-brand-navy px-2 py-0.5 rounded-full font-semibold">{question.points || 1} pt{(question.points || 1) > 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+
+                {/* Expandable content */}
+                {expandedQuestions.has(question.id) && (
+                <div className="mt-4">
+                <div className="flex justify-end gap-2 mb-4">
                     <button
                       onClick={async (e) => {
                         e.preventDefault();
@@ -1023,7 +1101,6 @@ export const InstructorQuiz = () => {
                       Remove
                     </button>
                   </div>
-                </div>
 
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1139,13 +1216,15 @@ export const InstructorQuiz = () => {
                       updateQuestion(
                         question.id,
                         "points",
-                        parseInt(e.target.value),
+                        Math.max(1, parseInt(e.target.value) || 1),
                       )
                     }
                     min="1"
                     className="w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
                   />
                 </div>
+                </div>
+                )}
               </div>
             ))}
           </div>
@@ -1231,6 +1310,7 @@ export const InstructorQuiz = () => {
       {showAnalysisModal && (
         <QuizAnalysisResults
           quizId={quizId || "draft"}
+          quizTitle={quizTitle}
           questions={questions.filter((q) => q.text.trim())}
           instructorId={userId}
           onClose={() => setShowAnalysisModal(false)}

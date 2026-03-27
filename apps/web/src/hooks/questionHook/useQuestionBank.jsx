@@ -195,12 +195,19 @@ export const useQuestionBank = () => {
       if (quizError) throw quizError;
 
       // Add question to the draft quiz
+      const correctAnswer =
+        questionData.type === "mcq"
+          ? questionData.options[questionData.correctAnswer] || questionData.correctAnswer
+          : questionData.type === "true_false"
+            ? questionData.correctAnswer === 0 ? "true" : "false"
+            : questionData.correctAnswer;
+
       const { error: questionError } = await supabase.from("questions").insert({
         quiz_id: quiz.id,
         type: questionData.type || "mcq",
         text: questionData.text,
-        options: questionData.options,
-        correct_answer: questionData.correctAnswer,
+        options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
+        correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
       });

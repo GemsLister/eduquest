@@ -29,17 +29,19 @@ export const exportBloomsPdf = ({ quizTitle, results, instructorName, submittedA
 
   // ── Header ──
   doc.setFillColor(55, 48, 107); // indigo-900
-  doc.rect(0, 0, pageWidth, 40, "F");
+  doc.rect(0, 0, pageWidth, 44, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Bloom's Taxonomy Analysis", 14, 18);
+  doc.text("BUKSU CITL", 14, 12);
+  doc.setFontSize(22);
+  doc.text("Bloom's Taxonomy Analysis", 14, 24);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("AI-Powered Cognitive Level Classification Report", 14, 26);
+  doc.text("AI-Powered Cognitive Level Classification Report", 14, 32);
   doc.setFontSize(8);
-  doc.text(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, 14, 34);
-  y = 50;
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, 14, 39);
+  y = 54;
 
   // ── Quiz Info ──
   doc.setTextColor(30, 30, 30);
@@ -305,7 +307,7 @@ export const exportBloomsPdf = ({ quizTitle, results, instructorName, submittedA
     doc.setFont("helvetica", "normal");
     doc.setTextColor(180, 180, 180);
     doc.text(
-      `EduQuest - Bloom's Taxonomy Analysis Report | Page ${i} of ${pageCount}`,
+      `BUKSU CITL - Bloom's Taxonomy Analysis Report | Page ${i} of ${pageCount}`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: "center" },

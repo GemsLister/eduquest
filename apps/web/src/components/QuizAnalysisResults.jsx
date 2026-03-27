@@ -70,6 +70,7 @@ const ProgressStepper = ({ currentStep }) => {
  */
 export const QuizAnalysisResults = ({
   quizId,
+  quizTitle,
   questions,
   instructorId,
   onClose,
@@ -623,7 +624,7 @@ export const QuizAnalysisResults = ({
                                     : "text-red-600"
                               }`}
                             >
-                              {(item.confidence * 100).toFixed(0)}%
+                              {(item.confidence * 100).toFixed(1)}%
                             </span>
                           </div>
                         </div>
@@ -716,7 +717,7 @@ export const QuizAnalysisResults = ({
             <button
               onClick={() =>
                 exportBloomsPdf({
-                  quizTitle: `Quiz ${quizId}`,
+                  quizTitle: quizTitle || `Quiz ${quizId}`,
                   results,
                 })
               }

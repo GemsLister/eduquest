@@ -14,8 +14,11 @@ export const useGoogleLogin = () => {
       },
     });
   };
-  const handleGoogleQuizLogin = async (quizToken) => {
-    const redirectUrl = `${window.location.origin}/quiz/${quizToken}?auth=success`;
+  const handleGoogleQuizLogin = async (quizToken, sectionId = null) => {
+    let redirectUrl = `${window.location.origin}/quiz/${quizToken}?auth=success`;
+    if (sectionId) {
+      redirectUrl += `&section=${sectionId}`;
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

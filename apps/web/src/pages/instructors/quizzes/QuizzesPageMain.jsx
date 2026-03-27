@@ -409,12 +409,14 @@ export const QuizzesPageMain = () => {
                         </span>{" "}
                         Questions
                       </span>
-                      <span>
-                        <span className="font-semibold text-gray-700">
-                          {quiz.attempts || 0}
-                        </span>{" "}
-                        Attempts
-                      </span>
+                      {quiz.is_published && (
+                        <span>
+                          <span className="font-semibold text-gray-700">
+                            {quiz.attempts || 0}
+                          </span>{" "}
+                          Attempts
+                        </span>
+                      )}
                     </div>
 
                     {/* Action Buttons */}

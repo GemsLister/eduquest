@@ -54,6 +54,7 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
       setQuizFormData({ title: "", description: "", duration: "" });
       setShowQuizForm(false);
 
+      toast.success(`Quiz "${data.title}" created successfully!`);
       navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
     } catch (error) {
       console.error("Full error object:", error);

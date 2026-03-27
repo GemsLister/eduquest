@@ -209,12 +209,26 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
       const { data: existingSubmission, error: existingSubmissionError } =
         await supabase
           .from("quiz_analysis_submissions")
-          .select("id")
+          .select("id, analysis_results")
           .eq("quiz_id", quizId)
           .eq("instructor_id", user.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+
+      // Preserve AI confidence values from existing Bloom's analysis if available
+      if (existingSubmission?.analysis_results?.analysis) {
+        const existingAnalysis = existingSubmission.analysis_results.analysis;
+        analysisPayload.analysis = analysisPayload.analysis.map((item) => {
+          const existing = existingAnalysis.find(
+            (e) => e.questionId === item.questionId,
+          );
+          if (existing && existing.confidence !== undefined && existing.confidence !== 1) {
+            return { ...item, confidence: existing.confidence };
+          }
+          return item;
+        });
+      }
 
       if (existingSubmissionError) {
         throw existingSubmissionError;
