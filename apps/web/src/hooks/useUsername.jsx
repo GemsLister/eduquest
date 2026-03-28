@@ -46,5 +46,6 @@ export const useUsername = () => {
     };
     getUserData();
   }, []);
+
   return userData;
 };
