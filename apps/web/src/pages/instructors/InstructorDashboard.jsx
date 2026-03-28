@@ -160,7 +160,7 @@ export const InstructorDashboard = () => {
               Instructor
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              Sections
+              Subjects
             </h1>
             <p className="text-white/50 text-sm mt-1">
               {sections.length} {sections.length === 1 ? "subject" : "subjects"}{" "}
