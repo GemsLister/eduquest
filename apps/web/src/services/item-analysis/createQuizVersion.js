@@ -25,19 +25,22 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       .from("quizzes")
       .select("title")
       .eq("instructor_id", instructorId)
-      .like("title", `${originalQuiz.title}%v%`);
+      .like("title", `${originalQuiz.title}%(Revised)%`);
 
     let versionNumber = 2;
     if (existingVersions && existingVersions.length > 0) {
       const versions = existingVersions.map((q) => {
-        const match = q.title.match(/v(\d+)/);
-        return match ? parseInt(match[1]) : 1;
+        const match = q.title.match(/\(Revised(?: (\d+))?\)/);
+        return match && match[1] ? parseInt(match[1]) + 1 : 2;
       });
       versionNumber = Math.max(...versions) + 1;
     }
 
     // 4. Create new quiz with version in title
-    const newQuizTitle = `${originalQuiz.title} - v${versionNumber} (Revised)`;
+    let newQuizTitle = `${originalQuiz.title} (Revised)`;
+    if (versionNumber > 2) {
+      newQuizTitle = `${originalQuiz.title} (Revised ${versionNumber - 1})`;
+    }
     const { data: newQuiz, error: createError } = await supabase
       .from("quizzes")
       .insert({
@@ -45,7 +48,7 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
         section_id: originalQuiz.section_id,
         title: newQuizTitle,
         description: `${originalQuiz.description || ""} [Auto-generated from Item Analysis revisions]`.trim(),
-        status: "draft",
+        is_published: false,
         is_archived: false,
         parent_quiz_id: originalQuizId,
         version_number: versionNumber,
@@ -53,7 +56,10 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       .select()
       .single();
 
-    if (createError) throw new Error("Failed to create new quiz version");
+    if (createError) {
+      console.error("Supabase createError:", createError);
+      throw new Error(`Failed to create new quiz version: ${createError.message || JSON.stringify(createError)}`);
+    }
 
     // 5. Fetch all questions from original quiz
     const { data: allQuestions, error: questionsError } = await supabase
@@ -137,6 +143,18 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       .from("quizzes")
       .update({ has_revision: true, latest_version_id: newQuiz.id })
       .eq("id", originalQuizId);
+
+    // 9. Auto-approve the revised quiz so it appears in "In Review" tab as Approved
+    await supabase
+      .from("quiz_analysis_submissions")
+      .insert({
+        quiz_id: newQuiz.id,
+        instructor_id: instructorId,
+        analysis_results: { auto_generated: true },
+        instructor_message: "Auto-generated submission from Item Analysis revisions.",
+        status: "approved",
+        admin_feedback: "Auto-approved revision based on Item Analysis."
+      });
 
     return { quizId: newQuiz.id, error: null };
   } catch (err) {
