@@ -19,12 +19,12 @@ export const Header = () => {
   const userData = useUsername();
   const location = useLocation();
 
-  const pageTitle =
-    Object.entries(pageTitles).find(
-      ([path]) =>
-        location.pathname.startsWith(path) &&
-        (path === "/instructor-dashboard" ? location.pathname === path : true),
-    )?.[1] ?? "Dashboard";
+  const pageTitle = Object.entries(pageTitles).find(
+    ([path]) =>
+      location.pathname.startsWith(path) &&
+      (path === "/instructor-dashboard" ? location.pathname === path : true),
+    )?.[1] ?? "Dashboard"
+  
 
   if (userData.loading)
     return <div className="h-16 bg-white border-b border-gray-100" />;
