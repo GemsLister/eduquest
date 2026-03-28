@@ -59,14 +59,14 @@ export const ItemAnalysisHeader = ({
             {/* Section Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Section *
+                Select Subject
               </label>
               <select
                 value={selectedSection}
                 onChange={(e) => onSectionChange(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               >
-                <option value="">-- Select a Section --</option>
+                <option value="">-- Select Subject --</option>
                 {sections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.name}
@@ -84,7 +84,7 @@ export const ItemAnalysisHeader = ({
             {/* Quiz/Subject Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Quiz/Subject *
+                Select Quiz
               </label>
               <select
                 value={selectedQuiz}
@@ -96,7 +96,7 @@ export const ItemAnalysisHeader = ({
                   {loadingQuizzes
                     ? "Loading quizzes..."
                     : !selectedSection
-                      ? "Select a section first"
+                      ? "Select a subject first"
                       : "-- Select a Quiz --"}
                 </option>
                 {quizzes &&
