@@ -93,7 +93,7 @@ export const QuizVersions = () => {
     try {
       const { error } = await supabase
         .from("quizzes")
-        .update({ status: "published" })
+        .update({ is_published: true })
         .eq("id", quizId);
 
       if (error) throw error;
@@ -103,7 +103,7 @@ export const QuizVersions = () => {
         quizVersions.map((group) => ({
           ...group,
           versions: group.versions.map((v) =>
-            v.id === quizId ? { ...v, status: "published" } : v
+            v.id === quizId ? { ...v, is_published: true } : v
           ),
         }))
       );
@@ -214,12 +214,12 @@ export const QuizVersions = () => {
                     <div className="flex flex-col gap-2">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
-                          group.original.status === "published"
+                          group.original.is_published
                             ? "bg-green-500"
                             : "bg-yellow-500"
                         }`}
                       >
-                        {group.original.status?.toUpperCase() || "DRAFT"}
+                        {group.original.is_published ? "PUBLISHED" : "DRAFT"}
                       </span>
                       {group.versions.length > 0 && (
                         <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-white">
@@ -253,12 +253,12 @@ export const QuizVersions = () => {
                               <div className="flex gap-2 mt-2">
                                 <span
                                   className={`text-xs px-2 py-1 rounded font-bold ${
-                                    version.status === "published"
+                                    version.is_published
                                       ? "bg-green-100 text-green-700"
                                       : "bg-yellow-100 text-yellow-700"
                                   }`}
                                 >
-                                  {version.status?.toUpperCase() || "DRAFT"}
+                                  {version.is_published ? "PUBLISHED" : "DRAFT"}
                                 </span>
                                 <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold">
                                   v{version.version_number}
@@ -266,7 +266,7 @@ export const QuizVersions = () => {
                               </div>
                             </div>
                             <div className="flex flex-col gap-2 ml-4">
-                              {version.status !== "published" && (
+                              {!version.is_published && (
                                 <button
                                   onClick={() => publishQuiz(version.id)}
                                   className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded text-sm transition-colors"
