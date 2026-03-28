@@ -44,6 +44,9 @@ export const ItemAnalysisResults = ({
                 </span>
               </div>
             )}
+            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+              💡 <strong>Auto-Versioning:</strong> When you save with revisions, a new quiz version is automatically created with your changes applied.
+            </div>
           </div>
             
             <div className="flex gap-2">
