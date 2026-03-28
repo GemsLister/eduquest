@@ -450,6 +450,103 @@ export const QuizAnalysisResults = ({
     }
   };
 
+  const handleDoneRevision = async () => {
+    if (!results) return;
+    
+    setError("");
+    setSaveStatus("Creating revised quiz version...");
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("User not authenticated");
+        setSaveStatus("");
+        return;
+      }
+
+      // Get the questions that were flagged for revision
+      const flaggedQuestions = results.analysis.filter(q => q.needsReview);
+      
+      if (flaggedQuestions.length === 0) {
+        setError("No questions were marked for revision. Please mark questions for revision first.");
+        setSaveStatus("");
+        return;
+      }
+
+      // Create new quiz version with parent_quiz_id pointing to original
+      const revisedQuizTitle = `${quizTitle} (Revised)`;
+      
+      const { data: newQuiz, error: newQuizError } = await supabase
+        .from("quizzes")
+        .insert([
+          {
+            instructor_id: user.id,
+            section_id: selectedSectionIds[0] || null,
+            title: revisedQuizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+            is_published: false, // Keep as draft initially
+            share_token: generateShareToken(),
+            parent_quiz_id: quizId, // Link to original quiz
+          },
+        ])
+        .select();
+
+      if (newQuizError) throw newQuizError;
+      if (!newQuiz || newQuiz.length === 0) {
+        throw new Error("Failed to create revised quiz");
+      }
+
+      const revisedQuizData = newQuiz[0];
+
+      // Add the revised questions to the new quiz
+      const revisedQuestionsData = flaggedQuestions.map(q => ({
+        quiz_id: revisedQuizData.id,
+        type: q.type,
+        text: q.text,
+        options: q.type === "mcq" ? q.options : null,
+        correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : 
+                     q.type === "true_false" ? (q.correctAnswer === 0 ? "true" : "false") : q.correctAnswer,
+        points: q.points,
+      }));
+
+      if (revisedQuestionsData.length > 0) {
+        const { error: questionsError } = await supabase
+          .from("questions")
+          .insert(revisedQuestionsData);
+        
+        if (questionsError) throw questionsError;
+      }
+
+      // Update the original quiz analysis submission to mark revision as completed
+      if (existingSubmission) {
+        const { error: updateError } = await supabase
+          .from("quiz_analysis_submissions")
+          .update({
+            status: "revision_completed",
+            instructor_message: "Revised quiz version created",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSubmission.id);
+        
+        if (updateError) throw updateError;
+      }
+
+      setSaveStatus("Revised quiz version created successfully!");
+      toast.success("Revised quiz version created! You can now edit it in Quiz Management.");
+      
+      setTimeout(() => {
+        setSaveStatus("");
+        onClose();
+      }, 2000);
+      
+    } catch (err) {
+      setError(err.message || "Failed to create revised quiz version");
+      setSaveStatus("");
+      console.error(err);
+    }
+  };
+
   // Color mapping for Bloom's levels
   const getLevelColor = (level) => {
     const colors = {
