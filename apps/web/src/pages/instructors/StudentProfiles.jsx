@@ -63,6 +63,7 @@ export const StudentProfiles = () => {
           .from("quizzes")
           .select("id, title")
           .eq("section_id", selectedSection)
+          .eq("is_archived", false)
           .order("title", { ascending: true });
 
         setQuizzes(quizzesData || []);
