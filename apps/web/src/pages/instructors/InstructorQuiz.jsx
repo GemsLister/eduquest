@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
+import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
+import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
 
@@ -37,6 +39,11 @@ export const InstructorQuiz = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+  const [parentQuizId, setParentQuizId] = useState(null);
+  
+  // Archive subject modal state
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [questionToArchive, setQuestionToArchive] = useState(null);
 
   const toggleQuestion = (questionId) => {
     setExpandedQuestions((prev) => {
@@ -184,6 +191,7 @@ export const InstructorQuiz = () => {
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
       setShareToken(quiz.share_token || "");
+      setParentQuizId(quiz.parent_quiz_id || null);
 
       const { data: qsData, error: qsError } = await supabase
         .from("quiz_sections")
@@ -323,25 +331,47 @@ export const InstructorQuiz = () => {
       return;
     }
 
-    // If it's a saved question from database, archive it instead of deleting
+    // If it's a saved question from database, show subject selection modal
+    const questionToArchiveItem = questions.find((q) => q.id === id);
+    if (questionToArchiveItem) {
+      setQuestionToArchive(questionToArchiveItem);
+      setShowSubjectModal(true);
+    }
+    setDeletingQuestionId(null);
+  };
+
+  // Handle subject selection for archiving
+  const handleArchiveWithSubject = async (sectionId) => {
+    if (!questionToArchive) return;
+
     try {
+      const updateData = { 
+        is_archived: true, 
+        updated_at: new Date().toISOString() 
+      };
+
+      if (sectionId) {
+        updateData.section_id = sectionId;
+      }
+
       const { error } = await supabase
         .from("questions")
-        .update({ is_archived: true, updated_at: new Date().toISOString() })
-        .eq("id", id);
+        .update(updateData)
+        .eq("id", questionToArchive.id);
 
       if (error) throw error;
 
       // Remove from local state for instant UI feedback
-      setQuestions((prevQuestions) => prevQuestions.filter((q) => q.id !== id));
+      setQuestions((prevQuestions) => prevQuestions.filter((q) => q.id !== questionToArchive.id));
       toast.success(
         "Question archived to Question Bank! You can restore it from there.",
       );
+      
+      setShowSubjectModal(false);
+      setQuestionToArchive(null);
     } catch (err) {
       console.error("Error archiving question:", err);
       toast.error("Error archiving question: " + err.message);
-    } finally {
-      setDeletingQuestionId(null);
     }
   };
 
@@ -965,6 +995,10 @@ export const InstructorQuiz = () => {
         </div>
       )}
 
+      {quizId && (parentQuizId || isPublished) && (
+        <QuizRevisionHistory parentQuizId={parentQuizId} currentQuizId={quizId} />
+      )}
+
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6 gap-4">
           <div>
@@ -1316,6 +1350,17 @@ export const InstructorQuiz = () => {
           onClose={() => setShowAnalysisModal(false)}
         />
       )}
+
+      {/* Archive Subject Selection Modal */}
+      <SelectSubjectModal
+        isOpen={showSubjectModal}
+        onClose={() => {
+          setShowSubjectModal(false);
+          setQuestionToArchive(null);
+        }}
+        onConfirm={handleArchiveWithSubject}
+        questionText={questionToArchive?.text}
+      />
     </div>
   );
 };
