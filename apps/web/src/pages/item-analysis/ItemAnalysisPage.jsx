@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { createQuizVersion } from "../../services/item-analysis/createQuizVersion";
@@ -8,10 +9,15 @@ import { ItemAnalysisTable } from "../../components/container/item-analysis/Item
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 
 export const ItemAnalysisPage = () => {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialSectionId = searchParams.get("sectionId") || "";
+  const initialQuizId = searchParams.get("quizId") || "";
+
   const [sections, setSections] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [selectedSection, setSelectedSection] = useState("");
-  const [selectedQuiz, setSelectedQuiz] = useState("");
+  const [selectedSection, setSelectedSection] = useState(initialSectionId);
+  const [selectedQuiz, setSelectedQuiz] = useState(initialQuizId);
   const [analysis, setAnalysis] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingSections, setLoadingSections] = useState(true);
