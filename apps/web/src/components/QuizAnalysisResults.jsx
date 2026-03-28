@@ -112,6 +112,7 @@ export const QuizAnalysisResults = ({
   const [quizDuration, setQuizDuration] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
+  const [revisionMode, setRevisionMode] = useState(false);
 
   // Check for existing submission that needs revision
   useEffect(() => {
@@ -119,6 +120,8 @@ export const QuizAnalysisResults = ({
       checkExistingSubmission();
     }
   }, [quizId]);
+
+  const navigate = useNavigate();
 
   const handleSaveQuiz = async (publish = false) => {
     setError("");
@@ -369,8 +372,6 @@ export const QuizAnalysisResults = ({
     }
   };
 
-
-  const navigate = useNavigate();
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
       setError("No questions to analyze.");
@@ -460,6 +461,15 @@ export const QuizAnalysisResults = ({
       Creating: "bg-purple-100 text-purple-700 border-purple-300",
     };
     return colors[level] || "bg-gray-100 text-gray-700 border-gray-300";
+  };
+
+  const generateShareToken = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let token = "";
+    for (let i = 0; i < 12; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
   };
 
   const getThinkingOrderStyle = (order) => {
@@ -1093,29 +1103,44 @@ export const QuizAnalysisResults = ({
                   </div>
                   <p className="font-bold text-green-800">
                     {existingSubmission
-                      ? "Resubmitted Successfully!"
+                      ? "Revised Successfully!"
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    The admin will review your quiz analysis and provide
-                    feedback.
+                    {existingSubmission
+                      ? "Revised quiz version created successfully!"
+                      : "The admin will review your quiz analysis and provide feedback."}
                   </p>
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={() => {
+                        handleSaveQuiz(false);
+                        setHasUnsavedChanges(false);
+                        setLastSaved(new Date());
+                      }}
+                      disabled={loading}
+                      className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      {loading ? "Saving..." : "Back to Quizzes"}
+                    </button>
+                    {existingSubmission && existingSubmission.status === "revision_requested" && (
+                      <button
+                        onClick={handleDoneRevision}
+                        disabled={loading || revisionMode}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        {revisionMode ? "Creating..." : "Done Revision"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
-              <button
-                onClick={() => {
-                  handleSaveQuiz(false);
-                  setHasUnsavedChanges(false);
-                  setLastSaved(new Date());
-                }}
-                disabled={loading}
-                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                {loading ? "Saving..." : "Back to Quizzes"}
-              </button>
             </>
           )}
         </div>
