@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
+import { createQuizVersion } from "../../services/item-analysis/createQuizVersion";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
 import { ItemAnalysisResults } from "../../components/container/item-analysis/ItemAnalysisResults";
 import { ItemAnalysisTable } from "../../components/container/item-analysis/ItemAnalysisTable";
@@ -126,13 +127,44 @@ export const ItemAnalysisPage = () => {
     setSavingAnalysis(true);
     setSaveError(null);
     try {
+      // Save the analysis
       const { error } = await ItemAnalysisService.saveItemAnalysis(
         selectedQuiz,
         analysis,
       );
       if (error) throw error;
-      setAnalysisSaved(true);
-      alert("Analysis saved successfully!");
+
+      // Check if there are any revisions (either pending revisions or revision history)
+      const revisedQuestions = analysis.filter(
+        (item) => 
+          item.revised_content || 
+          item.revised_options || 
+          item.revised_correct_answer || 
+          (item.revision_history && item.revision_history.length > 0)
+      );
+
+      // If there are revisions, automatically create a new quiz version
+      if (revisedQuestions.length > 0) {
+        const { quizId: newQuizId, error: versionError } = await createQuizVersion(
+          selectedQuiz,
+          revisedQuestions
+        );
+
+        if (versionError) {
+          console.warn("Could not auto-create quiz version:", versionError);
+          alert(
+            `Analysis saved! However, automatic quiz version creation failed: ${versionError}. You can manually create a new version if needed.`
+          );
+        } else {
+          setAnalysisSaved(true);
+          alert(
+            `Analysis saved successfully!\n\nA new quiz version has been automatically created with your revisions. You can find it in your quiz library.`
+          );
+        }
+      } else {
+        setAnalysisSaved(true);
+        alert("Analysis saved successfully!");
+      }
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
@@ -402,8 +434,6 @@ export const ItemAnalysisPage = () => {
           analysisSaved={analysisSaved}
           selectedCohortFilter={selectedCohortFilter}
         />
-
-
 
         {(() => {
           if (!selectedQuiz) return null;
