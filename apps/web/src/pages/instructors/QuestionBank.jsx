@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -10,6 +10,7 @@ const ITEMS_PER_PAGE = 10;
 export const QuestionBank = () => {
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const [searchParams] = useSearchParams();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("active");
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,6 +23,15 @@ export const QuestionBank = () => {
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [bulkSelected, setBulkSelected] = useState(new Set());
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
+  const [showQuizDropdown, setShowQuizDropdown] = useState(false);
+  
+  // Subject and Quiz filter state
+  const [selectedSectionId, setSelectedSectionId] = useState(null);
+  const [selectedQuizIdFilter, setSelectedQuizIdFilter] = useState(null);
+  const [sections, setSections] = useState([]);
+  const [quizzesFromSection, setQuizzesFromSection] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
 
   const {
     activeQuestions,
@@ -46,13 +56,106 @@ export const QuestionBank = () => {
   useEffect(() => {
     setCurrentPage(1);
     setBulkSelected(new Set());
-  }, [activeTab, searchTerm, sortBy]);
+  }, [activeTab, searchTerm, sortBy, selectedSectionId, selectedQuizIdFilter]);
+
+  // Fetch sections on mount
+  useEffect(() => {
+    const fetchSections = async () => {
+      try {
+        setSectionsLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setSectionsLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("sections")
+          .select("id, section_name")
+          .eq("instructor_id", user.id)
+          .order("section_name", { ascending: true });
+
+        if (error) throw error;
+        setSections(data || []);
+      } catch (err) {
+        console.error("Error fetching sections:", err);
+        setSections([]);
+      } finally {
+        setSectionsLoading(false);
+      }
+    };
+
+    fetchSections();
+  }, []);
+
+  // Read URL params and set initial section
+  useEffect(() => {
+    const sectionId = searchParams.get("sectionId");
+    if (sectionId) {
+      setSelectedSectionId(sectionId);
+    }
+  }, [searchParams]);
+
+  // Fetch quizzes when section changes
+  useEffect(() => {
+    if (!selectedSectionId) {
+      setQuizzesFromSection([]);
+      setSelectedQuizIdFilter(null);
+      return;
+    }
+
+    const fetchQuizzes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("quiz_sections")
+          .select("quiz_id, quizzes(id, title)")
+          .eq("section_id", selectedSectionId);
+
+        if (error) throw error;
+
+        const uniqueQuizzes = [];
+        const seen = new Set();
+        data?.forEach((qs) => {
+          if (qs.quizzes && !seen.has(qs.quizzes.id)) {
+            seen.add(qs.quizzes.id);
+            uniqueQuizzes.push(qs.quizzes);
+          }
+        });
+
+        setQuizzesFromSection(uniqueQuizzes);
+      } catch (err) {
+        console.error("Error fetching quizzes:", err);
+        setQuizzesFromSection([]);
+      }
+    };
+
+    fetchQuizzes();
+  }, [selectedSectionId]);
 
   // Filter questions
   const filterQuestions = (questions) => {
     let filteredList = questions;
 
-    if (quizId) {
+    // First, handle quiz dropdown selection (Subject → Quiz filter)
+    if (selectedQuizIdFilter) {
+      // Show only questions from the selected quiz
+      filteredList = filteredList.filter(
+        (q) => String(q.quiz_id) === String(selectedQuizIdFilter),
+      );
+    } else if (selectedSectionId) {
+      // If section selected but no quiz yet, show questions from quizzes in this section
+      const quizIdsInSection = quizzesFromSection.map(q => String(q.id));
+      if (quizIdsInSection.length > 0) {
+        filteredList = filteredList.filter(
+          (q) => quizIdsInSection.includes(String(q.quiz_id)),
+        );
+      } else {
+        // No quizzes in this section, show no questions
+        filteredList = [];
+      }
+    } else if (quizId) {
+      // URL-based import mode: show questions NOT from this quiz
       const currentQuizTexts = new Set(
         activeQuestions
           .filter((q) => String(q.quiz_id) === String(quizId))
@@ -325,6 +428,14 @@ export const QuestionBank = () => {
     const sortLabels = { oldest: "Oldest First", "points-high": "Points: High→Low", "points-low": "Points: Low→High", quiz: "By Quiz" };
     activeFilters.push({ key: "sort", label: `Sort: ${sortLabels[sortBy]}`, clear: () => setSortBy("newest") });
   }
+  if (selectedSectionId) {
+    const sectionName = sections.find(s => s.id === selectedSectionId)?.section_name || "Subject";
+    activeFilters.push({ key: "section", label: `Subject: ${sectionName}`, clear: () => { setSelectedSectionId(null); setSelectedQuizIdFilter(null); } });
+  }
+  if (selectedQuizIdFilter) {
+    const quizTitle = quizzesFromSection.find(q => q.id === selectedQuizIdFilter)?.title || "Quiz";
+    activeFilters.push({ key: "quiz", label: `Quiz: ${quizTitle}`, clear: () => setSelectedQuizIdFilter(null) });
+  }
 
   if (loading) {
     return (
@@ -431,8 +542,53 @@ export const QuestionBank = () => {
         )}
       </div>
 
-      {/* Search + Sort + Type Filter */}
-      <div className="flex gap-3 mb-4">
+      {/* Subject + Quiz Select Filters */}
+      <div className="flex gap-4 mb-4 items-center">
+        {/* Subject Dropdown */}
+        <select
+          value={selectedSectionId || ""}
+          onChange={(e) => {
+            const sectionId = e.target.value || null;
+            setSelectedSectionId(sectionId);
+            setSelectedQuizIdFilter(null);
+          }}
+          className="px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[200px]"
+          disabled={sectionsLoading}
+        >
+          <option value="">
+            {sectionsLoading ? "Loading subjects..." : "📚 All Subjects"}
+          </option>
+          {sections.length === 0 && !sectionsLoading && (
+            <option disabled>No subjects found</option>
+          )}
+          {sections.map((section) => (
+            <option key={section.id} value={section.id}>
+              {section.section_name}
+            </option>
+          ))}
+        </select>
+
+        {/* Quiz Dropdown (only show if subject selected) */}
+        {selectedSectionId && (
+          <select
+            value={selectedQuizIdFilter || ""}
+            onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
+            className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
+          >
+            <option value="">📝 All Quizzes in Subject</option>
+            {quizzesFromSection.length === 0 ? (
+              <option disabled>No quizzes in this subject</option>
+            ) : (
+              quizzesFromSection.map((quiz) => (
+                <option key={quiz.id} value={quiz.id}>
+                  {quiz.title}
+                </option>
+              ))
+            )}
+          </select>
+        )}
+
+        {/* Search bar */}
         <div className="flex-1 relative">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
           <input
@@ -440,15 +596,15 @@ export const QuestionBank = () => {
             placeholder="Search questions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
           />
         </div>
 
-        {/* Sort dropdown */}
+        {/* Sort Button */}
         <div className="relative">
           <button
             onClick={() => setShowSortDropdown(!showSortDropdown)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 hover:border-brand-gold transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-full text-sm font-semibold text-gray-600 hover:border-brand-gold transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
             Sort
@@ -498,7 +654,7 @@ export const QuestionBank = () => {
             </span>
           ))}
           <button
-            onClick={() => { setSearchTerm(""); setSortBy("newest"); }}
+            onClick={() => { setSearchTerm(""); setSortBy("newest"); setSelectedSectionId(null); setSelectedQuizIdFilter(null); }}
             className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"
           >
             Clear all
