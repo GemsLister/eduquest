@@ -112,6 +112,10 @@ export const router = createBrowserRouter(
               path: "quiz-versions",
               element: <InstructorIndex.QuizVersions />,
             },
+            {
+              path: "saved-analysis",
+              element: <InstructorIndex.SavedAnalysisPage />,
+            },
           ],
         },
         // Admin dashboard routing
