@@ -13,6 +13,7 @@ export const getQuizzes = async (sectionId) => {
       .from("quizzes")
       .select("id, title, is_published")
       .eq("section_id", sectionId) // Corrected parameter usage
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
     if (error) {
