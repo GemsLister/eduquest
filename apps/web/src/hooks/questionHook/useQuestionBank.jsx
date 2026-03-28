@@ -91,12 +91,22 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Archive a question
-  const archiveQuestion = async (questionId) => {
+  // Archive a question with optional section assignment
+  const archiveQuestion = async (questionId, sectionId = null) => {
     try {
+      const updateData = { 
+        is_archived: true, 
+        updated_at: new Date().toISOString() 
+      };
+
+      // Include section_id if provided
+      if (sectionId) {
+        updateData.section_id = sectionId;
+      }
+
       const { error } = await supabase
         .from("questions")
-        .update({ is_archived: true, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", questionId);
 
       if (error) throw error;
@@ -104,10 +114,15 @@ export const useQuestionBank = () => {
       // Move from active to archived
       const question = activeQuestions.find((q) => q.id === questionId);
       if (question) {
+        const updatedQuestion = { 
+          ...question, 
+          is_archived: true,
+          section_id: sectionId || question.section_id
+        };
         setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
         setArchivedQuestions((prev) => [
           ...prev,
-          { ...question, is_archived: true },
+          updatedQuestion,
         ]);
       }
 
