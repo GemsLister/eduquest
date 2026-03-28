@@ -9,6 +9,8 @@ const pageTitles = {
   "/instructor-dashboard/question-bank": "Question Bank",
   "/instructor-dashboard/instructor-questions": "Questions",
   "/instructor-dashboard/item-difficulty-analysis": "Item Analysis",
+  "/instructor-dashboard/quiz-versions": "Quiz Versions",
+  "/instructor-dashboard/student-profiles": "Student Profiles",
   "/instructor-dashboard/my-submissions": "My Submissions",
   "/instructor-dashboard/instructor-profile": "Profile",
 };
