@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
+import { toast } from "react-toastify";
 
 export const ItemDifficulty = () => {
   const navigate = useNavigate();
@@ -23,6 +24,10 @@ export const ItemDifficulty = () => {
   const [saveError, setSaveError] = useState(null);
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
+  const [revisionMode, setRevisionMode] = useState(false);
+  const [quizTitle, setQuizTitle] = useState("");
+  const [quizDescription, setQuizDescription] = useState("");
+  const [quizDuration, setQuizDuration] = useState("");
   const [takersPage, setTakersPage] = useState({});
 
   // Fetch user and sections on mount
@@ -67,6 +72,9 @@ export const ItemDifficulty = () => {
     const fetchQuizzes = async () => {
       if (!selectedSection) {
         setQuizzes([]);
+        setQuizTitle("");
+        setQuizDescription("");
+        setQuizDuration("");
         return;
       }
 
@@ -74,8 +82,9 @@ export const ItemDifficulty = () => {
       try {
         const { data: quizzesData, error: quizzesError } = await supabase
           .from("quizzes")
-          .select("id, title, is_published")
+          .select("id, title, is_published, description, duration")
           .eq("section_id", selectedSection)
+          .eq("is_archived", false)
           .order("created_at", { ascending: false });
 
         if (quizzesError) throw quizzesError;
@@ -89,6 +98,37 @@ export const ItemDifficulty = () => {
 
     fetchQuizzes();
   }, [selectedSection]);
+
+  // Fetch quiz details when quiz is selected
+  useEffect(() => {
+    const fetchQuizDetails = async () => {
+      if (!selectedQuiz) {
+        setQuizTitle("");
+        setQuizDescription("");
+        setQuizDuration("");
+        return;
+      }
+
+      try {
+        const { data: quizData, error: quizError } = await supabase
+          .from("quizzes")
+          .select("title, description, duration")
+          .eq("id", selectedQuiz)
+          .single();
+
+        if (quizError) throw quizError;
+        if (quizData) {
+          setQuizTitle(quizData.title);
+          setQuizDescription(quizData.description || "");
+          setQuizDuration(quizData.duration ? quizData.duration.toString() : "");
+        }
+      } catch (err) {
+        console.error("Error fetching quiz details:", err);
+      }
+    };
+
+    fetchQuizDetails();
+  }, [selectedQuiz]);
 
   // Fetch analysis when quiz is selected
   useEffect(() => {
@@ -420,6 +460,97 @@ export const ItemDifficulty = () => {
     }
   };
 
+  const handleDoneRevision = async () => {
+    if (!selectedQuiz || analysis.length === 0) return;
+    
+    setSaveError("");
+    setSavingAnalysis(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setSaveError("User not authenticated");
+        setSavingAnalysis(false);
+        return;
+      }
+
+      // Get questions that were flagged for revision (difficulty status)
+      const flaggedQuestions = analysis.filter(q => q.difficultyStatus === "needs_revision");
+      
+      if (flaggedQuestions.length === 0) {
+        setSaveError("No questions were marked for revision. Please mark questions for revision first.");
+        setSavingAnalysis(false);
+        return;
+      }
+
+      // Create new quiz version with parent_quiz_id pointing to original
+      const revisedQuizTitle = `${quizTitle} (Revised)`;
+      
+      const { data: newQuiz, error: newQuizError } = await supabase
+        .from("quizzes")
+        .insert([
+          {
+            instructor_id: user.id,
+            section_id: selectedSection,
+            title: revisedQuizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+            is_published: false, // Keep as draft initially
+            share_token: generateShareToken(),
+            parent_quiz_id: selectedQuiz, // Link to original quiz
+          },
+        ])
+        .select();
+
+      if (newQuizError) throw newQuizError;
+      if (!newQuiz || newQuiz.length === 0) {
+        throw new Error("Failed to create revised quiz");
+      }
+
+      const revisedQuizData = newQuiz[0];
+
+      // Add revised questions to new quiz
+      const revisedQuestionsData = flaggedQuestions.map(q => ({
+        quiz_id: revisedQuizData.id,
+        type: q.type || "mcq",
+        text: q.questionText || q.text,
+        options: q.type === "mcq" ? q.options : null,
+        correct_answer: q.correctAnswer,
+        points: q.points || 1,
+      }));
+
+      if (revisedQuestionsData.length > 0) {
+        const { error: questionsError } = await supabase
+          .from("questions")
+          .insert(revisedQuestionsData);
+        
+        if (questionsError) throw questionsError;
+      }
+
+      setSaveError("");
+      toast.success("Revised quiz version created! You can now edit it in Quiz Management.");
+      
+      setTimeout(() => {
+        setSavingAnalysis(false);
+        navigate("/instructor-dashboard/quizzes");
+      }, 2000);
+      
+    } catch (err) {
+      setSaveError(err.message || "Failed to create revised quiz version");
+      setSavingAnalysis(false);
+      console.error(err);
+    }
+  };
+
+  const generateShareToken = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let token = "";
+    for (let i = 0; i < 12; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  };
+
   const toggleDetails = (questionId) => {
     setExpandedQuestion(expandedQuestion === questionId ? null : questionId);
   };
@@ -588,6 +719,19 @@ export const ItemDifficulty = () => {
                     : analysisSaved
                       ? "Saved ✓"
                       : "Save Analysis"}
+                </button>
+                <button
+                  onClick={handleDoneRevision}
+                  disabled={savingAnalysis || analysis.length === 0}
+                  className={`px-6 py-2 rounded-lg font-semibold text-white transition-colors ${
+                    savingAnalysis || analysis.length === 0
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {savingAnalysis
+                    ? "Creating..."
+                    : "Done Revision"}
                 </button>
               </div>
             </div>
