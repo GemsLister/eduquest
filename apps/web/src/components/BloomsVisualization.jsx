@@ -207,18 +207,18 @@ export const BloomsPyramid = ({ distribution }) => {
         return (
           <div
             key={level}
-            className="flex items-center justify-center py-1.5 rounded-md text-white text-xs font-bold transition-all duration-300 relative"
+            className="flex items-center py-1.5 rounded-md text-white text-xs font-bold transition-all duration-300"
             style={{
               width: `${widthPct}%`,
               backgroundColor: BLOOM_COLORS[level],
               opacity: count > 0 ? 1 : 0.4,
             }}
           >
-            <span className="truncate px-2">
+            <span className="truncate pl-2 pr-1">
               {level} {count > 0 ? `(${count})` : ""}
             </span>
             {count > 0 && (
-              <span className="absolute right-2 text-white/70 text-[10px]">
+              <span className="ml-auto pr-2 text-white/70 text-[10px] shrink-0">
                 {pct}%
               </span>
             )}

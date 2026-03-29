@@ -440,7 +440,7 @@ export const QuizAnalysisResults = ({
                         >
                           LOTS: {lotsPct}%
                           {lotsPct !== 30 &&
-                            ` (${lotsPct > 30 ? "+" : ""}${lotsPct - 30}%)`}
+                            ` (${30 - lotsPct > 0 ? "+" : ""}${30 - lotsPct}%)`}
                         </span>
                         <span
                           className={`text-xs font-semibold ${
@@ -451,7 +451,7 @@ export const QuizAnalysisResults = ({
                         >
                           HOTS: {hotsPct}%
                           {hotsPct !== 70 &&
-                            ` (${hotsPct > 70 ? "+" : ""}${hotsPct - 70}%)`}
+                            ` (${70 - hotsPct > 0 ? "+" : ""}${70 - hotsPct}%)`}
                         </span>
                       </div>
                     </div>

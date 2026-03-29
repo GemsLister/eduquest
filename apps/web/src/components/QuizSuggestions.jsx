@@ -33,8 +33,8 @@ const generateSuggestions = (summary) => {
   const suggestions = [];
 
   // Determine TOS compliance
-  const lotsDeviation = lotsPct - TOS_LOTS_TARGET;
-  const hotsDeviation = hotsPct - TOS_HOTS_TARGET;
+  const lotsDeviation = TOS_LOTS_TARGET - lotsPct;
+  const hotsDeviation = TOS_HOTS_TARGET - hotsPct;
   const isCompliant =
     Math.abs(lotsDeviation) <= TOLERANCE &&
     Math.abs(hotsDeviation) <= TOLERANCE;

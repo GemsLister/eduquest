@@ -121,7 +121,7 @@ export const Login = () => {
             to="/register"
             className="text-[clamp(10px,3dvw,14px)] text-brand-gold-dark font-semibold hover:text-brand-gold hover:underline transition-colors"
           >
-            Register here
+            Sign up here
           </Link>
         </p>
       </form>
