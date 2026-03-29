@@ -7,7 +7,6 @@ CREATE INDEX IF NOT EXISTS idx_questions_section_id
 ON public.questions(section_id);
 
 -- Add RLS policy to allow instructors to update section_id for their questions
-DROP POLICY IF EXISTS "Instructors can update section_id for their questions" ON public.questions;
 CREATE POLICY "Instructors can update section_id for their questions" ON public.questions
   FOR UPDATE USING (
     EXISTS (
