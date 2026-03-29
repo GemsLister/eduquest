@@ -32,9 +32,6 @@ export const QuestionBank = () => {
   const [sections, setSections] = useState([]);
   const [quizzesFromSection, setQuizzesFromSection] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(true);
-  
-  // Cognitive level filter state
-  const [selectedCognitiveLevel, setSelectedCognitiveLevel] = useState(null);
 
   const {
     activeQuestions,
@@ -53,14 +50,13 @@ export const QuestionBank = () => {
     options: ["", ""],
     correctAnswer: 0,
     points: 1,
-    cognitiveLevel: "LOTS",
   });
 
   // Reset page & bulk selection when tab/search/filter changes
   useEffect(() => {
     setCurrentPage(1);
     setBulkSelected(new Set());
-  }, [activeTab, searchTerm, sortBy, selectedSectionId, selectedQuizIdFilter, selectedCognitiveLevel]);
+  }, [activeTab, searchTerm, sortBy, selectedSectionId, selectedQuizIdFilter]);
 
   // Fetch sections on mount
   useEffect(() => {
@@ -80,12 +76,8 @@ export const QuestionBank = () => {
           .eq("instructor_id", user.id)
           .order("section_name", { ascending: true });
 
-        if (error) {
-          console.error("Error fetching sections:", error);
-          setSections([]);
-        } else {
-          setSections(data || []);
-        }
+        if (error) throw error;
+        setSections(data || []);
       } catch (err) {
         console.error("Error fetching sections:", err);
         setSections([]);
@@ -145,14 +137,7 @@ export const QuestionBank = () => {
   const filterQuestions = (questions) => {
     let filteredList = questions;
 
-    // First, handle cognitive level filter
-    if (selectedCognitiveLevel) {
-      filteredList = filteredList.filter(
-        (q) => q.cognitive_level === selectedCognitiveLevel,
-      );
-    }
-
-    // Then, handle quiz dropdown selection (Subject → Quiz filter)
+    // First, handle quiz dropdown selection (Subject → Quiz filter)
     if (selectedQuizIdFilter) {
       // Show only questions from the selected quiz
       filteredList = filteredList.filter(
@@ -169,8 +154,8 @@ export const QuestionBank = () => {
         // No quizzes in this section, show no questions
         filteredList = [];
       }
-    } else if (quizId && activeTab === "import") {
-      // URL-based import mode: show questions NOT from this quiz (only when in import tab)
+    } else if (quizId) {
+      // URL-based import mode: show questions NOT from this quiz
       const currentQuizTexts = new Set(
         activeQuestions
           .filter((q) => String(q.quiz_id) === String(quizId))
@@ -350,7 +335,6 @@ export const QuestionBank = () => {
         options: ["", "", "", ""],
         correctAnswer: 0,
         points: 1,
-        cognitiveLevel: "LOTS",
       });
       setShowAddForm(false);
     } else {
@@ -443,9 +427,6 @@ export const QuestionBank = () => {
   if (sortBy !== "newest") {
     const sortLabels = { oldest: "Oldest First", "points-high": "Points: High→Low", "points-low": "Points: Low→High", quiz: "By Quiz" };
     activeFilters.push({ key: "sort", label: `Sort: ${sortLabels[sortBy]}`, clear: () => setSortBy("newest") });
-  }
-  if (selectedCognitiveLevel) {
-    activeFilters.push({ key: "cognitive", label: `Level: ${selectedCognitiveLevel}`, clear: () => setSelectedCognitiveLevel(null) });
   }
   if (selectedSectionId) {
     const sectionName = sections.find(s => s.id === selectedSectionId)?.section_name || "Subject";
@@ -607,17 +588,6 @@ export const QuestionBank = () => {
           </select>
         )}
 
-        {/* Cognitive Level Dropdown */}
-        <select
-          value={selectedCognitiveLevel || ""}
-          onChange={(e) => setSelectedCognitiveLevel(e.target.value || null)}
-          className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[150px]"
-        >
-          <option value="">🧠 All Levels</option>
-          <option value="LOTS">LOTS (Lower Order)</option>
-          <option value="HOTS">HOTS (Higher Order)</option>
-        </select>
-
         {/* Search bar */}
         <div className="flex-1 relative">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
@@ -684,7 +654,7 @@ export const QuestionBank = () => {
             </span>
           ))}
           <button
-            onClick={() => { setSearchTerm(""); setSortBy("newest"); setSelectedSectionId(null); setSelectedQuizIdFilter(null); setSelectedCognitiveLevel(null); }}
+            onClick={() => { setSearchTerm(""); setSortBy("newest"); setSelectedSectionId(null); setSelectedQuizIdFilter(null); }}
             className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"
           >
             Clear all
@@ -863,14 +833,6 @@ export const QuestionBank = () => {
                       </span>
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
-                      </span>
-                      {/* Cognitive Level Badge */}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        question.cognitive_level === 'HOTS' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {question.cognitive_level || 'LOTS'}
                       </span>
                     </div>
 
@@ -1111,7 +1073,7 @@ export const QuestionBank = () => {
               </div>
 
               {/* Points */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Points
                 </label>
@@ -1127,29 +1089,6 @@ export const QuestionBank = () => {
                   min={1}
                   className="w-24 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
                 />
-              </div>
-
-              {/* Cognitive Level */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Cognitive Level
-                </label>
-                <select
-                  value={newQuestion.cognitiveLevel}
-                  onChange={(e) =>
-                    setNewQuestion({
-                      ...newQuestion,
-                      cognitiveLevel: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
-                >
-                  <option value="LOTS">LOTS (Lower Order Thinking Skills)</option>
-                  <option value="HOTS">HOTS (Higher Order Thinking Skills)</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  LOTS: Remember, Understand, Apply | HOTS: Analyze, Evaluate, Create
-                </p>
               </div>
 
               {/* Actions */}
