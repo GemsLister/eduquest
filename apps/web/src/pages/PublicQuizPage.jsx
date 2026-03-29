@@ -366,7 +366,7 @@ export const PublicQuizPage = () => {
         .from("quiz_attempts")
         .select("id, status")
         .eq("quiz_id", quiz.id)
-        .eq("student_id", student.id)
+        .eq("user_id", session.user.id)
         .in("status", ["in_progress", "completed"]);
 
       attemptsQuery = requestedSectionId
@@ -401,7 +401,7 @@ export const PublicQuizPage = () => {
           {
             quiz_id: quiz.id,
             section_id: requestedSectionId || null,
-            student_id: student.id,
+            user_id: session.user.id,
             student_name: studentName,
             student_email: email,
             status: "in_progress",
@@ -480,7 +480,7 @@ export const PublicQuizPage = () => {
         .from("quiz_attempts")
         .select("id, status")
         .eq("quiz_id", quiz.id)
-        .eq("student_id", student.id)
+        .eq("user_id", student.id)
         .in("status", ["in_progress", "completed"]);
 
       attemptsQuery = requestedSectionId
