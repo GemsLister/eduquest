@@ -651,7 +651,7 @@ export const StudentPerformanceAnalysisDebug = ({
               <div className="p-6">
                 <h5 className="text-lg font-semibold text-gray-800 mb-4">Cognitive Domain Performance</h5>
                 
-                {/* Domain Performance Table */}
+                {/* New Table - Direct Display */}
                 <div className="overflow-x-auto mb-6">
                   <table key={`performance-${student.id}`} className="min-w-full bg-white border border-gray-200 rounded-lg">
                     <thead>
@@ -666,12 +666,21 @@ export const StudentPerformanceAnalysisDebug = ({
                     <tbody>
                       <tr>
                         {Object.entries(student.cognitiveDomains).map(([domain, data]) => {
-                          console.log(`Rendering domain ${domain}:`, data);
+                          const percentage = parseFloat(data.percentage) || 0;
+                          const correct = parseInt(data.correct) || 0;
+                          const total = parseInt(data.total) || 0;
+                          
+                          console.log(`Direct display - ${domain}:`, { percentage, correct, total });
+                          
                           return (
-                          <td key={domain} className="text-left py-3 px-4 text-sm text-gray-800">
+                          <td key={`${domain}-${percentage}-${correct}-${total}`} className="text-left py-3 px-4 text-sm text-gray-800">
                             <div>
-                              <div className="font-semibold">{data.percentage ? data.percentage.toFixed(1) : '0.0'}%</div>
-                              <div className="text-xs text-gray-500">{data.correct}/{data.total}</div>
+                              <div className="font-semibold text-blue-600">
+                                {percentage.toFixed(1)}%
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {correct}/{total}
+                              </div>
                             </div>
                           </td>
                         );
