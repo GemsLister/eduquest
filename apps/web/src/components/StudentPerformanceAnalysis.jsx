@@ -75,8 +75,8 @@ export const StudentPerformanceAnalysis = ({
         completedAttempts.map(async (attempt) => {
           // Get student profile from studentprofile table (only students, not instructors)
           const { data: profileData, error: profileError } = await supabase
-            .from("studentprofile")
-            .select("first_name, last_name, email")
+            .from("student_profile")
+            .select("id, student_name, student_email, avg_score, exam_code, student_id")
             .eq("id", attempt.user_id)
             .single();
 
