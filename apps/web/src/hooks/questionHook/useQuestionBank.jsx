@@ -74,16 +74,12 @@ export const useQuestionBank = () => {
         .in("quiz_id", quizIds)
         .order("created_at", { ascending: false });
 
-      if (error) {
-      console.error("Error fetching questions:", error);
-      setLoading(false);
-      return;
-    }
+      if (error) throw error;
 
       // Separate active and archived questions, then remove content duplicates.
-      const active = dedupeQuestions(data?.filter((q) => !q.is_archived || q.is_archived === false) || []);
+      const active = dedupeQuestions(data?.filter((q) => !q.is_archived) || []);
       const archived = dedupeQuestions(
-        data?.filter((q) => q.is_archived === true) || [],
+        data?.filter((q) => q.is_archived) || [],
       );
 
       setActiveQuestions(active);
@@ -228,7 +224,6 @@ export const useQuestionBank = () => {
         options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
         correct_answer: correctAnswer,
         points: questionData.points || 1,
-        cognitive_level: questionData.cognitiveLevel || "LOTS",
         is_archived: false,
       });
 
