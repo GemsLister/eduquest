@@ -11,7 +11,6 @@ import { exportBloomsPdf } from "../utils/exportBloomsPdf";
  * Progress Stepper — shows 3 workflow steps
  */
 const ProgressStepper = ({ currentStep }) => {
-  
   const steps = [
     {
       label: "Analyze",
@@ -24,7 +23,6 @@ const ProgressStepper = ({ currentStep }) => {
     { label: "Submit to Admin", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
   ];
   return (
-    
     <div className="flex items-center justify-center gap-1 px-6 py-3 bg-black/20">
       {steps.map((step, idx) => {
         const isActive = idx === currentStep;
@@ -112,7 +110,6 @@ export const QuizAnalysisResults = ({
   const [quizDuration, setQuizDuration] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
-  const [revisionMode, setRevisionMode] = useState(false);
 
   // Check for existing submission that needs revision
   useEffect(() => {
@@ -120,8 +117,6 @@ export const QuizAnalysisResults = ({
       checkExistingSubmission();
     }
   }, [quizId]);
-
-  const navigate = useNavigate();
 
   const handleSaveQuiz = async (publish = false) => {
     setError("");
@@ -372,6 +367,7 @@ export const QuizAnalysisResults = ({
     }
   };
 
+  const navigate = useNavigate();
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
       setError("No questions to analyze.");
@@ -450,103 +446,6 @@ export const QuizAnalysisResults = ({
     }
   };
 
-  const handleDoneRevision = async () => {
-    if (!results) return;
-    
-    setError("");
-    setSaveStatus("Creating revised quiz version...");
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("User not authenticated");
-        setSaveStatus("");
-        return;
-      }
-
-      // Get the questions that were flagged for revision
-      const flaggedQuestions = results.analysis.filter(q => q.needsReview);
-      
-      if (flaggedQuestions.length === 0) {
-        setError("No questions were marked for revision. Please mark questions for revision first.");
-        setSaveStatus("");
-        return;
-      }
-
-      // Create new quiz version with parent_quiz_id pointing to original
-      const revisedQuizTitle = `${quizTitle} (Revised)`;
-      
-      const { data: newQuiz, error: newQuizError } = await supabase
-        .from("quizzes")
-        .insert([
-          {
-            instructor_id: user.id,
-            section_id: selectedSectionIds[0] || null,
-            title: revisedQuizTitle,
-            description: quizDescription || null,
-            duration: quizDuration ? parseInt(quizDuration) : null,
-            is_published: false, // Keep as draft initially
-            share_token: generateShareToken(),
-            parent_quiz_id: quizId, // Link to original quiz
-          },
-        ])
-        .select();
-
-      if (newQuizError) throw newQuizError;
-      if (!newQuiz || newQuiz.length === 0) {
-        throw new Error("Failed to create revised quiz");
-      }
-
-      const revisedQuizData = newQuiz[0];
-
-      // Add the revised questions to the new quiz
-      const revisedQuestionsData = flaggedQuestions.map(q => ({
-        quiz_id: revisedQuizData.id,
-        type: q.type,
-        text: q.text,
-        options: q.type === "mcq" ? q.options : null,
-        correct_answer: q.type === "mcq" ? q.options[q.correctAnswer] : 
-                     q.type === "true_false" ? (q.correctAnswer === 0 ? "true" : "false") : q.correctAnswer,
-        points: q.points,
-      }));
-
-      if (revisedQuestionsData.length > 0) {
-        const { error: questionsError } = await supabase
-          .from("questions")
-          .insert(revisedQuestionsData);
-        
-        if (questionsError) throw questionsError;
-      }
-
-      // Update the original quiz analysis submission to mark revision as completed
-      if (existingSubmission) {
-        const { error: updateError } = await supabase
-          .from("quiz_analysis_submissions")
-          .update({
-            status: "revision_completed",
-            instructor_message: "Revised quiz version created",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingSubmission.id);
-        
-        if (updateError) throw updateError;
-      }
-
-      setSaveStatus("Revised quiz version created successfully!");
-      toast.success("Revised quiz version created! You can now edit it in Quiz Management.");
-      
-      setTimeout(() => {
-        setSaveStatus("");
-        onClose();
-      }, 2000);
-      
-    } catch (err) {
-      setError(err.message || "Failed to create revised quiz version");
-      setSaveStatus("");
-      console.error(err);
-    }
-  };
-
   // Color mapping for Bloom's levels
   const getLevelColor = (level) => {
     const colors = {
@@ -558,15 +457,6 @@ export const QuizAnalysisResults = ({
       Creating: "bg-purple-100 text-purple-700 border-purple-300",
     };
     return colors[level] || "bg-gray-100 text-gray-700 border-gray-300";
-  };
-
-  const generateShareToken = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let token = "";
-    for (let i = 0; i < 12; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
   };
 
   const getThinkingOrderStyle = (order) => {
@@ -1200,42 +1090,38 @@ export const QuizAnalysisResults = ({
                   </div>
                   <p className="font-bold text-green-800">
                     {existingSubmission
-                      ? "Revised Successfully!"
+                      ? "Resubmitted Successfully!"
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    {existingSubmission
-                      ? "Revised quiz version created successfully!"
-                      : "The admin will review your quiz analysis and provide feedback."}
+                    The admin will review your quiz analysis and provide
+                    feedback.
                   </p>
-                  <div className="flex gap-3 mt-4">
-                    <button
-                      onClick={() => {
-                        handleSaveQuiz(false);
-                        setHasUnsavedChanges(false);
-                        setLastSaved(new Date());
-                      }}
-                      disabled={loading}
-                      className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  <button
+                    onClick={() => {
+                      handleSaveQuiz(false);
+                      setHasUnsavedChanges(false);
+                      setLastSaved(new Date());
+                    }}
+                    disabled={loading}
+                    className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                      </svg>
-                      {loading ? "Saving..." : "Back to Quizzes"}
-                    </button>
-                    {existingSubmission && existingSubmission.status === "revision_requested" && (
-                      <button
-                        onClick={handleDoneRevision}
-                        disabled={loading || revisionMode}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        {revisionMode ? "Creating..." : "Done Revision"}
-                      </button>
-                    )}
-                  </div>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                      />
+                    </svg>
+                    {loading ? "Saving..." : "Back to Quizzes"}
+                  </button>
                 </div>
               )}
             </>
