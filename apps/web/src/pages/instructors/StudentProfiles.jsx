@@ -11,6 +11,7 @@ export const StudentProfiles = () => {
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState(null);
+  const [studentsData, setStudentsData] = useState([]);
 
   // Fetch sections on mount
   useEffect(() => {
