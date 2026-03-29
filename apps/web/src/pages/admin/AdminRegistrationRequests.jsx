@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRegistrationRequests } from "../../hooks/adminHook/useRegistrationRequests.jsx";
 import { toast } from "react-toastify";
 
@@ -12,17 +12,18 @@ export const AdminRegistrationRequests = () => {
     rejectRequest,
   } = useRegistrationRequests();
 
-  const [confirmRejectId, setConfirmRejectId] = useState(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
   const handleApprove = async (userId) => {
     await approveRequest(userId);
   };
 
-  const handleReject = async () => {
-    if (!confirmRejectId) return;
-    await rejectRequest(confirmRejectId);
-    setConfirmRejectId(null);
+  const handleReject = async (userId) => {
+    await rejectRequest(userId);
   };
 
   const handleApproveAll = async () => {
@@ -62,8 +63,6 @@ export const AdminRegistrationRequests = () => {
     return "?";
   };
 
-  const rejectTarget = requests.find((r) => r.id === confirmRejectId);
-
   return (
     <>
       {/* Page Header */}
@@ -90,12 +89,6 @@ export const AdminRegistrationRequests = () => {
       </div>
 
       <div className="p-6">
-        {error && (
-          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -318,7 +311,7 @@ export const AdminRegistrationRequests = () => {
                         )}
                       </button>
                       <button
-                        onClick={() => setConfirmRejectId(req.id)}
+                        onClick={() => handleReject(req.id)}
                         disabled={isActioning}
                         className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -333,59 +326,6 @@ export const AdminRegistrationRequests = () => {
         )}
       </div>
 
-      {/* Reject Confirmation Modal */}
-      {confirmRejectId && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-red-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Reject Registration?
-            </h3>
-            <p className="text-sm text-gray-500 mb-1">
-              This will permanently delete the account for{" "}
-              <span className="font-semibold text-gray-700">
-                {rejectTarget?.username || rejectTarget?.email || "this user"}
-              </span>
-              .
-            </p>
-            <p className="text-xs text-red-500 mb-6">
-              This action cannot be undone. The user will not be able to log in.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmRejectId(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={actionLoading === confirmRejectId}
-                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-lg font-semibold text-sm hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {actionLoading === confirmRejectId
-                  ? "Rejecting..."
-                  : "Yes, Reject"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

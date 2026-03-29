@@ -67,11 +67,7 @@ export const useLogin = () => {
       }
 
       // Block if explicitly pending approval (is_approved === false)
-      // TEST MODE: Auto-approve @student.buksu.edu.ph as instructors
-      if (
-        profile?.is_approved === false &&
-        !data.user.email.endsWith("@student.buksu.edu.ph")
-      ) {
+      if (profile?.is_approved === false) {
         await supabase.auth.signOut();
         toast.info("Your account is pending admin approval.");
         return;
@@ -82,13 +78,9 @@ export const useLogin = () => {
         return;
       }
 
-      // TEST MODE: @student.buksu.edu.ph as instructors, @gmail.com as students
-      const isInstructor = data.user.email.endsWith("@student.buksu.edu.ph");
-      const isStudent = data.user.email.endsWith("@gmail.com");
-
-      if (isInstructor) {
+      if (profile?.role === "teacher" || profile?.is_instructor) {
         navigate("/instructor-dashboard");
-      } else if (isStudent) {
+      } else if (profile?.role === "student") {
         await supabase.auth.signOut();
         toast.error(
           "Access Denied: Students should take quizzes via shared links.",

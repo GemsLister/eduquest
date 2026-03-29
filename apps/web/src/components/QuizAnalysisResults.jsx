@@ -581,17 +581,17 @@ export const QuizAnalysisResults = ({
                       {results.analysis.map((item, idx) => (
                         <div
                           key={item.questionId}
-                          className={`grid grid-cols-12 gap-2 px-4 py-3 items-center text-sm ${
+                          className={`grid grid-cols-12 gap-2 px-4 py-3 items-start text-sm ${
                             item.needsReview ? "bg-yellow-50" : "bg-white"
                           }`}
                         >
-                          <div className="col-span-1 text-gray-400 font-semibold">
+                          <div className="col-span-1 text-gray-400 font-semibold pt-0.5">
                             {idx + 1}
                           </div>
-                          <div className="col-span-5 text-gray-700 truncate" title={item.questionText}>
+                          <div className="col-span-5 text-gray-700 break-words">
                             {item.questionText}
                           </div>
-                          <div className="col-span-2">
+                          <div className="col-span-2 pt-0.5">
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${getLevelColor(
                                 item.bloomsLevel,
@@ -600,7 +600,7 @@ export const QuizAnalysisResults = ({
                               {item.bloomsLevel}
                             </span>
                           </div>
-                          <div className="col-span-2">
+                          <div className="col-span-2 pt-0.5">
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${getThinkingOrderStyle(
                                 item.thinkingOrder,
@@ -614,7 +614,7 @@ export const QuizAnalysisResults = ({
                               </span>
                             )}
                           </div>
-                          <div className="col-span-2 text-right">
+                          <div className="col-span-2 text-right pt-0.5">
                             <span
                               className={`font-semibold ${
                                 item.confidence >= 0.9

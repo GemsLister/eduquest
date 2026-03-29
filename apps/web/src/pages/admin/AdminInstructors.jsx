@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
 import { InstructorTable } from "../../components/admin/InstructorTable.jsx";
+import { toast } from "react-toastify";
 
 export const AdminInstructors = () => {
   const { instructors, loading, error, statusLoading, toggleInstructorStatus } =
     useAdminInstructors();
-  const [statusTarget, setStatusTarget] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | active | disabled
 
@@ -38,14 +38,19 @@ export const AdminInstructors = () => {
     return list;
   }, [instructors, statusFilter, search]);
 
-  const handleStatusClick = (instructor) => {
-    setStatusTarget(instructor);
-  };
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
-  const handleConfirmStatus = async () => {
-    if (!statusTarget) return;
-    await toggleInstructorStatus(statusTarget.id, !statusTarget.is_disabled);
-    setStatusTarget(null);
+  const handleStatusClick = async (instructor) => {
+    const result = await toggleInstructorStatus(instructor.id, !instructor.is_disabled);
+    if (result?.success) {
+      toast.success(
+        instructor.is_disabled
+          ? `${instructor.first_name || instructor.email} has been activated.`
+          : `${instructor.first_name || instructor.email} has been disabled.`
+      );
+    }
   };
 
   const filters = [
@@ -71,13 +76,6 @@ export const AdminInstructors = () => {
       </div>
 
       <div className="p-6">
-        {/* Error banner */}
-        {error && (
-          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
         {/* Search + Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           {/* Search */}
@@ -197,87 +195,6 @@ export const AdminInstructors = () => {
         )}
       </div>
 
-      {/* Confirmation Modal */}
-      {statusTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <div
-              className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
-                statusTarget.is_disabled
-                  ? "bg-green-100"
-                  : "bg-amber-100"
-              }`}
-            >
-              {statusTarget.is_disabled ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-green-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-amber-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                  />
-                </svg>
-              )}
-            </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">
-              {statusTarget.is_disabled
-                ? "Enable Instructor?"
-                : "Disable Instructor?"}
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              {statusTarget.is_disabled
-                ? "This will restore the instructor's access. Their quizzes, sections, and records will remain unchanged."
-                : "This will block the instructor from logging in, but their quizzes, sections, and records will stay in the database."}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStatusTarget(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmStatus}
-                disabled={statusLoading === statusTarget.id}
-                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 ${
-                  statusTarget.is_disabled
-                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
-                    : "bg-amber-500 hover:bg-amber-600 text-white"
-                }`}
-              >
-                {statusLoading === statusTarget.id
-                  ? statusTarget.is_disabled
-                    ? "Enabling..."
-                    : "Disabling..."
-                  : statusTarget.is_disabled
-                    ? "Yes, Enable"
-                    : "Yes, Disable"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

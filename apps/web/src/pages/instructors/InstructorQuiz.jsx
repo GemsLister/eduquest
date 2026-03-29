@@ -6,6 +6,7 @@ import { supabase } from "../../supabaseClient.js";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
+const NEW_QUIZ_DRAFT_KEY = "eduquest_new_quiz_draft";
 
 export const InstructorQuiz = () => {
   const navigate = useNavigate();
@@ -21,7 +22,6 @@ export const InstructorQuiz = () => {
   const [isPublished, setIsPublished] = useState(false);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
   const [availableSections, setAvailableSections] = useState([]);
-  const [saveStatus, setSaveStatus] = useState("");
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
   const [showShareUrl, setShowShareUrl] = useState(false);
@@ -37,6 +37,7 @@ export const InstructorQuiz = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
 
   const toggleQuestion = (questionId) => {
     setExpandedQuestions((prev) => {
@@ -55,6 +56,86 @@ export const InstructorQuiz = () => {
       setHasUnsavedChanges(true);
     }
   }, []);
+
+  // On mount for new quizzes, auto-restore draft from localStorage
+  useEffect(() => {
+    if (quizId) return;
+    try {
+      const saved = localStorage.getItem(NEW_QUIZ_DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      const hasDraft = draft.title || draft.questions?.length > 0;
+      if (!hasDraft) return;
+
+      if (draft.title) setQuizTitle(draft.title);
+      if (draft.description) setQuizDescription(draft.description);
+      if (draft.duration) setQuizDuration(draft.duration);
+      if (draft.questions?.length > 0) {
+        setQuestions(draft.questions);
+        setExpandedQuestions(new Set(draft.questions.map((q) => q.id)));
+      }
+      setShowDraftBanner(true);
+    } catch {
+      // ignore parse errors
+    }
+  }, [quizId]);
+
+  const discardDraft = () => {
+    localStorage.removeItem(NEW_QUIZ_DRAFT_KEY);
+    setQuizTitle("");
+    setQuizDescription("");
+    setQuizDuration("");
+    setQuestions([]);
+    setShowDraftBanner(false);
+  };
+
+  // Ref to always hold the latest draft data for the beforeunload handler
+  const draftDataRef = useRef(null);
+  useEffect(() => {
+    if (!quizId) {
+      draftDataRef.current = { title: quizTitle, description: quizDescription, duration: quizDuration, questions };
+    }
+  }, [quizId, quizTitle, quizDescription, quizDuration, questions]);
+
+  // Save draft to localStorage immediately on tab close / browser crash
+  useEffect(() => {
+    if (quizId) return;
+
+    const handleBeforeUnload = () => {
+      const data = draftDataRef.current;
+      if (data && (data.title || data.questions.length > 0)) {
+        try {
+          localStorage.setItem(NEW_QUIZ_DRAFT_KEY, JSON.stringify(data));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [quizId]);
+
+  // Auto-save draft to localStorage immediately on every change (no debounce)
+  useEffect(() => {
+    if (quizId) return;
+    if (!quizTitle && questions.length === 0) return;
+
+    try {
+      localStorage.setItem(
+        NEW_QUIZ_DRAFT_KEY,
+        JSON.stringify({
+          title: quizTitle,
+          description: quizDescription,
+          duration: quizDuration,
+          questions,
+        }),
+      );
+      setLastSaved(new Date());
+    } catch {
+      // ignore storage errors
+    }
+  }, [quizId, quizTitle, quizDescription, quizDuration, questions]);
 
   // Auto-save every 30 seconds when there are unsaved changes
   useEffect(() => {
@@ -308,8 +389,7 @@ export const InstructorQuiz = () => {
 
   const copyToClipboard = (url) => {
     navigator.clipboard.writeText(url).then(() => {
-      setSaveStatus("URL copied to clipboard!");
-      setTimeout(() => setSaveStatus(""), 2000);
+      toast.success("URL copied to clipboard!");
     });
   };
 
@@ -347,39 +427,32 @@ export const InstructorQuiz = () => {
 
   const handleSaveQuiz = async (publish = false) => {
     setError("");
-    setSaveStatus("Saving...");
 
     if (!quizTitle.trim()) {
-      setError("Quiz title is required");
-      setSaveStatus("");
+      toast.error("Quiz title is required");
       return;
     }
 
     if (publish && questions.length === 0) {
-      setError("Add at least one question before publishing");
-      setSaveStatus("");
+      toast.error("Add at least one question before publishing");
       return;
     }
 
     for (let q of questions) {
       if (!q.text.trim()) {
-        setError("All questions must have text");
-        setSaveStatus("");
+        toast.error("All questions must have text");
         return;
       }
       if (
         q.type === "mcq" &&
         q.options.filter((opt) => opt.trim()).length < 2
       ) {
-        setError(
+        toast.error(
           publish
             ? "MCQ questions must have at least 2 options to publish"
             : "Warning: MCQ questions should have at least 2 options",
         );
-        if (publish) {
-          setSaveStatus("");
-          return;
-        }
+        if (publish) return;
       }
     }
 
@@ -389,9 +462,8 @@ export const InstructorQuiz = () => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        setError("User not authenticated");
+        toast.error("User not authenticated");
         setLoading(false);
-        setSaveStatus("");
         return;
       }
 
@@ -555,20 +627,20 @@ export const InstructorQuiz = () => {
 
       if (newToken) setShareToken(newToken);
 
+      // Clear the new-quiz localStorage draft once successfully saved
+      localStorage.removeItem(NEW_QUIZ_DRAFT_KEY);
+
       if (publish) {
         setShowShareUrl(true);
-        setSaveStatus("Quiz published! Share URL generated.");
-        setTimeout(() => setSaveStatus(""), 3000);
+        toast.success("Quiz published! Share URL generated.");
       } else {
-        setSaveStatus("Draft saved!");
+        toast.success("Draft saved!");
         setTimeout(() => {
-          setSaveStatus("");
           navigate("/instructor-dashboard/quizzes");
         }, 1000);
       }
     } catch (err) {
-      setError(err.message || "Failed to save quiz");
-      setSaveStatus("");
+      toast.error(err.message || "Failed to save quiz");
       console.error(err);
     } finally {
       setLoading(false);
@@ -623,6 +695,12 @@ export const InstructorQuiz = () => {
           </div>
           <div className="flex items-center gap-3">
             {/* Auto-save indicator */}
+            {!quizId && lastSaved && (
+              <span className="text-white/60 text-xs flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-green-300" />
+                Draft auto-saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             {quizId && !isPublished && (
               <span className="text-white/60 text-xs flex items-center gap-1.5">
                 {hasUnsavedChanges ? (
@@ -686,17 +764,32 @@ export const InstructorQuiz = () => {
       </div>
 
       <div className="p-6">
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error}
+      {showDraftBanner && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-400 rounded-lg flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-yellow-800 font-semibold text-sm">
+              Draft restored — your previous progress has been recovered.
+            </span>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowDraftBanner(false)}
+              className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+            >
+              OK
+            </button>
+            <button
+              onClick={discardDraft}
+              className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-300 px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+            >
+              Start Fresh
+            </button>
+          </div>
         </div>
       )}
-      {saveStatus && (
-        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-          {saveStatus}
-        </div>
-      )}
-
       {(showShareUrl || isPublished) && shareToken && (
         <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
           <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
@@ -1114,7 +1207,7 @@ export const InstructorQuiz = () => {
                     placeholder="Enter the question"
                     rows="2"
                     disabled={isPublished}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "cursor-text"}`}
                   />
                 </div>
 
@@ -1149,7 +1242,7 @@ export const InstructorQuiz = () => {
                               updateOption(question.id, optIdx, e.target.value)
                             }
                             placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold cursor-text"
                           />
                           {question.options.length > 2 && (
                             <button

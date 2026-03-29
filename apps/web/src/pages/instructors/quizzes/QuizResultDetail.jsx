@@ -130,13 +130,13 @@ export const QuizResultDetail = () => {
             <div>
               <p className="text-gray-600 text-sm">Student Name</p>
               <p className="text-lg font-semibold text-gray-900">
-                {attempt?.guest_name || "Authenticated User"}
+                {attempt?.student_name || "Unknown"}
               </p>
             </div>
             <div>
               <p className="text-gray-600 text-sm">Email</p>
               <p className="text-lg font-semibold text-gray-900">
-                {attempt?.guest_email || "N/A"}
+                {attempt?.student_email || "N/A"}
               </p>
             </div>
             <div>

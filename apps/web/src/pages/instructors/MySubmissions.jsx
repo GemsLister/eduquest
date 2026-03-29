@@ -302,12 +302,100 @@ export const MySubmissions = () => {
                       </button>
                       {expandedId === submission.id && (
                         <div className="mt-3 space-y-4">
+                          {/* TOS Compliance Badge */}
+                          {(() => {
+                            const lotsPct = submission.analysis_results.summary.lotsPercentage || 0;
+                            const hotsPct = submission.analysis_results.summary.hotsPercentage || 0;
+                            const isCompliant = Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5;
+                            return (
+                              <div className={`p-4 rounded-xl border-2 flex items-center gap-4 ${isCompliant ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isCompliant ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                                  {isCompliant ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                  ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className={`font-bold text-sm ${isCompliant ? "text-green-800" : "text-red-800"}`}>
+                                    {isCompliant ? "TOS Compliant" : "TOS Non-Compliant"}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Target: 30% LOTS / 70% HOTS</p>
+                                  <div className="flex gap-4 mt-1">
+                                    <span className={`text-xs font-semibold ${Math.abs(lotsPct - 30) <= 5 ? "text-green-600" : "text-red-600"}`}>
+                                      LOTS: {lotsPct}%{lotsPct !== 30 && ` (${30 - lotsPct > 0 ? "+" : ""}${30 - lotsPct}%)`}
+                                    </span>
+                                    <span className={`text-xs font-semibold ${Math.abs(hotsPct - 70) <= 5 ? "text-green-600" : "text-red-600"}`}>
+                                      HOTS: {hotsPct}%{hotsPct !== 70 && ` (${70 - hotsPct > 0 ? "+" : ""}${70 - hotsPct}%)`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           <BloomsVisualizationPanel
                             summary={submission.analysis_results.summary}
                           />
                           <QuizSuggestions
                             summary={submission.analysis_results.summary}
                           />
+
+                          {/* Per-Question Breakdown */}
+                          {submission.analysis_results.analysis?.length > 0 && (
+                            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  </svg>
+                                  Per-Question Breakdown
+                                  <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
+                                    {submission.analysis_results.analysis.length} questions
+                                  </span>
+                                </h4>
+                              </div>
+                              {/* Table Header */}
+                              <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                <div className="col-span-1">#</div>
+                                <div className="col-span-5">Question</div>
+                                <div className="col-span-2">Level</div>
+                                <div className="col-span-2">Type</div>
+                                <div className="col-span-2 text-right">Confidence</div>
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {submission.analysis_results.analysis.map((item, idx) => (
+                                  <div
+                                    key={item.questionId}
+                                    className={`grid grid-cols-12 gap-2 px-4 py-3 items-start text-sm ${item.needsReview ? "bg-yellow-50" : "bg-white"}`}
+                                  >
+                                    <div className="col-span-1 text-gray-400 font-semibold pt-0.5">{idx + 1}</div>
+                                    <div className="col-span-5 text-gray-700 break-words">{item.questionText}</div>
+                                    <div className="col-span-2 pt-0.5">
+                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
+                                        { Remembering: "bg-blue-100 text-blue-700 border-blue-300", Understanding: "bg-cyan-100 text-cyan-700 border-cyan-300", Applying: "bg-green-100 text-green-700 border-green-300", Analyzing: "bg-yellow-100 text-yellow-700 border-yellow-300", Evaluating: "bg-orange-100 text-orange-700 border-orange-300", Creating: "bg-purple-100 text-purple-700 border-purple-300" }[item.bloomsLevel] || "bg-gray-100 text-gray-700 border-gray-300"
+                                      }`}>
+                                        {item.bloomsLevel}
+                                      </span>
+                                    </div>
+                                    <div className="col-span-2 pt-0.5">
+                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${item.thinkingOrder === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                        {item.thinkingOrder}
+                                      </span>
+                                      {item.needsReview && (
+                                        <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">!</span>
+                                      )}
+                                    </div>
+                                    <div className="col-span-2 text-right pt-0.5">
+                                      <span className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}>
+                                        {(item.confidence * 100).toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

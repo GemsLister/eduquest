@@ -405,6 +405,7 @@ export const PublicQuizPage = () => {
             student_name: studentName,
             student_email: email,
             status: "in_progress",
+            user_id: user.id,
           },
         ])
         .select()
