@@ -66,11 +66,19 @@ export const ItemAnalysisPage = () => {
           data: { user },
         } = await supabase.auth.getUser();
         if (user) {
-          const { data } = await supabase
+          // Fetch only sections that are NOT archived
+          const { data, error } = await supabase
             .from("sections")
             .select("id, name")
-            .eq("instructor_id", user.id);
-          setSections(data || []);
+            .eq("instructor_id", user.id)
+            .eq("is_archived", false);
+
+          if (error) {
+            console.error("Error fetching sections for item analysis:", error);
+            setSections([]);
+          } else {
+            setSections(data || []);
+          }
         }
       } finally {
         setLoadingSections(false);
@@ -87,7 +95,8 @@ export const ItemAnalysisPage = () => {
       const { data } = await supabase
         .from("quizzes")
         .select("id, title")
-        .eq("section_id", selectedSection);
+        .eq("section_id", selectedSection)
+        .eq("is_archived", false);
       setQuizzes(data || []);
       setLoadingQuizzes(false);
     };
