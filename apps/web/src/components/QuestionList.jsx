@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
 import { RevisionHistoryModal } from "./RevisionHistoryModal.jsx";
 import { supabase } from "../supabaseClient";
+
+// Icons
+const ChevronLeftIcon = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+  </svg>
+);
 
 export const QuestionList = ({
   filteredQuestions,
@@ -13,272 +26,191 @@ export const QuestionList = ({
 }) => {
   const [updatingFlag, setUpdatingFlag] = useState(null);
   const [showHistoryId, setShowHistoryId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 10;
   const confirm = useConfirm();
 
-  // Get flag badge configuration
-  const getFlagBadge = (flag) => {
-    const flagConfig = {
-      pending: {
-        label: "Pending",
-        className: "bg-yellow-100 text-yellow-700 border-yellow-300",
-      },
-      approved: {
-        label: "Approved",
-        className: "bg-green-100 text-green-700 border-green-300",
-      },
-      retain: {
-        label: "Retain",
-        className: "bg-blue-100 text-blue-700 border-blue-300",
-      },
-      needs_revision: {
-        label: "Needs Revision",
-        className: "bg-orange-100 text-orange-700 border-orange-300",
-      },
-      discard: {
-        label: "Discard",
-        className: "bg-red-100 text-red-700 border-red-300",
-      },
-    };
+  // Pagination
+  const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredQuestions.slice(startIndex, endIndex);
 
-    const config = flagConfig[flag] || flagConfig.pending;
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${config.className}`}
-      >
-        {config.label}
-      </span>
-    );
+  // Reset page on data change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredQuestions]);
+
+  // Prevent empty page after delete
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages || 1);
+    }
+  }, [filteredQuestions, totalPages]);
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
+  const handleDeleteQuestionFn = async (id) => {
+    try {
+      const { error } = await supabase.from("questions").delete().eq("id", id);
+      if (error) throw error;
+
+      toast.success("Question deleted successfully!");
+      window.dispatchEvent(new Event("questions-updated"));
+    } catch (error) {
+      toast.error("Failed to delete: " + error.message);
+    }
   };
 
-  const getRevisedBadge = (hasRevisions) => {
-    if (!hasRevisions) return null;
-    return (
-      <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase border bg-purple-100 text-purple-700 border-purple-300">
-        Item Revised
-      </span>
-    );
-  };
-
-  // Handle flag change
   const handleFlagChange = async (questionId, newFlag) => {
     if (updatingFlag) return;
-
     setUpdatingFlag(questionId);
+
     try {
       const { error } = await supabase
         .from("questions")
-        .update({
-          flag: newFlag,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ flag: newFlag, updated_at: new Date().toISOString() })
         .eq("id", questionId);
 
-      if (error) {
-        console.error("Error updating flag:", error);
-        toast.error("Failed to update flag: " + error.message);
-      } else {
-        // Dispatch event to refresh
-        window.dispatchEvent(new Event("questions-updated"));
-      }
-    } catch (error) {
-      console.error("Error updating flag:", error);
-      toast.error("An error occurred while updating the flag");
+      if (error) throw error;
+
+      window.dispatchEvent(new Event("questions-updated"));
+    } catch {
+      toast.error("Error updating flag");
     } finally {
       setUpdatingFlag(null);
     }
   };
 
+  const getFlagBadge = (flag) => {
+    const styles = {
+      pending: "bg-yellow-100 text-yellow-700",
+      approved: "bg-green-100 text-green-700",
+      retain: "bg-blue-100 text-blue-700",
+      needs_revision: "bg-orange-100 text-orange-700",
+      discard: "bg-red-100 text-red-700",
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-bold rounded ${styles[flag] || styles.pending}`}>
+        {flag.replace("_", " ")}
+      </span>
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      {filteredQuestions.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">❓</div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            No Questions Yet
-          </h3>
-          <p className="text-gray-500 mb-4">
-            Create your first question to get started
-          </p>
-          <button
-            onClick={handleAddQuestion}
-            className="bg-casual-green text-white px-6 py-2 rounded-lg font-semibold hover:bg-hornblende-green transition-colors"
-          >
-            Create Question
+      {currentItems.map((question) => (
+        <div key={question.id} className="border p-4 rounded mb-3">
+          <p className="font-semibold">{question.text}</p>
+
+          <div className="flex gap-2 mt-2">
+            {getFlagBadge(question.flag)}
+
+            <button onClick={() => handlePageChange(1)}>Edit</button>
+
+            <button
+              onClick={async () => {
+                const confirmed = await confirm({
+                  title: "Delete",
+                  message: "Are you sure?",
+                });
+                if (confirmed) handleDeleteQuestionFn(question.id);
+              }}
+              className="text-red-500"
+            >
+              Delete
+            </button>
+          </div>
+
+          <div className="flex gap-1 mt-2">
+            {["approved", "needs_revision", "discard", "pending"].map((f) => (
+              <button
+                key={f}
+                onClick={() => handleFlagChange(question.id, f)}
+                className="px-2 py-1 border text-xs"
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* ✅ PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <button onClick={handlePreviousPage} disabled={currentPage === 1}>
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+
+          <div className="flex gap-1">
+            {(() => {
+              const pages = [];
+              const maxVisible = 5;
+
+              let start = Math.max(currentPage - 2, 1);
+              let end = Math.min(start + maxVisible - 1, totalPages);
+
+              if (end - start < maxVisible - 1) {
+                start = Math.max(end - maxVisible + 1, 1);
+              }
+
+              if (start > 1) {
+                pages.push(
+                  <button key={1} onClick={() => handlePageChange(1)}>
+                    1
+                  </button>
+                );
+                if (start > 2) pages.push(<span key="dots1">...</span>);
+              }
+
+              for (let i = start; i <= end; i++) {
+                pages.push(
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={currentPage === i ? "font-bold" : ""}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+
+              if (end < totalPages) {
+                if (end < totalPages - 1) pages.push(<span key="dots2">...</span>);
+                pages.push(
+                  <button key={totalPages} onClick={() => handlePageChange(totalPages)}>
+                    {totalPages}
+                  </button>
+                );
+              }
+
+              return pages;
+            })()}
+          </div>
+
+          <button onClick={handleNextPage} disabled={currentPage === totalPages}>
+            <ChevronRightIcon className="h-5 w-5" />
           </button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredQuestions.map((question) => (
-            <div
-              key={question.id}
-              className="border-2 border-gray-200 rounded-lg p-4 hover:border-casual-green transition-colors"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm text-gray-500">
-                      {question.points} points
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    {getFlagBadge(question.flag)}
-                    {getRevisedBadge(question.revision_history && question.revision_history.length > 0)}
-                  </div>
-                  <p className="text-gray-800 font-semibold">{question.text}</p>
-                  {question.quiz_title && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      From:{" "}
-                      <span className="font-semibold">
-                        {question.quiz_title}
-                      </span>
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingId(question.id);
-                      setFormData(question);
-                      setShowForm(true);
-                    }}
-                    className="text-casual-green hover:text-hornblende-green font-semibold text-sm"
-                  >
-                    Edit
-                  </button>
-                  {question.flag === 'needs_revision' && question.revision_history && question.revision_history.length > 0 && (
-                    <button
-                      onClick={() => setShowHistoryId(question.id)}
-                      className="text-purple-600 hover:text-purple-800 font-semibold text-sm"
-                    >
-                      Revision History
-                    </button>
-                  )}
-
-                  <button
-                    onClick={async () => {
-                      const confirmed = await confirm({
-                        title: "Delete Question",
-                        message:
-                          "Are you sure you want to delete this question?",
-                        confirmText: "Delete",
-                        cancelText: "Cancel",
-                        variant: "danger",
-                      });
-                      if (confirmed) {
-                        handleDeleteQuestionFn(question.id);
-                      }
-                    }}
-                    className="text-red-500 hover:text-red-700 font-semibold text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Flag Actions */}
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500 mb-2">Quick Actions:</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleFlagChange(question.id, "approved")}
-                    disabled={updatingFlag === question.id}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      question.flag === "approved"
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
-                    }`}
-                  >
-                    ✓ Approved
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleFlagChange(question.id, "needs_revision")
-                    }
-                    disabled={updatingFlag === question.id}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      question.flag === "needs_revision"
-                        ? "bg-orange-500 text-white border-orange-500"
-                        : "bg-white text-orange-700 border-orange-300 hover:bg-orange-50"
-                    }`}
-                  >
-                    ✎ Needs Revision
-                  </button>
-                  <button
-                    onClick={() => handleFlagChange(question.id, "discard")}
-                    disabled={updatingFlag === question.id}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      question.flag === "discard"
-                        ? "bg-red-500 text-white border-red-500"
-                        : "bg-white text-red-700 border-red-300 hover:bg-red-50"
-                    }`}
-                  >
-                    ✕ Discard
-                  </button>
-                  <button
-                    onClick={() => handleFlagChange(question.id, "pending")}
-                    disabled={updatingFlag === question.id}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      question.flag === "pending" || !question.flag
-                        ? "bg-yellow-500 text-white border-yellow-500"
-                        : "bg-white text-yellow-700 border-yellow-300 hover:bg-yellow-50"
-                    }`}
-                  >
-                    ↺ Reset to Pending
-                  </button>
-                </div>
-              </div>
-
-              {/* Show Options Preview for MCQ */}
-              {question.type === "mcq" && question.options && (
-                <div className="mt-3 ml-4 text-sm text-gray-600">
-                  <p className="font-semibold mb-2">Options:</p>
-                  <ul className="space-y-1">
-                    {question.options.map((opt, idx) => (
-                      <li
-                        key={idx}
-                        className={
-                          idx === question.correctAnswer
-                            ? "text-casual-green font-semibold"
-                            : ""
-                        }
-                      >
-                        {idx + 1}. {opt}
-                        {idx === question.correctAnswer && (
-                          <span className="ml-2">✓</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
       )}
-      <RevisionHistoryModal 
-        isOpen={showHistoryId !== null}
-        onClose={() => setShowHistoryId(null)}
-        revisions={filteredQuestions.find(q => q.id === showHistoryId)?.revision_history || []}
-        questionId={showHistoryId} 
-      />
+
+      {/* Modal */}
+      {showHistoryId && (
+        <RevisionHistoryModal
+          isOpen={showHistoryId !== null}
+          onClose={() => setShowHistoryId(null)}
+          revisions={
+            filteredQuestions.find((q) => q.id === showHistoryId)
+              ?.revision_history || []
+          }
+          questionId={showHistoryId}
+        />
+      )}
     </div>
   );
 };
-
-// Helper function for delete
-async function handleDeleteQuestionFn(id) {
-  try {
-    const { error } = await supabase.from("questions").delete().eq("id", id);
-
-    if (error) {
-      console.error("Error deleting question:", error);
-      toast.error("Failed to delete question: " + error.message);
-      return;
-    }
-
-    toast.success("Question deleted successfully!");
-    window.dispatchEvent(new Event("questions-updated"));
-  } catch (error) {
-    console.error("Error deleting question:", error);
-    toast.error("An error occurred while deleting the question");
-  }
-}
