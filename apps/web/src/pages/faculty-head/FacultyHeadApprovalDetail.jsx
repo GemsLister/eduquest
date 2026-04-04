@@ -207,11 +207,11 @@ export const FacultyHeadApprovalDetail = () => {
       </div>
 
       <div className="p-6">
-        {/* Admin Feedback */}
+        {/* Admin Overall Feedback */}
         {submission.admin_feedback && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-sm font-semibold text-blue-700 mb-1">
-              Admin (Senior Faculty) Feedback:
+              Admin (Senior Faculty) Overall Feedback:
             </p>
             <p className="text-blue-800">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
@@ -222,6 +222,30 @@ export const FacultyHeadApprovalDetail = () => {
             )}
           </div>
         )}
+
+        {/* Per-Question Feedback Summary */}
+        {submission.question_feedback &&
+          Object.keys(submission.question_feedback).length > 0 && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <p className="text-sm font-semibold text-blue-700 mb-2">
+                Per-Question Feedback from Admin:
+              </p>
+              <div className="space-y-2">
+                {results?.analysis?.map((item, idx) => {
+                  const fb = submission.question_feedback[item.questionId];
+                  if (!fb) return null;
+                  return (
+                    <div key={item.questionId} className="p-3 bg-white rounded-lg border border-blue-100">
+                      <p className="text-xs font-bold text-gray-500 mb-0.5">
+                        Q{idx + 1}: <span className="font-normal text-gray-700">{item.questionText.length > 100 ? item.questionText.slice(0, 100) + "..." : item.questionText}</span>
+                      </p>
+                      <p className="text-sm text-blue-800">{fb}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         {/* Instructor Message */}
         {submission.instructor_message && (
@@ -366,6 +390,14 @@ export const FacultyHeadApprovalDetail = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Inline per-question feedback */}
+                {submission.question_feedback?.[item.questionId] && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs font-semibold text-blue-600 mb-0.5">Admin Feedback:</p>
+                    <p className="text-sm text-blue-800">{submission.question_feedback[item.questionId]}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -15,6 +15,7 @@ export const AdminQuizReviewDetail = () => {
   const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  const [questionFeedback, setQuestionFeedback] = useState({});
 
   useEffect(() => {
     loadSubmission();
@@ -41,6 +42,7 @@ export const AdminQuizReviewDetail = () => {
 
         setSubmission({ ...data, profiles: profile });
         setFeedback(data.admin_feedback || "");
+        setQuestionFeedback(data.question_feedback || {});
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -50,8 +52,13 @@ export const AdminQuizReviewDetail = () => {
     }
   };
 
+  const hasAnyFeedback = () => {
+    if (feedback.trim()) return true;
+    return Object.values(questionFeedback).some((f) => f.trim());
+  };
+
   const handleAction = async (status) => {
-    if (status !== "approved" && !feedback.trim()) {
+    if (status !== "approved" && !hasAnyFeedback()) {
       setPendingAction(status);
       setShowFeedbackModal(true);
       return;
@@ -66,11 +73,17 @@ export const AdminQuizReviewDetail = () => {
       // When admin approves, forward to faculty head for final approval
       const actualStatus = status === "approved" ? "faculty_head_review" : status;
 
+      // Filter out empty question feedback entries
+      const filteredQuestionFeedback = Object.fromEntries(
+        Object.entries(questionFeedback).filter(([, v]) => v.trim())
+      );
+
       const { error } = await supabase
         .from("quiz_analysis_submissions")
         .update({
           status: actualStatus,
           admin_feedback: feedback || null,
+          question_feedback: Object.keys(filteredQuestionFeedback).length > 0 ? filteredQuestionFeedback : null,
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
         })
@@ -399,6 +412,37 @@ export const AdminQuizReviewDetail = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Per-question feedback */}
+                {submission.status === "pending" ? (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <textarea
+                      value={questionFeedback[item.questionId] || ""}
+                      onChange={(e) =>
+                        setQuestionFeedback((prev) => ({
+                          ...prev,
+                          [item.questionId]: e.target.value,
+                        }))
+                      }
+                      placeholder={`Add feedback for Q${idx + 1}...`}
+                      rows="2"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none"
+                    />
+                  </div>
+                ) : (
+                  questionFeedback[item.questionId] && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p className="text-xs font-semibold text-orange-600 mb-1">
+                          Admin Feedback:
+                        </p>
+                        <p className="text-sm text-orange-800">
+                          {questionFeedback[item.questionId]}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             ))}
           </div>
@@ -408,7 +452,7 @@ export const AdminQuizReviewDetail = () => {
         {submission.status === "pending" && (
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Admin Feedback (required for revision/rejection)
+              Overall Feedback (optional if per-question feedback is provided)
             </label>
             <textarea
               value={feedback}
@@ -474,8 +518,8 @@ export const AdminQuizReviewDetail = () => {
                 : "Revision Request Feedback"}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Please provide feedback to help the instructor understand your
-              decision.
+              Please provide overall feedback or per-question feedback above to
+              help the instructor understand your decision.
             </p>
             <textarea
               value={feedback}
@@ -494,7 +538,7 @@ export const AdminQuizReviewDetail = () => {
               </button>
               <button
                 onClick={() => handleAction(pendingAction)}
-                disabled={!feedback.trim() || actionLoading}
+                disabled={!hasAnyFeedback() || actionLoading}
                 className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo disabled:opacity-50"
               >
                 {actionLoading ? "Submitting..." : "Submit"}

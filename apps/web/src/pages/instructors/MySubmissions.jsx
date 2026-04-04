@@ -260,7 +260,7 @@ export const MySubmissions = () => {
                     </div>
                   )}
 
-                  {/* Admin Feedback */}
+                  {/* Admin Overall Feedback */}
                   {submission.admin_feedback && (
                     <div
                       className={`p-3 rounded-lg border ${
@@ -280,7 +280,7 @@ export const MySubmissions = () => {
                               : "text-orange-600"
                         }`}
                       >
-                        Admin Feedback:
+                        Overall Admin Feedback:
                       </p>
                       <p
                         className={`text-sm ${
@@ -295,6 +295,28 @@ export const MySubmissions = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Per-Question Feedback Summary */}
+                  {submission.question_feedback &&
+                    Object.keys(submission.question_feedback).length > 0 && (
+                      <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
+                        <p className="text-xs font-semibold text-orange-600 mb-2">
+                          Question-Specific Feedback ({Object.keys(submission.question_feedback).length} question{Object.keys(submission.question_feedback).length > 1 ? "s" : ""}):
+                        </p>
+                        <div className="space-y-2">
+                          {submission.analysis_results?.analysis?.map((item, idx) => {
+                            const fb = submission.question_feedback[item.questionId];
+                            if (!fb) return null;
+                            return (
+                              <div key={item.questionId} className="p-2 bg-white rounded border border-orange-100">
+                                <p className="text-xs font-bold text-gray-500 mb-0.5">Q{idx + 1}: <span className="font-normal text-gray-700">{item.questionText.length > 80 ? item.questionText.slice(0, 80) + "..." : item.questionText}</span></p>
+                                <p className="text-sm text-orange-800">{fb}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                   {/* Expandable Charts */}
                   {submission.analysis_results?.summary && (
@@ -389,30 +411,38 @@ export const MySubmissions = () => {
                                 {submission.analysis_results.analysis.map((item, idx) => (
                                   <div
                                     key={item.questionId}
-                                    className={`grid grid-cols-12 gap-2 px-4 py-3 items-start text-sm ${item.needsReview ? "bg-yellow-50" : "bg-white"}`}
+                                    className={`px-4 py-3 text-sm ${item.needsReview ? "bg-yellow-50" : "bg-white"}`}
                                   >
-                                    <div className="col-span-1 text-gray-400 font-semibold pt-0.5">{idx + 1}</div>
-                                    <div className="col-span-5 text-gray-700 break-words">{item.questionText}</div>
-                                    <div className="col-span-2 pt-0.5">
-                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
-                                        { Remembering: "bg-blue-100 text-blue-700 border-blue-300", Understanding: "bg-cyan-100 text-cyan-700 border-cyan-300", Applying: "bg-green-100 text-green-700 border-green-300", Analyzing: "bg-yellow-100 text-yellow-700 border-yellow-300", Evaluating: "bg-orange-100 text-orange-700 border-orange-300", Creating: "bg-purple-100 text-purple-700 border-purple-300" }[item.bloomsLevel] || "bg-gray-100 text-gray-700 border-gray-300"
-                                      }`}>
-                                        {item.bloomsLevel}
-                                      </span>
+                                    <div className="grid grid-cols-12 gap-2 items-start">
+                                      <div className="col-span-1 text-gray-400 font-semibold pt-0.5">{idx + 1}</div>
+                                      <div className="col-span-5 text-gray-700 break-words">{item.questionText}</div>
+                                      <div className="col-span-2 pt-0.5">
+                                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
+                                          { Remembering: "bg-blue-100 text-blue-700 border-blue-300", Understanding: "bg-cyan-100 text-cyan-700 border-cyan-300", Applying: "bg-green-100 text-green-700 border-green-300", Analyzing: "bg-yellow-100 text-yellow-700 border-yellow-300", Evaluating: "bg-orange-100 text-orange-700 border-orange-300", Creating: "bg-purple-100 text-purple-700 border-purple-300" }[item.bloomsLevel] || "bg-gray-100 text-gray-700 border-gray-300"
+                                        }`}>
+                                          {item.bloomsLevel}
+                                        </span>
+                                      </div>
+                                      <div className="col-span-2 pt-0.5">
+                                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${item.thinkingOrder === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                          {item.thinkingOrder}
+                                        </span>
+                                        {item.needsReview && (
+                                          <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">!</span>
+                                        )}
+                                      </div>
+                                      <div className="col-span-2 text-right pt-0.5">
+                                        <span className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}>
+                                          {(item.confidence * 100).toFixed(1)}%
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className="col-span-2 pt-0.5">
-                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${item.thinkingOrder === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}>
-                                        {item.thinkingOrder}
-                                      </span>
-                                      {item.needsReview && (
-                                        <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">!</span>
-                                      )}
-                                    </div>
-                                    <div className="col-span-2 text-right pt-0.5">
-                                      <span className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}>
-                                        {(item.confidence * 100).toFixed(1)}%
-                                      </span>
-                                    </div>
+                                    {submission.question_feedback?.[item.questionId] && (
+                                      <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                        <p className="text-xs font-semibold text-orange-600 mb-0.5">Admin Feedback:</p>
+                                        <p className="text-sm text-orange-800">{submission.question_feedback[item.questionId]}</p>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
