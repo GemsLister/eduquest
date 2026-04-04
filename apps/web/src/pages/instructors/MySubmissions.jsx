@@ -30,7 +30,9 @@ export const MySubmissions = () => {
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (filter !== "all") {
+      if (filter === "approved") {
+        query = query.in("status", ["approved", "faculty_head_approved"]);
+      } else if (filter !== "all") {
         query = query.eq("status", filter);
       }
 

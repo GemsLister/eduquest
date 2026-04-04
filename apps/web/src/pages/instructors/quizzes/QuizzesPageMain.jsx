@@ -97,7 +97,8 @@ export const QuizzesPageMain = () => {
   const getQuizState = (quiz) => {
     if (quiz.is_archived) return { label: "Archived", bg: "bg-gray-100 text-gray-600 border-gray-300" };
     if (quiz.is_published) return { label: "Published", bg: "bg-brand-indigo/10 text-brand-indigo border-brand-indigo/30" };
-    if (quiz.admin_review_status === "approved") return { label: "Approved", bg: "bg-green-100 text-green-700 border-green-300" };
+    if (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") return { label: "Approved", bg: "bg-green-100 text-green-700 border-green-300" };
+    if (quiz.admin_review_status === "faculty_head_review") return { label: "Faculty Head Review", bg: "bg-blue-100 text-blue-700 border-blue-300" };
     if (quiz.admin_review_status === "revision_requested") return { label: "Revision", bg: "bg-orange-100 text-orange-700 border-orange-300" };
     if (quiz.admin_review_status === "rejected") return { label: "Rejected", bg: "bg-red-100 text-red-700 border-red-300" };
     if (quiz.admin_review_status === "pending") return { label: "Pending", bg: "bg-yellow-100 text-yellow-700 border-yellow-300" };
@@ -107,7 +108,8 @@ export const QuizzesPageMain = () => {
   const getCardGradient = (quiz) => {
     if (quiz.is_archived) return "from-gray-400 to-gray-500";
     if (quiz.is_published) return "from-brand-navy to-brand-indigo";
-    if (quiz.admin_review_status === "approved") return "from-brand-navy to-brand-indigo-dark";
+    if (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") return "from-brand-navy to-brand-indigo-dark";
+    if (quiz.admin_review_status === "faculty_head_review") return "from-blue-600 to-blue-700";
     if (quiz.admin_review_status === "revision_requested") return "from-amber-600 to-amber-700";
     if (quiz.admin_review_status === "rejected") return "from-rose-700 to-rose-800";
     if (quiz.admin_review_status === "pending") return "from-brand-gold to-brand-gold-dark";
@@ -357,7 +359,7 @@ export const QuizzesPageMain = () => {
             {filteredQuizzes.map((quiz) => {
               const state = getQuizState(quiz);
               const isApproved =
-                quiz.admin_review_status === "approved" && !quiz.is_published;
+                (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") && !quiz.is_published;
 
               return (
                 <div
