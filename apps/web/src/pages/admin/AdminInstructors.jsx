@@ -8,6 +8,8 @@ export const AdminInstructors = () => {
     useAdminInstructors();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | active | disabled
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const activeCount = useMemo(
     () => instructors.filter((i) => !i.is_disabled).length,
@@ -37,6 +39,17 @@ export const AdminInstructors = () => {
 
     return list;
   }, [instructors, statusFilter, search]);
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   useEffect(() => {
     if (error) toast.error(error);
@@ -158,13 +171,13 @@ export const AdminInstructors = () => {
               <p className="text-gray-500 text-sm">Loading instructors...</p>
             </div>
           </div>
-        ) : (
+        ) : filtered.length > 0 ? (
           <InstructorTable
-            instructors={filtered}
+            instructors={paginated}
             statusLoading={statusLoading}
             onToggleStatus={handleStatusClick}
           />
-        )}
+        ) : null}
 
         {/* No results for search/filter */}
         {!loading && filtered.length === 0 && instructors.length > 0 && (
@@ -191,6 +204,50 @@ export const AdminInstructors = () => {
             <p className="text-xs text-gray-400 mt-1">
               Try a different search term or filter.
             </p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <p className="text-xs text-gray-400">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+              {filtered.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                      page === currentPage
+                        ? "bg-brand-gold text-brand-navy"
+                        : "text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
