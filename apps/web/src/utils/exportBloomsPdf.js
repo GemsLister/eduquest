@@ -60,7 +60,7 @@ export const exportBloomsPdf = ({ quizTitle, results, instructorName, submittedA
     infoItems.push(["Submitted", new Date(submittedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })]);
   }
   if (status) {
-    const statusLabels = { pending: "Pending Review", approved: "Approved", revision_requested: "Revision Requested", rejected: "Rejected" };
+    const statusLabels = { pending: "Pending Review", approved: "Approved", revision_requested: "Revision Requested", rejected: "Rejected", faculty_head_review: "Awaiting Faculty Head Approval", faculty_head_approved: "Approved by Faculty Head" };
     infoItems.push(["Status", statusLabels[status] || status]);
   }
 

@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
 import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
 import { AdminProtectedRoute } from "../components/AdminProtectedRoute.jsx";
+import { FacultyHeadProtectedRoute } from "../components/FacultyHeadProtectedRoute.jsx";
 // Auth Routes
 import * as AuthIndex from "../pages/auth/authIndex.js";
 // Instructor Routes
@@ -10,10 +11,13 @@ import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 import { ItemAnalysisPage } from "../pages/item-analysis/ItemAnalysisPage.jsx";
 // Admin Routes
 import * as AdminIndex from "../pages/admin/adminPageIndex.js";
+// Faculty Head Routes
+import * as FacultyHeadIndex from "../pages/faculty-head/facultyHeadPageIndex.js";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
 import { Layout } from "../components/container/Layout.jsx";
 import { AdminLayout } from "../components/container/AdminLayout.jsx";
+import { FacultyHeadLayout } from "../components/container/FacultyHeadLayout.jsx";
 
 export const router = createBrowserRouter(
   [
@@ -138,6 +142,29 @@ export const router = createBrowserRouter(
             {
               path: "quiz-reviews/:submissionId",
               element: <AdminIndex.AdminQuizReviewDetail />,
+            },
+          ],
+        },
+        // Faculty Head dashboard routing
+        {
+          path: "faculty-head-dashboard",
+          element: (
+            <FacultyHeadProtectedRoute>
+              <FacultyHeadLayout />
+            </FacultyHeadProtectedRoute>
+          ),
+          children: [
+            {
+              index: true,
+              element: <FacultyHeadIndex.FacultyHeadDashboard />,
+            },
+            {
+              path: "quiz-approvals",
+              element: <FacultyHeadIndex.FacultyHeadQuizApprovals />,
+            },
+            {
+              path: "quiz-approvals/:submissionId",
+              element: <FacultyHeadIndex.FacultyHeadApprovalDetail />,
             },
           ],
         },

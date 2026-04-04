@@ -5,6 +5,7 @@ import { supabase } from "../supabaseClient.js";
 export const ProtectedRoute = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isFacultyHead, setIsFacultyHead] = useState(false);
   const [isApproved, setIsApproved] = useState(null);
   const [isDisabled, setIsDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -24,10 +25,11 @@ export const ProtectedRoute = ({ children }) => {
             .eq("id", authUser.id)
             .maybeSingle();
           setIsAdmin(!!profile?.is_admin);
+          setIsFacultyHead(!!profile?.is_faculty_head);
           // Treat null (column not yet added) as approved to avoid locking out existing users
           setIsApproved(profile?.is_approved !== false);
           setIsDisabled(profile?.is_disabled === true);
-          
+
 
           if (profile?.is_disabled === true) {
             await supabase.auth.signOut();
@@ -66,6 +68,10 @@ export const ProtectedRoute = ({ children }) => {
 
   if (isAdmin) {
     return <Navigate to="/admin-dashboard" replace />;
+  }
+
+  if (isFacultyHead) {
+    return <Navigate to="/faculty-head-dashboard" replace />;
   }
 
   if (!isApproved) {

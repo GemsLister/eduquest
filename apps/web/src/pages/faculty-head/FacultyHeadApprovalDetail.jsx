@@ -4,17 +4,14 @@ import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
+import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
-
-export const AdminQuizReviewDetail = () => {
+export const FacultyHeadApprovalDetail = () => {
   const navigate = useNavigate();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
     loadSubmission();
@@ -31,7 +28,6 @@ export const AdminQuizReviewDetail = () => {
 
       if (error) throw error;
 
-      // Fetch instructor profile separately
       if (data) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -40,7 +36,6 @@ export const AdminQuizReviewDetail = () => {
           .single();
 
         setSubmission({ ...data, profiles: profile });
-        setFeedback(data.admin_feedback || "");
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -50,80 +45,58 @@ export const AdminQuizReviewDetail = () => {
     }
   };
 
-  const handleAction = async (status) => {
-    if (status !== "approved" && !feedback.trim()) {
-      setPendingAction(status);
-      setShowFeedbackModal(true);
-      return;
-    }
-
+  const handleApprove = async () => {
     setActionLoading(true);
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // When admin approves, forward to faculty head for final approval
-      const actualStatus = status === "approved" ? "faculty_head_review" : status;
-
       const { error } = await supabase
         .from("quiz_analysis_submissions")
         .update({
-          status: actualStatus,
-          admin_feedback: feedback || null,
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
+          status: "faculty_head_approved",
+          faculty_head_approved_by: user?.id,
+          faculty_head_approved_at: new Date().toISOString(),
         })
         .eq("id", submissionId);
 
       if (error) throw error;
 
-      // Send notification to instructor
+      // Notify the instructor
       const quizTitle = submission.quizzes?.title || "your quiz";
-      const notificationMap = {
-        approved: {
-          title: "Quiz Analysis Reviewed by Admin",
-          message: `Your quiz analysis for "${quizTitle}" has been reviewed by the admin and forwarded to the Faculty Head for final approval.`,
-          type: "info",
-        },
-        revision_requested: {
-          title: "Revision Requested",
-          message: `The admin has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
-          type: "warning",
-        },
-        rejected: {
-          title: "Quiz Analysis Rejected",
-          message: `Your quiz analysis for "${quizTitle}" has been rejected.${feedback ? ` Feedback: ${feedback}` : ""}`,
-          type: "error",
-        },
-      };
+      await supabase.from("notifications").insert({
+        user_id: submission.instructor_id,
+        title: "Quiz Approved by Faculty Head",
+        message: `Your quiz analysis for "${quizTitle}" has been approved by the Faculty Head.`,
+        type: "success",
+        link: `/instructor-dashboard/my-submissions`,
+      });
 
-      const notification = notificationMap[status];
-      if (notification) {
-        await supabase.from("notifications").insert({
-          user_id: submission.instructor_id,
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-          link: `/instructor-dashboard/my-submissions`,
-        });
-      }
-
-      const messages = {
-        approved: "Quiz forwarded to Faculty Head for approval!",
-        revision_requested: "Revision request sent to instructor.",
-        rejected: "Quiz analysis has been rejected.",
-      };
-
-      toast.success(messages[status]);
-      navigate("/admin-dashboard/quiz-reviews");
+      toast.success("Quiz approved successfully!");
+      navigate("/faculty-head-dashboard/quiz-approvals");
     } catch (err) {
-      console.error("Error updating submission:", err);
-      toast.error("Failed to update submission");
+      console.error("Error approving submission:", err);
+      toast.error("Failed to approve submission");
     } finally {
       setActionLoading(false);
-      setShowFeedbackModal(false);
     }
+  };
+
+  const handleExportPdf = () => {
+    const instructorName = submission.profiles
+      ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
+        submission.profiles.username ||
+        submission.profiles.email
+      : undefined;
+    exportBloomsPdf({
+      quizTitle: submission.quizzes?.title,
+      results: submission.analysis_results,
+      instructorName,
+      submittedAt: submission.created_at,
+      adminFeedback: submission.admin_feedback,
+      status: submission.status,
+    });
   };
 
   const getLevelColor = (level) => {
@@ -146,26 +119,18 @@ export const AdminQuizReviewDetail = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
-      approved: "bg-green-100 text-green-700 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      rejected: "bg-red-100 text-red-700 border-red-300",
-      faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
+      faculty_head_review: "bg-yellow-100 text-yellow-700 border-yellow-300",
       faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
     };
     const labels = {
-      pending: "Pending Review",
-      approved: "Approved",
-      revision_requested: "Revision Requested",
-      rejected: "Rejected",
-      faculty_head_review: "Awaiting Faculty Head",
-      faculty_head_approved: "Faculty Head Approved",
+      faculty_head_review: "Pending Approval",
+      faculty_head_approved: "Approved",
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status]}`}
+        className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status] || "bg-gray-100 text-gray-700 border-gray-300"}`}
       >
-        {labels[status]}
+        {labels[status] || status}
       </span>
     );
   };
@@ -187,7 +152,7 @@ export const AdminQuizReviewDetail = () => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <p className="text-red-600">Submission not found.</p>
           <button
-            onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+            onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg"
           >
             Go Back
@@ -204,10 +169,10 @@ export const AdminQuizReviewDetail = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
-          onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+          onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
           className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
         >
-          Back to Reviews
+          Back to Approvals
         </button>
         <div className="flex items-center gap-4">
           <div>
@@ -225,44 +190,46 @@ export const AdminQuizReviewDetail = () => {
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {submission.status === "faculty_head_approved" && (
+              <button
+                onClick={handleExportPdf}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </button>
+            )}
             {getStatusBadge(submission.status)}
           </div>
         </div>
       </div>
 
       <div className="p-6">
-        {/* Resubmission Banner */}
-        {submission.updated_at &&
-          submission.updated_at !== submission.created_at &&
-          submission.status === "pending" && (
-            <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
-              <span className="text-2xl">🔄</span>
-              <div>
-                <p className="text-sm font-semibold text-brand-navy">
-                  Resubmission
-                </p>
-                <p className="text-xs text-brand-navy">
-                  This analysis was resubmitted by the instructor after revision.
-                  Updated on{" "}
-                  {new Date(submission.updated_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Admin Feedback */}
+        {submission.admin_feedback && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm font-semibold text-blue-700 mb-1">
+              Admin (Senior Faculty) Feedback:
+            </p>
+            <p className="text-blue-800">{submission.admin_feedback}</p>
+            {submission.reviewed_at && (
+              <p className="text-xs text-blue-400 mt-2">
+                Reviewed on{" "}
+                {new Date(submission.reviewed_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Instructor Message */}
         {submission.instructor_message && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm font-semibold text-blue-700 mb-1">
+          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-sm font-semibold text-gray-700 mb-1">
               Instructor's Note:
             </p>
-            <p className="text-blue-800">{submission.instructor_message}</p>
+            <p className="text-gray-800">{submission.instructor_message}</p>
           </div>
         )}
 
@@ -404,105 +371,53 @@ export const AdminQuizReviewDetail = () => {
           </div>
         </div>
 
-        {/* Admin Feedback */}
-        {submission.status === "pending" && (
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Admin Feedback (required for revision/rejection)
-            </label>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="Enter feedback for the instructor..."
-              rows="3"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
-            />
+        {/* Action Button - Approve */}
+        {submission.status === "faculty_head_review" && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {actionLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Approve Quiz
+                </>
+              )}
+            </button>
           </div>
         )}
 
-        {/* Previous Feedback */}
-        {submission.admin_feedback && submission.status !== "pending" && (
-          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-            <p className="text-sm font-semibold text-gray-600 mb-1">
-              Admin Feedback:
+        {/* After approval - show export prompt */}
+        {submission.status === "faculty_head_approved" && (
+          <div className="p-6 bg-green-50 border border-green-200 rounded-xl text-center">
+            <div className="text-4xl mb-3">✅</div>
+            <h3 className="text-lg font-bold text-green-800 mb-2">
+              This quiz has been approved
+            </h3>
+            <p className="text-green-600 text-sm mb-4">
+              You can export the analysis report as a PDF.
             </p>
-            <p className="text-gray-800">{submission.admin_feedback}</p>
-            {submission.reviewed_at && (
-              <p className="text-xs text-gray-400 mt-2">
-                Reviewed on{" "}
-                {new Date(submission.reviewed_at).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {submission.status === "pending" && (
-          <div className="flex flex-wrap gap-4 justify-end">
             <button
-              onClick={() => handleAction("rejected")}
-              disabled={actionLoading}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              onClick={handleExportPdf}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors inline-flex items-center gap-2"
             >
-              Reject
-            </button>
-            <button
-              onClick={() => handleAction("revision_requested")}
-              disabled={actionLoading}
-              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
-            >
-              Request Revision
-            </button>
-            <button
-              onClick={() => handleAction("approved")}
-              disabled={actionLoading}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
-            >
-              Forward to Faculty Head
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
             </button>
           </div>
         )}
       </div>
-
-      {/* Feedback Modal */}
-      {showFeedbackModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              {pendingAction === "rejected"
-                ? "Rejection Feedback"
-                : "Revision Request Feedback"}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Please provide feedback to help the instructor understand your
-              decision.
-            </p>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="Enter your feedback..."
-              rows="4"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold mb-4"
-              autoFocus
-            />
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowFeedbackModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleAction(pendingAction)}
-                disabled={!feedback.trim() || actionLoading}
-                className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo disabled:opacity-50"
-              >
-                {actionLoading ? "Submitting..." : "Submit"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

@@ -78,6 +78,11 @@ export const useLogin = () => {
         return;
       }
 
+      if (profile?.is_faculty_head) {
+        navigate("/faculty-head-dashboard");
+        return;
+      }
+
       if (profile?.role === "teacher" || profile?.is_instructor) {
         navigate("/instructor-dashboard");
       } else if (profile?.role === "student") {

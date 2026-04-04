@@ -228,12 +228,16 @@ export const AdminDashboard = () => {
       approved: "bg-green-100 text-green-700",
       rejected: "bg-red-100 text-red-700",
       revision_requested: "bg-orange-100 text-orange-700",
+      faculty_head_review: "bg-blue-100 text-blue-700",
+      faculty_head_approved: "bg-green-100 text-green-700",
     };
     const labels = {
       pending: "Pending",
       approved: "Approved",
       rejected: "Rejected",
       revision_requested: "Revision",
+      faculty_head_review: "Faculty Head",
+      faculty_head_approved: "FH Approved",
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-gray-100 text-gray-600"}`}>

@@ -51,12 +51,16 @@ export const MySubmissions = () => {
       approved: "bg-green-100 text-green-700 border-green-300",
       revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
       rejected: "bg-red-100 text-red-700 border-red-300",
+      faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
+      faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
     };
     const labels = {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
       rejected: "Rejected",
+      faculty_head_review: "Awaiting Faculty Head",
+      faculty_head_approved: "Approved by Faculty Head",
     };
     return (
       <span
@@ -99,6 +103,22 @@ export const MySubmissions = () => {
           <span className={`${base} bg-rose-100`}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </span>
+        );
+      case "faculty_head_review":
+        return (
+          <span className={`${base} bg-blue-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+        );
+      case "faculty_head_approved":
+        return (
+          <span className={`${base} bg-green-100`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </span>
         );
