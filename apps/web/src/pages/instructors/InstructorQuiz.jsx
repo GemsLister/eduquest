@@ -280,7 +280,6 @@ export const InstructorQuiz = () => {
         .from("questions")
         .select("*")
         .eq("quiz_id", quizId)
-        .or("is_archived.is.null,is_archived.eq.false")
         .order("created_at", { ascending: true });
 
       if (questionsError) throw questionsError;

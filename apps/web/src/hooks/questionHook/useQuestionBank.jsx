@@ -145,16 +145,52 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Delete a question permanently
+  // Delete a question permanently (only if its quiz is unpublished and has no attempts)
   const deleteQuestion = async (questionId) => {
     try {
-      // First delete responses
+      // Find the question to get its quiz_id
+      const question =
+        activeQuestions.find((q) => q.id === questionId) ||
+        archivedQuestions.find((q) => q.id === questionId);
+
+      if (!question) {
+        return { success: false, error: "Question not found" };
+      }
+
+      // Check if the quiz is published or has attempts
+      const { data: quiz } = await supabase
+        .from("quizzes")
+        .select("id, is_published")
+        .eq("id", question.quiz_id)
+        .single();
+
+      if (quiz?.is_published) {
+        return {
+          success: false,
+          error:
+            "Cannot permanently delete this question because it belongs to a published quiz. You can archive it instead.",
+        };
+      }
+
+      const { count: attemptCount } = await supabase
+        .from("quiz_attempts")
+        .select("*", { count: "exact", head: true })
+        .eq("quiz_id", question.quiz_id);
+
+      if (attemptCount > 0) {
+        return {
+          success: false,
+          error:
+            "Cannot permanently delete this question because its quiz already has student attempts. You can archive it instead.",
+        };
+      }
+
+      // Safe to delete — quiz is unpublished with no attempts
       await supabase
         .from("quiz_responses")
         .delete()
         .eq("question_id", questionId);
 
-      // Then delete the question
       const { error } = await supabase
         .from("questions")
         .delete()

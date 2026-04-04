@@ -192,11 +192,21 @@ export const QuestionBank = () => {
       variant: "danger",
     });
     if (confirmed) {
+      let deleted = 0;
+      let blocked = 0;
       for (const id of bulkSelected) {
-        await deleteQuestion(id);
+        const result = await deleteQuestion(id);
+        if (result.success) {
+          deleted++;
+        } else {
+          blocked++;
+          toast.error(result.error);
+        }
       }
       setBulkSelected(new Set());
-      toast.success(`Removed ${bulkSelected.size} question(s)`);
+      if (deleted > 0) toast.success(`Removed ${deleted} question(s)`);
+      if (blocked > 0 && deleted === 0)
+        toast.info("No questions were removed. Archive them instead.");
     }
   };
 
@@ -784,7 +794,10 @@ export const QuestionBank = () => {
                             cancelText: "Cancel",
                             variant: "danger",
                           });
-                          if (confirmed) deleteQuestion(question.id);
+                          if (confirmed) {
+                            const result = await deleteQuestion(question.id);
+                            if (!result.success) toast.error(result.error);
+                          }
                         }}
                         className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                         title="Remove permanently"
