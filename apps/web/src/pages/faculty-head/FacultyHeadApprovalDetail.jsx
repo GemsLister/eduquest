@@ -83,16 +83,36 @@ export const FacultyHeadApprovalDetail = () => {
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     const instructorName = submission.profiles
       ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
         submission.profiles.username ||
         submission.profiles.email
       : undefined;
-    exportBloomsPdf({
+
+    // Fetch signatory names from settings
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    let reviewerName, approverName;
+    if (user) {
+      const { data: signatories } = await supabase
+        .from("tos_signatories")
+        .select("reviewer_name, approver_name")
+        .eq("faculty_head_id", user.id)
+        .single();
+      if (signatories) {
+        reviewerName = signatories.reviewer_name;
+        approverName = signatories.approver_name;
+      }
+    }
+
+    await exportBloomsPdf({
       quizTitle: submission.quizzes?.title,
       results: submission.analysis_results,
       instructorName,
+      reviewerName,
+      approverName,
       submittedAt: submission.created_at,
       adminFeedback: submission.admin_feedback,
       status: submission.status,

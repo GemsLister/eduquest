@@ -11,6 +11,7 @@ export const MySubmissions = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
+  const [instructorName, setInstructorName] = useState(null);
 
   useEffect(() => {
     loadSubmissions();
@@ -23,6 +24,20 @@ export const MySubmissions = () => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Fetch instructor's own profile name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email, username")
+        .eq("id", user.id)
+        .single();
+      if (profile) {
+        const name =
+          `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
+          profile.username ||
+          profile.email;
+        setInstructorName(name);
+      }
 
       let query = supabase
         .from("quiz_analysis_submissions")
@@ -463,15 +478,30 @@ export const MySubmissions = () => {
                         </span>
                       )}
                       <button
-                        onClick={() =>
-                          exportBloomsPdf({
+                        onClick={async () => {
+                          // Fetch signatory names
+                          let reviewerName, approverName;
+                          const { data: signatories } = await supabase
+                            .from("tos_signatories")
+                            .select("reviewer_name, approver_name")
+                            .order("updated_at", { ascending: false })
+                            .limit(1)
+                            .single();
+                          if (signatories) {
+                            reviewerName = signatories.reviewer_name;
+                            approverName = signatories.approver_name;
+                          }
+                          await exportBloomsPdf({
                             quizTitle: submission.quizzes?.title,
                             results: submission.analysis_results,
+                            instructorName,
+                            reviewerName,
+                            approverName,
                             submittedAt: submission.created_at,
                             adminFeedback: submission.admin_feedback,
                             status: submission.status,
-                          })
-                        }
+                          });
+                        }}
                         className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

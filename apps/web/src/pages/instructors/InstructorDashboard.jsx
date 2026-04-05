@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
 import { useFetchSectionQuiz } from "../../hooks/quizHook/useFetchSectionQuiz.jsx";
 import { sectionService } from "../../services/sectionService.js";
@@ -24,6 +25,7 @@ export const InstructorDashboard = () => {
   const [editName, setEditName] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const confirm = useConfirm();
 
   // Load archived sections when toggle is turned on
   const handleToggleArchived = async () => {
@@ -47,7 +49,14 @@ export const InstructorDashboard = () => {
   };
 
   const handleArchiveSection = async (sectionId, sectionName) => {
-    if (!window.confirm(`Archive "${sectionName}"? You can restore it later from the Archived tab.`)) return;
+    const confirmed = await confirm({
+      title: "Archive Section",
+      message: `Archive "${sectionName}"? You can restore it later from the Archived tab.`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await sectionService.archiveSection(sectionId);

@@ -1,6 +1,6 @@
 import { supabase } from "../../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const useLogin = () => {
   const navigate = useNavigate();

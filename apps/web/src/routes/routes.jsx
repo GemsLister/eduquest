@@ -166,6 +166,10 @@ export const router = createBrowserRouter(
               path: "quiz-approvals/:submissionId",
               element: <FacultyHeadIndex.FacultyHeadApprovalDetail />,
             },
+            {
+              path: "settings",
+              element: <FacultyHeadIndex.FacultyHeadSettings />,
+            },
           ],
         },
       ],
