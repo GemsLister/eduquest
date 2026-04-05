@@ -168,7 +168,8 @@ export const InstructorQuiz = () => {
       const { data } = await supabase
         .from("sections")
         .select("*")
-        .eq("instructor_id", user.id);
+        .eq("instructor_id", user.id)
+        .eq("is_archived", false);
       if (data) setAvailableSections(data);
     } catch (e) {
       console.error("Failed to load sections", e);
