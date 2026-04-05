@@ -77,7 +77,6 @@ export const QuizAnalysisResults = ({
 }) => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [forwarded, setForwarded] = useState(false);
   const [forwardLoading, setForwardLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -113,12 +112,11 @@ export const QuizAnalysisResults = ({
 
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
-      setError("No questions to analyze.");
+      toast.error("No questions to analyze.");
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const questionsForApi = questions.map((q) => ({
@@ -129,7 +127,7 @@ export const QuizAnalysisResults = ({
       const data = await analyzeQuiz(quizId, questionsForApi);
       setResults(data);
     } catch (err) {
-      setError(err.message || "Could not connect to AI backend.");
+      toast.error(err.message || "Could not connect to AI backend.");
     } finally {
       setLoading(false);
     }
@@ -139,12 +137,11 @@ export const QuizAnalysisResults = ({
     if (!results) return;
 
     if (quizId === "draft" || !quizId) {
-      setError("Please save the quiz first before submitting for review.");
+      toast.error("Please save the quiz first before submitting for review.");
       return;
     }
 
     setForwardLoading(true);
-    setError("");
 
     try {
       if (existingSubmission) {
@@ -183,7 +180,7 @@ export const QuizAnalysisResults = ({
       }
     } catch (err) {
       console.error("Forward error:", err);
-      setError(err.message || "Failed to submit for review.");
+      toast.error(err.message || "Failed to submit for review.");
     } finally {
       setForwardLoading(false);
     }
@@ -303,12 +300,6 @@ export const QuizAnalysisResults = ({
                 Understanding, Applying) or HOTS (Analyzing, Evaluating,
                 Creating) with a confidence score.
               </p>
-
-              {error && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm max-w-md mx-auto">
-                  {error}
-                </div>
-              )}
 
               <button
                 onClick={handleAnalyze}
@@ -651,11 +642,6 @@ export const QuizAnalysisResults = ({
                     rows="2"
                     className="w-full px-4 py-2 border border-brand-navy/20 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 text-sm mb-3 bg-white"
                   />
-                  {error && (
-                    <div className="mb-3 p-2.5 bg-red-100 border border-red-300 text-red-700 rounded-lg text-xs">
-                      {error}
-                    </div>
-                  )}
                   <div className="flex justify-end">
                     <button
                       onClick={handleForward}

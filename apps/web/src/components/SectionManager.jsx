@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { supabase } from "../supabaseClient.js";
 
 export const SectionManager = ({ onSectionCreated, userId }) => {
@@ -8,7 +9,6 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
     description: "",
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -21,11 +21,10 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
   const handleCreateSection = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       if (!formData.name.trim()) {
-        setError("Course name is required");
+        toast.error("Course name is required");
         return;
       }
 
@@ -53,7 +52,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
         onSectionCreated(data[0]);
       }
     } catch (err) {
-      setError(err.message || "Failed to create subject");
+      toast.error(err.message || "Failed to create subject");
       console.error("Error creating subject:", err);
     } finally {
       setLoading(false);
@@ -105,18 +104,11 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
               />
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
             <div className="flex flex-col md:flex-row gap-3 md:justify-end">
               <button
                 type="button"
                 onClick={() => {
                   setShowForm(false);
-                  setError("");
                   setFormData({ name: "", description: "" });
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm md:text-base hover:bg-gray-300 transition-colors"

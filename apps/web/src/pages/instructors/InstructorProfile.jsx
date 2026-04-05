@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { toast } from "react-toastify";
 import { supabase } from "../../supabaseClient.js";
 import profileImage from "../../assets/instructor-profile.png";
 import citlCover from "../../assets/CITL_cover_photo.png";
@@ -19,8 +20,6 @@ export const InstructorProfile = () => {
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [stats, setStats] = useState({ quizzes: 0, published: 0, subjects: 0 });
   const fileInputRef = useRef(null);
@@ -41,7 +40,7 @@ export const InstructorProfile = () => {
       if (authUser) {
         // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
         if (authUser.email.endsWith("@gmail.com")) {
-          setError("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
+          toast.error("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
           setLoading(false);
           return;
         }
@@ -129,7 +128,7 @@ export const InstructorProfile = () => {
         throw new Error("Auth session missing!");
       }
     } catch (err) {
-      setError(`Failed to load profile: ${err.message || "Unknown error"}`);
+      toast.error(`Failed to load profile: ${err.message || "Unknown error"}`);
       console.error("Profile load error:", err);
     } finally {
       setLoading(false);
@@ -142,17 +141,16 @@ export const InstructorProfile = () => {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      setError("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
+      toast.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setError("Image must be less than 2MB");
+      toast.error("Image must be less than 2MB");
       return;
     }
 
     setAvatarUploading(true);
-    setError("");
 
     try {
       const fileExt = file.name.split(".").pop();
@@ -178,9 +176,9 @@ export const InstructorProfile = () => {
       if (updateError) throw updateError;
 
       setProfile((prev) => ({ ...prev, avatarUrl }));
-      setSuccess("Profile picture updated!");
+      toast.success("Profile picture updated!");
     } catch (err) {
-      setError(err.message || "Failed to upload avatar");
+      toast.error(err.message || "Failed to upload avatar");
       console.error(err);
     } finally {
       setAvatarUploading(false);
@@ -190,12 +188,10 @@ export const InstructorProfile = () => {
 
   const handleUpdateProfile = async () => {
     setSaveLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       if (!profile.username.trim() || !profile.firstName.trim()) {
-        setError("Username and First Name are required");
+        toast.error("Username and First Name are required");
         setSaveLoading(false);
         return;
       }
@@ -213,10 +209,10 @@ export const InstructorProfile = () => {
 
       if (updateError) throw updateError;
 
-      setSuccess("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
       setEditMode(false);
     } catch (err) {
-      setError(err.message || "Failed to update profile");
+      toast.error(err.message || "Failed to update profile");
       console.error(err);
     } finally {
       setSaveLoading(false);
@@ -274,24 +270,6 @@ export const InstructorProfile = () => {
       </div>
 
       <div className="px-6 -mt-16 pb-8 max-w-4xl mx-auto">
-        {/* Alerts */}
-        {error && (
-          <div className="mb-4 mt-20 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mb-4 mt-20 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg text-sm flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {success}
-          </div>
-        )}
-
         {/* Profile Card — overlaps banner */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-6">
           <div className="px-6 pt-0 pb-5">

@@ -8,7 +8,6 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
@@ -32,12 +31,11 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
   const handleCreateQuiz = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("Title is required");
+      toast.error("Title is required");
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const { data: newQuiz, error } = await supabase
@@ -61,7 +59,7 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
       toast.success(`Quiz "${newQuiz.title}" created successfully!`);
       navigate(`/instructor-dashboard/instructor-quiz/${newQuiz.id}`);
     } catch (err) {
-      setError(err.message || "Failed to create quiz");
+      toast.error(err.message || "Failed to create quiz");
     } finally {
       setLoading(false);
     }
@@ -83,12 +81,6 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
                 ×
               </button>
             </div>
-
-            {error && (
-              <div className="mb-6 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleCreateQuiz}>
               <div className="space-y-4">
