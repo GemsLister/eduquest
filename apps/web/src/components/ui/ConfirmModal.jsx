@@ -50,7 +50,15 @@ export const ConfirmProvider = ({ children }) => {
       iconColor: "text-green-600",
       icon: "M5 13l4 4L19 7",
     },
+    info: {
+      button: "bg-blue-600 hover:bg-blue-700 text-white",
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-600",
+      icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    },
   };
+
+  const currentVariant = variantStyles[state?.variant] || variantStyles.danger;
 
   return (
     <ConfirmContext.Provider value={confirm}>
@@ -73,9 +81,9 @@ export const ConfirmProvider = ({ children }) => {
             {/* Body */}
             <div className="p-6">
               <div className="flex items-start gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${variantStyles[state.variant].iconBg}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${variantStyles[state.variant].iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={variantStyles[state.variant].icon} />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${currentVariant.iconBg}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${currentVariant.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={currentVariant.icon} />
                   </svg>
                 </div>
                 <p className="text-gray-600 text-sm whitespace-pre-line pt-2">
@@ -94,7 +102,7 @@ export const ConfirmProvider = ({ children }) => {
               </button>
               <button
                 onClick={() => handleResolve(true)}
-                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${variantStyles[state.variant].button}`}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${currentVariant.button}`}
               >
                 {state.confirmText}
               </button>
