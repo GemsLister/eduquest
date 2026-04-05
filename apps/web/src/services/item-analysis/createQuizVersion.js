@@ -61,11 +61,12 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       throw new Error(`Failed to create new quiz version: ${createError.message || JSON.stringify(createError)}`);
     }
 
-    // 5. Fetch all questions from original quiz
+    // 5. Fetch all questions from original quiz, ordered by creation time
     const { data: allQuestions, error: questionsError } = await supabase
       .from("questions")
       .select("*")
-      .eq("quiz_id", originalQuizId);
+      .eq("quiz_id", originalQuizId)
+      .order("created_at", { ascending: true });
 
     if (questionsError) throw new Error("Failed to fetch original questions");
 
@@ -75,8 +76,11 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       revisedMap[q.question_id] = q;
     });
 
+    // Use a base timestamp to ensure sequential order in the new quiz
+    const now = new Date();
+
     // 7. Copy questions to new quiz with revisions applied
-    const newQuestions = allQuestions.map((q) => {
+    const newQuestions = allQuestions.map((q, index) => {
       const revised = revisedMap[q.id];
       
       // Determine what text/options/correct_answer to use
@@ -114,6 +118,8 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
         correct_answer: correctAnswerToUse,
         points: q.points,
         blooms_level: q.blooms_level,
+        // Set created_at with a slight offset to preserve order exactly
+        created_at: new Date(now.getTime() + index * 1000).toISOString(),
         revision_history: [
           ...(q.revision_history || []),
           {
