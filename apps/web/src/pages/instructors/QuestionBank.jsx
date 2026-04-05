@@ -72,9 +72,10 @@ export const QuestionBank = () => {
 
         const { data, error } = await supabase
           .from("sections")
-          .select("id, section_name")
+          .select("id, name")
           .eq("instructor_id", user.id)
-          .order("section_name", { ascending: true });
+          .eq("is_archived", false)
+          .order("name", { ascending: true });
 
         if (error) throw error;
         setSections(data || []);
@@ -109,7 +110,7 @@ export const QuestionBank = () => {
       try {
         const { data, error } = await supabase
           .from("quiz_sections")
-          .select("quiz_id, quizzes(id, title)")
+          .select("quiz_id, quizzes(id, title, is_archived)")
           .eq("section_id", selectedSectionId);
 
         if (error) throw error;
@@ -117,11 +118,28 @@ export const QuestionBank = () => {
         const uniqueQuizzes = [];
         const seen = new Set();
         data?.forEach((qs) => {
-          if (qs.quizzes && !seen.has(qs.quizzes.id)) {
+          // Only add if the quiz exists, is not archived, and hasn't been seen yet
+          if (qs.quizzes && !qs.quizzes.is_archived && !seen.has(qs.quizzes.id)) {
             seen.add(qs.quizzes.id);
             uniqueQuizzes.push(qs.quizzes);
           }
         });
+
+        // Also fetch direct quiz assignments (backward compatibility)
+        const { data: directQuizzes } = await supabase
+          .from("quizzes")
+          .select("id, title")
+          .eq("section_id", selectedSectionId)
+          .eq("is_archived", false);
+        
+        if (directQuizzes) {
+          directQuizzes.forEach(dq => {
+            if (!seen.has(dq.id)) {
+              seen.add(dq.id);
+              uniqueQuizzes.push(dq);
+            }
+          });
+        }
 
         setQuizzesFromSection(uniqueQuizzes);
       } catch (err) {
@@ -139,31 +157,42 @@ export const QuestionBank = () => {
 
     // First, handle quiz dropdown selection (Subject → Quiz filter)
     if (selectedQuizIdFilter) {
-      // Show only questions from the selected quiz
-      filteredList = filteredList.filter(
-        (q) => String(q.quiz_id) === String(selectedQuizIdFilter),
-      );
+      // Show questions that belong to the selected quiz (either directly or as part of deduplicated list)
+      filteredList = filteredList.filter((q) => {
+        const quizIdStr = String(selectedQuizIdFilter);
+        const directMatch = String(q.quiz_id) === quizIdStr;
+        const dedupeMatch = q.all_quiz_ids?.some(id => String(id) === quizIdStr);
+        return directMatch || dedupeMatch;
+      });
     } else if (selectedSectionId) {
-      // If section selected but no quiz yet, show questions from quizzes in this section
+      // If section selected but no quiz yet, show questions from any quiz in this section
       const quizIdsInSection = quizzesFromSection.map(q => String(q.id));
       if (quizIdsInSection.length > 0) {
-        filteredList = filteredList.filter(
-          (q) => quizIdsInSection.includes(String(q.quiz_id)),
-        );
+        filteredList = filteredList.filter((q) => {
+          const directMatch = quizIdsInSection.includes(String(q.quiz_id));
+          const dedupeMatch = q.all_quiz_ids?.some(id => quizIdsInSection.includes(String(id)));
+          return directMatch || dedupeMatch;
+        });
       } else {
         // No quizzes in this section, show no questions
         filteredList = [];
       }
     } else if (quizId) {
       // URL-based import mode: show questions NOT from this quiz
+      const quizIdStr = String(quizId);
       const currentQuizTexts = new Set(
         activeQuestions
-          .filter((q) => String(q.quiz_id) === String(quizId))
+          .filter((q) => {
+            const directMatch = String(q.quiz_id) === quizIdStr;
+            const dedupeMatch = q.all_quiz_ids?.some(id => String(id) === quizIdStr);
+            return directMatch || dedupeMatch;
+          })
           .map((q) => q.text?.toLowerCase().trim()),
       );
       filteredList = filteredList.filter(
         (q) =>
-          String(q.quiz_id) !== String(quizId) &&
+          String(q.quiz_id) !== quizIdStr &&
+          !q.all_quiz_ids?.some(id => String(id) === quizIdStr) &&
           !currentQuizTexts.has(q.text?.toLowerCase().trim()),
       );
     }
@@ -295,11 +324,12 @@ export const QuestionBank = () => {
       variant: "danger",
     });
     if (confirmed) {
-      for (const id of bulkSelected) {
+      const selectedIds = Array.from(bulkSelected);
+      for (const id of selectedIds) {
         await deleteQuestion(id);
       }
       setBulkSelected(new Set());
-      toast.success(`Removed ${bulkSelected.size} question(s)`);
+      toast.success(`Removed ${selectedIds.length} question(s)`);
     }
   };
 
@@ -429,7 +459,7 @@ export const QuestionBank = () => {
     activeFilters.push({ key: "sort", label: `Sort: ${sortLabels[sortBy]}`, clear: () => setSortBy("newest") });
   }
   if (selectedSectionId) {
-    const sectionName = sections.find(s => s.id === selectedSectionId)?.section_name || "Subject";
+    const sectionName = sections.find(s => s.id === selectedSectionId)?.name || "Subject";
     activeFilters.push({ key: "section", label: `Subject: ${sectionName}`, clear: () => { setSelectedSectionId(null); setSelectedQuizIdFilter(null); } });
   }
   if (selectedQuizIdFilter) {
@@ -556,14 +586,14 @@ export const QuestionBank = () => {
           disabled={sectionsLoading}
         >
           <option value="">
-            {sectionsLoading ? "Loading subjects..." : "📚 All Subjects"}
+            {sectionsLoading ? "Loading subjects..." : "📚 -- Select Subject --"}
           </option>
           {sections.length === 0 && !sectionsLoading && (
             <option disabled>No subjects found</option>
           )}
           {sections.map((section) => (
             <option key={section.id} value={section.id}>
-              {section.section_name}
+              {section.name}
             </option>
           ))}
         </select>
@@ -575,7 +605,7 @@ export const QuestionBank = () => {
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
             className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
           >
-            <option value="">📝 All Quizzes in Subject</option>
+            <option value="">📝 -- Select Quiz --</option>
             {quizzesFromSection.length === 0 ? (
               <option disabled>No quizzes in this subject</option>
             ) : (
