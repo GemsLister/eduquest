@@ -30,15 +30,29 @@ export const useQuestionBank = () => {
       const existing = byKey.get(key);
 
       if (!existing) {
-        byKey.set(key, question);
+        // Initialize with the current quiz_id in an array
+        byKey.set(key, { 
+          ...question, 
+          all_quiz_ids: [question.quiz_id] 
+        });
         continue;
       }
 
-      // Keep the oldest version as the canonical bank entry.
+      // Add the current quiz_id to the existing canonical entry's list
+      if (!existing.all_quiz_ids.includes(question.quiz_id)) {
+        existing.all_quiz_ids.push(question.quiz_id);
+      }
+
+      // Keep the oldest version as the canonical bank entry for metadata purposes,
+      // but preserve the accumulated all_quiz_ids.
       const existingTime = new Date(existing.created_at || 0).getTime();
       const currentTime = new Date(question.created_at || 0).getTime();
       if (currentTime < existingTime) {
-        byKey.set(key, question);
+        const updatedCanonical = { 
+          ...question, 
+          all_quiz_ids: existing.all_quiz_ids 
+        };
+        byKey.set(key, updatedCanonical);
       }
     }
 
@@ -76,11 +90,12 @@ export const useQuestionBank = () => {
 
       if (error) throw error;
 
-      // Separate active and archived questions, then remove content duplicates.
-      const active = dedupeQuestions(data?.filter((q) => !q.is_archived) || []);
-      const archived = dedupeQuestions(
-        data?.filter((q) => q.is_archived) || [],
-      );
+      // 1. Deduplicate ALL fetched questions by content first.
+      const allUniqueQuestions = dedupeQuestions(data || []);
+
+      // 2. Separate into active and archived based on the canonical (oldest) instance's status.
+      const active = allUniqueQuestions.filter((q) => !q.is_archived);
+      const archived = allUniqueQuestions.filter((q) => q.is_archived);
 
       setActiveQuestions(active);
       setArchivedQuestions(archived);
@@ -163,23 +178,40 @@ export const useQuestionBank = () => {
   // Delete a question permanently
   const deleteQuestion = async (questionId) => {
     try {
-      // First delete responses
+      // 1. Identify all versions of this question (including duplicates across quizzes)
+      const questionToDelete = archivedQuestions.find(q => q.id === questionId) || 
+                               activeQuestions.find(q => q.id === questionId);
+      
+      if (!questionToDelete) return { success: false, error: "Question not found" };
+
+      // Use the stored all_quiz_ids to find all instances
+      const allIds = questionToDelete.all_quiz_ids || [questionToDelete.quiz_id];
+
+      // 2. Delete responses for all identified question instances first
+      // We need to fetch the actual DB IDs for all these versions to clear their responses
+      const { data: dbVersions } = await supabase
+        .from("questions")
+        .select("id")
+        .in("quiz_id", allIds)
+        .eq("text", questionToDelete.text); // Match by content to be safe
+
+      const dbIds = dbVersions?.map(v => v.id) || [questionId];
+
       await supabase
         .from("quiz_responses")
         .delete()
-        .eq("question_id", questionId);
+        .in("question_id", dbIds);
 
-      // Then delete the question
+      // 3. Delete all identified versions of the question
       const { error } = await supabase
         .from("questions")
         .delete()
-        .eq("id", questionId);
+        .in("id", dbIds);
 
       if (error) throw error;
 
-      // Remove from both lists
-      setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
-      setArchivedQuestions((prev) => prev.filter((q) => q.id !== questionId));
+      // 4. Refresh local state
+      await fetchQuestions();
 
       return { success: true };
     } catch (error) {
