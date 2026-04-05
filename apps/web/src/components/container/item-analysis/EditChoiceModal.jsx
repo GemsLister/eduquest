@@ -8,6 +8,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState(null);
   const [selectedRevisionIndex, setSelectedRevisionIndex] = useState(null);
+  const [comparisonVersion, setComparisonVersion] = useState(null);
   const [formData, setFormData] = useState({
     text: '',
     options: ['', ''],
@@ -33,6 +34,15 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
 
       setFormData({ text, options, correctAnswer: correctIdx });
       setIsManualEdit(false);
+      
+      // Default comparison to the original/previous state
+      setComparisonVersion({
+        text: questionData?.previous_text || questionData?.original_text || questionData?.text,
+        options: questionData?.previous_options || questionData?.original_options || questionData?.options,
+        correct_answer: questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer,
+        label: questionData?.previous_text ? "Previous Revision" : "Original Version",
+        isOriginal: true
+      });
     }
   }, [isOpen, questionData]);
 
@@ -155,41 +165,128 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Previous Version */}
               <div className="flex flex-col">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                  {isRevised ? "⏮️ Previous Revision" : "📄 Original Version"}
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <span>📄</span> {comparisonVersion?.label || (isRevised ? "Previous Revision" : "Original Version")}
                 </h3>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 flex-1">
-                  <p className="text-gray-700 text-sm mb-4 font-medium">
-                    {questionData?.previous_text || questionData?.original_text || questionData?.text}
-                  </p>
-                  <div className="space-y-2">
-                    {(questionData?.previous_options || questionData?.original_options || questionData?.options)?.map((opt, idx) => {
-                      const isCorrect = String(opt) === String(questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer);
-                      return (
-                        <div key={idx} className={`text-[11px] p-2 rounded-lg border flex items-center gap-2 ${isCorrect ? "bg-emerald-50 border-emerald-100 text-emerald-700 font-bold" : "bg-slate-50 text-slate-500"}`}>
-                          <span className="w-5 h-5 flex items-center justify-center rounded bg-white border text-[10px]">{String.fromCharCode(65 + idx)}</span>
-                          <span className="flex-1">{opt}</span>
-                          {isCorrect && <span>✓</span>}
-                        </div>
-                      );
-                    })}
+                <div className="space-y-4 flex-1">
+                  {/* Question Text Block */}
+                  <div>
+                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span>📝</span> Question Text
+                    </h4>
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                      <p className="text-gray-700 text-sm font-medium leading-relaxed">
+                        {comparisonVersion?.text}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Options Block */}
+                  <div>
+                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span>🔘</span> Answer Options
+                    </h4>
+                    <div className="space-y-2">
+                      {comparisonVersion?.options?.map((opt, idx) => {
+                        const isCorrect = String(opt) === String(comparisonVersion?.correct_answer);
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border-2 transition-all ${
+                              isCorrect
+                                ? "bg-emerald-50 border-emerald-300 shadow-sm shadow-emerald-100"
+                                : "bg-white border-slate-100"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
+                                  isCorrect
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                {String.fromCharCode(65 + idx)}
+                              </span>
+                              <div className="flex-1 pt-0.5">
+                                <p className={`text-xs ${isCorrect ? "font-bold text-emerald-900" : "text-gray-600"}`}>
+                                  {opt}
+                                </p>
+                              </div>
+                              {isCorrect && (
+                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  ✓ <span className="hidden sm:inline">Correct</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Live Preview */}
               <div className="flex flex-col">
-                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">🆕 New Version (Preview)</h3>
-                <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 flex-1 ring-1 ring-blue-50">
-                  <p className="text-blue-900 text-sm font-bold mb-4">{formData.text || "..."}</p>
-                  <div className="space-y-2">
-                    {formData.options.map((opt, idx) => (
-                      <div key={idx} className={`text-[11px] p-2 rounded-lg border flex items-center gap-2 transition-all ${formData.correctAnswer === idx ? "bg-blue-600 border-blue-700 text-white font-bold scale-[1.02]" : "bg-white text-blue-700/70"}`}>
-                        <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] ${formData.correctAnswer === idx ? "bg-white text-blue-600" : "bg-blue-50"}`}>{String.fromCharCode(65 + idx)}</span>
-                        <span className="flex-1">{opt || `Option ${idx + 1}`}</span>
-                        {formData.correctAnswer === idx && <span>★</span>}
-                      </div>
-                    ))}
+                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <span>🆕</span> New Version (Preview)
+                </h3>
+                <div className="space-y-4 flex-1">
+                  {/* New Question Text Block */}
+                  <div>
+                    <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span>📝</span> Revised Text
+                    </h4>
+                    <div className="bg-indigo-50/30 border border-indigo-100 rounded-xl p-4 shadow-sm ring-1 ring-indigo-50/50">
+                      <p className="text-indigo-900 text-sm font-bold leading-relaxed">
+                        {formData.text || "..."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* New Options Block */}
+                  <div>
+                    <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span>🔘</span> Revised Options
+                    </h4>
+                    <div className="space-y-2">
+                      {formData.options.map((opt, idx) => {
+                        const isCorrect = formData.correctAnswer === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border-2 transition-all ${
+                              isCorrect
+                                ? "bg-indigo-600 border-indigo-700 shadow-md shadow-indigo-100 scale-[1.02]"
+                                : "bg-white border-indigo-50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
+                                  isCorrect
+                                    ? "bg-white text-indigo-600"
+                                    : "bg-indigo-50 text-indigo-300"
+                                }`}
+                              >
+                                {String.fromCharCode(65 + idx)}
+                              </span>
+                              <div className="flex-1 pt-0.5">
+                                <p className={`text-xs ${isCorrect ? "font-bold text-white" : "text-indigo-700/70"}`}>
+                                  {opt || `Option ${idx + 1}`}
+                                </p>
+                              </div>
+                              {isCorrect && (
+                                <span className="text-[9px] font-bold text-indigo-600 bg-white px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  ★ <span className="hidden sm:inline">Correct</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -214,13 +311,18 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                       <button
                         key={hIdx}
                         onClick={() => {
-                          setSelectedRevision(rev);
-                          setSelectedRevisionIndex(hIdx);
+                          setComparisonVersion({
+                            ...rev,
+                            label: `Version ${history.length - hIdx}`,
+                            isOriginal: false
+                          });
                         }}
-                        className="w-full text-left group px-4 py-3 hover:bg-indigo-50 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-inset"
+                        className={`w-full text-left group px-4 py-3 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-inset ${
+                          comparisonVersion?.label === `Version ${history.length - hIdx}` ? "bg-indigo-50 border-l-4 border-indigo-600" : "hover:bg-indigo-50/50"
+                        }`}
                       >
                         <div className="flex items-center gap-4">
-                          <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">{formatTime(rev.revised_at)}</span>
+                          <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">{formatTime(rev.revised_at || rev.timestamp)}</span>
                           
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-slate-600 truncate font-medium group-hover:text-indigo-600 transition-colors">
@@ -228,7 +330,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
-                                {formatDate(rev.revised_at)}
+                                {formatDate(rev.revised_at || rev.timestamp)}
                               </span>
                               <span className="text-[9px] text-slate-300 font-medium italic">
                                 Version {history.length - hIdx}
@@ -253,6 +355,38 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                         </div>
                       </button>
                     ))}
+                    {/* Original Version item at the bottom of the history */}
+                    <button
+                      onClick={() => {
+                        setComparisonVersion({
+                          text: questionData?.previous_text || questionData?.original_text || questionData?.text,
+                          options: questionData?.previous_options || questionData?.original_options || questionData?.options,
+                          correct_answer: questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer,
+                          label: questionData?.previous_text ? "Previous Revision" : "Original Version",
+                          isOriginal: true
+                        });
+                      }}
+                      className={`w-full text-left group px-4 py-3 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-inset ${
+                        comparisonVersion?.isOriginal ? "bg-indigo-50 border-l-4 border-indigo-600" : "hover:bg-indigo-50/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-4 opacity-70">
+                        <span className="text-[10px] font-bold text-slate-400 w-16 shrink-0">Original</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-600 truncate font-medium group-hover:text-indigo-600 transition-colors">
+                            {questionData?.original_text || questionData?.text}
+                          </p>
+                          <div className="mt-1">
+                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase">
+                              Initial Version
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-indigo-600 group-hover:text-indigo-700 transition-colors ml-2 shrink-0">
+                          ↺
+                        </span>
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
