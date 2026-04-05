@@ -209,8 +209,9 @@ export const ItemAnalysisPage = () => {
       // 1. Fetch Quiz Data (Questions)
       const { data: questions, error: qError } = await supabase
         .from("questions")
-        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history")
-        .eq("quiz_id", quizId);
+        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, created_at")
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: true });
       if (qError) throw qError;
       
       let attemptsQuery = supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
