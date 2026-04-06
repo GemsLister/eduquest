@@ -177,7 +177,8 @@ export const QuizzesPageMain = () => {
           supabase
             .from("sections")
             .select("*")
-            .eq("instructor_id", authUser.id),
+            .eq("instructor_id", authUser.id)
+            .eq("is_archived", false),
           supabase
             .from("quiz_sections")
             .select("section_id")

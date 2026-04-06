@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
+import { createQuizVersion } from "../../services/item-analysis/createQuizVersion";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
 import { ItemAnalysisResults } from "../../components/container/item-analysis/ItemAnalysisResults";
 import { ItemAnalysisTable } from "../../components/container/item-analysis/ItemAnalysisTable";
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 
 export const ItemAnalysisPage = () => {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialSectionId = searchParams.get("sectionId") || "";
+  const initialQuizId = searchParams.get("quizId") || "";
+
   const [sections, setSections] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [selectedSection, setSelectedSection] = useState("");
-  const [selectedQuiz, setSelectedQuiz] = useState("");
+  const [selectedSection, setSelectedSection] = useState(initialSectionId);
+  const [selectedQuiz, setSelectedQuiz] = useState(initialQuizId);
   const [analysis, setAnalysis] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingSections, setLoadingSections] = useState(true);
@@ -59,11 +66,19 @@ export const ItemAnalysisPage = () => {
           data: { user },
         } = await supabase.auth.getUser();
         if (user) {
-          const { data } = await supabase
+          // Fetch only sections that are NOT archived
+          const { data, error } = await supabase
             .from("sections")
             .select("id, name")
-            .eq("instructor_id", user.id);
-          setSections(data || []);
+            .eq("instructor_id", user.id)
+            .eq("is_archived", false);
+
+          if (error) {
+            console.error("Error fetching sections for item analysis:", error);
+            setSections([]);
+          } else {
+            setSections(data || []);
+          }
         }
       } finally {
         setLoadingSections(false);
@@ -80,7 +95,8 @@ export const ItemAnalysisPage = () => {
       const { data } = await supabase
         .from("quizzes")
         .select("id, title")
-        .eq("section_id", selectedSection);
+        .eq("section_id", selectedSection)
+        .eq("is_archived", false);
       setQuizzes(data || []);
       setLoadingQuizzes(false);
     };
@@ -126,13 +142,44 @@ export const ItemAnalysisPage = () => {
     setSavingAnalysis(true);
     setSaveError(null);
     try {
+      // Save the analysis
       const { error } = await ItemAnalysisService.saveItemAnalysis(
         selectedQuiz,
         analysis,
       );
       if (error) throw error;
-      setAnalysisSaved(true);
-      alert("Analysis saved successfully!");
+
+      // Check if there are any revisions (either pending revisions or revision history)
+      const revisedQuestions = analysis.filter(
+        (item) => 
+          item.revised_content || 
+          item.revised_options || 
+          item.revised_correct_answer || 
+          (item.revision_history && item.revision_history.length > 0)
+      );
+
+      // If there are revisions, automatically create a new quiz version
+      if (revisedQuestions.length > 0) {
+        const { quizId: newQuizId, error: versionError } = await createQuizVersion(
+          selectedQuiz,
+          revisedQuestions
+        );
+
+        if (versionError) {
+          console.warn("Could not auto-create quiz version:", versionError);
+          alert(
+            `Analysis saved! However, automatic quiz version creation failed: ${versionError}. You can manually create a new version if needed.`
+          );
+        } else {
+          setAnalysisSaved(true);
+          alert(
+            `Analysis saved successfully!\n\nA new quiz version has been automatically created with your revisions. You can find it in your quiz library.`
+          );
+        }
+      } else {
+        setAnalysisSaved(true);
+        alert("Analysis saved successfully!");
+      }
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
@@ -162,8 +209,9 @@ export const ItemAnalysisPage = () => {
       // 1. Fetch Quiz Data (Questions)
       const { data: questions, error: qError } = await supabase
         .from("questions")
-        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer")
-        .eq("quiz_id", quizId);
+        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, created_at")
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: true });
       if (qError) throw qError;
       
       let attemptsQuery = supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
@@ -336,6 +384,7 @@ export const ItemAnalysisPage = () => {
           original_text: q.original_text,
           original_options: q.original_options,
           original_correct_answer: q.original_correct_answer,
+          revision_history: q.revision_history || [],
           difficulty: total > 0 ? fi.toFixed(2) : "N/A",
           status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
@@ -401,8 +450,6 @@ export const ItemAnalysisPage = () => {
           analysisSaved={analysisSaved}
           selectedCohortFilter={selectedCohortFilter}
         />
-
-
 
         {(() => {
           if (!selectedQuiz) return null;

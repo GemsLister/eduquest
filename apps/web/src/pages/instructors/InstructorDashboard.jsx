@@ -169,7 +169,7 @@ export const InstructorDashboard = () => {
               Instructor
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              Your Subjects
+              Subjects
             </h1>
             <p className="text-white/50 text-sm mt-1">
               {sections.length} {sections.length === 1 ? "subject" : "subjects"}{" "}
@@ -255,7 +255,7 @@ export const InstructorDashboard = () => {
         {/* Active Sections */}
         {filteredSections.length === 0 && !showArchived ? (
           <ClassCard.EmptyClassSection
-            title={search.trim() ? "No Subjects Found" : "No Subjects Found"}
+            title={search.trim() ? "No Sections Found" : "No Sections Found"}
             icon={search.trim() ? "🔍" : "📚"}
           />
         ) : (

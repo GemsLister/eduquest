@@ -105,8 +105,20 @@ export const router = createBrowserRouter(
               element: <ItemAnalysisPage />,
             },
             {
+              path: "student-profiles",
+              element: <InstructorIndex.StudentProfiles />,
+            },
+            {
               path: "my-submissions",
               element: <InstructorIndex.MySubmissions />,
+            },
+            {
+              path: "quiz-versions",
+              element: <InstructorIndex.QuizVersions />,
+            },
+            {
+              path: "saved-analysis",
+              element: <InstructorIndex.SavedAnalysisPage />,
             },
           ],
         },

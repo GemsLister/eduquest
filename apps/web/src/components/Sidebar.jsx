@@ -49,6 +49,40 @@ const navItems = [
       </svg>
     ),
   },
+  // {
+  //   name: "Saved Analysis",
+  //   path: "/instructor-dashboard/saved-analysis",
+  //   icon: (
+  //     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  //       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+  //       <path d="M14 2v6h6" />
+  //       <line x1="16" y1="13" x2="8" y2="13" />
+  //       <line x1="16" y1="17" x2="8" y2="17" />
+  //       <polyline points="10 9 9 9 8 9" />
+  //     </svg>
+  //   ),
+  // },
+  // {
+  //   name: "Quiz Versions",
+  //   path: "/instructor-dashboard/quiz-versions",
+  //   icon: (
+  //     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  //       <path d="M9 11H3v2h6v-2zm0-4H3v2h6V7zm6 0v2h6V7h-6zm0 4v2h6v-2h-6zM9 3H3v2h6V3zm6 0v2h6V3h-6z" />
+  //     </svg>
+  //   ),
+  // },
+  {
+    name: "Student Profiles",
+    path: "/instructor-dashboard/student-profiles",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
   {
     name: "My Submissions",
     path: "/instructor-dashboard/my-submissions",

@@ -6,7 +6,7 @@ export const EmptyClassSection = ({ title, icon }) => {
         {title}
       </h3>
       <p className="text-sm md:text-base text-gray-500">
-        Create your first subject to get started!
+        Create a section to get started!
       </p>
     </div>
   );

@@ -15,7 +15,7 @@ export const useFetchQuestion = () => {
       // Fetch questions from Supabase
       const { data, error } = await supabase
         .from("questions")
-        .select("*, quizzes(title)")
+.select("*, revision_history, revised_options, updated_at, created_at, quizzes(title)")
         .in(
           "quiz_id",
           (

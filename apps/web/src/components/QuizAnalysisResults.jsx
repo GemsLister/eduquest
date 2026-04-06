@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
@@ -11,11 +12,16 @@ import { QuizSuggestions } from "./QuizSuggestions";
  */
 const ProgressStepper = ({ currentStep }) => {
   const steps = [
-    { label: "Analyze", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
-    { label: "Review Results", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+    {
+      label: "Analyze",
+      icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+    },
+    {
+      label: "Review Results",
+      icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+    },
     { label: "Submit to Admin", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
   ];
-
   return (
     <div className="flex items-center justify-center gap-1 px-6 py-3 bg-black/20">
       {steps.map((step, idx) => {
@@ -35,8 +41,19 @@ const ProgressStepper = ({ currentStep }) => {
                 }`}
               >
                 {isCompleted ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 ) : (
                   idx + 1
@@ -44,7 +61,11 @@ const ProgressStepper = ({ currentStep }) => {
               </div>
               <span
                 className={`text-xs font-semibold transition-colors ${
-                  isActive ? "text-white" : isCompleted ? "text-green-300" : "text-white/40"
+                  isActive
+                    ? "text-white"
+                    : isCompleted
+                      ? "text-green-300"
+                      : "text-white/40"
                 }`}
               >
                 {step.label}
@@ -82,6 +103,12 @@ export const QuizAnalysisResults = ({
   const [message, setMessage] = useState("");
   const [existingSubmission, setExistingSubmission] = useState(null);
   const [showQuestionDetails, setShowQuestionDetails] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
+  const [shareToken, setShareToken] = useState("");
+  const [quizDescription, setQuizDescription] = useState("");
+  const [quizDuration, setQuizDuration] = useState("");
+  const [isPublished, setIsPublished] = useState(false);
+  const [selectedSectionIds, setSelectedSectionIds] = useState([]);
 
   // Check for existing submission that needs revision
   useEffect(() => {
@@ -90,6 +117,235 @@ export const QuizAnalysisResults = ({
     }
   }, [quizId]);
 
+  const handleSaveQuiz = async (publish = false) => {
+    setError("");
+    setSaveStatus("Saving...");
+
+    if (!quizTitle.trim()) {
+      setError("Quiz title is required");
+      setSaveStatus("");
+      return;
+    }
+
+    if (publish && questions.length === 0) {
+      setError("Add at least one question before publishing");
+      setSaveStatus("");
+      return;
+    }
+
+    for (let q of questions) {
+      if (!q.text.trim()) {
+        setError("All questions must have text");
+        setSaveStatus("");
+        return;
+      }
+      if (
+        q.type === "mcq" &&
+        q.options.filter((opt) => opt.trim()).length < 2
+      ) {
+        setError(
+          publish
+            ? "MCQ questions must have at least 2 options to publish"
+            : "Warning: MCQ questions should have at least 2 options",
+        );
+        if (publish) {
+          setSaveStatus("");
+          return;
+        }
+      }
+    }
+
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("User not authenticated");
+        setLoading(false);
+        setSaveStatus("");
+        return;
+      }
+
+      let quizData;
+      let newToken = shareToken;
+
+      if (quizId) {
+        // Always generate a new share token when publishing, even if one exists
+        if (publish) {
+          newToken = generateShareToken();
+        }
+
+        const { data, error: updateError } = await supabase
+          .from("quizzes")
+          .update({
+            title: quizTitle,
+            description: quizDescription || null,
+            duration: quizDuration ? parseInt(quizDuration) : null,
+            is_published: publish || isPublished,
+            share_token: publish ? newToken : shareToken || null,
+          })
+          .eq("id", quizId)
+          .select();
+
+        if (updateError) throw updateError;
+        quizData = data[0];
+
+        const { data: existingQuestions } = await supabase
+          .from("questions")
+          .select("id")
+          .eq("quiz_id", quizId);
+        const existingQuestionIds = new Set(
+          existingQuestions?.map((q) => q.id) || [],
+        );
+
+        for (const q of questions) {
+          if (typeof q.id !== "number" && existingQuestionIds.has(q.id)) {
+            const { error: updateQuestionError } = await supabase
+              .from("questions")
+              .update({
+                text: q.text,
+                options:
+                  q.type === "mcq"
+                    ? q.options.filter((opt) => opt.trim())
+                    : null,
+                correct_answer:
+                  q.type === "mcq"
+                    ? q.options[q.correctAnswer]
+                    : q.type === "true_false"
+                      ? q.correctAnswer === 0
+                        ? "true"
+                        : "false"
+                      : q.correctAnswer,
+                points: q.points,
+              })
+              .eq("id", q.id);
+            if (updateQuestionError) throw updateQuestionError;
+          }
+        }
+
+        const questionsToAdd = questions
+          .filter((q) => typeof q.id === "number" && q.id > 10000000000)
+          .map((q) => ({
+            quiz_id: quizData.id,
+            type: q.type,
+            text: q.text,
+            options:
+              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer:
+              q.type === "mcq"
+                ? q.options[q.correctAnswer]
+                : q.type === "true_false"
+                  ? q.correctAnswer === 0
+                    ? "true"
+                    : "false"
+                  : q.correctAnswer,
+            points: q.points,
+          }));
+
+        if (questionsToAdd.length > 0) {
+          const { error: questionsError } = await supabase
+            .from("questions")
+            .insert(questionsToAdd);
+          if (questionsError) throw questionsError;
+        }
+      } else {
+        newToken = publish ? generateShareToken() : null;
+
+        const { data: newQuiz, error: quizError } = await supabase
+          .from("quizzes")
+          .insert([
+            {
+              instructor_id: user.id,
+              section_id: selectedSectionIds[0] || null,
+              title: quizTitle,
+              description: quizDescription || null,
+              duration: quizDuration ? parseInt(quizDuration) : null,
+              is_published: publish,
+              share_token: newToken,
+            },
+          ])
+          .select();
+
+        if (quizError) throw quizError;
+        if (!newQuiz || newQuiz.length === 0)
+          throw new Error("Failed to create quiz");
+        quizData = newQuiz[0];
+
+        if (questions.length > 0) {
+          const questionsData = questions.map((q) => ({
+            quiz_id: quizData.id,
+            type: q.type,
+            text: q.text,
+            options:
+              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+            correct_answer:
+              q.type === "mcq"
+                ? q.options[q.correctAnswer]
+                : q.type === "true_false"
+                  ? q.correctAnswer === 0
+                    ? "true"
+                    : "false"
+                  : q.correctAnswer,
+            points: q.points,
+          }));
+          const { error: questionsError } = await supabase
+            .from("questions")
+            .insert(questionsData);
+          if (questionsError) throw questionsError;
+        }
+      }
+
+      // Sync the many-to-many relationship in quiz_sections
+      if (quizData) {
+        try {
+          const { error: deleteError } = await supabase
+            .from("quiz_sections")
+            .delete()
+            .eq("quiz_id", quizData.id);
+
+          // If no error deleting (meaning table exists)
+          if (!deleteError && selectedSectionIds.length > 0) {
+            const sectionInserts = selectedSectionIds.map((sId) => ({
+              quiz_id: quizData.id,
+              section_id: sId,
+            }));
+            await supabase.from("quiz_sections").insert(sectionInserts);
+          }
+        } catch (tableError) {
+          console.warn("quiz_sections table might not exist yet:", tableError);
+        }
+
+        await supabase
+          .from("quizzes")
+          .update({
+            section_id:
+              selectedSectionIds.length > 0 ? selectedSectionIds[0] : null,
+          })
+          .eq("id", quizData.id);
+      }
+
+      if (newToken) setShareToken(newToken);
+
+      if (publish) {
+        setShowShareUrl(true);
+        setSaveStatus("Quiz published! Share URL generated.");
+        setTimeout(() => setSaveStatus(""), 3000);
+      } else {
+        setSaveStatus("Draft saved!");
+        setTimeout(() => {
+          setSaveStatus("");
+          navigate("/instructor-dashboard/quizzes");
+        }, 1000);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to save quiz");
+      setSaveStatus("");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
   const checkExistingSubmission = async () => {
     try {
       const { data } = await supabase
@@ -110,6 +366,7 @@ export const QuizAnalysisResults = ({
     }
   };
 
+  const navigate = useNavigate();
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
       toast.error("No questions to analyze.");
@@ -226,8 +483,19 @@ export const QuizAnalysisResults = ({
               onClick={onClose}
               className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -278,8 +546,19 @@ export const QuizAnalysisResults = ({
             /* ─── Step 1: Ready to Analyze ─── */
             <div className="text-center py-10">
               <div className="w-20 h-20 mx-auto mb-5 bg-brand-gold/15 rounded-2xl flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-10 w-10 text-brand-gold-dark"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-gray-800 mb-2">
@@ -308,16 +587,43 @@ export const QuizAnalysisResults = ({
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
                     </svg>
                     Analyzing...
                   </>
                 ) : (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                      />
                     </svg>
                     Analyze with AI
                   </>
@@ -353,23 +659,29 @@ export const QuizAnalysisResults = ({
                     HOTS ({results.summary.hotsPercentage}%)
                   </p>
                 </div>
-                <div className={`p-4 rounded-xl text-center ${
-                  results.summary.flaggedCount > 0
-                    ? "bg-red-50 border border-red-200"
-                    : "bg-gray-50 border border-gray-200"
-                }`}>
-                  <p className={`text-3xl font-bold ${
+                <div
+                  className={`p-4 rounded-xl text-center ${
                     results.summary.flaggedCount > 0
-                      ? "text-red-600"
-                      : "text-gray-400"
-                  }`}>
+                      ? "bg-red-50 border border-red-200"
+                      : "bg-gray-50 border border-gray-200"
+                  }`}
+                >
+                  <p
+                    className={`text-3xl font-bold ${
+                      results.summary.flaggedCount > 0
+                        ? "text-red-600"
+                        : "text-gray-400"
+                    }`}
+                  >
                     {results.summary.flaggedCount}
                   </p>
-                  <p className={`text-xs font-semibold mt-1 ${
-                    results.summary.flaggedCount > 0
-                      ? "text-red-500"
-                      : "text-gray-400"
-                  }`}>
+                  <p
+                    className={`text-xs font-semibold mt-1 ${
+                      results.summary.flaggedCount > 0
+                        ? "text-red-500"
+                        : "text-gray-400"
+                    }`}
+                  >
                     Needs Review
                   </p>
                 </div>
@@ -398,12 +710,34 @@ export const QuizAnalysisResults = ({
                       }`}
                     >
                       {isCompliant ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-6 w-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-6 w-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                          />
                         </svg>
                       )}
                     </div>
@@ -413,9 +747,7 @@ export const QuizAnalysisResults = ({
                           isCompliant ? "text-green-800" : "text-red-800"
                         }`}
                       >
-                        {isCompliant
-                          ? "TOS Compliant"
-                          : "TOS Non-Compliant"}
+                        {isCompliant ? "TOS Compliant" : "TOS Non-Compliant"}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         School requirement: 30% LOTS / 70% HOTS (with 5%
@@ -500,11 +832,15 @@ export const QuizAnalysisResults = ({
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded bg-emerald-500" />
-                          <span>LOTS ({results.summary.lotsCount} questions)</span>
+                          <span>
+                            LOTS ({results.summary.lotsCount} questions)
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded bg-amber-500" />
-                          <span>HOTS ({results.summary.hotsCount} questions)</span>
+                          <span>
+                            HOTS ({results.summary.hotsCount} questions)
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -533,8 +869,19 @@ export const QuizAnalysisResults = ({
                   className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
                     </svg>
                     <span className="font-bold text-gray-800">
                       Per-Question Breakdown
@@ -553,7 +900,11 @@ export const QuizAnalysisResults = ({
                     stroke="currentColor"
                     strokeWidth={2}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </button>
 
@@ -579,7 +930,10 @@ export const QuizAnalysisResults = ({
                           <div className="col-span-1 text-gray-400 font-semibold pt-0.5">
                             {idx + 1}
                           </div>
-                          <div className="col-span-5 text-gray-700 break-words">
+                          <div
+                            className="col-span-5 text-gray-700 truncate"
+                            title={item.questionText}
+                          >
                             {item.questionText}
                           </div>
                           <div className="col-span-2 pt-0.5">
@@ -600,7 +954,10 @@ export const QuizAnalysisResults = ({
                               {item.thinkingOrder}
                             </span>
                             {item.needsReview && (
-                              <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">
+                              <span
+                                className="ml-1 text-yellow-500 text-xs"
+                                title="Low confidence"
+                              >
                                 !
                               </span>
                             )}
@@ -632,8 +989,8 @@ export const QuizAnalysisResults = ({
                     Submit for Admin Review
                   </h4>
                   <p className="text-xs text-gray-500 mb-3">
-                    Send your analysis results to the admin for approval. You can
-                    include a message for context.
+                    Send your analysis results to the admin for approval. You
+                    can include a message for context.
                   </p>
                   <textarea
                     value={message}
@@ -651,16 +1008,45 @@ export const QuizAnalysisResults = ({
                     >
                       {forwardLoading ? (
                         <>
-                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          <svg
+                            className="animate-spin h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
                           </svg>
-                          {existingSubmission ? "Resubmitting..." : "Submitting..."}
+                          {existingSubmission
+                            ? "Resubmitting..."
+                            : "Submitting..."}
                         </>
                       ) : (
                         <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                            />
                           </svg>
                           {existingSubmission
                             ? "Resubmit for Review"
@@ -673,8 +1059,19 @@ export const QuizAnalysisResults = ({
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
                   <div className="w-12 h-12 mx-auto mb-3 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <p className="font-bold text-green-800">
@@ -683,8 +1080,34 @@ export const QuizAnalysisResults = ({
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    The admin will review your quiz analysis and provide feedback.
+                    The admin will review your quiz analysis and provide
+                    feedback.
                   </p>
+                  <button
+                    onClick={() => {
+                      handleSaveQuiz(false);
+                      setHasUnsavedChanges(false);
+                      setLastSaved(new Date());
+                    }}
+                    disabled={loading}
+                    className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                      />
+                    </svg>
+                    {loading ? "Saving..." : "Back to Quizzes"}
+                  </button>
                 </div>
               )}
             </>
@@ -699,6 +1122,33 @@ export const QuizAnalysisResults = ({
           >
             Close
           </button>
+          {results && (
+            <button
+              onClick={() =>
+                exportBloomsPdf({
+                  quizTitle: quizTitle || `Quiz ${quizId}`,
+                  results,
+                })
+              }
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Export PDF
+            </button>
+          )}
         </div>
       </div>
     </div>

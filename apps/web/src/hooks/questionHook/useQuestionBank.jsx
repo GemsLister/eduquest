@@ -30,15 +30,29 @@ export const useQuestionBank = () => {
       const existing = byKey.get(key);
 
       if (!existing) {
-        byKey.set(key, question);
+        // Initialize with the current quiz_id in an array
+        byKey.set(key, { 
+          ...question, 
+          all_quiz_ids: [question.quiz_id] 
+        });
         continue;
       }
 
-      // Keep the oldest version as the canonical bank entry.
+      // Add the current quiz_id to the existing canonical entry's list
+      if (!existing.all_quiz_ids.includes(question.quiz_id)) {
+        existing.all_quiz_ids.push(question.quiz_id);
+      }
+
+      // Keep the oldest version as the canonical bank entry for metadata purposes,
+      // but preserve the accumulated all_quiz_ids.
       const existingTime = new Date(existing.created_at || 0).getTime();
       const currentTime = new Date(question.created_at || 0).getTime();
       if (currentTime < existingTime) {
-        byKey.set(key, question);
+        const updatedCanonical = { 
+          ...question, 
+          all_quiz_ids: existing.all_quiz_ids 
+        };
+        byKey.set(key, updatedCanonical);
       }
     }
 
@@ -70,17 +84,18 @@ export const useQuestionBank = () => {
       // Fetch all questions from instructor's quizzes
       const { data, error } = await supabase
         .from("questions")
-        .select("*, quizzes(title)")
+        .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title)")
         .in("quiz_id", quizIds)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Separate active and archived questions, then remove content duplicates.
-      const active = dedupeQuestions(data?.filter((q) => !q.is_archived) || []);
-      const archived = dedupeQuestions(
-        data?.filter((q) => q.is_archived) || [],
-      );
+      // 1. Deduplicate ALL fetched questions by content first.
+      const allUniqueQuestions = dedupeQuestions(data || []);
+
+      // 2. Separate into active and archived based on the canonical (oldest) instance's status.
+      const active = allUniqueQuestions.filter((q) => !q.is_archived);
+      const archived = allUniqueQuestions.filter((q) => q.is_archived);
 
       setActiveQuestions(active);
       setArchivedQuestions(archived);
@@ -91,12 +106,22 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Archive a question
-  const archiveQuestion = async (questionId) => {
+  // Archive a question with optional section assignment
+  const archiveQuestion = async (questionId, sectionId = null) => {
     try {
+      const updateData = { 
+        is_archived: true, 
+        updated_at: new Date().toISOString() 
+      };
+
+      // Include section_id if provided
+      if (sectionId) {
+        updateData.section_id = sectionId;
+      }
+
       const { error } = await supabase
         .from("questions")
-        .update({ is_archived: true, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", questionId);
 
       if (error) throw error;
@@ -104,10 +129,15 @@ export const useQuestionBank = () => {
       // Move from active to archived
       const question = activeQuestions.find((q) => q.id === questionId);
       if (question) {
+        const updatedQuestion = { 
+          ...question, 
+          is_archived: true,
+          section_id: sectionId || question.section_id
+        };
         setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
         setArchivedQuestions((prev) => [
           ...prev,
-          { ...question, is_archived: true },
+          updatedQuestion,
         ]);
       }
 
@@ -148,20 +178,18 @@ export const useQuestionBank = () => {
   // Delete a question permanently (only if its quiz is unpublished and has no attempts)
   const deleteQuestion = async (questionId) => {
     try {
-      // Find the question to get its quiz_id
-      const question =
+      // 1. Identify all versions of this question (including duplicates across quizzes)
+      const questionToDelete =
         activeQuestions.find((q) => q.id === questionId) ||
         archivedQuestions.find((q) => q.id === questionId);
 
-      if (!question) {
-        return { success: false, error: "Question not found" };
-      }
+      if (!questionToDelete) return { success: false, error: "Question not found" };
 
       // Check if the quiz is published or has attempts
       const { data: quiz } = await supabase
         .from("quizzes")
         .select("id, is_published")
-        .eq("id", question.quiz_id)
+        .eq("id", questionToDelete.quiz_id)
         .single();
 
       if (quiz?.is_published) {
@@ -175,7 +203,7 @@ export const useQuestionBank = () => {
       const { count: attemptCount } = await supabase
         .from("quiz_attempts")
         .select("*", { count: "exact", head: true })
-        .eq("quiz_id", question.quiz_id);
+        .eq("quiz_id", questionToDelete.quiz_id);
 
       if (attemptCount > 0) {
         return {
@@ -185,22 +213,34 @@ export const useQuestionBank = () => {
         };
       }
 
+      // Use the stored all_quiz_ids to find all instances
+      const allIds = questionToDelete.all_quiz_ids || [questionToDelete.quiz_id];
+
+      // 2. Delete responses for all identified question instances first
+      const { data: dbVersions } = await supabase
+        .from("questions")
+        .select("id")
+        .in("quiz_id", allIds)
+        .eq("text", questionToDelete.text);
+
+      const dbIds = dbVersions?.map((v) => v.id) || [questionId];
+
       // Safe to delete — quiz is unpublished with no attempts
       await supabase
         .from("quiz_responses")
         .delete()
-        .eq("question_id", questionId);
+        .in("question_id", dbIds);
 
+      // 3. Delete all identified versions of the question
       const { error } = await supabase
         .from("questions")
         .delete()
-        .eq("id", questionId);
+        .in("id", dbIds);
 
       if (error) throw error;
 
-      // Remove from both lists
-      setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
-      setArchivedQuestions((prev) => prev.filter((q) => q.id !== questionId));
+      // 4. Refresh local state
+      await fetchQuestions();
 
       return { success: true };
     } catch (error) {
