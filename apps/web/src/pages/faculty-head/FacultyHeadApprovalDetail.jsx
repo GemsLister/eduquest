@@ -321,8 +321,10 @@ export const FacultyHeadApprovalDetail = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {results?.summary?.distribution &&
-                Object.entries(results.summary.distribution).map(
-                  ([level, count]) => (
+                ["Remembering", "Understanding", "Applying", "Analyzing", "Evaluating", "Creating"].map(
+                  (level) => {
+                    const count = results.summary.distribution[level] ?? 0;
+                    return (
                     <div
                       key={level}
                       className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}
@@ -330,8 +332,8 @@ export const FacultyHeadApprovalDetail = () => {
                       <span className="font-semibold">{level}:</span>
                       <span className="font-bold">{count}</span>
                     </div>
-                  ),
-                )}
+                    );
+                  })}
             </div>
           </div>
 

@@ -110,7 +110,8 @@ export const InstructorProfile = () => {
           supabase
             .from("quizzes")
             .select("id, is_published")
-            .eq("instructor_id", authUser.id),
+            .eq("instructor_id", authUser.id)
+            .eq("is_archived", false),
           supabase
             .from("sections")
             .select("id", { count: "exact", head: true })

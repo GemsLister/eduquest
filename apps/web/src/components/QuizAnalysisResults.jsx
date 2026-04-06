@@ -103,12 +103,6 @@ export const QuizAnalysisResults = ({
   const [message, setMessage] = useState("");
   const [existingSubmission, setExistingSubmission] = useState(null);
   const [showQuestionDetails, setShowQuestionDetails] = useState(false);
-  const [saveStatus, setSaveStatus] = useState("");
-  const [shareToken, setShareToken] = useState("");
-  const [quizDescription, setQuizDescription] = useState("");
-  const [quizDuration, setQuizDuration] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
-  const [selectedSectionIds, setSelectedSectionIds] = useState([]);
 
   // Check for existing submission that needs revision
   useEffect(() => {
@@ -117,235 +111,6 @@ export const QuizAnalysisResults = ({
     }
   }, [quizId]);
 
-  const handleSaveQuiz = async (publish = false) => {
-    setError("");
-    setSaveStatus("Saving...");
-
-    if (!quizTitle.trim()) {
-      setError("Quiz title is required");
-      setSaveStatus("");
-      return;
-    }
-
-    if (publish && questions.length === 0) {
-      setError("Add at least one question before publishing");
-      setSaveStatus("");
-      return;
-    }
-
-    for (let q of questions) {
-      if (!q.text.trim()) {
-        setError("All questions must have text");
-        setSaveStatus("");
-        return;
-      }
-      if (
-        q.type === "mcq" &&
-        q.options.filter((opt) => opt.trim()).length < 2
-      ) {
-        setError(
-          publish
-            ? "MCQ questions must have at least 2 options to publish"
-            : "Warning: MCQ questions should have at least 2 options",
-        );
-        if (publish) {
-          setSaveStatus("");
-          return;
-        }
-      }
-    }
-
-    setLoading(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError("User not authenticated");
-        setLoading(false);
-        setSaveStatus("");
-        return;
-      }
-
-      let quizData;
-      let newToken = shareToken;
-
-      if (quizId) {
-        // Always generate a new share token when publishing, even if one exists
-        if (publish) {
-          newToken = generateShareToken();
-        }
-
-        const { data, error: updateError } = await supabase
-          .from("quizzes")
-          .update({
-            title: quizTitle,
-            description: quizDescription || null,
-            duration: quizDuration ? parseInt(quizDuration) : null,
-            is_published: publish || isPublished,
-            share_token: publish ? newToken : shareToken || null,
-          })
-          .eq("id", quizId)
-          .select();
-
-        if (updateError) throw updateError;
-        quizData = data[0];
-
-        const { data: existingQuestions } = await supabase
-          .from("questions")
-          .select("id")
-          .eq("quiz_id", quizId);
-        const existingQuestionIds = new Set(
-          existingQuestions?.map((q) => q.id) || [],
-        );
-
-        for (const q of questions) {
-          if (typeof q.id !== "number" && existingQuestionIds.has(q.id)) {
-            const { error: updateQuestionError } = await supabase
-              .from("questions")
-              .update({
-                text: q.text,
-                options:
-                  q.type === "mcq"
-                    ? q.options.filter((opt) => opt.trim())
-                    : null,
-                correct_answer:
-                  q.type === "mcq"
-                    ? q.options[q.correctAnswer]
-                    : q.type === "true_false"
-                      ? q.correctAnswer === 0
-                        ? "true"
-                        : "false"
-                      : q.correctAnswer,
-                points: q.points,
-              })
-              .eq("id", q.id);
-            if (updateQuestionError) throw updateQuestionError;
-          }
-        }
-
-        const questionsToAdd = questions
-          .filter((q) => typeof q.id === "number" && q.id > 10000000000)
-          .map((q) => ({
-            quiz_id: quizData.id,
-            type: q.type,
-            text: q.text,
-            options:
-              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer:
-              q.type === "mcq"
-                ? q.options[q.correctAnswer]
-                : q.type === "true_false"
-                  ? q.correctAnswer === 0
-                    ? "true"
-                    : "false"
-                  : q.correctAnswer,
-            points: q.points,
-          }));
-
-        if (questionsToAdd.length > 0) {
-          const { error: questionsError } = await supabase
-            .from("questions")
-            .insert(questionsToAdd);
-          if (questionsError) throw questionsError;
-        }
-      } else {
-        newToken = publish ? generateShareToken() : null;
-
-        const { data: newQuiz, error: quizError } = await supabase
-          .from("quizzes")
-          .insert([
-            {
-              instructor_id: user.id,
-              section_id: selectedSectionIds[0] || null,
-              title: quizTitle,
-              description: quizDescription || null,
-              duration: quizDuration ? parseInt(quizDuration) : null,
-              is_published: publish,
-              share_token: newToken,
-            },
-          ])
-          .select();
-
-        if (quizError) throw quizError;
-        if (!newQuiz || newQuiz.length === 0)
-          throw new Error("Failed to create quiz");
-        quizData = newQuiz[0];
-
-        if (questions.length > 0) {
-          const questionsData = questions.map((q) => ({
-            quiz_id: quizData.id,
-            type: q.type,
-            text: q.text,
-            options:
-              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer:
-              q.type === "mcq"
-                ? q.options[q.correctAnswer]
-                : q.type === "true_false"
-                  ? q.correctAnswer === 0
-                    ? "true"
-                    : "false"
-                  : q.correctAnswer,
-            points: q.points,
-          }));
-          const { error: questionsError } = await supabase
-            .from("questions")
-            .insert(questionsData);
-          if (questionsError) throw questionsError;
-        }
-      }
-
-      // Sync the many-to-many relationship in quiz_sections
-      if (quizData) {
-        try {
-          const { error: deleteError } = await supabase
-            .from("quiz_sections")
-            .delete()
-            .eq("quiz_id", quizData.id);
-
-          // If no error deleting (meaning table exists)
-          if (!deleteError && selectedSectionIds.length > 0) {
-            const sectionInserts = selectedSectionIds.map((sId) => ({
-              quiz_id: quizData.id,
-              section_id: sId,
-            }));
-            await supabase.from("quiz_sections").insert(sectionInserts);
-          }
-        } catch (tableError) {
-          console.warn("quiz_sections table might not exist yet:", tableError);
-        }
-
-        await supabase
-          .from("quizzes")
-          .update({
-            section_id:
-              selectedSectionIds.length > 0 ? selectedSectionIds[0] : null,
-          })
-          .eq("id", quizData.id);
-      }
-
-      if (newToken) setShareToken(newToken);
-
-      if (publish) {
-        setShowShareUrl(true);
-        setSaveStatus("Quiz published! Share URL generated.");
-        setTimeout(() => setSaveStatus(""), 3000);
-      } else {
-        setSaveStatus("Draft saved!");
-        setTimeout(() => {
-          setSaveStatus("");
-          navigate("/instructor-dashboard/quizzes");
-        }, 1000);
-      }
-    } catch (err) {
-      setError(err.message || "Failed to save quiz");
-      setSaveStatus("");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
   const checkExistingSubmission = async () => {
     try {
       const { data } = await supabase
@@ -931,7 +696,7 @@ export const QuizAnalysisResults = ({
                             {idx + 1}
                           </div>
                           <div
-                            className="col-span-5 text-gray-700 truncate"
+                            className="col-span-5 text-gray-700 break-words"
                             title={item.questionText}
                           >
                             {item.questionText}
@@ -1085,12 +850,10 @@ export const QuizAnalysisResults = ({
                   </p>
                   <button
                     onClick={() => {
-                      handleSaveQuiz(false);
-                      setHasUnsavedChanges(false);
-                      setLastSaved(new Date());
+                      onClose();
+                      navigate("/instructor-dashboard/quizzes");
                     }}
-                    disabled={loading}
-                    className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -1106,7 +869,7 @@ export const QuizAnalysisResults = ({
                         d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
                       />
                     </svg>
-                    {loading ? "Saving..." : "Back to Quizzes"}
+                    Back to Quizzes
                   </button>
                 </div>
               )}
@@ -1122,33 +885,6 @@ export const QuizAnalysisResults = ({
           >
             Close
           </button>
-          {results && (
-            <button
-              onClick={() =>
-                exportBloomsPdf({
-                  quizTitle: quizTitle || `Quiz ${quizId}`,
-                  results,
-                })
-              }
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Export PDF
-            </button>
-          )}
         </div>
       </div>
     </div>
