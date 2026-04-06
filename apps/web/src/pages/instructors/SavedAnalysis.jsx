@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 
 export const SavedAnalysisPage = () => {
@@ -46,7 +46,7 @@ export const SavedAnalysisPage = () => {
         setQuizzes(finalQuizzes);
       } catch (err) {
         console.error("Error fetching saved analyses:", err);
-        toast.error("Failed to load saved analyses.");
+        notify.error("Failed to load saved analyses.");
       } finally {
         setLoading(false);
       }
@@ -63,9 +63,9 @@ export const SavedAnalysisPage = () => {
           .eq("id", quizId);
         if (error) throw error;
         setQuizzes(quizzes.filter((q) => q.id !== quizId));
-        toast.success("Quiz archived successfully");
+        notify.success("Quiz archived successfully");
       } catch (error) {
-        toast.error("Failed to archive quiz: " + error.message);
+        notify.error("Failed to archive quiz: " + error.message);
       }
     }
   };

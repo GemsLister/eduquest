@@ -57,7 +57,7 @@ export const CreateQuizFormButton = ({
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Description
+                  Instructions
                 </label>
                 <textarea
                   value={quizFormData.description}
@@ -67,7 +67,7 @@ export const CreateQuizFormButton = ({
                       description: e.target.value,
                     })
                   }
-                  placeholder="Brief description of the quiz topic or instructions"
+                  placeholder="Instructions of the quiz"
                   rows="3"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm resize-none"
                 />

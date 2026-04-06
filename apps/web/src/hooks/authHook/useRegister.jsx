@@ -1,5 +1,5 @@
 import { supabase } from "../../supabaseClient.js";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 const validatePassword = (password) => {
   if (!password || password.length < 8) return "Password must be at least 8 characters";
@@ -15,12 +15,12 @@ export const useRegister = () => {
     try {
       const passwordError = validatePassword(userData.password);
       if (passwordError) {
-        toast.error(passwordError);
+        notify.error(passwordError);
         return { success: false, message: passwordError };
       }
 
       if (!userData.captchaToken) {
-        toast.error("Please complete the captcha verification");
+        notify.error("Please complete the captcha verification");
         return { success: false, message: "Captcha required" };
       }
 
@@ -48,10 +48,10 @@ export const useRegister = () => {
         });
       }
 
-      toast.success("Registration submitted! Awaiting admin approval.");
+      notify.success("Registration submitted! Awaiting admin approval.");
       return { success: true, data };
     } catch (error) {
-      toast.error(error.message || "Registration failed");
+      notify.error(error.message || "Registration failed");
       return { success: false, message: error.message };
     }
   };

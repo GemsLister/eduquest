@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 
 export const useFetchInstructorQuizzes = () => {
@@ -129,10 +129,10 @@ export const useFetchInstructorQuizzes = () => {
       if (error) throw error;
 
       await fetchQuizzes();
-      toast.success("Quiz restored successfully!");
+      notify.success("Quiz restored successfully!");
     } catch (error) {
       console.error("Error restoring quiz:", error);
-      toast.error("Error restoring quiz: " + error.message);
+      notify.error("Error restoring quiz: " + error.message);
     }
   };
 
@@ -146,10 +146,10 @@ export const useFetchInstructorQuizzes = () => {
       if (error) throw error;
 
       await fetchQuizzes();
-      toast.success("Quiz archived successfully!");
+      notify.success("Quiz archived successfully!");
     } catch (error) {
       console.error("Error archiving quiz:", error);
-      toast.error("Error archiving quiz: " + error.message);
+      notify.error("Error archiving quiz: " + error.message);
     }
   };
 
@@ -173,10 +173,10 @@ export const useFetchInstructorQuizzes = () => {
       if (error) throw error;
 
       await fetchQuizzes();
-      toast.success("Quiz published successfully!");
+      notify.success("Quiz published successfully!");
     } catch (error) {
       console.error("Error publishing quiz:", error);
-      toast.error("Error publishing quiz: " + error.message);
+      notify.error("Error publishing quiz: " + error.message);
     }
   };
 

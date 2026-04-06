@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { adminService } from "../../services/adminService.js";
 import { supabase } from "../../supabaseClient.js";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const InstructorTable = ({
   instructors,
@@ -84,7 +84,7 @@ export const InstructorTable = ({
 
   const handleChangePwdSubmit = async () => {
     if (!newPassword || newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      notify.error("Password must be at least 6 characters");
       return;
     }
     setPwdLoading(true);
@@ -94,11 +94,11 @@ export const InstructorTable = ({
     );
     setPwdLoading(false);
     if (error) {
-      toast.error(
+      notify.error(
         typeof error === "string" ? error : "Failed to change password",
       );
     } else {
-      toast.success("Password changed successfully");
+      notify.success("Password changed successfully");
       setChangePwdTarget(null);
     }
   };

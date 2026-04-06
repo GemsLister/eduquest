@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../utils/notify.jsx";
 import { supabase } from "../supabaseClient.js";
 
 export const SectionManager = ({ onSectionCreated, userId }) => {
@@ -24,7 +24,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
 
     try {
       if (!formData.name.trim()) {
-        toast.error("Course name is required");
+        notify.error("Course name is required");
         return;
       }
 
@@ -52,7 +52,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
         onSectionCreated(data[0]);
       }
     } catch (err) {
-      toast.error(err.message || "Failed to create subject");
+      notify.error(err.message || "Failed to create subject");
       console.error("Error creating subject:", err);
     } finally {
       setLoading(false);

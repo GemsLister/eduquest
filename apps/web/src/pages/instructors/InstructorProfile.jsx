@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
 import profileImage from "../../assets/instructor-profile.png";
 import citlCover from "../../assets/CITL_cover_photo.png";
@@ -40,7 +40,7 @@ export const InstructorProfile = () => {
       if (authUser) {
         // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
         if (authUser.email.endsWith("@gmail.com")) {
-          toast.error("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
+          notify.error("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
           setLoading(false);
           return;
         }
@@ -128,7 +128,7 @@ export const InstructorProfile = () => {
         throw new Error("Auth session missing!");
       }
     } catch (err) {
-      toast.error(`Failed to load profile: ${err.message || "Unknown error"}`);
+      notify.error(`Failed to load profile: ${err.message || "Unknown error"}`);
       console.error("Profile load error:", err);
     } finally {
       setLoading(false);
@@ -141,12 +141,12 @@ export const InstructorProfile = () => {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
+      notify.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be less than 2MB");
+      notify.error("Image must be less than 2MB");
       return;
     }
 
@@ -176,9 +176,9 @@ export const InstructorProfile = () => {
       if (updateError) throw updateError;
 
       setProfile((prev) => ({ ...prev, avatarUrl }));
-      toast.success("Profile picture updated!");
+      notify.success("Profile picture updated!");
     } catch (err) {
-      toast.error(err.message || "Failed to upload avatar");
+      notify.error(err.message || "Failed to upload avatar");
       console.error(err);
     } finally {
       setAvatarUploading(false);
@@ -191,7 +191,7 @@ export const InstructorProfile = () => {
 
     try {
       if (!profile.username.trim() || !profile.firstName.trim()) {
-        toast.error("Username and First Name are required");
+        notify.error("Username and First Name are required");
         setSaveLoading(false);
         return;
       }
@@ -209,10 +209,10 @@ export const InstructorProfile = () => {
 
       if (updateError) throw updateError;
 
-      toast.success("Profile updated successfully!");
+      notify.success("Profile updated successfully!");
       setEditMode(false);
     } catch (err) {
-      toast.error(err.message || "Failed to update profile");
+      notify.error(err.message || "Failed to update profile");
       console.error(err);
     } finally {
       setSaveLoading(false);

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
 import { useFetchSectionQuiz } from "../../hooks/quizHook/useFetchSectionQuiz.jsx";
@@ -67,9 +67,9 @@ export const InstructorDashboard = () => {
       if (archived) {
         setArchivedSections((prev) => [archived, ...prev]);
       }
-      toast.success(`"${sectionName}" archived!`);
+      notify.success(`"${sectionName}" archived!`);
     } catch (err) {
-      toast.error("Failed to archive section: " + err.message);
+      notify.error("Failed to archive section: " + err.message);
     }
   };
 
@@ -85,9 +85,9 @@ export const InstructorDashboard = () => {
       if (restored) {
         setSections((prev) => [restored, ...prev]);
       }
-      toast.success("Subject restored!");
+      notify.success("Subject restored!");
     } catch (err) {
-      toast.error("Failed to restore section: " + err.message);
+      notify.error("Failed to restore section: " + err.message);
     }
   };
 
@@ -99,7 +99,7 @@ export const InstructorDashboard = () => {
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) {
-      toast.error("Course name is required");
+      notify.error("Course name is required");
       return;
     }
 
@@ -118,10 +118,10 @@ export const InstructorDashboard = () => {
             : s,
         ),
       );
-      toast.success("Subject updated!");
+      notify.success("Subject updated!");
       setEditModal(null);
     } catch (err) {
-      toast.error("Failed to update section: " + err.message);
+      notify.error("Failed to update section: " + err.message);
     } finally {
       setEditSaving(false);
     }

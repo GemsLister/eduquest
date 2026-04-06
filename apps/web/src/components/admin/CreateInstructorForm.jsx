@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 const initialForm = {
   firstName: "",
@@ -16,11 +16,11 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
   const [created, setCreated] = useState(null); // holds created account info
 
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) notify.error(error);
   }, [error]);
 
   useEffect(() => {
-    if (success) toast.success(success);
+    if (success) notify.success(success);
   }, [success]);
 
   const handleChange = (e) => {

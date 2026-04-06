@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
 import { InstructorTable } from "../../components/admin/InstructorTable.jsx";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const AdminInstructors = () => {
   const { instructors, loading, error, statusLoading, toggleInstructorStatus } =
@@ -52,13 +52,13 @@ export const AdminInstructors = () => {
   );
 
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) notify.error(error);
   }, [error]);
 
   const handleStatusClick = async (instructor) => {
     const result = await toggleInstructorStatus(instructor.id, !instructor.is_disabled);
     if (result?.success) {
-      toast.success(
+      notify.success(
         instructor.is_disabled
           ? `${instructor.first_name || instructor.email} has been activated.`
           : `${instructor.first_name || instructor.email} has been disabled.`

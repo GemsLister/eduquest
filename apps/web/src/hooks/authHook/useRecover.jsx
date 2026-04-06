@@ -1,5 +1,5 @@
 import { supabase } from "../../supabaseClient.js";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const useRecover = () => {
   const handleRecover = async (userData) => {
@@ -15,11 +15,11 @@ export const useRecover = () => {
             redirectTo: import.meta.env.VITE_CHANGE_PASSWORD_URL,
           },
         );
-        toast.success("Reset password link sent to your account");
+        notify.success("Reset password link sent to your account");
         console.log(data.message);
-      } else toast.error("Invalid Email");
+      } else notify.error("Invalid Email");
     } catch (error) {
-      toast.error("Email not found");
+      notify.error("Email not found");
     }
   };
   return { handleRecover };

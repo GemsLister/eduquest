@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient";
 
@@ -31,10 +31,10 @@ export const useArchiveQuiz = (fetchQuizzes) => {
       }
 
       await fetchQuizzes();
-      toast.success("Quiz archived successfully!");
+      notify.success("Quiz archived successfully!");
     } catch (error) {
       console.error("Error archiving quiz:", error);
-      toast.error("Error archiving quiz: " + error.message);
+      notify.error("Error archiving quiz: " + error.message);
     } finally {
       setArchivingQuizId(null);
     }

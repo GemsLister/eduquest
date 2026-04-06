@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -235,7 +235,7 @@ export const InstructorQuiz = () => {
       }
     } catch (err) {
       console.error("Failed to save section assignments:", err);
-      toast.error("Failed to save section assignments: " + err.message);
+      notify.error("Failed to save section assignments: " + err.message);
     }
   };
 
@@ -397,7 +397,7 @@ export const InstructorQuiz = () => {
 
   const copyToClipboard = (url) => {
     navigator.clipboard.writeText(url).then(() => {
-      toast.success("URL copied to clipboard!");
+      notify.success("URL copied to clipboard!");
     });
   };
 
@@ -443,7 +443,7 @@ export const InstructorQuiz = () => {
 
       // Remove from local state for instant UI feedback
       setQuestions((prevQuestions) => prevQuestions.filter((q) => q.id !== questionToArchive.id));
-      toast.success(
+      notify.success(
         "Question archived to Question Bank! You can restore it from there.",
       );
       
@@ -451,7 +451,7 @@ export const InstructorQuiz = () => {
       setQuestionToArchive(null);
     } catch (err) {
       console.error("Error archiving question:", err);
-      toast.error("Error archiving question: " + err.message);
+      notify.error("Error archiving question: " + err.message);
     }
   };
 
@@ -459,25 +459,25 @@ export const InstructorQuiz = () => {
     setError("");
 
     if (!quizTitle.trim()) {
-      toast.error("Quiz title is required");
+      notify.error("Quiz title is required");
       return;
     }
 
     if (publish && questions.length === 0) {
-      toast.error("Add at least one question before publishing");
+      notify.error("Add at least one question before publishing");
       return;
     }
 
     for (let q of questions) {
       if (!q.text.trim()) {
-        toast.error("All questions must have text");
+        notify.error("All questions must have text");
         return;
       }
       if (
         q.type === "mcq" &&
         q.options.filter((opt) => opt.trim()).length < 2
       ) {
-        toast.error(
+        notify.error(
           publish
             ? "MCQ questions must have at least 2 options to publish"
             : "Warning: MCQ questions should have at least 2 options",
@@ -492,7 +492,7 @@ export const InstructorQuiz = () => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        toast.error("User not authenticated");
+        notify.error("User not authenticated");
         setLoading(false);
         return;
       }
@@ -662,15 +662,15 @@ export const InstructorQuiz = () => {
 
       if (publish) {
         setShowShareUrl(true);
-        toast.success("Quiz published! Share URL generated.");
+        notify.success("Quiz published! Share URL generated.");
       } else {
-        toast.success("Draft saved!");
+        notify.success("Draft saved!");
         setTimeout(() => {
           navigate("/instructor-dashboard/quizzes");
         }, 1000);
       }
     } catch (err) {
-      toast.error(err.message || "Failed to save quiz");
+      notify.error(err.message || "Failed to save quiz");
       console.error(err);
     } finally {
       setLoading(false);
@@ -1208,7 +1208,7 @@ export const InstructorQuiz = () => {
                               .then(({ error }) => {
                                 if (error) {
                                   console.error("Delete error:", error);
-                                  toast.error(
+                                  notify.error(
                                     "Remove failed: " + error.message,
                                   );
                                 } else {

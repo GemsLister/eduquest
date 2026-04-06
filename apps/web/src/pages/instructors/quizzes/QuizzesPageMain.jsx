@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../../utils/notify.jsx";
 import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
 import { supabase } from "../../../supabaseClient.js";
@@ -168,7 +168,7 @@ export const QuizzesPageMain = () => {
       } = await supabase.auth.getUser();
 
       if (!authUser) {
-        toast.error("Please sign in again.");
+        notify.error("Please sign in again.");
         return;
       }
 
@@ -200,7 +200,7 @@ export const QuizzesPageMain = () => {
 
       setShowSectionModal(true);
     } catch (error) {
-      toast.error("Failed to load sections: " + error.message);
+      notify.error("Failed to load sections: " + error.message);
     }
   };
 
@@ -242,9 +242,9 @@ export const QuizzesPageMain = () => {
       await fetchQuizzes();
       setShowSectionModal(false);
       setSectionTargetQuiz(null);
-      toast.success("Subject sections assigned successfully!");
+      notify.success("Subject sections assigned successfully!");
     } catch (error) {
-      toast.error("Failed to save section assignments: " + error.message);
+      notify.error("Failed to save section assignments: " + error.message);
     } finally {
       setSectionSaving(false);
     }

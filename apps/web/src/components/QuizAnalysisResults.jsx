@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../utils/notify.jsx";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
@@ -369,7 +369,7 @@ export const QuizAnalysisResults = ({
   const navigate = useNavigate();
   const handleAnalyze = async () => {
     if (!questions || questions.length === 0) {
-      toast.error("No questions to analyze.");
+      notify.error("No questions to analyze.");
       return;
     }
 
@@ -384,7 +384,7 @@ export const QuizAnalysisResults = ({
       const data = await analyzeQuiz(quizId, questionsForApi);
       setResults(data);
     } catch (err) {
-      toast.error(err.message || "Could not connect to AI backend.");
+      notify.error(err.message || "Could not connect to AI backend.");
     } finally {
       setLoading(false);
     }
@@ -394,7 +394,7 @@ export const QuizAnalysisResults = ({
     if (!results) return;
 
     if (quizId === "draft" || !quizId) {
-      toast.error("Please save the quiz first before submitting for review.");
+      notify.error("Please save the quiz first before submitting for review.");
       return;
     }
 
@@ -418,7 +418,7 @@ export const QuizAnalysisResults = ({
         if (updateError) throw updateError;
 
         setForwarded(true);
-        toast.success("Quiz analysis resubmitted for admin review!");
+        notify.success("Quiz analysis resubmitted for admin review!");
       } else {
         const { error: insertError } = await supabase
           .from("quiz_analysis_submissions")
@@ -433,11 +433,11 @@ export const QuizAnalysisResults = ({
         if (insertError) throw insertError;
 
         setForwarded(true);
-        toast.success("Quiz submitted for admin review!");
+        notify.success("Quiz submitted for admin review!");
       }
     } catch (err) {
       console.error("Forward error:", err);
-      toast.error(err.message || "Failed to submit for review.");
+      notify.error(err.message || "Failed to submit for review.");
     } finally {
       setForwardLoading(false);
     }

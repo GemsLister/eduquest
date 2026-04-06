@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../utils/notify.jsx";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
 import { RevisionHistoryModal } from "./RevisionHistoryModal.jsx";
 import { supabase } from "../supabaseClient";
@@ -58,10 +58,10 @@ export const QuestionList = ({
       const { error } = await supabase.from("questions").delete().eq("id", id);
       if (error) throw error;
 
-      toast.success("Question deleted successfully!");
+      notify.success("Question deleted successfully!");
       window.dispatchEvent(new Event("questions-updated"));
     } catch (error) {
-      toast.error("Failed to delete: " + error.message);
+      notify.error("Failed to delete: " + error.message);
     }
   };
 
@@ -79,7 +79,7 @@ export const QuestionList = ({
 
       window.dispatchEvent(new Event("questions-updated"));
     } catch {
-      toast.error("Error updating flag");
+      notify.error("Error updating flag");
     } finally {
       setUpdatingFlag(null);
     }

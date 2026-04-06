@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRegistrationRequests } from "../../hooks/adminHook/useRegistrationRequests.jsx";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const AdminRegistrationRequests = () => {
   const {
@@ -15,7 +15,7 @@ export const AdminRegistrationRequests = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) notify.error(error);
   }, [error]);
 
   const handleApprove = async (userId) => {
@@ -36,7 +36,7 @@ export const AdminRegistrationRequests = () => {
     }
     setBulkLoading(false);
     if (successCount > 0) {
-      toast.success(`${successCount} instructor(s) approved successfully`);
+      notify.success(`${successCount} instructor(s) approved successfully`);
     }
   };
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 
 export const ItemDifficulty = () => {
   const navigate = useNavigate();
@@ -528,7 +528,7 @@ export const ItemDifficulty = () => {
       }
 
       setSaveError("");
-      toast.success("Revised quiz version created! You can now edit it in Quiz Management.");
+      notify.success("Revised quiz version created! You can now edit it in Quiz Management.");
       
       setTimeout(() => {
         setSavingAnalysis(false);

@@ -9,7 +9,7 @@ export const useLogin = () => {
       const email = userData.email.trim();
 
       if (!userData.captchaToken) {
-        toast.error("Please complete the captcha verification");
+        notify.error("Please complete the captcha verification");
         return;
       }
 
@@ -18,7 +18,7 @@ export const useLogin = () => {
         p_email: email,
       });
       if (lockStatus?.is_locked) {
-        toast.error(
+        notify.error(
           `Account is temporarily locked. Try again in ${lockStatus.minutes_left} minute${lockStatus.minutes_left !== 1 ? "s" : ""}.`,
         );
         return;
@@ -37,15 +37,15 @@ export const useLogin = () => {
         });
 
         if (result?.is_locked) {
-          toast.error(
+          notify.error(
             `Too many failed attempts. Account locked for ${result.minutes_left} minutes.`,
           );
         } else if (result?.remaining_attempts <= 2) {
-          toast.error(
+          notify.error(
             `Invalid email or password. ${result.remaining_attempts} attempt${result.remaining_attempts !== 1 ? "s" : ""} remaining before lockout.`,
           );
         } else {
-          toast.error("Invalid email or password");
+          notify.error("Invalid email or password");
         }
         return;
       }
@@ -62,14 +62,14 @@ export const useLogin = () => {
 
       if (profile?.is_disabled) {
         await supabase.auth.signOut();
-        toast.error("This account has been disabled by the admin");
+        notify.error("This account has been disabled by the admin");
         return;
       }
 
       // Block if explicitly pending approval (is_approved === false)
       if (profile?.is_approved === false) {
         await supabase.auth.signOut();
-        toast.info("Your account is pending admin approval.");
+        notify.info("Your account is pending admin approval.");
         return;
       }
 
@@ -87,16 +87,16 @@ export const useLogin = () => {
         navigate("/instructor-dashboard");
       } else if (profile?.role === "student") {
         await supabase.auth.signOut();
-        toast.error(
+        notify.error(
           "Access Denied: Students should take quizzes via shared links.",
         );
       } else {
         await supabase.auth.signOut();
-        toast.error("Access Denied: Instructors Only!");
+        notify.error("Access Denied: Instructors Only!");
       }
     } catch (error) {
       console.error(error);
-      toast.error("An error occurred during login");
+      notify.error("An error occurred during login");
     }
   };
   return { handleLogin };

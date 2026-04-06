@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
@@ -39,7 +39,7 @@ export const FacultyHeadApprovalDetail = () => {
       }
     } catch (err) {
       console.error("Error loading submission:", err);
-      toast.error("Failed to load submission");
+      notify.error("Failed to load submission");
     } finally {
       setLoading(false);
     }
@@ -73,11 +73,11 @@ export const FacultyHeadApprovalDetail = () => {
         link: `/instructor-dashboard/my-submissions`,
       });
 
-      toast.success("Quiz approved successfully!");
+      notify.success("Quiz approved successfully!");
       navigate("/faculty-head-dashboard/quiz-approvals");
     } catch (err) {
       console.error("Error approving submission:", err);
-      toast.error("Failed to approve submission");
+      notify.error("Failed to approve submission");
     } finally {
       setActionLoading(false);
     }

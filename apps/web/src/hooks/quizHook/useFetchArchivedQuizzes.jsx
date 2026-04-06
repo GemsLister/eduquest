@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 
 export const useFetchArchivedQuizzes = () => {
@@ -60,10 +60,10 @@ export const useFetchArchivedQuizzes = () => {
       if (error) throw error;
 
       await fetchArchivedQuizzes();
-      toast.success("Quiz restored successfully!");
+      notify.success("Quiz restored successfully!");
     } catch (error) {
       console.error("Error restoring quiz:", error);
-      toast.error("Error restoring quiz: " + error.message);
+      notify.error("Error restoring quiz: " + error.message);
     }
   };
 

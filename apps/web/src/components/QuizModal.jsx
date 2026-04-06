@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../utils/notify.jsx";
 import { supabase } from "../supabaseClient.js";
 
 export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
@@ -31,7 +31,7 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
   const handleCreateQuiz = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error("Title is required");
+      notify.error("Title is required");
       return;
     }
 
@@ -56,10 +56,10 @@ export const QuizModal = ({ userId, sectionId = null, id = "quiz-modal" }) => {
       setTitle('');
       setDescription('');
       setDuration('');
-      toast.success(`Quiz "${newQuiz.title}" created successfully!`);
+      notify.success(`Quiz "${newQuiz.title}" created successfully!`);
       navigate(`/instructor-dashboard/instructor-quiz/${newQuiz.id}`);
     } catch (err) {
-      toast.error(err.message || "Failed to create quiz");
+      notify.error(err.message || "Failed to create quiz");
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,7 @@ import {
   VisibilityOffIcon,
   VisibilityOnIcon,
 } from "../../../assets/svg/ShowPasswordIcons.jsx";
-import { toast } from "react-toastify";
+import { notify } from "../../../utils/notify.jsx";
 
 export const GoogleButton = () => {
   const { handleGoogleLogin } = AuthHooks.useGoogleLogin();
@@ -38,7 +38,7 @@ export const AuthButton = ({ name, user }) => {
       case "Login":
         try {
           if (!user.email || !user.password) {
-            toast.error("Fill out the form");
+            notify.error("Fill out the form");
             return;
           }
           const result = handleLogin(user);
@@ -57,9 +57,9 @@ export const AuthButton = ({ name, user }) => {
             !user.email ||
             !user.confirmPassword
           )
-            toast.error("Fill out the form");
+            notify.error("Fill out the form");
           else if (user.password !== user.confirmPassword)
-            toast.error("Passwords do not match");
+            notify.error("Passwords do not match");
           else {
             const result = handleRegister(user);
             if (!result && result.success) console.error(error);
@@ -71,7 +71,7 @@ export const AuthButton = ({ name, user }) => {
 
       case "Continue":
         try {
-          if (!user.email) toast.error(error.message || "Fill out the form");
+          if (!user.email) notify.error(error.message || "Fill out the form");
           else {
             handleRecover(user);
             console.log(`continue ${user.email}`);
@@ -83,7 +83,7 @@ export const AuthButton = ({ name, user }) => {
 
       case "Change Password":
         try {
-          if (!user.password) toast.error(error.message || "Fill out the form");
+          if (!user.password) notify.error(error.message || "Fill out the form");
           handleChangePassword(user);
           console.log(`change password ${user.password}`);
         } catch (error) {

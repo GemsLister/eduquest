@@ -1,4 +1,4 @@
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient";
 
@@ -23,18 +23,18 @@ export const useDeleteQuestion = () => {
 
         if (error) {
           console.error("Error deleting question:", error);
-          toast.error("Failed to delete question: " + error.message);
+          notify.error("Failed to delete question: " + error.message);
           return false;
         }
 
-        toast.success("Question deleted successfully!");
+        notify.success("Question deleted successfully!");
 
         // Dispatch event to refresh the list
         window.dispatchEvent(new Event("questions-updated"));
         return true;
       } catch (error) {
         console.error("Error deleting question:", error);
-        toast.error("An error occurred while deleting the question");
+        notify.error("An error occurred while deleting the question");
         return false;
       }
     }

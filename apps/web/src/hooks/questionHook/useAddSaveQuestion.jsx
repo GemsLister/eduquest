@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
 
 export const useAddSaveQuestion = () => {
@@ -29,11 +29,11 @@ export const useAddSaveQuestion = () => {
 
   const handleSaveQuestion = async () => {
     if (!formData.text.trim()) {
-      toast.warning("Question text is required");
+      notify.warning("Question text is required");
       return;
     }
     if (formData.type === "mcq" && formData.options.some((o) => !o.trim())) {
-      toast.warning("All options must be filled");
+      notify.warning("All options must be filled");
       return;
     }
 
@@ -74,14 +74,14 @@ export const useAddSaveQuestion = () => {
 
         if (error) {
           console.error("Error updating question:", error);
-          toast.error("Failed to update question: " + error.message);
+          notify.error("Failed to update question: " + error.message);
           return;
         }
-        toast.success("Question updated successfully! Revision history saved.");
+        notify.success("Question updated successfully! Revision history saved.");
       } else {
         // Create new question - need quiz_id
         if (!formData.quiz_id) {
-          toast.warning("Please select a quiz first");
+          notify.warning("Please select a quiz first");
           return;
         }
 
@@ -97,10 +97,10 @@ export const useAddSaveQuestion = () => {
 
         if (error) {
           console.error("Error creating question:", error);
-          toast.error("Failed to create question: " + error.message);
+          notify.error("Failed to create question: " + error.message);
           return;
         }
-        toast.success("Question created successfully!");
+        notify.success("Question created successfully!");
       }
 
       setShowForm(false);
@@ -117,7 +117,7 @@ export const useAddSaveQuestion = () => {
       window.dispatchEvent(new Event("questions-updated"));
     } catch (error) {
       console.error("Error saving question:", error);
-      toast.error("An error occurred while saving the question");
+      notify.error("An error occurred while saving the question");
     }
   };
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
 
@@ -17,7 +17,7 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
     try {
       if (!quizFormData.title.trim()) {
-        toast.warning("Quiz title is required");
+        notify.warning("Quiz title is required");
         return;
       }
 
@@ -54,21 +54,21 @@ export const useCreateQuiz = ({ user, sectionId = null } = {}) => {
       setQuizFormData({ title: "", description: "", duration: "" });
       setShowQuizForm(false);
 
-      toast.success(`Quiz "${data.title}" created successfully!`);
+      notify.success(`Quiz "${data.title}" created successfully!`);
       navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
     } catch (error) {
       console.error("Full error object:", error);
 
       if (error.code === "42501") {
-        toast.error(
+        notify.error(
           "Permission denied: You don't have rights to create quizzes in this section. Please contact your administrator.",
         );
       } else if (error.message?.includes("row-level security")) {
-        toast.error(
+        notify.error(
           "Permission denied: Your account doesn't have instructor privileges. Please ensure you're logged in as an instructor.",
         );
       } else {
-        toast.error("Error creating quiz: " + error.message);
+        notify.error("Error creating quiz: " + error.message);
       }
     } finally {
       setIsSubmitting(false);

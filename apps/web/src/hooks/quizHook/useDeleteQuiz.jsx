@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient";
 
@@ -44,10 +44,10 @@ export const useDeleteQuiz = (fetchQuizzes) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await fetchQuizzes();
 
-      toast.success("Quiz deleted successfully!");
+      notify.success("Quiz deleted successfully!");
     } catch (error) {
       console.error("Error deleting quiz:", error);
-      toast.error("Error deleting quiz: " + error.message);
+      notify.error("Error deleting quiz: " + error.message);
     } finally {
       setDeletingQuizId(null);
     }

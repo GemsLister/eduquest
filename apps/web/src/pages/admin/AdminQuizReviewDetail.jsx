@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
@@ -46,7 +46,7 @@ export const AdminQuizReviewDetail = () => {
       }
     } catch (err) {
       console.error("Error loading submission:", err);
-      toast.error("Failed to load submission");
+      notify.error("Failed to load submission");
     } finally {
       setLoading(false);
     }
@@ -128,11 +128,11 @@ export const AdminQuizReviewDetail = () => {
         rejected: "Quiz analysis has been rejected.",
       };
 
-      toast.success(messages[status]);
+      notify.success(messages[status]);
       navigate("/admin-dashboard/quiz-reviews");
     } catch (err) {
       console.error("Error updating submission:", err);
-      toast.error("Failed to update submission");
+      notify.error("Failed to update submission");
     } finally {
       setActionLoading(false);
       setShowFeedbackModal(false);

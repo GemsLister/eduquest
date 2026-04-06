@@ -1,6 +1,6 @@
 import { supabase } from "../../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
-import {toast} from "react-toastify"
+import { notify } from "../../utils/notify.jsx";
 
 export const useChangePassword = () => {
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ export const useChangePassword = () => {
       });
       if (error) throw new Error(error.message);
       console.log(data.message);
-      toast.success("Password Changed!")
+      notify.success("Password Changed!")
       navigate("/");
     } catch (error) {
       console.error(error);

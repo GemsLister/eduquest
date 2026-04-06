@@ -1,4 +1,4 @@
-import { toast } from "react-toastify";
+import { notify } from "../../../utils/notify.jsx";
 
 export const CreateClassPopup = ({
   onSubmit,
@@ -9,7 +9,7 @@ export const CreateClassPopup = ({
   formDataDescription,
   onInputChange,
 }) => {
-  if (error) toast.error(error);
+  if (error) notify.error(error);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">

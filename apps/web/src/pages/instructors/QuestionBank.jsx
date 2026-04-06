@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
@@ -294,7 +294,7 @@ export const QuestionBank = () => {
         await archiveQuestion(id);
       }
       setBulkSelected(new Set());
-      toast.success(`Archived ${bulkSelected.size} question(s)`);
+      notify.success(`Archived ${bulkSelected.size} question(s)`);
     }
   };
 
@@ -311,7 +311,7 @@ export const QuestionBank = () => {
         await restoreQuestion(id);
       }
       setBulkSelected(new Set());
-      toast.success(`Restored ${bulkSelected.size} question(s)`);
+      notify.success(`Restored ${bulkSelected.size} question(s)`);
     }
   };
 
@@ -332,13 +332,13 @@ export const QuestionBank = () => {
           deleted++;
         } else {
           blocked++;
-          toast.error(result.error);
+          notify.error(result.error);
         }
       }
       setBulkSelected(new Set());
-      if (deleted > 0) toast.success(`Removed ${deleted} question(s)`);
+      if (deleted > 0) notify.success(`Removed ${deleted} question(s)`);
       if (blocked > 0 && deleted === 0)
-        toast.info("No questions were removed. Archive them instead.");
+        notify.info("No questions were removed. Archive them instead.");
     }
   };
 
@@ -355,19 +355,19 @@ export const QuestionBank = () => {
   // Add to bank
   const handleAddToBank = async () => {
     if (!newQuestion.text.trim()) {
-      toast.warning("Question text is required");
+      notify.warning("Question text is required");
       return;
     }
     if (
       newQuestion.type === "mcq" &&
       newQuestion.options.some((o) => !o.trim())
     ) {
-      toast.warning("All options must be filled");
+      notify.warning("All options must be filled");
       return;
     }
     const result = await addToBank(newQuestion);
     if (result.success) {
-      toast.success("Question added to bank!");
+      notify.success("Question added to bank!");
       setNewQuestion({
         text: "",
         type: "mcq",
@@ -377,18 +377,18 @@ export const QuestionBank = () => {
       });
       setShowAddForm(false);
     } else {
-      toast.error("Error: " + result.error);
+      notify.error("Error: " + result.error);
     }
   };
 
   // Import to quiz
   const handleImportToQuiz = async () => {
     if (!quizId) {
-      toast.warning("No quiz selected for import");
+      notify.warning("No quiz selected for import");
       return;
     }
     if (selectedQuestions.length === 0) {
-      toast.warning("Please select at least one question to import");
+      notify.warning("Please select at least one question to import");
       return;
     }
     setImporting(true);
@@ -413,14 +413,14 @@ export const QuestionBank = () => {
         orderIndex++;
       }
 
-      toast.success(
+      notify.success(
         `Successfully imported ${selectedQuestions.length} question(s) to the quiz!`,
       );
       setSelectedQuestions([]);
       navigate(`/instructor-dashboard/instructor-quiz/${quizId}`);
     } catch (error) {
       console.error("Error importing questions:", error);
-      toast.error("Error importing questions: " + error.message);
+      notify.error("Error importing questions: " + error.message);
     } finally {
       setImporting(false);
     }
@@ -444,7 +444,7 @@ export const QuestionBank = () => {
 
   const removeOption = (index) => {
     if (newQuestion.options.length <= 2) {
-      toast.warning("Minimum 2 options required");
+      notify.warning("Minimum 2 options required");
       return;
     }
     setNewQuestion((prev) => ({
@@ -981,7 +981,7 @@ export const QuestionBank = () => {
                           });
                           if (confirmed) {
                             const result = await deleteQuestion(question.id);
-                            if (!result.success) toast.error(result.error);
+                            if (!result.success) notify.error(result.error);
                           }
                         }}
                         className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
