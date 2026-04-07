@@ -18,7 +18,7 @@ export const DetailedItemAnalysis = ({ item, index }) => {
               ITEM CHARACTERISTICS
             </h3>
             <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={250} minWidth={0} minHeight={0}>
                 <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="1 1" vertical={true} horizontal={true} stroke="#ccc" />
                   <XAxis 
@@ -46,7 +46,7 @@ export const DetailedItemAnalysis = ({ item, index }) => {
               ITEM RESPONSE THEORY
             </h3>
             <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={250} minWidth={0} minHeight={0}>
                 <AreaChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="1 1" vertical={true} horizontal={true} stroke="#ccc" />
                   <XAxis 
