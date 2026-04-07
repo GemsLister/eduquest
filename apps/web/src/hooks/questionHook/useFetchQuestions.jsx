@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const useFetchQuestion = () => {
+  const { user } = useAuth();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchQuestions = async () => {
+    if (!user) return;
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
 
       // Fetch questions from Supabase
       const { data, error } = await supabase

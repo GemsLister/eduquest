@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../context/AuthContext";
 
 export const AddEditForm = ({
   handleSaveQuestion,
@@ -8,6 +9,7 @@ export const AddEditForm = ({
   setShowForm,
   editingId
 }) => {
+  const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
 
@@ -17,10 +19,6 @@ export const AddEditForm = ({
       if (!editingId) {
         // Only fetch quizzes when adding new question
         try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          
           if (user) {
             const { data, error } = await supabase
               .from("quizzes")

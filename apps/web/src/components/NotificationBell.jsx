@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 export const NotificationBell = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -46,9 +48,6 @@ export const NotificationBell = () => {
   }, []);
 
   const loadNotifications = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data } = await supabase
@@ -73,9 +72,6 @@ export const NotificationBell = () => {
   };
 
   const markAllAsRead = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
 
     await supabase

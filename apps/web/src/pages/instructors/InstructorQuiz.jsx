@@ -4,6 +4,7 @@ import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
 
@@ -15,6 +16,7 @@ export const InstructorQuiz = () => {
   const location = useLocation();
   const { quizId } = useParams();
   const confirm = useConfirm();
+  const { user: authUser } = useAuth();
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizDuration, setQuizDuration] = useState("");
@@ -241,15 +243,12 @@ export const InstructorQuiz = () => {
 
   const loadSections = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
+      if (!authUser) return;
+      setUserId(authUser.id);
       const { data } = await supabase
         .from("sections")
         .select("*")
-        .eq("instructor_id", user.id)
+        .eq("instructor_id", authUser.id)
         .eq("is_archived", false);
       if (data) setAvailableSections(data);
     } catch (e) {
@@ -488,10 +487,7 @@ export const InstructorQuiz = () => {
 
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         notify.error("User not authenticated");
         setLoading(false);
         return;
@@ -586,7 +582,7 @@ export const InstructorQuiz = () => {
           .from("quizzes")
           .insert([
             {
-              instructor_id: user.id,
+              instructor_id: authUser.id,
               section_id: selectedSectionIds[0] || null,
               title: quizTitle,
               description: quizDescription || null,

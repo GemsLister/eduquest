@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 
 
 export const AdminQuizReviewDetail = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
@@ -66,10 +68,6 @@ export const AdminQuizReviewDetail = () => {
 
     setActionLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       // When admin approves, forward to faculty head for final approval
       const actualStatus = status === "approved" ? "faculty_head_review" : status;
 

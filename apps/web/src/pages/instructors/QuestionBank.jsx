@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 
 const ITEMS_PER_PAGE = 10;
@@ -10,6 +11,7 @@ const ITEMS_PER_PAGE = 10;
 export const QuestionBank = () => {
   const navigate = useNavigate();
   const { quizId } = useParams();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("active");
@@ -63,8 +65,6 @@ export const QuestionBank = () => {
     const fetchSections = async () => {
       try {
         setSectionsLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) {
           setSectionsLoading(false);
           return;

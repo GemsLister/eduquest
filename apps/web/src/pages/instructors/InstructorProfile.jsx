@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import profileImage from "../../assets/instructor-profile.png";
 import citlCover from "../../assets/CITL_cover_photo.png";
 
 export const InstructorProfile = () => {
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState({
     username: "",
@@ -25,18 +27,11 @@ export const InstructorProfile = () => {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (authUser) fetchUserData();
+  }, [authUser]);
 
   const fetchUserData = async () => {
     try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) throw authError;
-
       if (authUser) {
         // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
         if (authUser.email.endsWith("@gmail.com")) {

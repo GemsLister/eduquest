@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "../supabaseClient";
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 export const useProfile = () => {
-  const [user, setUser] = useState();
+  const { user } = useAuth();
   const [profile, setProfile] = useState({
     username: "",
     firstName: "",
@@ -14,39 +14,26 @@ export const useProfile = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) throw authError;
-
-      if (authUser) {
-        setUser(authUser);
-
-        // Set default profile data
-        const firstName = authUser.user_metadata?.given_name || "";
-        const lastName = authUser.user_metadata?.family_name || "";
-        const username =
-          authUser.user_metadata?.full_name || authUser.email.split("@")[0];
-
-        setProfile({
-          username: username,
-          firstName: firstName,
-          lastName: lastName,
-          email: authUser.email,
-          bio: "",
-        });
-      }
-    } catch (err) {
-      setError("Failed to load profile");
-      console.error(err);
-    } finally {
+  useEffect(() => {
+    if (!user) {
       setLoading(false);
+      return;
     }
-  }, []);
+
+    const firstName = user.user_metadata?.given_name || "";
+    const lastName = user.user_metadata?.family_name || "";
+    const username =
+      user.user_metadata?.full_name || user.email.split("@")[0];
+
+    setProfile({
+      username: username,
+      firstName: firstName,
+      lastName: lastName,
+      email: user.email,
+      bio: "",
+    });
+    setLoading(false);
+  }, [user]);
 
   const updateProfile = async () => {
     setSaveLoading(true);
@@ -56,8 +43,6 @@ export const useProfile = () => {
     try {
       if (!profile.username.trim() || !profile.firstName.trim()) {
         throw new Error("Username and First Name are required");
-        // setSaveLoading(false);
-        // return;
       }
       setSuccess("Profile updated successfully!");
     } catch (err) {
@@ -68,9 +53,6 @@ export const useProfile = () => {
     }
   };
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
   return {
     profile,
     setProfile,

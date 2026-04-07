@@ -4,10 +4,11 @@ import { notify } from "../../../utils/notify.jsx";
 import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
 import { supabase } from "../../../supabaseClient.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
 
 export const QuizzesPageMain = () => {
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [filter, setFilter] = useState(location.state?.filter || "all");
   const [search, setSearch] = useState("");
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -17,11 +18,6 @@ export const QuizzesPageMain = () => {
   const [sectionSaving, setSectionSaving] = useState(false);
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-      if (authUser) setUser(authUser);
-    });
-  }, []);
 
   const {
     quizFormData,
@@ -163,11 +159,7 @@ export const QuizzesPageMain = () => {
   // ── Section modal ──
   const openAssignSectionsModal = async (quiz) => {
     try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-
-      if (!authUser) {
+      if (!user) {
         notify.error("Please sign in again.");
         return;
       }
@@ -177,7 +169,7 @@ export const QuizzesPageMain = () => {
           supabase
             .from("sections")
             .select("*")
-            .eq("instructor_id", authUser.id)
+            .eq("instructor_id", user.id)
             .eq("is_archived", false),
           supabase
             .from("quiz_sections")

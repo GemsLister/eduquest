@@ -3,37 +3,30 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { quizService } from "../../services/quizService";
 import { sectionService } from "../../services/sectionService";
+import { useAuth } from "../../context/AuthContext";
 
 export const useFetchSectionQuiz = () => {
+  const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [sectionQuizzes, setSectionQuizzes] = useState({});
-  const [user, setUser] = useState(null); // Change from "" to null
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) {
+        navigate("/");
+        return;
+      }
       try {
-        // Get current user
-        const {
-          data: { user: authUser },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError) throw authError;
-        setUser(authUser);
-
-        if (!authUser) {
-          navigate("/");
-          return;
-        }
 
         const sectionsData = await sectionService.getSectionsByInstructor(
-          authUser.id,
+          user.id,
         );
         setSections(sectionsData);
 
         const { data: quizzesData, error: quizzesError } =
-          await quizService.getQuizzesByInstructor(authUser.id);
+          await quizService.getQuizzesByInstructor(user.id);
         if (quizzesError) throw quizzesError;
 
         // Sections should only show published quizzes.
@@ -125,8 +118,8 @@ export const useFetchSectionQuiz = () => {
       }
     };
     fetchData();
-  }, [navigate]);
+  }, [user, navigate]);
   {
-    return { quizzes, sectionQuizzes, user, sections, setSections, loading };
+  return { quizzes, sectionQuizzes, user, sections, setSections, loading };
   }
 };

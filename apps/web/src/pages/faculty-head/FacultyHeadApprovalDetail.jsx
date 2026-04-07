@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const FacultyHeadApprovalDetail = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
@@ -48,10 +50,6 @@ export const FacultyHeadApprovalDetail = () => {
   const handleApprove = async () => {
     setActionLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       const { error } = await supabase
         .from("quiz_analysis_submissions")
         .update({
@@ -91,9 +89,6 @@ export const FacultyHeadApprovalDetail = () => {
       : undefined;
 
     // Fetch signatory names from settings
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     let reviewerName, approverName;
     if (user) {
       const { data: signatories } = await supabase

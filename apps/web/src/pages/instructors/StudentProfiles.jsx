@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export const StudentProfiles = () => {
+  const { user: authUser } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -14,15 +16,12 @@ export const StudentProfiles = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
+        if (!authUser) {
           setError("User not authenticated");
           setLoading(false);
           return;
         }
-        setUserId(user.id);
+        setUserId(authUser.id);
 
         setLoading(true);
 
@@ -30,7 +29,7 @@ export const StudentProfiles = () => {
         const { data: sectionsData, error: sectionsError } = await supabase
           .from("sections")
           .select("*")
-          .eq("instructor_id", user.id)
+          .eq("instructor_id", authUser.id)
           .eq("is_archived", false)
           .order("name", { ascending: true });
 

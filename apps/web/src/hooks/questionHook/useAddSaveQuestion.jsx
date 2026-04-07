@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext";
 
 export const useAddSaveQuestion = () => {
+  const { user } = useAuth();
   const [editingId, setEditingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -38,9 +40,6 @@ export const useAddSaveQuestion = () => {
     }
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return;
 
       if (editingId) {

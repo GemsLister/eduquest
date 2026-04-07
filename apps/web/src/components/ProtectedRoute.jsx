@@ -1,53 +1,50 @@
 import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export const ProtectedRoute = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isFacultyHead, setIsFacultyHead] = useState(false);
   const [isApproved, setIsApproved] = useState(null);
   const [isDisabled, setIsDisabled] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    if (authLoading) return;
+    if (!user) {
+      setProfileLoading(false);
+      return;
+    }
+
+    const checkProfile = async () => {
       try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        setUser(authUser);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+        setIsAdmin(!!profile?.is_admin);
+        setIsFacultyHead(!!profile?.is_faculty_head);
+        // Treat null (column not yet added) as approved to avoid locking out existing users
+        setIsApproved(profile?.is_approved !== false);
+        setIsDisabled(profile?.is_disabled === true);
 
-        if (authUser) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", authUser.id)
-            .maybeSingle();
-          setIsAdmin(!!profile?.is_admin);
-          setIsFacultyHead(!!profile?.is_faculty_head);
-          // Treat null (column not yet added) as approved to avoid locking out existing users
-          setIsApproved(profile?.is_approved !== false);
-          setIsDisabled(profile?.is_disabled === true);
-
-
-          if (profile?.is_disabled === true) {
-            await supabase.auth.signOut();
-            setUser(null);
-          }
+        if (profile?.is_disabled === true) {
+          await supabase.auth.signOut();
         }
       } catch (error) {
         console.error("Auth check error:", error);
-        setUser(null);
       } finally {
-        setLoading(false);
+        setProfileLoading(false);
       }
     };
 
-    checkAuth();
-  }, []);
+    checkProfile();
+  }, [user, authLoading]);
 
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center h-screen flex-1">
         <div className="text-center">

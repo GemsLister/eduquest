@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export const FacultyHeadDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -11,19 +13,13 @@ export const FacultyHeadDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const displayName =
-          user.user_metadata?.full_name || user.email?.split("@")[0] || "Faculty Head";
-        setName(displayName);
-      }
-      await loadStats();
-    };
-    init();
-  }, []);
+    if (user) {
+      const displayName =
+        user.user_metadata?.full_name || user.email?.split("@")[0] || "Faculty Head";
+      setName(displayName);
+    }
+    loadStats();
+  }, [user]);
 
   const loadStats = async () => {
     try {

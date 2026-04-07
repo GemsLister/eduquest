@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { createQuizVersion } from "../../services/item-analysis/createQuizVersion";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
@@ -9,6 +10,7 @@ import { ItemAnalysisTable } from "../../components/container/item-analysis/Item
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 
 export const ItemAnalysisPage = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const initialSectionId = searchParams.get("sectionId") || "";
@@ -62,9 +64,6 @@ export const ItemAnalysisPage = () => {
   useEffect(() => {
     const fetchSections = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
         if (user) {
           // Fetch only sections that are NOT archived
           const { data, error } = await supabase

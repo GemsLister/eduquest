@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export const FacultyHeadProtectedRoute = ({ children }) => {
+  const { user, loading: authLoading } = useAuth();
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setStatus("unauthorized");
+      return;
+    }
+
     const checkFacultyHead = async () => {
       try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          setStatus("unauthorized");
-          return;
-        }
-
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("is_faculty_head")
@@ -36,9 +34,9 @@ export const FacultyHeadProtectedRoute = ({ children }) => {
     };
 
     checkFacultyHead();
-  }, []);
+  }, [user, authLoading]);
 
-  if (status === "loading") {
+  if (authLoading || status === "loading") {
     return (
       <div className="flex items-center justify-center h-screen flex-1">
         <div className="text-center">

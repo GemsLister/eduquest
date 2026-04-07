@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const useFetchQuizzes = () => {
+  const { user } = useAuth();
   const { sectionId } = useParams();
   const [section, setSection] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
 
   const generateShareToken = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -119,15 +120,8 @@ export const useFetchQuizzes = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) return;
       try {
-        // Get current user
-        const {
-          data: { user: authUser },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError) throw authError;
-        setUser(authUser);
-
         // Fetch section
         const { data: sectionData, error: sectionError } = await supabase
           .from("sections")
@@ -148,6 +142,6 @@ export const useFetchQuizzes = () => {
     };
 
     fetchData();
-  }, [sectionId]);
+  }, [user, sectionId]);
   return { fetchQuizzes, section, quizzes, loading, user };
 };

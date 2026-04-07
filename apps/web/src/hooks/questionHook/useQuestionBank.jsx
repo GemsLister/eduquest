@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const useQuestionBank = () => {
+  const { user } = useAuth();
   const [activeQuestions, setActiveQuestions] = useState([]);
   const [archivedQuestions, setArchivedQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +62,8 @@ export const useQuestionBank = () => {
   };
 
   const fetchQuestions = async () => {
+    if (!user) return;
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
 
       // Get instructor's quiz IDs
       const { data: quizzesData } = await supabase
@@ -252,9 +251,6 @@ export const useQuestionBank = () => {
   // Add a new question to the bank (without assigning to a quiz yet)
   const addToBank = async (questionData) => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
       // Create a draft quiz for the question

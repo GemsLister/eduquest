@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
 import { notify } from "../../utils/notify.jsx";
 
 export const ItemDifficulty = () => {
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
 
   // State for section and quiz selection
@@ -33,14 +35,8 @@ export const ItemDifficulty = () => {
   // Fetch user and sections on mount
   useEffect(() => {
     const fetchData = async () => {
+      if (!authUser) return;
       try {
-        // Get current user
-        const {
-          data: { user: authUser },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError) throw authError;
         setUser(authUser);
 
         if (authUser) {
@@ -467,8 +463,7 @@ export const ItemDifficulty = () => {
     setSavingAnalysis(true);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         setSaveError("User not authenticated");
         setSavingAnalysis(false);
         return;

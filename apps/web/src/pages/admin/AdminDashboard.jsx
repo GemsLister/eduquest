@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
 import {
   BloomsDistributionChart,
@@ -8,6 +9,7 @@ import {
 } from "../../components/BloomsVisualization";
 
 export const AdminDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { instructors, loading } = useAdminInstructors();
   const [adminName, setAdminName] = useState("");
@@ -21,17 +23,11 @@ export const AdminDashboard = () => {
   const [tosCompliance, setTosCompliance] = useState(null);
 
   useEffect(() => {
-    const getAdmin = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const name =
-          user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin";
-        setAdminName(name);
-      }
-    };
-    getAdmin();
+    if (user) {
+      const name =
+        user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin";
+      setAdminName(name);
+    }
     loadPendingReviews();
     loadBloomsStats();
     loadPendingRequests();

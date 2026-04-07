@@ -2,19 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const SavedAnalysisPage = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSavedAnalyses = async () => {
+      if (!user) return;
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
 
         const { data: myQuizzes } = await supabase
           .from("quizzes")

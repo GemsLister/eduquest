@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const FacultyHeadSettings = () => {
+  const { user } = useAuth();
   const [reviewerName, setReviewerName] = useState("");
   const [approverName, setApproverName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -14,11 +16,8 @@ export const FacultyHeadSettings = () => {
   }, []);
 
   const loadSignatories = async () => {
+    if (!user) return;
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
 
       const { data } = await supabase
         .from("tos_signatories")
@@ -38,12 +37,9 @@ export const FacultyHeadSettings = () => {
   };
 
   const handleSave = async () => {
+    if (!user) return;
     setSaving(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
 
       const { error } = await supabase.from("tos_signatories").upsert(
         {

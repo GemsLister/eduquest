@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 export const useFetchInstructorQuizzes = () => {
+  const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,13 +34,8 @@ export const useFetchInstructorQuizzes = () => {
   };
 
   const fetchQuizzes = useCallback(async () => {
+    if (!user) return;
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError) throw authError;
-
       const { data, error } = await supabase
         .from("quizzes")
         .select("*, quiz_attempts(count)")
@@ -113,7 +110,7 @@ export const useFetchInstructorQuizzes = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchQuizzes();

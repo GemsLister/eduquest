@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const MySubmissions = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,12 +20,9 @@ export const MySubmissions = () => {
   }, [filter]);
 
   const loadSubmissions = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
 
       // Fetch instructor's own profile name
       const { data: profile } = await supabase

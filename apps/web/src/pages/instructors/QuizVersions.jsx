@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export const QuizVersions = () => {
+  const { user: authUser } = useAuth();
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
   const [quizVersions, setQuizVersions] = useState([]);
@@ -11,18 +13,14 @@ export const QuizVersions = () => {
   // Fetch sections on mount
   useEffect(() => {
     const fetchSections = async () => {
+      if (!authUser) return;
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
-
-        setUserId(user.id);
+        setUserId(authUser.id);
 
         const { data: sectionsData } = await supabase
           .from("sections")
           .select("*")
-          .eq("instructor_id", user.id)
+          .eq("instructor_id", authUser.id)
           .eq("is_archived", false)
           .order("name", { ascending: true });
 
