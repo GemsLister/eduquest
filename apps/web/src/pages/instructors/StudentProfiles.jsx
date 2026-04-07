@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { itemAnalysisService } from "../../services/itemAnalysisService";
 
 export const StudentProfiles = () => {
   const [subjects, setSubjects] = useState([]);
@@ -9,6 +10,12 @@ export const StudentProfiles = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState(null);
+  
+  // Item analysis states
+  const [quizzes, setQuizzes] = useState([]);
+  const [selectedQuiz, setSelectedQuiz] = useState("");
+  const [analysis, setAnalysis] = useState([]);
+  const [analysisSaved, setAnalysisSaved] = useState(false);
 
   // Fetch subjects and students on mount
   useEffect(() => {
@@ -34,15 +41,24 @@ export const StudentProfiles = () => {
           .eq("is_archived", false)
           .order("name", { ascending: true });
 
-        if (sectionsError) {
-          console.error("Error fetching sections:", sectionsError);
-          setSubjects([]);
-        } else {
-          setSubjects(sectionsData || []);
-        }
+        if (sectionsError) throw sectionsError;
+
+        setSubjects(sectionsData || []);
         
         // Don't load students initially - load them when subject is selected
         setStudents([]);
+
+        // Fetch quizzes for item analysis
+        if (sectionsData && sectionsData.length > 0) {
+          const { data: quizzesData } = await supabase
+            .from("quizzes")
+            .select("id, title")
+            .eq("section_id", sectionsData[0].id)
+            .eq("is_archived", false)
+            .order("created_at", { ascending: true });
+          
+          setQuizzes(quizzesData || []);
+        }
 
       } catch (err) {
         setError(err.message || "Failed to load data");
@@ -52,6 +68,31 @@ export const StudentProfiles = () => {
     };
     fetchData();
   }, []);
+
+  // Fetch item analysis when quiz is selected
+  useEffect(() => {
+    if (selectedQuiz) {
+      fetchItemAnalysis(selectedQuiz);
+    }
+  }, [selectedQuiz]);
+
+  const fetchItemAnalysis = async (quizId) => {
+    try {
+      setLoading(true);
+      const { data: analysisData } = await supabase
+        .from("item_analysis")
+        .select("*")
+        .eq("quiz_id", quizId)
+        .order("question_id", { ascending: true });
+      
+      setAnalysis(analysisData || []);
+      setAnalysisSaved(false);
+    } catch (err) {
+      setError(err.message || "Failed to fetch item analysis");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate percentile for a score
   const calculatePercentile = (score, allScores) => {
@@ -95,7 +136,7 @@ export const StudentProfiles = () => {
       const fetchResults = async () => {
         setLoading(true);
         try {
-          // Fetch quiz attempts for this subject first to see which quizzes have results
+          // Fetch quizzes for this subject first to see which quizzes have results
           const { data: attemptsData, error: attemptsError } = await supabase
             .from("quiz_attempts")
             .select("quiz_id")
@@ -191,6 +232,11 @@ export const StudentProfiles = () => {
 
           const results = await getSubjectResultsForStudents([], allQuizzes);
           setSubjectResults(results);
+          
+          // Auto-select first quiz for item analysis if available
+          if (allQuizzes.length > 0) {
+            setSelectedQuiz(allQuizzes[0].id);
+          }
         } catch (err) {
           setError(err.message || "Failed to load results");
         } finally {
@@ -202,15 +248,18 @@ export const StudentProfiles = () => {
     } else {
       setSubjectResults([]);
       setSubjectQuizzes([]);
+      setSelectedQuiz("");
+      setAnalysis([]);
     }
   }, [selectedSubject]);
 
-  // Helper function to get results for specific students
+       
+    // Helper function to get results for specific students
   const getSubjectResultsForStudents = async (studentsToProcess, quizzesData) => {
     if (selectedSubject === "") return [];
 
     try {
-      // Fetch quiz attempts for this specific subject
+      // Fetch quiz attempts for this specific subject - remove status filter to get all attempts
       const { data: attemptsData, error: attemptsError } = await supabase
         .from("quiz_attempts")
         .select(`
@@ -299,88 +348,59 @@ export const StudentProfiles = () => {
       // Create student data map
       const studentMap = new Map();
 
-      attemptsData?.forEach(attempt => {
-        const studentId = getStudentId(attempt);
-        if (!studentId || studentMap.has(studentId)) return;
-
-        // First try to get name from quiz attempts, then from profile
-        const nameFromAttempt = studentNameMap.get(studentId);
+      // Process each unique student ID
+      uniqueStudentIds.forEach(studentId => {
         const profile = profileMap.get(studentId);
+        const attempts = studentAttemptsMap.get(studentId) || [];
+        const percentage = finalPercentages.get(studentId) || 0;
         
-        let fullName = `Student ${studentId}`; // fallback
-        
-        if (nameFromAttempt) {
-          fullName = nameFromAttempt.trim();
-        } else if (profile?.student_name) {
-          fullName = profile.student_name.trim();
-        } else if (profile?.username) {
-          fullName = profile.username.trim();
-        } else if (profile?.student_email) {
-          fullName = profile.student_email.split('@')[0];
-        }
-        
+        // Use student_name from profile first, then from attempts, then fallback
+        const studentName = profile?.student_name || 
+                         studentNameMap.get(studentId) || 
+                         `Student ${studentId}`;
+
+        // Get section name from any attempt for this student
+        const sectionName = attemptsData?.find(a => getStudentId(a) === studentId)?.sections?.name || "Unknown";
+
         studentMap.set(studentId, {
           id: studentId,
-          name: fullName,
-          student_name: fullName,
-          percentageScore: finalPercentages.get(studentId) || 0,
-          section: attempt.sections?.name || "Unknown"
-        });
-      });
-
-      const studentsFromSubject = Array.from(studentMap.values());
-
-      // Process results
-      const results = studentsFromSubject.map(student => {
-        const studentResults = {
-          ...student,
+          student_name: studentName,
+          section: sectionName,
+          percentageScore: percentage,
           quizzes: {}
-        };
-
-        quizzesData?.forEach(quiz => {
-          const studentQuizAttempts = attemptsData?.filter(
-            attempt => attempt.quiz_id === quiz.id && getStudentId(attempt) === student.id
-          );
-          
-          const hasAttempt = studentQuizAttempts && studentQuizAttempts.length > 0;
-          const bestAttempt = hasAttempt ? studentQuizAttempts.reduce((best, current) => 
-            (current.score > best.score) ? current : best, studentQuizAttempts[0]
-          ) : null;
-
-          const score = bestAttempt?.score || 0;
-          const totalItems = quiz.total_items || 1;
-          const percentage = Math.round((score / totalItems) * 100);
-          
-          studentResults.quizzes[quiz.id] = {
-            name: quiz.title,
-            score: score,
-            totalItems: totalItems,
-            percentage: percentage,
-            hasAttempt: hasAttempt
-          };
-        });
-
-        return studentResults;
-      });
-
-      console.log("Final student results with quiz data before filtering:", results);
-      
-      // Filter out students who have no attempts for the active quizzes
-      const filteredResults = results.filter(student => {
-        return quizzesData?.some(quiz => {
-          return attemptsData?.some(attempt => 
-            getStudentId(attempt) === student.id && attempt.quiz_id === quiz.id
-          );
         });
       });
 
-      console.log("Final student results after filtering archived quiz data:", filteredResults);
-      console.log("Subject quizzes being used for display:", quizzesData);
-      return filteredResults;
+      // Process quiz results for each student
+      studentMap.forEach((studentData, studentId) => {
+        const attempts = studentAttemptsMap.get(studentId) || [];
+        
+        attempts.forEach(attempt => {
+          const quiz = quizzesData?.find(q => q.id === attempt.quiz_id);
+          if (quiz) {
+            const percentage = quiz.total_items > 0 ? Math.round((attempt.score / quiz.total_items) * 100) : 0;
+            studentData.quizzes[attempt.quiz_id] = {
+              name: quiz.title,
+              score: attempt.score,
+              totalItems: quiz.total_items,
+              percentage: percentage,
+              hasAttempt: true
+            };
+          }
+        });
+      });
+
+      // Convert to array and sort by student name
+      const results = Array.from(studentMap.values()).sort((a, b) => 
+        a.student_name.localeCompare(b.student_name)
+      );
+
+      console.log("Final processed results:", results);
+      return results;
 
     } catch (err) {
-      console.error("Error fetching subject results:", err);
-      return [];
+      console.error("Error in getSubjectResultsForStudents:", err);
+      throw err;
     }
   };
 
@@ -417,17 +437,39 @@ export const StudentProfiles = () => {
         <div className="p-6 bg-brand-navy text-white">
           <div>
             <h1 className="text-2xl font-bold uppercase tracking-wider">
-              Student Profiles
+              Student Profiles & Item Analysis
             </h1>
             <p className="opacity-80 text-sm">
-              View student performance across subjects and quizzes
+              View student performance and item analysis results
             </p>
           </div>
         </div>
 
         {/* Selection Controls */}
-        <div className="p-6 bg-gray-50 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Subject Selection */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Select Subject
+              </label>
+              <select
+                value={selectedSubject}
+                onChange={(e) => {
+                  setSelectedSubject(e.target.value);
+                  setSelectedQuiz("");
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              >
+                <option value="">-- Select a Subject --</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name || subject.section_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Student Search Bar */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -456,25 +498,6 @@ export const StudentProfiles = () => {
                 </svg>
               </div>
             </div>
-
-            {/* Subject Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Subject
-              </label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              >
-                <option value="">-- Select a Subject --</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name || subject.section_name}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
       </div>
@@ -492,18 +515,89 @@ export const StudentProfiles = () => {
         <div className="px-6 pb-6">
           <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-600">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
-            <p className="mt-2">Loading student data...</p>
+            <p className="mt-2">Loading data...</p>
           </div>
         </div>
       )}
 
-      {/* Results Table */}
-      {!loading && selectedSubject && filteredResults.length > 0 && (
+      {/* Item Analysis Results */}
+      {!loading && selectedQuiz && analysis.length > 0 && (
         <div className="px-6 pb-6">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="p-6 bg-gray-50 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">
-                {subjects.find(s => s.id === selectedSubject)?.name || subjects.find(s => s.id === selectedSubject)?.section_name} - Quiz Results
+                Item Analysis Results - {quizzes.find(q => q.id === selectedQuiz)?.title}
+              </h2>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Binary Analysis Results</h3>
+                <div className="bg-gray-100 rounded-lg p-4 font-mono text-sm max-h-64 overflow-y-auto">
+                  {analysis.map((item, index) => (
+                    <div key={index} className="mb-2 flex items-center">
+                      <span className="text-gray-600 mr-4">Q{String(index + 1).padStart(2, '0')}:</span>
+                      <span className="font-bold text-gray-800">{item.question_id}</span>
+                      <span className="text-blue-600 ml-4">{item.auto_flag}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Difficulty Analysis */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-800 mb-4">Difficulty Analysis</h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {analysis.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span className="text-sm text-gray-600">Q{String(index + 1).padStart(2, '0')}</span>
+                        <span className={`px-3 py-1 rounded text-xs font-semibold ${
+                          item.difficulty_status === 'Easy' ? 'bg-green-100 text-green-800' :
+                          item.difficulty_status === 'Moderate' ? 'bg-orange-100 text-orange-800' :
+                          item.difficulty_status === 'Difficult' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.difficulty_status || 'N/A'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Discrimination Analysis */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-800 mb-4">Discrimination Analysis</h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {analysis.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span className="text-sm text-gray-600">Q{String(index + 1).padStart(2, '0')}</span>
+                        <span className={`px-3 py-1 rounded text-xs font-semibold ${
+                          item.discrimination_status === 'Excellent' ? 'bg-green-100 text-green-800' :
+                          item.discrimination_status === 'Good' ? 'bg-blue-100 text-blue-800' :
+                          item.discrimination_status === 'Acceptable' ? 'bg-yellow-100 text-yellow-800' :
+                          item.discrimination_status === 'Poor' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.discrimination_status || 'N/A'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Profiles Table */}
+      {!loading && selectedSubject && subjectResults.length > 0 && (
+        <div className="px-6 pb-6">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6 bg-gray-50 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">
+                {subjects.find(s => s.id === selectedSubject)?.name || subjects.find(s => s.id === selectedSubject)?.section_name} - Student Profiles
               </h2>
             </div>
 
@@ -533,28 +627,31 @@ export const StudentProfiles = () => {
                   <table className="min-w-full">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 w-48">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-48">
                           Student Name
                         </th>
-                        {/* <th className="text-left py-4 px-4 text-sm font-semibold text-gray-600 w-64">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
                           Section
-                        </th> */}
+                        </th>
                         {subjectQuizzes.map((quiz) => (
-                          <th key={quiz.id} className="text-center py-4 px-4 text-sm font-semibold text-gray-600 min-w-[140px]">
+                          <th key={quiz.id} className="text-center py-3 px-4 text-sm font-semibold text-gray-700 min-w-[80px]">
                             {quiz.title}
                           </th>
                         ))}
+                        <th className="text-center py-4 px-4 text-sm font-bold text-brand-navy min-w-[140px] bg-gray-100/50">
+                          Overall Average
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredResults.map((student) => (
+                      {subjectResults.map((student) => (
                         <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="py-6 px-4 text-sm font-bold text-gray-800">
                             {student.student_name}
                           </td>
-                          {/* <td className="py-6 px-4 text-xs text-gray-500 max-w-[200px] leading-relaxed">
+                          <td className="py-6 px-4 text-xs text-gray-500 max-w-[200px] leading-relaxed">
                             {student.section}
-                          </td> */}
+                          </td>
                           {subjectQuizzes.map((quiz) => {
                             const quizResult = student.quizzes?.[quiz.id];
                             const percentage = quizResult?.percentage || 0;
@@ -572,6 +669,11 @@ export const StudentProfiles = () => {
                               </td>
                             );
                           })}
+                          <td className="py-6 px-4 text-center bg-gray-50/30">
+                            <div className={`inline-flex items-center justify-center px-8 py-2 rounded-lg text-sm font-black w-32 shadow-sm ${getPercentileColor(student.percentageScore)}`}>
+                              {student.percentageScore}%
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -584,18 +686,10 @@ export const StudentProfiles = () => {
       )}
 
       {/* Empty State */}
-      {!loading && !selectedSubject && (
+      {!loading && !selectedSubject && !selectedQuiz && (
         <div className="px-6 pb-6">
           <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-600">
-            Select a subject to view student performance data
-          </div>
-        </div>
-      )}
-
-      {!loading && selectedSubject && subjectResults.length === 0 && (
-        <div className="px-6 pb-6">
-          <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-600">
-            No students have attempted quizzes in this subject yet
+            Select a subject to view student performance data or a quiz to view item analysis
           </div>
         </div>
       )}
