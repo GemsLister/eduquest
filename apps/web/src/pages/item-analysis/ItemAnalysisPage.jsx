@@ -7,6 +7,7 @@ import { ItemAnalysisHeader } from "../../components/container/item-analysis/Ite
 import { ItemAnalysisResults } from "../../components/container/item-analysis/ItemAnalysisResults";
 import { ItemAnalysisTable } from "../../components/container/item-analysis/ItemAnalysisTable";
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
+import { useDiscrimination } from "../../hooks/analysisHook/useDiscrimination";
 
 export const ItemAnalysisPage = () => {
   const location = useLocation();
@@ -32,6 +33,7 @@ export const ItemAnalysisPage = () => {
   const [cohortOptions, setCohortOptions] = useState([]);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const { handleDiscrimination } = useDiscrimination();
 
   // --- 0. Helper: Find Searched Student Info ---
   const searchedStudentInfo = useMemo(() => {
@@ -325,8 +327,9 @@ export const ItemAnalysisPage = () => {
         const fi = total > 0 ? correctCount / total : 0;
 
         // --- 5. DISCRIMINATION ($D$) ---
-        let discrimination = 0;
-        let discStatus = "POOR";
+        const discriminationData = handleDiscrimination(qResponses, takersMap);
+        const discrimination = parseFloat(discriminationData.discrimination);
+        const discStatus = discriminationData.discStatus;
 
         const sortedTakers = qResponses.map(r => ({
           isCorrect: r.is_correct,
@@ -336,21 +339,36 @@ export const ItemAnalysisPage = () => {
         const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
         const lowestScore = sortedTakers.length > 0 ? sortedTakers[sortedTakers.length - 1].totalScore : 0;
 
-        if (total >= 2) {
-          const groupSize = Math.max(1, Math.floor(total * 0.27));
-          const upperGroup = sortedTakers.slice(0, groupSize);
-          const lowerGroup = sortedTakers.slice(-groupSize);
+        // --- 6. AI DECISION (Flag Logic) ---
+        let autoFlag = "approved"; // Default to approved
 
-          const upperP = upperGroup.filter(r => r.isCorrect).length / groupSize;
-          const lowerP = lowerGroup.filter(r => r.isCorrect).length / groupSize;
-          
-          discrimination = upperP - lowerP;
-          if (discrimination >= 0.40) discStatus = "EXCELLENT";
-          else if (discrimination >= 0.20) discStatus = "GOOD";
+        // Decision Matrix: Combine Difficulty (P) and Discrimination (D)
+        const difficulty = fi; // P-value (0-1)
+        const discValue = discrimination; // D-value
+
+        // RETAIN: Difficulty 0.25-0.75 AND Discrimination >= 0.30
+        if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.30) {
+          autoFlag = "approved";
+        }
+        // REVISE: (Difficulty outside 0.25-0.75 OR Discrimination 0.20-0.29) AND not meeting REJECT criteria
+        else if (
+          ((difficulty < 0.25 || difficulty > 0.75) || (discValue >= 0.20 && discValue <= 0.29)) &&
+          !(discValue < 0.19 || discValue < 0) &&
+          !(difficulty === 0.00 || difficulty === 1.00)
+        ) {
+          autoFlag = "revise";
+        }
+        // REJECT: Extreme difficulty (0.00 or 1.00) OR Discrimination < 0.19 OR Negative discrimination
+        else if (
+          difficulty === 0.00 || difficulty === 1.00 ||
+          discValue < 0.19 ||
+          discValue < 0
+        ) {
+          autoFlag = "reject";
         }
 
-        // --- 6. AI DECISION (Flag Logic) ---
-        const isGoodItem = fi >= 0.3 && fi <= 0.8 && discrimination >= 0.2;
+        // Note: Difficulty Index interpretation (for reference only)
+        // P: 0-0.25 = difficult, P: 0.26-0.75 = moderately difficult, P: 0.76+ = easy
 
         // --- 7. ICC / Decile Performance Calculation ---
         const decilePerformance = Array.from({ length: 10 }, (_, i) => {
@@ -389,7 +407,14 @@ export const ItemAnalysisPage = () => {
           status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
           discStatus: discStatus,
-          autoFlag: isGoodItem ? "approved" : "revise",
+          autoFlag: autoFlag,
+          recommendation: discriminationData.recommendation,
+          Pu: discriminationData.Pu,
+          Pl: discriminationData.Pl,
+          upperGroupSize: discriminationData.upperGroupSize,
+          lowerGroupSize: discriminationData.lowerGroupSize,
+          upperCorrect: discriminationData.upperCorrect,
+          lowerCorrect: discriminationData.lowerCorrect,
           highestScore,
           lowestScore,
           totalResponses: total,
