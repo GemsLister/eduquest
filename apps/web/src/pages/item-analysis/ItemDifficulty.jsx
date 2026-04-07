@@ -553,6 +553,13 @@ export const ItemDifficulty = () => {
 
   const toggleDetails = (questionId) => {
     setExpandedQuestion(expandedQuestion === questionId ? null : questionId);
+    // Initialize page state for this question if it doesn't exist
+    if (!takersPage[questionId]) {
+      setTakersPage({
+        ...takersPage,
+        [questionId]: 1
+      });
+    }
   };
 
   const getFlagBadge = (flag) => {
