@@ -44,7 +44,7 @@ export const ItemAnalysisPage = () => {
     
     for (const item of analysis) {
       (item.takersDetails || []).forEach(t => {
-        if (t.name.toLowerCase().includes(studentSearchTerm.toLowerCase())) {
+        if (t.name.toLowerCase() === studentSearchTerm.toLowerCase()) {
           // Key by a combination of name and score to identify unique attempts shown in your screenshot
           const key = `${t.name}-${t.totalScore}`;
           if (!matchingAttempts.has(key)) {
@@ -415,6 +415,8 @@ export const ItemAnalysisPage = () => {
           lowerGroupSize: discriminationData.lowerGroupSize,
           upperCorrect: discriminationData.upperCorrect,
           lowerCorrect: discriminationData.lowerCorrect,
+          upperGroupNames: discriminationData.upperGroupNames || [],
+          lowerGroupNames: discriminationData.lowerGroupNames || [],
           highestScore,
           lowestScore,
           totalResponses: total,
