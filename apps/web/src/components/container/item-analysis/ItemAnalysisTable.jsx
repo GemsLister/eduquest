@@ -19,10 +19,10 @@ export const ItemAnalysisTable = ({
   const endIndex = startIndex + itemsPerPage;
   const currentItems = analysis.slice(startIndex, endIndex);
 
-  // Reset to page 1 when analysis data changes
+  // Reset to page 1 only when analysis length changes (new quiz loaded)
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [analysis]);
+  }, [analysis.length]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -120,15 +120,25 @@ export const ItemAnalysisTable = ({
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
                       <span 
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all ${
+                        className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all transform ${
                           item.autoFlag === "approved" 
-                            ? "bg-green-500 opacity-80" 
+                            ? "bg-green-500 opacity-80 cursor-default" 
+                            : item.autoFlag === "reject"
+                            ? "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
+                            : item.autoFlag === "revise"
+                            ? "bg-orange-500 hover:bg-orange-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
                             : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
                         }`}
-                        onClick={() => item.autoFlag === 'revise' && onFlagClick(item)}
-                        title={item.autoFlag === 'revise' ? "Click to edit revision" : "Good item (no revision needed)"}
+                        onClick={() => (item.autoFlag === 'revise' || item.autoFlag === 'reject') && onFlagClick(item)}
+                        title={
+                          item.autoFlag === 'revise' 
+                            ? "Click to edit revision" 
+                            : item.autoFlag === 'reject'
+                            ? "Click to replace with new question"
+                            : "Good item (no revision needed)"
+                        }
                       >
-                        {item.autoFlag?.toUpperCase()}
+                        {item.autoFlag === 'approved' ? 'RETAIN' : item.autoFlag?.toUpperCase()}
                       </span>
                     </td>
 
@@ -149,7 +159,9 @@ export const ItemAnalysisTable = ({
                         <div className="p-6">
                           <DetailedItemAnalysis item={item} index={startIndex + index} />
                           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <DistractorAnalysis item={item} />
+                            <div className="max-h-[600px] overflow-y-auto">
+                              <DistractorAnalysis item={item} />
+                            </div>
                             <TakersDetailTable item={item} searchTerm={studentSearchTerm} />
                           </div>
                         </div>
@@ -237,19 +249,27 @@ export const ItemAnalysisTable = ({
           </h4>
           <div className="space-y-3 mb-4">
             <div className="group">
-              <span className="block w-full h-7 bg-green-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">APPROVED</span>
+              <span className="block w-full h-7 bg-green-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">RETAIN</span>
               <div className="text-xs text-slate-700 text-center">
-                <strong className="text-green-700">P: 0.25–0.75</strong>
+                <strong className="text-green-700">D: 0.40-1.00</strong>
                 <br />
-                Moderate / Easy items
+                Good discrimination
               </div>
             </div>
             <div className="group">
               <span className="block w-full h-7 bg-red-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REVISE</span>
               <div className="text-xs text-slate-700 text-center">
-                <strong className="text-red-700">P: below 0.25 or above 0.75</strong>
+                <strong className="text-red-700">D: 0.20-0.39</strong>
                 <br />
-                <small>(1.0 = too easy, 0.0 = too hard)</small>
+                Fair discrimination
+              </div>
+            </div>
+            <div className="group">
+              <span className="block w-full h-7 bg-gray-700 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REJECT</span>
+              <div className="text-xs text-slate-700 text-center">
+                <strong className="text-gray-700">D: 0.00-0.19</strong>
+                <br />
+                Poor discrimination
               </div>
             </div>
             <div className="group">
