@@ -6,7 +6,7 @@ export const useDiscrimination = () => {
 
     const scoredResponses = questionResponses.map((response) => ({
       attemptId: response.attempt_id,
-      totalScore: takersMap[response.attempt_id]?.score || 0,
+      totalScore: takersMap[response.attempt_id]?.totalScore || 0,
       isCorrect: response.is_correct
     })).sort((a, b) => b.totalScore - a.totalScore);
 
@@ -20,6 +20,10 @@ export const useDiscrimination = () => {
     const Pu = upperCorrect / groupSize;
     const Pl = lowerCorrect / groupSize;
     const dIndex = Pu - Pl;
+
+    // Get student names for upper and lower groups
+    const upperGroupNames = upperGroup.map(g => takersMap[g.attemptId]?.name || 'Unknown').filter(name => name !== 'Unknown');
+    const lowerGroupNames = lowerGroup.map(g => takersMap[g.attemptId]?.name || 'Unknown').filter(name => name !== 'Unknown');
 
     // Determine effectiveness based on provided table criteria
     let status, recommendation;
@@ -51,7 +55,9 @@ export const useDiscrimination = () => {
       upperGroupSize: groupSize,
       lowerGroupSize: groupSize,
       upperCorrect,
-      lowerCorrect
+      lowerCorrect,
+      upperGroupNames,
+      lowerGroupNames
     };
   };
 
