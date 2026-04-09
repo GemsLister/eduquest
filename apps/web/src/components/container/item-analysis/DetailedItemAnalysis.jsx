@@ -75,6 +75,63 @@ export const DetailedItemAnalysis = ({ item, index }) => {
           </div>
         </div>
 
+        {/* HIGH AND LOW GROUP STUDENT NAMES */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          {/* HIGH GROUP */}
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-gray-600 mb-1">High Group (Top 27%)</span>
+            <div className="border border-gray-400 overflow-hidden">
+              <div className="bg-green-50 p-2 border-b border-gray-400">
+                <div className="text-[9px] font-semibold text-green-800">
+                  Pu = {item.Pu} ({item.upperCorrect}/{item.upperGroupSize} correct)
+                </div>
+              </div>
+              <div className="max-h-32 overflow-y-auto">
+                {item.upperGroupNames && item.upperGroupNames.length > 0 ? (
+                  <div className="p-2">
+                    {item.upperGroupNames.map((name, index) => (
+                      <div key={index} className="text-[10px] text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                        {index + 1}. {name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2 text-[10px] text-gray-400 italic">
+                    No high group students available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* LOW GROUP */}
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-gray-600 mb-1">Low Group (Bottom 27%)</span>
+            <div className="border border-gray-400 overflow-hidden">
+              <div className="bg-red-50 p-2 border-b border-gray-400">
+                <div className="text-[9px] font-semibold text-red-800">
+                  Pl = {item.Pl} ({item.lowerCorrect}/{item.lowerGroupSize} correct)
+                </div>
+              </div>
+              <div className="max-h-32 overflow-y-auto">
+                {item.lowerGroupNames && item.lowerGroupNames.length > 0 ? (
+                  <div className="p-2">
+                    {item.lowerGroupNames.map((name, index) => (
+                      <div key={index} className="text-[10px] text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                        {index + 1}. {name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2 text-[10px] text-gray-400 italic">
+                    No low group students available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           {/* TEST TABLE */}
           <div className="flex flex-col">
