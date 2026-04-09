@@ -277,6 +277,12 @@ export const StudentProfiles = () => {
     if (selectedSubject === "") return [];
 
     try {
+      // Debug: Log the incoming quizzes data
+      console.log("DEBUG - getSubjectResultsForStudents called with:");
+      console.log("studentsToProcess:", studentsToProcess);
+      console.log("quizzesData:", quizzesData);
+      console.log("Number of quizzes:", quizzesData?.length);
+      
       // Fetch quiz attempts for this specific subject - remove status filter to get all attempts
       const { data: attemptsData, error: attemptsError } = await supabase
         .from("quiz_attempts")
@@ -293,9 +299,56 @@ export const StudentProfiles = () => {
       if (attemptsError) throw attemptsError;
 
       console.log("All quiz attempts for subject:", attemptsData);
-
+      console.log("Total attempts count:", attemptsData?.length);
+      
       // Unified helper to get a student's identification
       const getStudentId = (attempt) => attempt.user_id || attempt.student_id;
+      
+      // Check for duplicate attempts
+      const duplicateCheck = new Map();
+      attemptsData?.forEach(attempt => {
+        const key = `${getStudentId(attempt)}-${attempt.quiz_id}`;
+        if (duplicateCheck.has(key)) {
+          console.warn(`DUPLICATE ATTEMPT FOUND: ${key}`);
+        }
+        duplicateCheck.set(key, (duplicateCheck.get(key) || 0) + 1);
+      });
+      
+      // Special debug for Marf's attempts
+      const marfAttempts = attemptsData?.filter(a => 
+        a.student_name?.toLowerCase().includes('marf') || 
+        a.user_id?.toString().includes('marf')
+      );
+      if (marfAttempts && marfAttempts.length > 0) {
+        console.log("=== MARF'S RAW ATTEMPTS DATA ===");
+        marfAttempts.forEach((attempt, index) => {
+          console.log(`Marf Attempt ${index + 1}:`, {
+            quiz_id: attempt.quiz_id,
+            score: attempt.score,
+            student_name: attempt.student_name,
+            user_id: attempt.user_id
+          });
+        });
+        console.log("=== END MARF RAW DATA ===");
+      }
+
+      // Special debug for James Lester Lopez's attempts
+      const jamesAttempts = attemptsData?.filter(a => 
+        a.student_name?.toLowerCase().includes('james lester lopez')
+      );
+      if (jamesAttempts && jamesAttempts.length > 0) {
+        console.log("=== JAMES LESTER LOPEZ'S RAW ATTEMPTS DATA ===");
+        jamesAttempts.forEach((attempt, index) => {
+          console.log(`James Attempt ${index + 1}:`, {
+            quiz_id: attempt.quiz_id,
+            score: attempt.score,
+            student_name: attempt.student_name,
+            user_id: attempt.user_id,
+            section_name: attempt.sections?.name
+          });
+        });
+        console.log("=== END JAMES RAW DATA ===");
+      }
 
       // Get unique student IDs from attempts in this subject
       const uniqueStudentIds = [...new Set(attemptsData?.map(attempt => getStudentId(attempt)).filter(id => id != null))];
@@ -331,36 +384,164 @@ export const StudentProfiles = () => {
         profileMap.set(profile.id, profile);
       });
 
-      // Group attempts by student ID
+      // Group attempts by student ID and quiz ID, keeping only the highest score for each quiz
       const studentAttemptsMap = new Map();
       attemptsData?.forEach(attempt => {
         const id = getStudentId(attempt);
         if (!id) return;
 
         const currentScores = studentAttemptsMap.get(id) || [];
-        currentScores.push({
-          score: attempt.score,
-          quiz_id: attempt.quiz_id
-        });
+        
+        // Check if this quiz already has an attempt for this student
+        const existingQuizIndex = currentScores.findIndex(s => s.quiz_id === attempt.quiz_id);
+        
+        if (existingQuizIndex >= 0) {
+          // Update with higher score if this attempt is better
+          if (attempt.score > currentScores[existingQuizIndex].score) {
+            currentScores[existingQuizIndex].score = attempt.score;
+          }
+        } else {
+          // Add new quiz attempt
+          currentScores.push({
+            score: attempt.score,
+            quiz_id: attempt.quiz_id
+          });
+        }
+        
         studentAttemptsMap.set(id, currentScores);
       });
 
-      // Calculate final percentages
+      // Debug: Log the grouped attempts to verify correct aggregation
+      console.log("=== GROUPED ATTEMPTS BY STUDENT ===");
+      studentAttemptsMap.forEach((scores, studentId) => {
+        const studentName = studentNameMap.get(studentId);
+        console.log(`Student: ${studentName} (${studentId})`);
+        scores.forEach(score => {
+          console.log(`  Quiz ${score.quiz_id}: ${score.score}`);
+        });
+        const total = scores.reduce((sum, s) => sum + s.score, 0);
+        console.log(`  Total: ${total}`);
+      });
+      console.log("=== END GROUPED ATTEMPTS ===");
+
+      // Calculate final percentages and store fraction data
       const finalPercentages = new Map();
+      const studentFractions = new Map();
+      
+      // Calculate total items from ALL quizzes in this subject (not just attempted ones)
+      // Ensure we have valid quiz data before calculating
+      let overallTotalItems = 0;
+      if (quizzesData && quizzesData.length > 0) {
+        overallTotalItems = quizzesData.reduce((sum, quiz) => {
+          const items = quiz.total_items || 0;
+          console.log(`Quiz ${quiz.title} (${quiz.id}): ${items} items`);
+          return sum + items;
+        }, 0);
+      }
+      
+      // Debug logging to understand the issue
+      console.log("DEBUG - Quizzes Data for total items calculation:");
+      console.log("quizzesData:", quizzesData);
+      console.log("Quiz details:", quizzesData?.map(q => ({ 
+        id: q.id, 
+        title: q.title, 
+        total_items: q.total_items 
+      })));
+      console.log("Calculated overallTotalItems:", overallTotalItems);
+      
+      // If overallTotalItems seems too low, there might be an issue with quiz data
+      if (overallTotalItems < 50) {
+        console.warn("WARNING: overallTotalItems seems low, check quiz data!");
+      }
+      
       studentAttemptsMap.forEach((scores, studentId) => {
         let totalScore = 0;
-        let totalItems = 0;
         
+        // Sum scores from attempted quizzes only, ensuring no duplicates
         scores.forEach(scoreData => {
-          const quiz = quizzesData?.find(q => q.id === scoreData.quiz_id);
-          if (quiz) {
-            totalScore += scoreData.score;
-            totalItems += quiz.total_items || 1;
+          // Validate score is reasonable
+          if (scoreData.score < 0 || scoreData.score > 100 || isNaN(scoreData.score)) {
+            console.warn(`Invalid score detected: ${scoreData.score} for quiz ${scoreData.quiz_id}`);
+            return;
           }
+          console.log(`Adding score: ${scoreData.score} for quiz ${scoreData.quiz_id}`);
+          totalScore += scoreData.score;
         });
         
-        const percentage = totalItems > 0 ? Math.round((totalScore / totalItems) * 100) : 0;
+        // Debug: Check if totalScore is unexpectedly high
+        if (totalScore > overallTotalItems) {
+          console.warn(`WARNING: totalScore (${totalScore}) > overallTotalItems (${overallTotalItems}) for student ${studentId}`);
+          console.warn("Individual scores:", scores);
+          
+          // Instead of capping, let's recalculate properly by only counting valid quiz attempts
+          // that match the quizzes in quizzesData
+          totalScore = 0;
+          scores.forEach(scoreData => {
+            const quiz = quizzesData?.find(q => q.id === scoreData.quiz_id);
+            if (quiz && quiz.total_items > 0) {
+              // Ensure the score doesn't exceed the quiz's total items
+              const validScore = Math.min(scoreData.score, quiz.total_items);
+              totalScore += validScore;
+              console.log(`Recalculated: Adding valid score ${validScore} for quiz ${quiz.title} (max: ${quiz.total_items})`);
+            } else {
+              console.warn(`Skipping invalid quiz attempt: quiz_id ${scoreData.quiz_id} not found in quizzesData`);
+            }
+          });
+          
+          console.log(`Recalculated totalScore: ${totalScore}`);
+        }
+        
+        // Use ALL quiz items for denominator (test1 + test2 total items)
+        const percentage = overallTotalItems > 0 ? Math.round((totalScore / overallTotalItems) * 100) : 0;
         finalPercentages.set(studentId, percentage);
+        studentFractions.set(studentId, { totalScore, totalItems: overallTotalItems });
+        
+        // Debug logging for all students to understand the data
+        const studentName = studentNameMap.get(studentId);
+        console.log(`DEBUG - Student: ${studentName}`);
+        console.log("Scores:", scores);
+        console.log("Total Score (test1 + test2 scores):", totalScore);
+        console.log("Overall Total Items (test1 + test2 total items):", overallTotalItems);
+        console.log("Percentage:", percentage);
+        console.log("Quizzes Data:", quizzesData?.map(q => ({ id: q.id, title: q.title, total_items: q.total_items })));
+        
+        // Special debugging for Marf's case
+        if (studentName && studentName.toLowerCase().includes('marf')) {
+          console.log("=== MARF SPECIAL DEBUG ===");
+          console.log("Marf's individual quiz attempts:");
+          scores.forEach((scoreData, index) => {
+            const quiz = quizzesData?.find(q => q.id === scoreData.quiz_id);
+            console.log(`  Quiz ${index + 1}: ${quiz?.title} - Score: ${scoreData.score}, Quiz ID: ${scoreData.quiz_id}`);
+          });
+          console.log("Marf's total calculated score:", totalScore);
+          console.log("Marf's total items for denominator:", overallTotalItems);
+          console.log("Expected calculation:", `${totalScore}/${overallTotalItems} = ${percentage}%`);
+          console.log("=== END MARF DEBUG ===");
+        }
+
+        // Special debugging for James Lester Lopez's case
+        if (studentName && studentName.toLowerCase().includes('james lester lopez')) {
+          console.log("=== JAMES LESTER LOPEZ SPECIAL DEBUG ===");
+          console.log("James's individual quiz attempts:");
+          console.log("Raw scores array:", scores);
+          scores.forEach((scoreData, index) => {
+            const quiz = quizzesData?.find(q => q.id === scoreData.quiz_id);
+            console.log(`  Quiz ${index + 1}: ${quiz?.title} - Score: ${scoreData.score}, Quiz ID: ${scoreData.quiz_id}`);
+          });
+          console.log("James's total calculated score:", totalScore);
+          console.log("James's total items for denominator:", overallTotalItems);
+          console.log("Expected calculation:", `${totalScore}/${overallTotalItems} = ${percentage}%`);
+          
+          // Check if there are any issues with the calculation
+          const expectedTotal = scores.reduce((sum, s) => sum + s.score, 0);
+          console.log("Manual total calculation:", expectedTotal);
+          if (expectedTotal !== totalScore) {
+            console.error("ERROR: Manual calculation doesn't match totalScore!");
+          }
+          
+          console.log("=== END JAMES DEBUG ===");
+        }
+        console.log("---");
       });
 
       // Create student data map
@@ -371,6 +552,7 @@ export const StudentProfiles = () => {
         const profile = profileMap.get(studentId);
         const attempts = studentAttemptsMap.get(studentId) || [];
         const percentage = finalPercentages.get(studentId) || 0;
+        const fraction = studentFractions.get(studentId) || { totalScore: 0, totalItems: 0 };
         
         // Use student_name from profile first, then from attempts, then fallback
         const studentName = profile?.student_name || 
@@ -385,6 +567,8 @@ export const StudentProfiles = () => {
           student_name: studentName,
           section: sectionName,
           percentageScore: percentage,
+          totalScore: fraction.totalScore,
+          totalItems: fraction.totalItems,
           quizzes: {}
         });
       });
@@ -414,6 +598,12 @@ export const StudentProfiles = () => {
       );
 
       console.log("Final processed results:", results);
+      console.log("Calculation example - Student with partial attempts:");
+      results.forEach(student => {
+        const attemptedQuizzes = Object.values(student.quizzes).filter(q => q.hasAttempt).length;
+        const totalQuizzes = subjectQuizzes.length;
+        console.log(`${student.student_name}: Attempted ${attemptedQuizzes}/${totalQuizzes} quizzes, Overall: ${student.percentageScore}%`);
+      });
       return results;
 
     } catch (err) {
@@ -431,18 +621,14 @@ export const StudentProfiles = () => {
     let weak = 0;
 
     filteredResults.forEach(student => {
-      Object.values(student.quizzes).forEach(quiz => {
-        if (quiz.hasAttempt) {
-          const percentage = quiz.percentage;
-          if (percentage >= 80) {
-            strong++;
-          } else if (percentage >= 60) {
-            average++;
-          } else {
-            weak++;
-          }
-        }
-      });
+      const overallPercentage = student.percentageScore;
+      if (overallPercentage >= 80) {
+        strong++;
+      } else if (overallPercentage >= 60) {
+        average++;
+      } else {
+        weak++;
+      }
     });
 
     return { strong, average, weak };
@@ -637,6 +823,25 @@ export const StudentProfiles = () => {
                     <span className="text-2xl font-bold text-red-600">{summary.weak}</span>
                   </div>
                 </div>
+                
+                {/* Legend */}
+                <div className="mt-6 p-3 bg-white rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Performance Legend</h4>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                      <span className="text-gray-600">Strong: 80% - 100%</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                      <span className="text-gray-600">Average: 60% - 79%</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                      <span className="text-gray-600">Weak: 0% - 59%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Results Table */}
@@ -688,8 +893,13 @@ export const StudentProfiles = () => {
                             );
                           })}
                           <td className="py-6 px-4 text-center bg-gray-50/30">
-                            <div className={`inline-flex items-center justify-center px-8 py-2 rounded-lg text-sm font-black w-32 shadow-sm ${getPercentileColor(student.percentageScore)}`}>
-                              {student.percentageScore}%
+                            <div className={`inline-flex flex-col items-center justify-center px-4 py-2 rounded-lg text-sm font-black w-40 shadow-sm ${getPercentileColor(student.percentageScore)}`}>
+                              <div className="text-lg font-bold">
+                                {student.totalScore}/{student.totalItems}
+                              </div>
+                              <div className="text-xs">
+                                {student.percentageScore}%
+                              </div>
                             </div>
                           </td>
                         </tr>
