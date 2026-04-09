@@ -18,31 +18,43 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   // Load either revised content (draft) or original content
   useEffect(() => {
     if (isOpen && questionData) {
-      const text = questionData.revised_content?.text || questionData.text || '';
-      const options = [...(questionData.revised_options || questionData.options || ['', ''])];
-      
-      // Determine the correct index
-      let correctIdx = 0;
-      const rawCorrect = questionData.revised_content?.correct_answer ?? questionData.correct_answer;
-
-      if (typeof rawCorrect === 'number') {
-        correctIdx = rawCorrect;
+      // For REJECTED items, start with blank fields to encourage new question creation
+      if (questionData.autoFlag === 'reject') {
+        setFormData({ 
+          text: '', 
+          options: ['', '', '', ''], // Start with 4 empty options
+          correctAnswer: 0 
+        });
       } else {
-        const foundIdx = options.indexOf(rawCorrect);
-        correctIdx = foundIdx !== -1 ? foundIdx : 0;
-      }
+        const text = questionData.revised_content?.text || questionData.text || '';
+        const options = [...(questionData.revised_options || questionData.options || ['', ''])];
+        
+        // Determine the correct index
+        let correctIdx = 0;
+        const rawCorrect = questionData.revised_content?.correct_answer ?? questionData.correct_answer;
 
-      setFormData({ text, options, correctAnswer: correctIdx });
+        if (typeof rawCorrect === 'number') {
+          correctIdx = rawCorrect;
+        } else {
+          const foundIdx = options.indexOf(rawCorrect);
+          correctIdx = foundIdx !== -1 ? foundIdx : 0;
+        }
+
+        setFormData({ text, options, correctAnswer: correctIdx });
+      }
+      
       setIsManualEdit(false);
       
-      // Default comparison to the original/previous state
-      setComparisonVersion({
-        text: questionData?.previous_text || questionData?.original_text || questionData?.text,
-        options: questionData?.previous_options || questionData?.original_options || questionData?.options,
-        correct_answer: questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer,
-        label: questionData?.previous_text ? "Previous Revision" : "Original Version",
-        isOriginal: true
-      });
+      // Default comparison to the original/previous state (only for non-rejected items)
+      if (questionData.autoFlag !== 'reject') {
+        setComparisonVersion({
+          text: questionData?.previous_text || questionData?.original_text || questionData?.text,
+          options: questionData?.previous_options || questionData?.original_options || questionData?.options,
+          correct_answer: questionData?.previous_correct_answer || questionData?.original_correct_answer || questionData?.correct_answer,
+          label: questionData?.previous_text ? "Previous Revision" : "Original Version",
+          isOriginal: true
+        });
+      }
     }
   }, [isOpen, questionData]);
 
@@ -137,11 +149,17 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
         {/* Header */}
         <div className="p-6 border-b flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Edit Question Q{questionData?.index + 1}</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {questionData?.autoFlag === 'reject' ? 'Replace Question Q' : 'Edit Question Q'}{questionData?.index + 1}
+            </h2>
             <div className="flex flex-wrap gap-2 mt-1">
               {questionData?.autoFlag && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-bold uppercase">
-                  {questionData.autoFlag}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                  questionData.autoFlag === 'reject' 
+                    ? 'bg-gray-100 text-gray-700' 
+                    : 'bg-red-100 text-red-600'
+                }`}>
+                  {questionData.autoFlag === 'reject' ? 'REJECTED - Replace with New Question' : questionData.autoFlag}
                 </span>
               )}
               {isRevised && (
@@ -155,143 +173,167 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                 </span>
               )}
             </div>
+            {questionData?.autoFlag === 'reject' && (
+              <p className="text-sm text-gray-600 mt-2">
+                This item has been rejected due to poor quality. Create a completely new question to replace it.
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl">&times;</button>
         </div>
 
         <div className="overflow-y-auto flex-1">
-          {/* Comparison View */}
-          <div className="px-6 py-5 bg-slate-50 border-b">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Previous Version */}
-              <div className="flex flex-col">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <span>📄</span> {comparisonVersion?.label || (isRevised ? "Previous Revision" : "Original Version")}
-                </h3>
-                <div className="space-y-4 flex-1">
-                  {/* Question Text Block */}
-                  <div>
-                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <span>📝</span> Question Text
-                    </h4>
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <p className="text-gray-700 text-sm font-medium leading-relaxed">
-                        {comparisonVersion?.text}
-                      </p>
+          {/* Comparison View - Only show for REVISE items, not REJECT */}
+          {questionData?.autoFlag === 'reject' ? (
+            <div className="px-6 py-5 bg-slate-50 border-b">
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                  <span className="text-2xl">&#128680;</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">Create a Completely New Question</h3>
+                <p className="text-gray-600 max-w-md mx-auto">
+                  The previous question was rejected due to poor quality. 
+                  Create a new question that tests the same topic/concept but with completely different content.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                  <span className="text-amber-600">&#128161;</span>
+                  <span className="text-sm text-amber-700 font-medium">Focus on the topic, not the previous question</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-6 py-5 bg-slate-50 border-b">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Previous Version */}
+                <div className="flex flex-col">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span>&#128466;</span> {comparisonVersion?.label || (isRevised ? "Previous Revision" : "Original Version")}
+                  </h3>
+                  <div className="space-y-4 flex-1">
+                    {/* Question Text Block */}
+                    <div>
+                      <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span>&#128221;</span> Question Text
+                      </h4>
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <p className="text-gray-700 text-sm font-medium leading-relaxed">
+                          {comparisonVersion?.text}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Options Block */}
-                  <div>
-                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <span>🔘</span> Answer Options
-                    </h4>
-                    <div className="space-y-2">
-                      {comparisonVersion?.options?.map((opt, idx) => {
-                        const isCorrect = String(opt) === String(comparisonVersion?.correct_answer);
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-lg border-2 transition-all ${
-                              isCorrect
-                                ? "bg-emerald-50 border-emerald-300 shadow-sm shadow-emerald-100"
-                                : "bg-white border-slate-100"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <span
-                                className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
-                                  isCorrect
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-slate-100 text-slate-500"
-                                }`}
-                              >
-                                {String.fromCharCode(65 + idx)}
-                              </span>
-                              <div className="flex-1 pt-0.5">
-                                <p className={`text-xs ${isCorrect ? "font-bold text-emerald-900" : "text-gray-600"}`}>
-                                  {opt}
-                                </p>
-                              </div>
-                              {isCorrect && (
-                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  ✓ <span className="hidden sm:inline">Correct</span>
+                    {/* Options Block */}
+                    <div>
+                      <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span>&#9678;</span> Answer Options
+                      </h4>
+                      <div className="space-y-2">
+                        {comparisonVersion?.options?.map((opt, idx) => {
+                          const isCorrect = String(opt) === String(comparisonVersion?.correct_answer);
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-2.5 rounded-lg border-2 transition-all ${
+                                isCorrect
+                                  ? "bg-emerald-50 border-emerald-300 shadow-sm shadow-emerald-100"
+                                  : "bg-white border-slate-100"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
+                                    isCorrect
+                                      ? "bg-emerald-600 text-white"
+                                      : "bg-slate-100 text-slate-500"
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + idx)}
                                 </span>
-                              )}
+                                <div className="flex-1 pt-0.5">
+                                  <p className={`text-xs ${isCorrect ? "font-bold text-emerald-900" : "text-gray-600"}`}>
+                                    {opt}
+                                  </p>
+                                </div>
+                                {isCorrect && (
+                                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    &#10003; <span className="hidden sm:inline">Correct</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Live Preview */}
-              <div className="flex flex-col">
-                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <span>🆕</span> New Version (Preview)
-                </h3>
-                <div className="space-y-4 flex-1">
-                  {/* New Question Text Block */}
-                  <div>
-                    <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <span>📝</span> Revised Text
-                    </h4>
-                    <div className="bg-indigo-50/30 border border-indigo-100 rounded-xl p-4 shadow-sm ring-1 ring-indigo-50/50">
-                      <p className="text-indigo-900 text-sm font-bold leading-relaxed">
-                        {formData.text || "..."}
-                      </p>
+                {/* Live Preview */}
+                <div className="flex flex-col">
+                  <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span>&#127475;</span> New Version (Preview)
+                  </h3>
+                  <div className="space-y-4 flex-1">
+                    {/* New Question Text Block */}
+                    <div>
+                      <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span>&#128221;</span> Revised Text
+                      </h4>
+                      <div className="bg-indigo-50/30 border border-indigo-100 rounded-xl p-4 shadow-sm ring-1 ring-indigo-50/50">
+                        <p className="text-indigo-900 text-sm font-bold leading-relaxed">
+                          {formData.text || "..."}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* New Options Block */}
-                  <div>
-                    <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <span>🔘</span> Revised Options
-                    </h4>
-                    <div className="space-y-2">
-                      {formData.options.map((opt, idx) => {
-                        const isCorrect = formData.correctAnswer === idx;
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-lg border-2 transition-all ${
-                              isCorrect
-                                ? "bg-indigo-600 border-indigo-700 shadow-md shadow-indigo-100 scale-[1.02]"
-                                : "bg-white border-indigo-50"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <span
-                                className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
-                                  isCorrect
-                                    ? "bg-white text-indigo-600"
-                                    : "bg-indigo-50 text-indigo-300"
-                                }`}
-                              >
-                                {String.fromCharCode(65 + idx)}
-                              </span>
-                              <div className="flex-1 pt-0.5">
-                                <p className={`text-xs ${isCorrect ? "font-bold text-white" : "text-indigo-700/70"}`}>
-                                  {opt || `Option ${idx + 1}`}
-                                </p>
-                              </div>
-                              {isCorrect && (
-                                <span className="text-[9px] font-bold text-indigo-600 bg-white px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  ★ <span className="hidden sm:inline">Correct</span>
+                    {/* New Options Block */}
+                    <div>
+                      <h4 className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span>&#9678;</span> Revised Options
+                      </h4>
+                      <div className="space-y-2">
+                        {formData.options.map((opt, idx) => {
+                          const isCorrect = formData.correctAnswer === idx;
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-2.5 rounded-lg border-2 transition-all ${
+                                isCorrect
+                                  ? "bg-indigo-600 border-indigo-700 shadow-md shadow-indigo-100 scale-[1.02]"
+                                  : "bg-white border-indigo-50"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className={`w-6 h-6 flex items-center justify-center rounded font-bold text-[10px] shrink-0 ${
+                                    isCorrect
+                                      ? "bg-white text-indigo-600"
+                                      : "bg-indigo-50 text-indigo-300"
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + idx)}
                                 </span>
-                              )}
+                                <div className="flex-1 pt-0.5">
+                                  <p className={`text-xs ${isCorrect ? "font-bold text-white" : "text-indigo-700/70"}`}>
+                                    {opt || `Option ${idx + 1}`}
+                                  </p>
+                                </div>
+                                {isCorrect && (
+                                  <span className="text-[9px] font-bold text-indigo-600 bg-white px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    &#9733; <span className="hidden sm:inline">Correct</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Revision History Section (Browser Style) */}
           {history.length > 0 && (
@@ -397,26 +439,43 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {hasDraft ? "📝 Draft Revision" : "🛠️ Active Workspace"}
+                {questionData?.autoFlag === 'reject' 
+                  ? "Create New Question" 
+                  : hasDraft 
+                    ? "Draft Revision" 
+                    : "Active Workspace"
+                }
               </h3>
             </div>
             {!isManualEdit ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Manual Edit Card */}
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                  <h3 className="font-bold text-xl mb-2 text-blue-800">✏️ Manual Edit</h3>
-                  <p className="text-sm text-blue-600 mb-6">Edit the question text and options yourself.</p>
+                  <h3 className="font-bold text-xl mb-2 text-blue-800">
+                    {questionData?.autoFlag === 'reject' ? '✏️ Create New Question' : '✏️ Manual Edit'}
+                  </h3>
+                  <p className="text-sm text-blue-600 mb-6">
+                    {questionData?.autoFlag === 'reject' 
+                      ? "Create a completely new question to replace the rejected one." 
+                      : "Edit the question text and options yourself."
+                    }
+                  </p>
                   <button onClick={() => setIsManualEdit(true)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg">
-                    {hasDraft ? "Continue Editing Draft" : "Edit Manually"}
+                    {hasDraft ? "Continue Editing Draft" : questionData?.autoFlag === 'reject' ? "Create New Question" : "Edit Manually"}
                   </button>
                 </div>
 
                 {/* AI Suggestion Card */}
                 <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
                   <h3 className="font-bold text-xl mb-2 text-emerald-800">🤖 AI Suggestion</h3>
-                  <p className="text-sm text-emerald-600 mb-6">Let Gemini improve the question quality.</p>
+                  <p className="text-sm text-emerald-600 mb-6">
+                    {questionData?.autoFlag === 'reject' 
+                      ? "Let Gemini generate a completely new question for you." 
+                      : "Let Gemini improve the question quality."
+                    }
+                  </p>
                   <button onClick={handleAIGenerate} disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50">
-                    {loading ? 'Generating...' : 'Suggest with AI'}
+                    {loading ? 'Generating...' : questionData?.autoFlag === 'reject' ? 'Generate New Question' : 'Suggest with AI'}
                   </button>
                 </div>
               </div>
@@ -436,16 +495,21 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                   </button>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Question Text</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    {questionData?.autoFlag === 'reject' ? 'New Question Text' : 'Question Text'}
+                  </label>
                   <textarea 
                     value={formData.text}
                     onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                     rows="3"
+                    placeholder={questionData?.autoFlag === 'reject' ? 'Enter your new question here...' : ''}
                   />
                 </div>
                 <div className="space-y-4">
-                  <label className="block text-sm font-bold text-gray-700">Options (Select correct one)</label>
+                  <label className="block text-sm font-bold text-gray-700">
+                    {questionData?.autoFlag === 'reject' ? 'New Answer Options (Select correct one)' : 'Options (Select correct one)'}
+                  </label>
                   {formData.options.map((opt, idx) => (
                     <div key={idx} className="flex items-center gap-3">
                       <input 
@@ -459,7 +523,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                         value={opt} 
                         onChange={(e) => updateOption(idx, e.target.value)}
                         className="flex-1 px-4 py-2 border rounded-xl"
-                        placeholder={`Option ${idx + 1}`}
+                        placeholder={questionData?.autoFlag === 'reject' ? `New Option ${idx + 1}` : `Option ${idx + 1}`}
                       />
                     </div>
                   ))}
@@ -470,13 +534,13 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                     onClick={handleSaveDraft} 
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
                   >
-                    🚀 Finalize & Update Live
+                    {questionData?.autoFlag === 'reject' ? 'Finalize & Replace Question' : 'Finalize & Update Live'}
                   </button>
                   <button 
                     onClick={handleJustSaveDraft}
                     className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
                   >
-                    💾 Save as Draft
+                    Save as Draft
                   </button>
                 </div>
                 <button 
