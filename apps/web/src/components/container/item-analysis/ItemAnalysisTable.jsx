@@ -120,19 +120,21 @@ export const ItemAnalysisTable = ({
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
                       <span 
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all ${
+                        className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all transform ${
                           item.autoFlag === "approved" 
-                            ? "bg-green-500 opacity-80" 
+                            ? "bg-green-500 opacity-80 cursor-default" 
                             : item.autoFlag === "reject"
-                            ? "bg-gray-700 opacity-90"
+                            ? "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
+                            : item.autoFlag === "revise"
+                            ? "bg-orange-500 hover:bg-orange-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
                             : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
                         }`}
-                        onClick={() => item.autoFlag === 'revise' && onFlagClick(item)}
+                        onClick={() => (item.autoFlag === 'revise' || item.autoFlag === 'reject') && onFlagClick(item)}
                         title={
                           item.autoFlag === 'revise' 
                             ? "Click to edit revision" 
                             : item.autoFlag === 'reject'
-                            ? "Item rejected - poor quality"
+                            ? "Click to replace with new question"
                             : "Good item (no revision needed)"
                         }
                       >
