@@ -6,7 +6,6 @@ import { supabase } from "../supabaseClient";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
 import { QuizSuggestions } from "./QuizSuggestions";
 
-
 /**
  * Progress Stepper — shows 3 workflow steps
  */
@@ -94,6 +93,8 @@ export const QuizAnalysisResults = ({
   quizTitle,
   questions,
   instructorId,
+  previousSubmissionId,
+  onBeforeSubmitReview,
   onClose,
 }) => {
   const [results, setResults] = useState(null);
@@ -118,13 +119,21 @@ export const QuizAnalysisResults = ({
         .select("id, status, admin_feedback")
         .eq("quiz_id", quizId)
         .eq("instructor_id", instructorId)
-        .in("status", ["revision_requested", "rejected"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (data) {
-        setExistingSubmission(data);
+        if (data.status === "revision_requested") {
+          setExistingSubmission(data);
+        } else if (
+          data.status === "pending" ||
+          data.status === "faculty_head_review" ||
+          data.status === "approved" ||
+          data.status === "faculty_head_approved"
+        ) {
+          setForwarded(true);
+        }
       }
     } catch (err) {
       console.error("Error checking existing submission:", err);
@@ -166,40 +175,57 @@ export const QuizAnalysisResults = ({
     setForwardLoading(true);
 
     try {
-      if (existingSubmission) {
-        const { error: updateError } = await supabase
-          .from("quiz_analysis_submissions")
-          .update({
-            analysis_results: results,
-            instructor_message: message || null,
-            status: "pending",
-            admin_feedback: null,
-            reviewed_by: null,
-            reviewed_at: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingSubmission.id);
+      const analysisPayload = {
+        ...results,
+        questionSnapshots: (questions || []).map((q, idx) => ({
+          orderIndex: idx,
+          questionId: String(q.id),
+          questionText: q.text,
+          type: q.type,
+          options:
+            q.type === "mcq" && Array.isArray(q.options)
+              ? q.options.filter((opt) => String(opt || "").trim())
+              : [],
+          correctAnswer:
+            q.type === "mcq"
+              ? q.options?.[q.correctAnswer] || null
+              : (q.correctAnswer ?? null),
+        })),
+      };
 
-        if (updateError) throw updateError;
-
-        setForwarded(true);
-        notify.success("Quiz analysis resubmitted for admin review!");
-      } else {
-        const { error: insertError } = await supabase
-          .from("quiz_analysis_submissions")
-          .insert({
-            quiz_id: quizId,
-            instructor_id: instructorId,
-            analysis_results: results,
-            instructor_message: message || null,
-            status: "pending",
-          });
-
-        if (insertError) throw insertError;
-
-        setForwarded(true);
-        notify.success("Quiz submitted for admin review!");
+      if (onBeforeSubmitReview) {
+        const saved = await onBeforeSubmitReview();
+        if (!saved) {
+          notify.error(
+            "Please fix quiz issues and save before submitting for review.",
+          );
+          return;
+        }
       }
+
+      // Determine which previous submission to link to
+      const prevSubId =
+        previousSubmissionId || existingSubmission?.id || null;
+
+      const { error: insertError } = await supabase
+        .from("quiz_analysis_submissions")
+        .insert({
+          quiz_id: quizId,
+          instructor_id: instructorId,
+          analysis_results: analysisPayload,
+          instructor_message: message || null,
+          status: "pending",
+          previous_submission_id: prevSubId,
+        });
+
+      if (insertError) throw insertError;
+
+      setForwarded(true);
+      notify.success(
+        prevSubId
+          ? "Revised quiz submitted for admin review!"
+          : "Quiz submitted for admin review!",
+      );
     } catch (err) {
       console.error("Forward error:", err);
       notify.error(err.message || "Failed to submit for review.");
@@ -813,7 +839,7 @@ export const QuizAnalysisResults = ({
                               d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                             />
                           </svg>
-                          {existingSubmission
+                          {existingSubmission || previousSubmissionId
                             ? "Resubmit for Review"
                             : "Submit for Review"}
                         </>
@@ -848,29 +874,6 @@ export const QuizAnalysisResults = ({
                     The admin will review your quiz analysis and provide
                     feedback.
                   </p>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      navigate("/instructor-dashboard/quizzes");
-                    }}
-                    className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-                      />
-                    </svg>
-                    Back to Quizzes
-                  </button>
                 </div>
               )}
             </>
@@ -880,10 +883,27 @@ export const QuizAnalysisResults = ({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
           <button
-            onClick={onClose}
-            className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors"
+            onClick={() => {
+              onClose();
+              navigate("/instructor-dashboard/quizzes");
+            }}
+            className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
           >
-            Close
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+              />
+            </svg>
+            Back to Quizzes
           </button>
         </div>
       </div>

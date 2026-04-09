@@ -1,9 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { notify } from "../../../utils/notify.jsx";
 import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
-import { supabase } from "../../../supabaseClient.js";
 import { useAuth } from "../../../context/AuthContext.jsx";
 
 export const QuizzesPageMain = () => {
@@ -11,13 +9,7 @@ export const QuizzesPageMain = () => {
   const { user } = useAuth();
   const [filter, setFilter] = useState(location.state?.filter || "all");
   const [search, setSearch] = useState("");
-  const [showSectionModal, setShowSectionModal] = useState(false);
-  const [selectedSectionIds, setSelectedSectionIds] = useState([]);
-  const [availableSections, setAvailableSections] = useState([]);
-  const [sectionTargetQuiz, setSectionTargetQuiz] = useState(null);
-  const [sectionSaving, setSectionSaving] = useState(false);
   const navigate = useNavigate();
-
 
   const {
     quizFormData,
@@ -25,6 +17,7 @@ export const QuizzesPageMain = () => {
     handleCreateQuiz,
     setQuizFormData,
     isSubmitting,
+    availableSections,
   } = QuizHooks.useCreateQuiz({ user: user || {} });
 
   const {
@@ -47,10 +40,7 @@ export const QuizzesPageMain = () => {
       case "drafts":
         return !quiz.admin_review_status && !quiz.is_published;
       case "in_review":
-        return (
-          !quiz.is_published &&
-          !!quiz.admin_review_status
-        );
+        return !quiz.is_published && !!quiz.admin_review_status;
       case "published":
         return quiz.is_published;
       default:
@@ -74,47 +64,95 @@ export const QuizzesPageMain = () => {
     let result = quizzes?.filter((quiz) => filterQuiz(quiz, filter)) || [];
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      result = result.filter((quiz) =>
-        quiz.title?.toLowerCase().includes(q),
-      );
+      result = result.filter((quiz) => quiz.title?.toLowerCase().includes(q));
     }
     return result;
   }, [quizzes, filter, search]);
 
   const filterTabs = [
     { key: "all", label: "All", activeClass: "bg-brand-navy text-white" },
-    { key: "drafts", label: "Drafts", activeClass: "bg-brand-gold text-brand-navy" },
-    { key: "in_review", label: "In Review", activeClass: "bg-brand-navy text-white" },
-    { key: "published", label: "Published", activeClass: "bg-brand-indigo text-white" },
-    { key: "archived", label: "Archived", activeClass: "bg-gray-700 text-white" },
+    {
+      key: "drafts",
+      label: "Drafts",
+      activeClass: "bg-brand-gold text-brand-navy",
+    },
+    {
+      key: "in_review",
+      label: "In Review",
+      activeClass: "bg-brand-navy text-white",
+    },
+    {
+      key: "published",
+      label: "Published",
+      activeClass: "bg-brand-indigo text-white",
+    },
+    {
+      key: "archived",
+      label: "Archived",
+      activeClass: "bg-gray-700 text-white",
+    },
   ];
 
   // ── Quiz state badge ──
   const getQuizState = (quiz) => {
-    if (quiz.is_archived) return { label: "Archived", bg: "bg-gray-100 text-gray-600 border-gray-300" };
-    if (quiz.is_published) return { label: "Published", bg: "bg-brand-indigo/10 text-brand-indigo border-brand-indigo/30" };
-    if (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") return { label: "Approved", bg: "bg-green-100 text-green-700 border-green-300" };
-    if (quiz.admin_review_status === "faculty_head_review") return { label: "Faculty Head Review", bg: "bg-blue-100 text-blue-700 border-blue-300" };
-    if (quiz.admin_review_status === "revision_requested") return { label: "Revision", bg: "bg-orange-100 text-orange-700 border-orange-300" };
-    if (quiz.admin_review_status === "rejected") return { label: "Rejected", bg: "bg-red-100 text-red-700 border-red-300" };
-    if (quiz.admin_review_status === "pending") return { label: "Pending", bg: "bg-yellow-100 text-yellow-700 border-yellow-300" };
+    if (quiz.is_archived)
+      return {
+        label: "Archived",
+        bg: "bg-gray-100 text-gray-600 border-gray-300",
+      };
+    if (quiz.is_published)
+      return {
+        label: "Published",
+        bg: "bg-brand-indigo/10 text-brand-indigo border-brand-indigo/30",
+      };
+    if (
+      quiz.admin_review_status === "approved" ||
+      quiz.admin_review_status === "faculty_head_approved"
+    )
+      return {
+        label: "Approved",
+        bg: "bg-green-100 text-green-700 border-green-300",
+      };
+    if (quiz.admin_review_status === "faculty_head_review")
+      return {
+        label: "Faculty Head Review",
+        bg: "bg-blue-100 text-blue-700 border-blue-300",
+      };
+    if (quiz.admin_review_status === "revision_requested")
+      return {
+        label: "Revision",
+        bg: "bg-orange-100 text-orange-700 border-orange-300",
+      };
+    if (quiz.admin_review_status === "pending")
+      return {
+        label: "Pending",
+        bg: "bg-yellow-100 text-yellow-700 border-yellow-300",
+      };
     return { label: "Draft", bg: "bg-gray-100 text-gray-600 border-gray-300" };
   };
 
   const getCardGradient = (quiz) => {
     if (quiz.is_archived) return "from-gray-400 to-gray-500";
     if (quiz.is_published) return "from-brand-navy to-brand-indigo";
-    if (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") return "from-brand-navy to-brand-indigo-dark";
-    if (quiz.admin_review_status === "faculty_head_review") return "from-blue-600 to-blue-700";
-    if (quiz.admin_review_status === "revision_requested") return "from-amber-600 to-amber-700";
-    if (quiz.admin_review_status === "rejected") return "from-rose-700 to-rose-800";
-    if (quiz.admin_review_status === "pending") return "from-brand-gold to-brand-gold-dark";
+    if (
+      quiz.admin_review_status === "approved" ||
+      quiz.admin_review_status === "faculty_head_approved"
+    )
+      return "from-brand-navy to-brand-indigo-dark";
+    if (quiz.admin_review_status === "faculty_head_review")
+      return "from-blue-600 to-blue-700";
+    if (quiz.admin_review_status === "revision_requested")
+      return "from-amber-600 to-amber-700";
+    if (quiz.admin_review_status === "pending")
+      return "from-brand-gold to-brand-gold-dark";
     return "from-brand-gold to-brand-gold-dark";
   };
 
   const getCardTextColor = (quiz) => {
-    if (!quiz.is_archived && !quiz.is_published && !quiz.admin_review_status) return "text-brand-navy";
-    if (quiz.admin_review_status === "pending" && !quiz.is_published) return "text-brand-navy";
+    if (!quiz.is_archived && !quiz.is_published && !quiz.admin_review_status)
+      return "text-brand-navy";
+    if (quiz.admin_review_status === "pending" && !quiz.is_published)
+      return "text-brand-navy";
     return "text-white";
   };
 
@@ -125,19 +163,22 @@ export const QuizzesPageMain = () => {
         return {
           icon: "📝",
           title: "No Drafts",
-          message: "You don't have any draft quizzes. Click \"+ Create Quiz\" to get started!",
+          message:
+            'You don\'t have any draft quizzes. Click "+ Create Quiz" to get started!',
         };
       case "in_review":
         return {
           icon: "📋",
           title: "No Quizzes In Review",
-          message: "None of your quizzes are currently in the review pipeline. Submit a draft to get started.",
+          message:
+            "None of your quizzes are currently in the review pipeline. Submit a draft to get started.",
         };
       case "published":
         return {
           icon: "🚀",
           title: "No Published Quizzes",
-          message: "You haven't published any quizzes yet. Once approved, assign to sections and publish!",
+          message:
+            "You haven't published any quizzes yet. Once approved, assign to sections and publish!",
         };
       case "archived":
         return {
@@ -151,94 +192,8 @@ export const QuizzesPageMain = () => {
           title: "No Quizzes Found",
           message: search.trim()
             ? `No quizzes match "${search.trim()}".`
-            : "You haven't created any quizzes yet. Click \"+ Create Quiz\" to get started!",
+            : 'You haven\'t created any quizzes yet. Click "+ Create Quiz" to get started!',
         };
-    }
-  };
-
-  // ── Section modal ──
-  const openAssignSectionsModal = async (quiz) => {
-    try {
-      if (!user) {
-        notify.error("Please sign in again.");
-        return;
-      }
-
-      const [{ data: sectionsData, error: sectionsError }, { data: qsData }] =
-        await Promise.all([
-          supabase
-            .from("sections")
-            .select("*")
-            .eq("instructor_id", user.id)
-            .eq("is_archived", false),
-          supabase
-            .from("quiz_sections")
-            .select("section_id")
-            .eq("quiz_id", quiz.id),
-        ]);
-
-      if (sectionsError) throw sectionsError;
-
-      setAvailableSections(sectionsData || []);
-      setSectionTargetQuiz(quiz);
-
-      if (qsData && qsData.length > 0) {
-        setSelectedSectionIds(qsData.map((d) => d.section_id));
-      } else if (quiz.section_id) {
-        setSelectedSectionIds([quiz.section_id]);
-      } else {
-        setSelectedSectionIds([]);
-      }
-
-      setShowSectionModal(true);
-    } catch (error) {
-      notify.error("Failed to load sections: " + error.message);
-    }
-  };
-
-  const handleCloseSectionModal = async () => {
-    if (!sectionTargetQuiz) {
-      setShowSectionModal(false);
-      return;
-    }
-
-    setSectionSaving(true);
-    try {
-      const { error: deleteError } = await supabase
-        .from("quiz_sections")
-        .delete()
-        .eq("quiz_id", sectionTargetQuiz.id);
-
-      if (deleteError) throw deleteError;
-
-      if (selectedSectionIds.length > 0) {
-        const rows = selectedSectionIds.map((sectionId) => ({
-          quiz_id: sectionTargetQuiz.id,
-          section_id: sectionId,
-        }));
-
-        const { error: insertError } = await supabase
-          .from("quiz_sections")
-          .insert(rows);
-
-        if (insertError) throw insertError;
-      }
-
-      const { error: updateError } = await supabase
-        .from("quizzes")
-        .update({ section_id: selectedSectionIds[0] || null })
-        .eq("id", sectionTargetQuiz.id);
-
-      if (updateError) throw updateError;
-
-      await fetchQuizzes();
-      setShowSectionModal(false);
-      setSectionTargetQuiz(null);
-      notify.success("Subject sections assigned successfully!");
-    } catch (error) {
-      notify.error("Failed to save section assignments: " + error.message);
-    } finally {
-      setSectionSaving(false);
     }
   };
 
@@ -254,11 +209,10 @@ export const QuizzesPageMain = () => {
         </div>
         <CreateQuizFormButton
           onCreateQuiz={handleCreateQuiz}
-          setShowQuizForm={setQuizFormData}
-          showQuizForm={showQuizForm}
           quizFormData={quizFormData}
           setQuizFormData={setQuizFormData}
           isSubmitting={isSubmitting}
+          availableSections={availableSections}
         />
       </div>
 
@@ -292,8 +246,19 @@ export const QuizzesPageMain = () => {
               onClick={() => setSearch("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           )}
@@ -352,7 +317,12 @@ export const QuizzesPageMain = () => {
             {filteredQuizzes.map((quiz) => {
               const state = getQuizState(quiz);
               const isApproved =
-                (quiz.admin_review_status === "approved" || quiz.admin_review_status === "faculty_head_approved") && !quiz.is_published;
+                (quiz.admin_review_status === "approved" ||
+                  quiz.admin_review_status === "faculty_head_approved") &&
+                !quiz.is_published;
+              const isReviewLocked =
+                quiz.admin_review_status === "pending" ||
+                quiz.admin_review_status === "faculty_head_review";
 
               return (
                 <div
@@ -368,27 +338,33 @@ export const QuizzesPageMain = () => {
                     >
                       {state.label}
                     </span>
-                    <h3 className={`font-bold text-lg pr-20 leading-snug line-clamp-2 ${getCardTextColor(quiz)}`}>
-                      {quiz.title}
+                    <h3
+                      className={`font-bold text-lg pr-20 leading-snug line-clamp-2 ${getCardTextColor(quiz)}`}
+                    >
+                      {quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                     </h3>
-                    {quiz.description && (
-                      <p className={`text-xs mt-1 line-clamp-1 ${getCardTextColor(quiz)} opacity-70`}>
-                        {quiz.description}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {quiz.version_number && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
+                          v{quiz.version_number}
+                        </span>
+                      )}
+                      {quiz.description && (
+                        <p
+                          className={`text-xs line-clamp-1 ${getCardTextColor(quiz)} opacity-70`}
+                        >
+                          {quiz.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Card Body */}
                   <div className="p-4 flex-1 flex flex-col gap-3">
                     {/* Admin Feedback Inline */}
-                    {(quiz.admin_review_status === "rejected" ||
-                      quiz.admin_review_status === "revision_requested") && (
+                    {quiz.admin_review_status === "revision_requested" && (
                       <div
-                        className={`rounded-lg border px-3 py-2 text-xs ${
-                          quiz.admin_review_status === "rejected"
-                            ? "border-red-200 bg-red-50 text-red-700"
-                            : "border-orange-200 bg-orange-50 text-orange-700"
-                        }`}
+                        className="rounded-lg border px-3 py-2 text-xs border-orange-200 bg-orange-50 text-orange-700"
                       >
                         <span className="font-bold">Admin Feedback: </span>
                         {quiz.admin_review_feedback?.trim() ||
@@ -448,31 +424,18 @@ export const QuizzesPageMain = () => {
                           }
                           className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
                         >
-                          {isApproved ? "View" : "Edit"}
+                          {isApproved || isReviewLocked ? "View" : "Edit"}
                         </button>
                       )}
 
-                      {/* Approved: Assign + Publish */}
+                      {/* Approved: Publish */}
                       {isApproved && (
-                        <>
-                          <button
-                            onClick={() => openAssignSectionsModal(quiz)}
-                            className="relative flex-1 bg-brand-gold/10 text-brand-gold-dark py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold/20 transition-colors border border-brand-gold/30"
-                          >
-                            Assign
-                            {(quiz.section_count || 0) > 0 && (
-                              <span className="absolute -top-2 -right-2 bg-brand-gold text-brand-navy border-2 border-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                                {quiz.section_count}
-                              </span>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handlePublishQuiz(quiz.id)}
-                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
-                          >
-                            Publish
-                          </button>
-                        </>
+                        <button
+                          onClick={() => handlePublishQuiz(quiz.id)}
+                          className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
+                        >
+                          Publish
+                        </button>
                       )}
 
                       {/* Archive / Restore */}
@@ -515,107 +478,6 @@ export const QuizzesPageMain = () => {
         )}
       </div>
 
-      {/* Section Assignment Modal */}
-      {showSectionModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => void handleCloseSectionModal()}
-          />
-          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Assign to Subjects
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Select which subjects this quiz should appear in.
-            </p>
-
-            {availableSections.length === 0 ? (
-              <div className="text-sm text-gray-500 py-4 text-center">
-                No subjects available. Create one first!
-              </div>
-            ) : (
-              <>
-                <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedSectionIds.length === availableSections.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSectionIds(
-                          availableSections.map((s) => s.id),
-                        );
-                      } else {
-                        setSelectedSectionIds([]);
-                      }
-                    }}
-                    className="form-checkbox h-4 w-4 text-brand-navy border-gray-300 rounded"
-                  />
-                  <span className="text-sm font-semibold text-gray-800">
-                    Select All
-                  </span>
-                  <span className="ml-auto text-xs text-gray-400">
-                    {selectedSectionIds.length}/{availableSections.length}
-                  </span>
-                </label>
-
-                <div className="max-h-64 overflow-y-auto space-y-2">
-                  {availableSections.map((sec) => (
-                    <label
-                      key={sec.id}
-                      className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedSectionIds.includes(sec.id)
-                          ? "border-brand-gold bg-green-50"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSectionIds.includes(sec.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedSectionIds([
-                              ...selectedSectionIds,
-                              sec.id,
-                            ]);
-                          } else {
-                            setSelectedSectionIds(
-                              selectedSectionIds.filter((id) => id !== sec.id),
-                            );
-                          }
-                        }}
-                        className="form-checkbox h-4 w-4 text-brand-navy border-gray-300 rounded"
-                      />
-                      <div>
-                        <span className="block text-sm font-medium text-gray-800">
-                          {sec.section_name || sec.name || "Untitled Subject"}
-                        </span>
-                        {sec.description && (
-                          <span className="block text-xs text-gray-500">
-                            {sec.description}
-                          </span>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => void handleCloseSectionModal()}
-                disabled={sectionSaving}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sectionSaving ? "Saving..." : "Done"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

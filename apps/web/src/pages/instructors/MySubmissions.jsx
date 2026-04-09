@@ -5,6 +5,9 @@ import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
+import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
+import { createRevisionCopy } from "../../services/createRevisionCopy";
+import { notify } from "../../utils/notify.jsx";
 
 export const MySubmissions = () => {
   const { user } = useAuth();
@@ -14,6 +17,7 @@ export const MySubmissions = () => {
   const [filter, setFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
   const [instructorName, setInstructorName] = useState(null);
+  const [creatingRevisionFor, setCreatingRevisionFor] = useState(null);
 
   useEffect(() => {
     loadSubmissions();
@@ -23,7 +27,6 @@ export const MySubmissions = () => {
     if (!user) return;
     setLoading(true);
     try {
-
       // Fetch instructor's own profile name
       const { data: profile } = await supabase
         .from("profiles")
@@ -40,7 +43,7 @@ export const MySubmissions = () => {
 
       let query = supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description)")
+        .select("*, quizzes(*)")
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -53,7 +56,37 @@ export const MySubmissions = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      setSubmissions(data || []);
+      // Fetch section data and check for newer versions for each submission
+      const enriched = await Promise.all(
+        (data || []).map(async (sub) => {
+          if (!sub.quiz_id) return sub;
+          const { data: qs } = await supabase
+            .from("quiz_sections")
+            .select("section_id, sections(name, subject_code)")
+            .eq("quiz_id", sub.quiz_id)
+            .limit(1)
+            .maybeSingle();
+
+          // Check if a newer version exists in the chain
+          let hasNewerVersion = false;
+          const quiz = sub.quizzes;
+          if (quiz) {
+            const rootId = quiz.parent_quiz_id || sub.quiz_id;
+            const { data: newer } = await supabase
+              .from("quizzes")
+              .select("id")
+              .eq("parent_quiz_id", rootId)
+              .eq("is_archived", false)
+              .gt("version_number", quiz.version_number || 1)
+              .limit(1);
+            hasNewerVersion = newer && newer.length > 0;
+          }
+
+          return { ...sub, section: qs?.sections || null, hasNewerVersion };
+        }),
+      );
+
+      setSubmissions(enriched);
     } catch (err) {
       console.error("Error loading submissions:", err);
     } finally {
@@ -66,7 +99,6 @@ export const MySubmissions = () => {
       pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
       approved: "bg-green-100 text-green-700 border-green-300",
       revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      rejected: "bg-red-100 text-red-700 border-red-300",
       faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
       faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
     };
@@ -74,7 +106,6 @@ export const MySubmissions = () => {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
-      rejected: "Rejected",
       faculty_head_review: "Awaiting Faculty Head",
       faculty_head_approved: "Approved by Faculty Head",
     };
@@ -88,61 +119,120 @@ export const MySubmissions = () => {
   };
 
   const getStatusIcon = (status) => {
-    const base = "w-8 h-8 rounded-full flex items-center justify-center shrink-0";
+    const base =
+      "w-8 h-8 rounded-full flex items-center justify-center shrink-0";
     switch (status) {
       case "pending":
         return (
           <span className={`${base} bg-brand-gold/15`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-brand-gold-dark"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </span>
         );
       case "approved":
         return (
           <span className={`${base} bg-green-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </span>
         );
       case "revision_requested":
         return (
           <span className={`${base} bg-amber-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </span>
-        );
-      case "rejected":
-        return (
-          <span className={`${base} bg-rose-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-amber-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
           </span>
         );
       case "faculty_head_review":
         return (
           <span className={`${base} bg-blue-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </span>
         );
       case "faculty_head_approved":
         return (
           <span className={`${base} bg-green-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </span>
         );
       default:
         return (
           <span className={`${base} bg-gray-100`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
           </span>
         );
@@ -158,6 +248,12 @@ export const MySubmissions = () => {
       minute: "2-digit",
     });
   };
+
+  const normalizeQuestionText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
   return (
     <>
@@ -182,7 +278,6 @@ export const MySubmissions = () => {
             { key: "pending", label: "Pending" },
             { key: "approved", label: "Approved" },
             { key: "revision_requested", label: "Needs Revision" },
-            { key: "rejected", label: "Rejected" },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -206,8 +301,19 @@ export const MySubmissions = () => {
         ) : submissions.length === 0 ? (
           <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-brand-navy/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8 text-brand-navy/40"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
               </svg>
             </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
@@ -230,8 +336,13 @@ export const MySubmissions = () => {
                   {/* Title and Status */}
                   <div className="flex items-center gap-3">
                     {getStatusIcon(submission.status)}
-                    <h3 className="text-lg font-bold text-gray-800 flex-1">
-                      {submission.quizzes?.title || "Unknown Quiz"}
+                    <h3 className="text-lg font-bold text-gray-800 flex-1 flex items-center gap-2">
+                      {(submission.quizzes?.title || "Unknown Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                      {(submission.quizzes?.version_number || 0) > 1 && (
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full text-[10px] font-bold">
+                          V{submission.quizzes.version_number}
+                        </span>
+                      )}
                     </h3>
                     {getStatusBadge(submission.status)}
                   </div>
@@ -280,18 +391,14 @@ export const MySubmissions = () => {
                       className={`p-3 rounded-lg border ${
                         submission.status === "approved"
                           ? "bg-green-50 border-green-200"
-                          : submission.status === "rejected"
-                            ? "bg-red-50 border-red-200"
-                            : "bg-orange-50 border-orange-200"
+                          : "bg-orange-50 border-orange-200"
                       }`}
                     >
                       <p
                         className={`text-xs font-semibold mb-1 ${
                           submission.status === "approved"
                             ? "text-green-600"
-                            : submission.status === "rejected"
-                              ? "text-red-600"
-                              : "text-orange-600"
+                            : "text-orange-600"
                         }`}
                       >
                         Overall Admin Feedback:
@@ -300,9 +407,7 @@ export const MySubmissions = () => {
                         className={`text-sm ${
                           submission.status === "approved"
                             ? "text-green-800"
-                            : submission.status === "rejected"
-                              ? "text-red-800"
-                              : "text-orange-800"
+                            : "text-orange-800"
                         }`}
                       >
                         {submission.admin_feedback}
@@ -315,19 +420,40 @@ export const MySubmissions = () => {
                     Object.keys(submission.question_feedback).length > 0 && (
                       <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
                         <p className="text-xs font-semibold text-orange-600 mb-2">
-                          Question-Specific Feedback ({Object.keys(submission.question_feedback).length} question{Object.keys(submission.question_feedback).length > 1 ? "s" : ""}):
+                          Question-Specific Feedback (
+                          {Object.keys(submission.question_feedback).length}{" "}
+                          question
+                          {Object.keys(submission.question_feedback).length > 1
+                            ? "s"
+                            : ""}
+                          ):
                         </p>
                         <div className="space-y-2">
-                          {submission.analysis_results?.analysis?.map((item, idx) => {
-                            const fb = submission.question_feedback[item.questionId];
-                            if (!fb) return null;
-                            return (
-                              <div key={item.questionId} className="p-2 bg-white rounded border border-orange-100">
-                                <p className="text-xs font-bold text-gray-500 mb-0.5">Q{idx + 1}: <span className="font-normal text-gray-700">{item.questionText.length > 80 ? item.questionText.slice(0, 80) + "..." : item.questionText}</span></p>
-                                <p className="text-sm text-orange-800">{fb}</p>
-                              </div>
-                            );
-                          })}
+                          {submission.analysis_results?.analysis?.map(
+                            (item, idx) => {
+                              const fb =
+                                submission.question_feedback[item.questionId];
+                              if (!fb) return null;
+                              return (
+                                <div
+                                  key={item.questionId}
+                                  className="p-2 bg-white rounded border border-orange-100"
+                                >
+                                  <p className="text-xs font-bold text-gray-500 mb-0.5">
+                                    Q{idx + 1}:{" "}
+                                    <span className="font-normal text-gray-700">
+                                      {item.questionText.length > 80
+                                        ? item.questionText.slice(0, 80) + "..."
+                                        : item.questionText}
+                                    </span>
+                                  </p>
+                                  <p className="text-sm text-orange-800">
+                                    {fb}
+                                  </p>
+                                </div>
+                              );
+                            },
+                          )}
                         </div>
                       </div>
                     )}
@@ -338,18 +464,14 @@ export const MySubmissions = () => {
                       <button
                         onClick={() =>
                           setExpandedId(
-                            expandedId === submission.id
-                              ? null
-                              : submission.id,
+                            expandedId === submission.id ? null : submission.id,
                           )
                         }
                         className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
                       >
                         <span
                           className={`transition-transform duration-200 inline-block ${
-                            expandedId === submission.id
-                              ? "rotate-90"
-                              : ""
+                            expandedId === submission.id ? "rotate-90" : ""
                           }`}
                         >
                           ▶
@@ -362,29 +484,79 @@ export const MySubmissions = () => {
                         <div className="mt-3 space-y-4">
                           {/* TOS Compliance Badge */}
                           {(() => {
-                            const lotsPct = submission.analysis_results.summary.lotsPercentage || 0;
-                            const hotsPct = submission.analysis_results.summary.hotsPercentage || 0;
-                            const isCompliant = Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5;
+                            const lotsPct =
+                              submission.analysis_results.summary
+                                .lotsPercentage || 0;
+                            const hotsPct =
+                              submission.analysis_results.summary
+                                .hotsPercentage || 0;
+                            const isCompliant =
+                              Math.abs(lotsPct - 30) <= 5 &&
+                              Math.abs(hotsPct - 70) <= 5;
                             return (
-                              <div className={`p-4 rounded-xl border-2 flex items-center gap-4 ${isCompliant ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"}`}>
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isCompliant ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                              <div
+                                className={`p-4 rounded-xl border-2 flex items-center gap-4 ${isCompliant ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"}`}
+                              >
+                                <div
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isCompliant ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}
+                                >
                                   {isCompliant ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-5 w-5"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={3}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
                                   ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-5 w-5"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={3}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                      />
+                                    </svg>
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className={`font-bold text-sm ${isCompliant ? "text-green-800" : "text-red-800"}`}>
-                                    {isCompliant ? "TOS Compliant" : "TOS Non-Compliant"}
+                                  <p
+                                    className={`font-bold text-sm ${isCompliant ? "text-green-800" : "text-red-800"}`}
+                                  >
+                                    {isCompliant
+                                      ? "TOS Compliant"
+                                      : "TOS Non-Compliant"}
                                   </p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Target: 30% LOTS / 70% HOTS</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    Target: 30% LOTS / 70% HOTS
+                                  </p>
                                   <div className="flex gap-4 mt-1">
-                                    <span className={`text-xs font-semibold ${Math.abs(lotsPct - 30) <= 5 ? "text-green-600" : "text-red-600"}`}>
-                                      LOTS: {lotsPct}%{lotsPct !== 30 && ` (${30 - lotsPct > 0 ? "+" : ""}${30 - lotsPct}%)`}
+                                    <span
+                                      className={`text-xs font-semibold ${Math.abs(lotsPct - 30) <= 5 ? "text-green-600" : "text-red-600"}`}
+                                    >
+                                      LOTS: {lotsPct}%
+                                      {lotsPct !== 30 &&
+                                        ` (${30 - lotsPct > 0 ? "+" : ""}${30 - lotsPct}%)`}
                                     </span>
-                                    <span className={`text-xs font-semibold ${Math.abs(hotsPct - 70) <= 5 ? "text-green-600" : "text-red-600"}`}>
-                                      HOTS: {hotsPct}%{hotsPct !== 70 && ` (${70 - hotsPct > 0 ? "+" : ""}${70 - hotsPct}%)`}
+                                    <span
+                                      className={`text-xs font-semibold ${Math.abs(hotsPct - 70) <= 5 ? "text-green-600" : "text-red-600"}`}
+                                    >
+                                      HOTS: {hotsPct}%
+                                      {hotsPct !== 70 &&
+                                        ` (${70 - hotsPct > 0 ? "+" : ""}${70 - hotsPct}%)`}
                                     </span>
                                   </div>
                                 </div>
@@ -404,12 +576,27 @@ export const MySubmissions = () => {
                             <div className="border border-gray-200 rounded-xl overflow-hidden">
                               <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                                 <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4 text-gray-500"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    />
                                   </svg>
                                   Per-Question Breakdown
                                   <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
-                                    {submission.analysis_results.analysis.length} questions
+                                    {
+                                      submission.analysis_results.analysis
+                                        .length
+                                    }{" "}
+                                    questions
                                   </span>
                                 </h4>
                               </div>
@@ -419,46 +606,157 @@ export const MySubmissions = () => {
                                 <div className="col-span-5">Question</div>
                                 <div className="col-span-2">Level</div>
                                 <div className="col-span-2">Type</div>
-                                <div className="col-span-2 text-right">Confidence</div>
+                                <div className="col-span-2 text-right">
+                                  Confidence
+                                </div>
                               </div>
                               <div className="divide-y divide-gray-100">
-                                {submission.analysis_results.analysis.map((item, idx) => (
-                                  <div
-                                    key={item.questionId}
-                                    className={`px-4 py-3 text-sm ${item.needsReview ? "bg-yellow-50" : "bg-white"}`}
-                                  >
-                                    <div className="grid grid-cols-12 gap-2 items-start">
-                                      <div className="col-span-1 text-gray-400 font-semibold pt-0.5">{idx + 1}</div>
-                                      <div className="col-span-5 text-gray-700 break-words">{item.questionText}</div>
-                                      <div className="col-span-2 pt-0.5">
-                                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
-                                          { Remembering: "bg-blue-100 text-blue-700 border-blue-300", Understanding: "bg-cyan-100 text-cyan-700 border-cyan-300", Applying: "bg-green-100 text-green-700 border-green-300", Analyzing: "bg-yellow-100 text-yellow-700 border-yellow-300", Evaluating: "bg-orange-100 text-orange-700 border-orange-300", Creating: "bg-purple-100 text-purple-700 border-purple-300" }[item.bloomsLevel] || "bg-gray-100 text-gray-700 border-gray-300"
-                                        }`}>
-                                          {item.bloomsLevel}
-                                        </span>
-                                      </div>
-                                      <div className="col-span-2 pt-0.5">
-                                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${item.thinkingOrder === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}>
-                                          {item.thinkingOrder}
-                                        </span>
-                                        {item.needsReview && (
-                                          <span className="ml-1 text-yellow-500 text-xs" title="Low confidence">!</span>
+                                {submission.analysis_results.analysis.map(
+                                  (item, idx) => {
+                                    const snapshots =
+                                      submission.analysis_results
+                                        .questionSnapshots || [];
+                                    const snapshotById = snapshots.find(
+                                      (s) =>
+                                        String(s.questionId) ===
+                                        String(item.questionId),
+                                    );
+                                    const snapshotByText = snapshots.find(
+                                      (s) =>
+                                        normalizeQuestionText(
+                                          s.questionText,
+                                        ) ===
+                                        normalizeQuestionText(
+                                          item.questionText,
+                                        ),
+                                    );
+                                    const snapshot =
+                                      snapshotById ||
+                                      snapshotByText ||
+                                      snapshots[idx] ||
+                                      null;
+                                    const options = Array.isArray(
+                                      snapshot?.options,
+                                    )
+                                      ? snapshot.options
+                                      : [];
+
+                                    return (
+                                      <div
+                                        key={item.questionId}
+                                        className={`px-4 py-3 text-sm ${item.needsReview ? "bg-yellow-50" : "bg-white"}`}
+                                      >
+                                        <div className="grid grid-cols-12 gap-2 items-start">
+                                          <div className="col-span-1 text-gray-400 font-semibold pt-0.5">
+                                            {idx + 1}
+                                          </div>
+                                          <div className="col-span-5 text-gray-700 break-words">
+                                            {item.questionText}
+                                            {options.length > 0 && (
+                                              <div className="mt-2 space-y-1.5">
+                                                {options.map((opt, optIdx) => {
+                                                  const letter =
+                                                    String.fromCharCode(
+                                                      65 + optIdx,
+                                                    );
+                                                  const isCorrect =
+                                                    String(opt) ===
+                                                    String(
+                                                      snapshot?.correctAnswer,
+                                                    );
+                                                  return (
+                                                    <div
+                                                      key={`${item.questionId}-opt-${optIdx}`}
+                                                      className={`text-xs border rounded px-2 py-1 ${
+                                                        isCorrect
+                                                          ? "border-green-300 bg-green-50 text-green-800"
+                                                          : "border-gray-200 bg-gray-50 text-gray-700"
+                                                      }`}
+                                                    >
+                                                      <span className="font-semibold mr-1.5">
+                                                        {letter}.
+                                                      </span>
+                                                      <span>{opt}</span>
+                                                      {isCorrect && (
+                                                        <span className="ml-2 font-bold">
+                                                          Correct
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="col-span-2 pt-0.5">
+                                            <span
+                                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
+                                                {
+                                                  Remembering:
+                                                    "bg-blue-100 text-blue-700 border-blue-300",
+                                                  Understanding:
+                                                    "bg-cyan-100 text-cyan-700 border-cyan-300",
+                                                  Applying:
+                                                    "bg-green-100 text-green-700 border-green-300",
+                                                  Analyzing:
+                                                    "bg-yellow-100 text-yellow-700 border-yellow-300",
+                                                  Evaluating:
+                                                    "bg-orange-100 text-orange-700 border-orange-300",
+                                                  Creating:
+                                                    "bg-purple-100 text-purple-700 border-purple-300",
+                                                }[item.bloomsLevel] ||
+                                                "bg-gray-100 text-gray-700 border-gray-300"
+                                              }`}
+                                            >
+                                              {item.bloomsLevel}
+                                            </span>
+                                          </div>
+                                          <div className="col-span-2 pt-0.5">
+                                            <span
+                                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${item.thinkingOrder === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}
+                                            >
+                                              {item.thinkingOrder}
+                                            </span>
+                                            {item.needsReview && (
+                                              <span
+                                                className="ml-1 text-yellow-500 text-xs"
+                                                title="Low confidence"
+                                              >
+                                                !
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-span-2 text-right pt-0.5">
+                                            <span
+                                              className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}
+                                            >
+                                              {(item.confidence * 100).toFixed(
+                                                1,
+                                              )}
+                                              %
+                                            </span>
+                                          </div>
+                                        </div>
+                                        {submission.question_feedback?.[
+                                          item.questionId
+                                        ] && (
+                                          <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                            <p className="text-xs font-semibold text-orange-600 mb-0.5">
+                                              Admin Feedback:
+                                            </p>
+                                            <p className="text-sm text-orange-800">
+                                              {
+                                                submission.question_feedback[
+                                                  item.questionId
+                                                ]
+                                              }
+                                            </p>
+                                          </div>
                                         )}
                                       </div>
-                                      <div className="col-span-2 text-right pt-0.5">
-                                        <span className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}>
-                                          {(item.confidence * 100).toFixed(1)}%
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {submission.question_feedback?.[item.questionId] && (
-                                      <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                                        <p className="text-xs font-semibold text-orange-600 mb-0.5">Admin Feedback:</p>
-                                        <p className="text-sm text-orange-800">{submission.question_feedback[item.questionId]}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                                    );
+                                  },
+                                )}
                               </div>
                             </div>
                           )}
@@ -478,17 +776,19 @@ export const MySubmissions = () => {
                       )}
                       <button
                         onClick={async () => {
-                          // Fetch signatory names
-                          let reviewerName, approverName;
+                          // Fetch signatory names and semester/school year settings
+                          let reviewerName, approverName, semesterOverride, schoolYearOverride;
                           const { data: signatories } = await supabase
                             .from("tos_signatories")
-                            .select("reviewer_name, approver_name")
+                            .select("reviewer_name, approver_name, semester_override, school_year_override")
                             .order("updated_at", { ascending: false })
                             .limit(1)
                             .single();
                           if (signatories) {
                             reviewerName = signatories.reviewer_name;
                             approverName = signatories.approver_name;
+                            semesterOverride = signatories.semester_override;
+                            schoolYearOverride = signatories.school_year_override;
                           }
                           await exportBloomsPdf({
                             quizTitle: submission.quizzes?.title,
@@ -499,27 +799,132 @@ export const MySubmissions = () => {
                             submittedAt: submission.created_at,
                             adminFeedback: submission.admin_feedback,
                             status: submission.status,
+                            subjectCode: submission.section?.subject_code,
+                            courseName: submission.section?.name,
+                            semesterOverride,
+                            schoolYearOverride,
+                            reviewedAt: submission.reviewed_at,
+                            facultyHeadApprovedAt: submission.faculty_head_approved_at,
                           });
                         }}
                         className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
                         </svg>
                         PDF
                       </button>
-                      {submission.status === "revision_requested" && (
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/instructor-dashboard/instructor-quiz/${submission.quiz_id}`,
-                            )
+                      <button
+                        onClick={async () => {
+                          let semesterOverride, schoolYearOverride;
+                          const { data: signatories } = await supabase
+                            .from("tos_signatories")
+                            .select("semester_override, school_year_override")
+                            .order("updated_at", { ascending: false })
+                            .limit(1)
+                            .single();
+                          if (signatories) {
+                            semesterOverride = signatories.semester_override;
+                            schoolYearOverride = signatories.school_year_override;
                           }
-                          className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors"
+
+                          // Get questions from snapshots in analysis_results
+                          const snapshots = submission.analysis_results?.questionSnapshots || [];
+                          // If no snapshots, fetch questions from DB
+                          let questions = snapshots;
+                          if (questions.length === 0 && submission.quiz_id) {
+                            const { data: qRows } = await supabase
+                              .from("questions")
+                              .select("text, type, options")
+                              .eq("quiz_id", submission.quiz_id)
+                              .order("created_at", { ascending: true });
+                            questions = (qRows || []).map((q) => ({
+                              questionText: q.text,
+                              type: q.type,
+                              options: q.options || [],
+                            }));
+                          }
+
+                          await exportQuizPaperPdf({
+                            quizTitle: submission.quizzes?.title,
+                            quizDescription: submission.quizzes?.description,
+                            instructorName,
+                            courseName: submission.section?.name,
+                            semesterOverride,
+                            schoolYearOverride,
+                            submittedAt: submission.created_at,
+                            questions,
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
                         >
-                          Edit & Resubmit
-                        </button>
-                      )}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        Quiz Paper
+                      </button>
+                      {submission.status === "revision_requested" &&
+                        !submission.hasNewerVersion && (
+                          <button
+                            disabled={
+                              creatingRevisionFor === submission.id
+                            }
+                            onClick={async () => {
+                              try {
+                                setCreatingRevisionFor(submission.id);
+                                const newQuiz = await createRevisionCopy(
+                                  submission.quiz_id,
+                                );
+                                navigate(
+                                  `/instructor-dashboard/instructor-quiz/${newQuiz.id}`,
+                                  {
+                                    state: {
+                                      revisionOfSubmissionId: submission.id,
+                                    },
+                                  },
+                                );
+                              } catch (err) {
+                                console.error(
+                                  "Error creating revision copy:",
+                                  err,
+                                );
+                                notify.error(
+                                  "Failed to create revision: " +
+                                    err.message,
+                                );
+                              } finally {
+                                setCreatingRevisionFor(null);
+                              }
+                            }}
+                            className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {creatingRevisionFor === submission.id
+                              ? "Creating Revision..."
+                              : "Edit & Resubmit"}
+                          </button>
+                        )}
                     </div>
                   </div>
                 </div>

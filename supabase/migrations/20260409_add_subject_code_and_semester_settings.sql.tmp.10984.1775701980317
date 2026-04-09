@@ -1,0 +1,6 @@
+-- Add subject_code column to sections table
+ALTER TABLE public.sections ADD COLUMN IF NOT EXISTS subject_code VARCHAR(50);
+
+-- Add semester/school year override columns to tos_signatories
+ALTER TABLE tos_signatories ADD COLUMN IF NOT EXISTS semester_override TEXT;
+ALTER TABLE tos_signatories ADD COLUMN IF NOT EXISTS school_year_override TEXT;

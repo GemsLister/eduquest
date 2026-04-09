@@ -40,7 +40,6 @@ export const useFetchInstructorQuizzes = () => {
         .from("quizzes")
         .select("*, quiz_attempts(count)")
         .eq("instructor_id", user.id)
-        .eq("is_archived", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

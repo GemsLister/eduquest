@@ -9,6 +9,8 @@ export const AdminQuizReviews = () => {
   const [filter, setFilter] = useState("pending");
   const [search, setSearch] = useState("");
   const [allSubmissions, setAllSubmissions] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     loadSubmissions();
@@ -19,7 +21,7 @@ export const AdminQuizReviews = () => {
     try {
       const { data, error } = await supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description)")
+        .select("*, quizzes(*)")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -41,7 +43,26 @@ export const AdminQuizReviews = () => {
           profiles: profileMap[s.instructor_id] || null,
         }));
 
-        setAllSubmissions(enrichedData);
+        // Build set of superseded submission IDs
+        // (submissions that have a newer revision pointing to them)
+        const supersededIds = new Set();
+        enrichedData.forEach((s) => {
+          if (s.previous_submission_id) {
+            supersededIds.add(s.previous_submission_id);
+          }
+        });
+
+        // Filter out superseded submissions only if they are still pending
+        // Keep reviewed submissions (revision_requested, approved) visible
+        const visibleData = enrichedData.filter(
+          (s) =>
+            !supersededIds.has(s.id) ||
+            s.status === "revision_requested" ||
+            s.status === "approved" ||
+            s.status === "faculty_head_approved",
+        );
+
+        setAllSubmissions(visibleData);
       } else {
         setAllSubmissions(data || []);
       }
@@ -54,13 +75,18 @@ export const AdminQuizReviews = () => {
 
   // Badge counts
   const counts = useMemo(() => {
-    const c = { pending: 0, approved: 0, revision_requested: 0, rejected: 0, faculty_head_review: 0, faculty_head_approved: 0, all: 0 };
+    const c = { pending: 0, approved: 0, revision_requested: 0, faculty_head_review: 0, faculty_head_approved: 0, all: 0 };
     allSubmissions.forEach((s) => {
       c.all++;
       if (c[s.status] !== undefined) c[s.status]++;
     });
     return c;
   }, [allSubmissions]);
+
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, search]);
 
   // Filter + search
   const filtered = useMemo(() => {
@@ -81,6 +107,13 @@ export const AdminQuizReviews = () => {
     }
     return list;
   }, [allSubmissions, filter, search]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginatedSubmissions = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, currentPage]);
 
   const getInstructorName = (submission) => {
     const p = submission.profiles;
@@ -116,7 +149,6 @@ export const AdminQuizReviews = () => {
       pending: { bg: "bg-yellow-100 text-yellow-700", label: "Pending" },
       approved: { bg: "bg-green-100 text-green-700", label: "Approved" },
       revision_requested: { bg: "bg-orange-100 text-orange-700", label: "Revision" },
-      rejected: { bg: "bg-red-100 text-red-700", label: "Rejected" },
       faculty_head_review: { bg: "bg-blue-100 text-blue-700", label: "Faculty Head" },
       faculty_head_approved: { bg: "bg-green-100 text-green-700", label: "FH Approved" },
     };
@@ -156,7 +188,6 @@ export const AdminQuizReviews = () => {
     { key: "faculty_head_review", label: "Faculty Head", dotColor: "bg-blue-500" },
     { key: "faculty_head_approved", label: "FH Approved", dotColor: "bg-green-500" },
     { key: "revision_requested", label: "Revision", dotColor: "bg-orange-500" },
-    { key: "rejected", label: "Rejected", dotColor: "bg-red-500" },
     { key: "all", label: "All", dotColor: "bg-gray-400" },
   ];
 
@@ -164,7 +195,6 @@ export const AdminQuizReviews = () => {
     pending: { title: "No Pending Reviews", desc: "All quiz submissions have been reviewed. New submissions will appear here." },
     approved: { title: "No Approved Submissions", desc: "Approved quiz analyses will appear here after review." },
     revision_requested: { title: "No Revision Requests", desc: "Submissions sent back for revision will appear here." },
-    rejected: { title: "No Rejected Submissions", desc: "Rejected quiz analyses will appear here." },
     all: { title: "No Submissions Yet", desc: "Quiz analysis submissions from instructors will appear here." },
   };
 
@@ -287,8 +317,9 @@ export const AdminQuizReviews = () => {
             </p>
           </div>
         ) : (
+          <>
           <div className="space-y-3">
-            {filtered.map((submission) => {
+            {paginatedSubmissions.map((submission) => {
               const summary = submission.analysis_results?.summary;
               const tosCompliant = getTosStatus(summary);
               const lotsPct = summary?.lotsPercentage || 0;
@@ -318,8 +349,18 @@ export const AdminQuizReviews = () => {
                       {/* Title Row */}
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
-                          {submission.quizzes?.title || "Untitled Quiz"}
+                          {(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                         </h3>
+                        {(submission.quizzes?.version_number || 0) > 1 && (
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full text-[10px] font-bold">
+                            V{submission.quizzes.version_number}
+                          </span>
+                        )}
+                        {submission.previous_submission_id && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">
+                            Resubmission
+                          </span>
+                        )}
                         {getStatusBadge(submission.status)}
                         {tosCompliant !== null && (
                           <span
@@ -417,37 +458,20 @@ export const AdminQuizReviews = () => {
                         </div>
                       )}
 
-                      {/* Admin Feedback (for revision/rejected) */}
-                      {(submission.status === "revision_requested" ||
-                        submission.status === "rejected") &&
+                      {/* Admin Feedback (for revision) */}
+                      {submission.status === "revision_requested" &&
                         submission.admin_feedback && (
                           <div
-                            className={`mt-2 flex items-start gap-2 p-2.5 rounded-lg border ${
-                              submission.status === "revision_requested"
-                                ? "bg-orange-50 border-orange-100"
-                                : "bg-red-50 border-red-100"
-                            }`}
+                            className="mt-2 flex items-start gap-2 p-2.5 rounded-lg border bg-orange-50 border-orange-100"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${
-                              submission.status === "revision_requested"
-                                ? "text-orange-400"
-                                : "text-red-400"
-                            }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 mt-0.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
                             <div>
-                              <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${
-                                submission.status === "revision_requested"
-                                  ? "text-orange-600"
-                                  : "text-red-600"
-                              }`}>
+                              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-orange-600">
                                 Admin Feedback
                               </p>
-                              <p className={`text-xs line-clamp-2 ${
-                                submission.status === "revision_requested"
-                                  ? "text-orange-700"
-                                  : "text-red-700"
-                              }`}>
+                              <p className="text-xs line-clamp-2 text-orange-700">
                                 {submission.admin_feedback}
                               </p>
                             </div>
@@ -475,6 +499,45 @@ export const AdminQuizReviews = () => {
               );
             })}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-gray-500">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-9 h-9 text-sm font-semibold rounded-lg transition-colors ${
+                      currentPage === page
+                        ? "bg-brand-gold text-white"
+                        : "border border-gray-200 hover:bg-gray-50 text-gray-600"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     </>

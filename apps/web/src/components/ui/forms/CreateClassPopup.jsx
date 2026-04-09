@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { notify } from "../../../utils/notify.jsx";
 
 export const CreateClassPopup = ({
@@ -7,9 +8,12 @@ export const CreateClassPopup = ({
   error,
   formDataName,
   formDataDescription,
+  formDataSubjectCode,
   onInputChange,
 }) => {
-  if (error) notify.error(error);
+  useEffect(() => {
+    if (error) notify.error(error);
+  }, [error]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -39,6 +43,19 @@ export const CreateClassPopup = ({
               value={formDataName}
               onChange={onInputChange}
               placeholder="e.g., Application Development and Emerging Technologies"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Subject Code
+            </label>
+            <input
+              name="subject_code"
+              value={formDataSubjectCode}
+              onChange={onInputChange}
+              placeholder="e.g., IT 312"
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20 text-sm"
             />
           </div>

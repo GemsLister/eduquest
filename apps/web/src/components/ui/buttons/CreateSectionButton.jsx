@@ -30,6 +30,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
           error={error}
           formDataName={formData.name}
           formDataDescription={formData.description}
+          formDataSubjectCode={formData.subject_code}
           onInputChange={handleInputChange}
         />
       )}

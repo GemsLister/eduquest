@@ -63,11 +63,10 @@ export const AdminDashboard = () => {
       const submissions = data || [];
       const total = submissions.length;
       const approved = submissions.filter((s) => s.status === "approved").length;
-      const rejected = submissions.filter((s) => s.status === "rejected").length;
       const revisionRequested = submissions.filter(
         (s) => s.status === "revision_requested",
       ).length;
-      const reviewed = approved + rejected + revisionRequested;
+      const reviewed = approved + revisionRequested;
       const revisionRate =
         reviewed > 0 ? Math.round((revisionRequested / reviewed) * 100) : 0;
       const approvalRate =
@@ -109,7 +108,6 @@ export const AdminDashboard = () => {
       setBloomsStats({
         total,
         approved,
-        rejected,
         revisionRequested,
         reviewed,
         revisionRate,
@@ -222,7 +220,6 @@ export const AdminDashboard = () => {
     const styles = {
       pending: "bg-yellow-100 text-yellow-700",
       approved: "bg-green-100 text-green-700",
-      rejected: "bg-red-100 text-red-700",
       revision_requested: "bg-orange-100 text-orange-700",
       faculty_head_review: "bg-blue-100 text-blue-700",
       faculty_head_approved: "bg-green-100 text-green-700",
@@ -230,7 +227,6 @@ export const AdminDashboard = () => {
     const labels = {
       pending: "Pending",
       approved: "Approved",
-      rejected: "Rejected",
       revision_requested: "Revision",
       faculty_head_review: "Faculty Head",
       faculty_head_approved: "FH Approved",
@@ -314,15 +310,6 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
-            <div className="text-3xl">❌</div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Rejected</p>
-              <p className="text-3xl font-black text-red-600">
-                {bloomsLoading ? "—" : bloomsStats?.rejected || 0}
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Bloom's Analytics Section */}
@@ -401,15 +388,6 @@ export const AdminDashboard = () => {
                           title={`Revision: ${bloomsStats.revisionRequested}`}
                         />
                       )}
-                      {bloomsStats.rejected > 0 && (
-                        <div
-                          className="bg-red-500"
-                          style={{
-                            width: `${(bloomsStats.rejected / bloomsStats.total) * 100}%`,
-                          }}
-                          title={`Rejected: ${bloomsStats.rejected}`}
-                        />
-                      )}
                     </div>
                     <div className="flex gap-3 mt-2 text-[10px] text-gray-400">
                       <span className="flex items-center gap-1">
@@ -423,10 +401,6 @@ export const AdminDashboard = () => {
                       <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-orange-500" />
                         Revision
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-red-500" />
-                        Rejected
                       </span>
                     </div>
                   </div>

@@ -12,6 +12,9 @@ export const PublicQuizPage = () => {
   const [searchParams] = useSearchParams();
   const requestedSectionId = searchParams.get("section");
 
+  const cleanTitle = (title) =>
+    title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || "";
+
   // --- STATES ---
   const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
@@ -755,7 +758,7 @@ export const PublicQuizPage = () => {
               {sectionName && (
                 <p className="text-sm font-semibold text-brand-navy/60 uppercase tracking-wider">{sectionName}</p>
               )}
-              <h1 className="text-2xl font-bold text-brand-navy">{quiz?.title || "Loading Quiz..."}</h1>
+              <h1 className="text-2xl font-bold text-brand-navy">{cleanTitle(quiz?.title) || "Loading Quiz..."}</h1>
               {quiz?.description && (
                 <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Instructions</p>
@@ -818,7 +821,7 @@ export const PublicQuizPage = () => {
             <div className="bg-brand-navy rounded-t-lg px-6 py-4 shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-lg font-bold text-white">{quiz?.title}</h1>
+                  <h1 className="text-lg font-bold text-white">{cleanTitle(quiz?.title)}</h1>
                   <p className="text-sm text-white/70 mt-1">Review</p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -1029,7 +1032,7 @@ export const PublicQuizPage = () => {
           <div className="bg-brand-navy rounded-t-lg px-6 py-4 shadow-md mb-0">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-lg font-bold text-white">{quiz?.title}</h1>
+                <h1 className="text-lg font-bold text-white">{cleanTitle(quiz?.title)}</h1>
                 <p className="text-sm text-white/70 mt-1">
                   Question {currentQuestionIndex + 1} of {questions.length}
                 </p>

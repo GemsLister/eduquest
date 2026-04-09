@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext";
+import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
+import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
 
 export const FacultyHeadQuizApprovals = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [allSubmissions, setAllSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +22,7 @@ export const FacultyHeadQuizApprovals = () => {
     try {
       const { data, error } = await supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description)")
+        .select("*, quizzes(title, description, duration)")
         .in("status", ["faculty_head_review", "faculty_head_approved"])
         .order("created_at", { ascending: false });
 
@@ -36,9 +40,47 @@ export const FacultyHeadQuizApprovals = () => {
           profileMap[p.id] = p;
         });
 
-        setAllSubmissions(
-          data.map((s) => ({ ...s, profiles: profileMap[s.instructor_id] || null })),
+        // Filter out superseded submissions (older versions that have been resubmitted)
+        const supersededIds = new Set();
+        // Check previous_submission_id chain within these results
+        data.forEach((s) => {
+          if (s.previous_submission_id) {
+            supersededIds.add(s.previous_submission_id);
+          }
+        });
+
+        // Also check across ALL submissions to find any that supersede these
+        const currentIds = data.map((s) => s.id);
+        if (currentIds.length > 0) {
+          const { data: newerSubs } = await supabase
+            .from("quiz_analysis_submissions")
+            .select("previous_submission_id")
+            .in("previous_submission_id", currentIds);
+          (newerSubs || []).forEach((s) => {
+            supersededIds.add(s.previous_submission_id);
+          });
+        }
+
+        const visibleData = data.filter((s) => !supersededIds.has(s.id));
+
+        // Fetch section data for each submission
+        const enriched = await Promise.all(
+          visibleData.map(async (s) => {
+            let section = null;
+            if (s.quiz_id) {
+              const { data: qs } = await supabase
+                .from("quiz_sections")
+                .select("section_id, sections(name, subject_code)")
+                .eq("quiz_id", s.quiz_id)
+                .limit(1)
+                .maybeSingle();
+              section = qs?.sections || null;
+            }
+            return { ...s, profiles: profileMap[s.instructor_id] || null, section };
+          }),
         );
+
+        setAllSubmissions(enriched);
       } else {
         setAllSubmissions([]);
       }
@@ -132,6 +174,92 @@ export const FacultyHeadQuizApprovals = () => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
+    });
+  };
+
+  const handleExportPdf = async (e, submission) => {
+    e.stopPropagation();
+    const p = submission.profiles;
+    const instructorName = p
+      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email
+      : undefined;
+
+    let reviewerName, approverName, semesterOverride, schoolYearOverride;
+    if (user) {
+      const { data: signatories } = await supabase
+        .from("tos_signatories")
+        .select("reviewer_name, approver_name, semester_override, school_year_override")
+        .eq("faculty_head_id", user.id)
+        .single();
+      if (signatories) {
+        reviewerName = signatories.reviewer_name;
+        approverName = signatories.approver_name;
+        semesterOverride = signatories.semester_override;
+        schoolYearOverride = signatories.school_year_override;
+      }
+    }
+
+    await exportBloomsPdf({
+      quizTitle: submission.quizzes?.title,
+      results: submission.analysis_results,
+      instructorName,
+      reviewerName,
+      approverName,
+      submittedAt: submission.created_at,
+      adminFeedback: submission.admin_feedback,
+      status: submission.status,
+      subjectCode: submission.section?.subject_code,
+      courseName: submission.section?.name,
+      semesterOverride,
+      schoolYearOverride,
+      reviewedAt: submission.reviewed_at,
+      facultyHeadApprovedAt: submission.faculty_head_approved_at,
+    });
+  };
+
+  const handleExportQuizPaper = async (e, submission) => {
+    e.stopPropagation();
+    const p = submission.profiles;
+    const instructorName = p
+      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email
+      : undefined;
+
+    let semesterOverride, schoolYearOverride;
+    if (user) {
+      const { data: signatories } = await supabase
+        .from("tos_signatories")
+        .select("semester_override, school_year_override")
+        .eq("faculty_head_id", user.id)
+        .single();
+      if (signatories) {
+        semesterOverride = signatories.semester_override;
+        schoolYearOverride = signatories.school_year_override;
+      }
+    }
+
+    let questions = submission.analysis_results?.questionSnapshots || [];
+    if (questions.length === 0 && submission.quiz_id) {
+      const { data: qRows } = await supabase
+        .from("questions")
+        .select("text, type, options")
+        .eq("quiz_id", submission.quiz_id)
+        .order("created_at", { ascending: true });
+      questions = (qRows || []).map((q) => ({
+        questionText: q.text,
+        type: q.type,
+        options: q.options || [],
+      }));
+    }
+
+    await exportQuizPaperPdf({
+      quizTitle: submission.quizzes?.title,
+      quizDescription: submission.quizzes?.description,
+      instructorName,
+      courseName: submission.section?.name,
+      semesterOverride,
+      schoolYearOverride,
+      submittedAt: submission.created_at,
+      questions,
     });
   };
 
@@ -282,7 +410,7 @@ export const FacultyHeadQuizApprovals = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
-                          {submission.quizzes?.title || "Untitled Quiz"}
+                          {(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                         </h3>
                         {getStatusBadge(submission.status)}
                       </div>
@@ -352,7 +480,31 @@ export const FacultyHeadQuizApprovals = () => {
                       )}
                     </div>
 
-                    <div className="shrink-0 flex items-center self-center">
+                    <div className="shrink-0 flex items-center self-center gap-2">
+                      {submission.status === "faculty_head_approved" && (
+                        <>
+                          <button
+                            onClick={(e) => handleExportPdf(e, submission)}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                            title="Export TOS PDF"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            PDF
+                          </button>
+                          <button
+                            onClick={(e) => handleExportQuizPaper(e, submission)}
+                            className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                            title="Export Quiz Paper"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Quiz Paper
+                          </button>
+                        </>
+                      )}
                       <div className="w-9 h-9 rounded-lg bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-navy transition-colors">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

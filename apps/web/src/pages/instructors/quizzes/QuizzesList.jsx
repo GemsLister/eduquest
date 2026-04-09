@@ -102,7 +102,7 @@ export const QuizzesList = ({
                   </div>
 
                   <h3 className="font-bold text-lg text-white pr-24 leading-snug line-clamp-2">
-                    {quiz.title}
+                    {quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                   </h3>
                   {quiz.description && (
                     <p className="text-white/70 text-xs mt-1 line-clamp-1">

@@ -52,6 +52,28 @@ const loadImage = (src) =>
  * Generates and downloads a TOS (Table of Specifications) PDF report
  * matching the BUKSU school template format.
  */
+/**
+ * Derive semester from a date based on Philippine academic calendar.
+ * June-October = 1st Semester, November-March = 2nd Semester, April-May = Summer/Midyear
+ */
+const deriveSemester = (date) => {
+  const month = date.getMonth(); // 0-indexed
+  if (month >= 5 && month <= 9) return "1st Semester";
+  if (month >= 10 || month <= 2) return "2nd Semester";
+  return "Summer";
+};
+
+/**
+ * Derive school year from a date based on Philippine academic calendar.
+ * June onwards = currentYear - (currentYear+1), before June = (currentYear-1) - currentYear
+ */
+const deriveSchoolYear = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  if (month >= 5) return `${year}-${year + 1}`;
+  return `${year - 1}-${year}`;
+};
+
 export const exportBloomsPdf = async ({
   quizTitle,
   results,
@@ -61,6 +83,12 @@ export const exportBloomsPdf = async ({
   submittedAt,
   adminFeedback,
   status,
+  subjectCode,
+  courseName,
+  semesterOverride,
+  schoolYearOverride,
+  reviewedAt,
+  facultyHeadApprovedAt,
 }) => {
   try {
     const doc = new jsPDF();
@@ -145,10 +173,15 @@ export const exportBloomsPdf = async ({
     doc.line(midCol + descLabelW, y, midCol + descLabelW, y + rowH);
     doc.setFont("helvetica", "bold");
     doc.text("Subject Code", ix + 2, y + 5.5);
+    doc.setFont("helvetica", "normal");
+    if (subjectCode) {
+      doc.text(subjectCode, ix + labelW + 3, y + 5.5);
+    }
+    doc.setFont("helvetica", "bold");
     doc.text("Descriptive Title", midCol + 2, y + 5.5);
     doc.setFont("helvetica", "normal");
     const maxTitleWidth = contentWidth - (midCol - ix) - descLabelW - 4;
-    const displayTitle = quizTitle || "Untitled Quiz";
+    const displayTitle = courseName || quizTitle || "Untitled";
     const truncTitle =
       doc.getTextWidth(displayTitle) > maxTitleWidth
         ? displayTitle.substring(0, 35) + "..."
@@ -188,11 +221,11 @@ export const exportBloomsPdf = async ({
     doc.text("Semester", ix + 2, y + 5.5);
     doc.text("School Year", semMid + 2, y + 5.5);
     doc.setFont("helvetica", "normal");
-    if (submittedAt) {
-      const d = new Date(submittedAt);
-      const yr = d.getFullYear();
-      doc.text(`${yr}-${yr + 1}`, semMid + syrLabelW + 3, y + 5.5);
-    }
+    const refDate = submittedAt ? new Date(submittedAt) : new Date();
+    const semesterText = semesterOverride || deriveSemester(refDate);
+    const schoolYearText = schoolYearOverride || deriveSchoolYear(refDate);
+    doc.text(semesterText, ix + labelW + 3, y + 5.5);
+    doc.text(schoolYearText, semMid + syrLabelW + 3, y + 5.5);
     y += rowH;
     y += 6;
 
@@ -345,16 +378,26 @@ export const exportBloomsPdf = async ({
     y = doc.lastAutoTable.finalY + 20;
 
     // ── Signature Section ──
-    if (y > pageHeight - 55) {
+    if (y > pageHeight - 65) {
       doc.addPage();
       y = 20;
     }
+
+    const formatSigDate = (dateStr) => {
+      if (!dateStr) return "";
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
 
     const sigColWidth = contentWidth / 3;
     const sigStartY = y;
     const nameY = sigStartY + 12;
     const sigLineY = nameY + 2;
     const subtitleY = sigLineY + 4;
+    const dateY = subtitleY + 8;
 
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
@@ -371,6 +414,12 @@ export const exportBloomsPdf = async ({
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.text("Signature over printed name of faculty", ix + 2, subtitleY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const prepDate = formatSigDate(submittedAt);
+    if (prepDate) {
+      doc.text(`Date: ${prepDate}`, ix + 2, dateY);
+    }
 
     // Reviewed by
     const revX = ix + sigColWidth;
@@ -386,6 +435,12 @@ export const exportBloomsPdf = async ({
       revX + 2,
       subtitleY,
     );
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const revDate = formatSigDate(reviewedAt);
+    if (revDate) {
+      doc.text(`Date: ${revDate}`, revX + 2, dateY);
+    }
 
     // Approved by
     const appX = ix + sigColWidth * 2;
@@ -401,6 +456,12 @@ export const exportBloomsPdf = async ({
       appX + 2,
       subtitleY,
     );
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const appDate = formatSigDate(facultyHeadApprovedAt);
+    if (appDate) {
+      doc.text(`Date: ${appDate}`, appX + 2, dateY);
+    }
 
     // ── Document Footer ──
     doc.setFont("helvetica", "normal");

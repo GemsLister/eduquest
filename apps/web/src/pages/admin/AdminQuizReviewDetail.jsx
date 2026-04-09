@@ -6,7 +6,6 @@ import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 
-
 export const AdminQuizReviewDetail = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -18,6 +17,15 @@ export const AdminQuizReviewDetail = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [questionFeedback, setQuestionFeedback] = useState({});
+  const [questionMetaById, setQuestionMetaById] = useState({});
+  const [questionMetaByText, setQuestionMetaByText] = useState({});
+  const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
+
+  const normalizeQuestionText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
   useEffect(() => {
     loadSubmission();
@@ -28,7 +36,7 @@ export const AdminQuizReviewDetail = () => {
     try {
       const { data, error } = await supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description, duration)")
+        .select("*, quizzes(*)")
         .eq("id", submissionId)
         .single();
 
@@ -41,6 +49,47 @@ export const AdminQuizReviewDetail = () => {
           .select("first_name, last_name, email, username")
           .eq("id", data.instructor_id)
           .single();
+
+        const { data: questionRows } = await supabase
+          .from("questions")
+          .select("id, text, type, options, correct_answer")
+          .eq("quiz_id", data.quiz_id)
+          .order("created_at", { ascending: true });
+
+        const metaMapById = (questionRows || []).reduce((acc, q) => {
+          acc[String(q.id)] = {
+            type: q.type,
+            text: q.text,
+            options: q.options || [],
+            correctAnswer: q.correct_answer,
+          };
+          return acc;
+        }, {});
+
+        const metaMapByText = (questionRows || []).reduce((acc, q) => {
+          const key = normalizeQuestionText(q.text);
+          if (!key) return acc;
+          if (!acc[key]) {
+            acc[key] = {
+              type: q.type,
+              text: q.text,
+              options: q.options || [],
+              correctAnswer: q.correct_answer,
+            };
+          }
+          return acc;
+        }, {});
+
+        setQuestionMetaById(metaMapById);
+        setQuestionMetaByText(metaMapByText);
+        setQuestionMetaByIndex(
+          (questionRows || []).map((q) => ({
+            type: q.type,
+            text: q.text,
+            options: q.options || [],
+            correctAnswer: q.correct_answer,
+          })),
+        );
 
         setSubmission({ ...data, profiles: profile });
         setFeedback(data.admin_feedback || "");
@@ -69,11 +118,12 @@ export const AdminQuizReviewDetail = () => {
     setActionLoading(true);
     try {
       // When admin approves, forward to faculty head for final approval
-      const actualStatus = status === "approved" ? "faculty_head_review" : status;
+      const actualStatus =
+        status === "approved" ? "faculty_head_review" : status;
 
       // Filter out empty question feedback entries
       const filteredQuestionFeedback = Object.fromEntries(
-        Object.entries(questionFeedback).filter(([, v]) => v.trim())
+        Object.entries(questionFeedback).filter(([, v]) => v.trim()),
       );
 
       const { error } = await supabase
@@ -81,7 +131,10 @@ export const AdminQuizReviewDetail = () => {
         .update({
           status: actualStatus,
           admin_feedback: feedback || null,
-          question_feedback: Object.keys(filteredQuestionFeedback).length > 0 ? filteredQuestionFeedback : null,
+          question_feedback:
+            Object.keys(filteredQuestionFeedback).length > 0
+              ? filteredQuestionFeedback
+              : null,
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
         })
@@ -102,11 +155,6 @@ export const AdminQuizReviewDetail = () => {
           message: `The admin has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
           type: "warning",
         },
-        rejected: {
-          title: "Quiz Analysis Rejected",
-          message: `Your quiz analysis for "${quizTitle}" has been rejected.${feedback ? ` Feedback: ${feedback}` : ""}`,
-          type: "error",
-        },
       };
 
       const notification = notificationMap[status];
@@ -123,7 +171,6 @@ export const AdminQuizReviewDetail = () => {
       const messages = {
         approved: "Quiz forwarded to Faculty Head for approval!",
         revision_requested: "Revision request sent to instructor.",
-        rejected: "Quiz analysis has been rejected.",
       };
 
       notify.success(messages[status]);
@@ -160,7 +207,6 @@ export const AdminQuizReviewDetail = () => {
       pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
       approved: "bg-green-100 text-green-700 border-green-300",
       revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      rejected: "bg-red-100 text-red-700 border-red-300",
       faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
       faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
     };
@@ -168,7 +214,6 @@ export const AdminQuizReviewDetail = () => {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
-      rejected: "Rejected",
       faculty_head_review: "Awaiting Faculty Head",
       faculty_head_approved: "Faculty Head Approved",
     };
@@ -209,6 +254,21 @@ export const AdminQuizReviewDetail = () => {
   }
 
   const results = submission.analysis_results;
+  const snapshotById = (results?.questionSnapshots || []).reduce(
+    (acc, item) => {
+      acc[String(item.questionId)] = item;
+      return acc;
+    },
+    {},
+  );
+  const snapshotByText = (results?.questionSnapshots || []).reduce(
+    (acc, item) => {
+      const key = normalizeQuestionText(item.questionText);
+      if (key && !acc[key]) acc[key] = item;
+      return acc;
+    },
+    {},
+  );
 
   return (
     <>
@@ -222,8 +282,13 @@ export const AdminQuizReviewDetail = () => {
         </button>
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-white">
-              {submission.quizzes?.title || "Quiz Analysis Review"}
+            <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+              {(submission.quizzes?.title || "Quiz Analysis Review").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+              {(submission.quizzes?.version_number || 0) > 1 && (
+                <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-xs font-bold">
+                  V{submission.quizzes.version_number}
+                </span>
+              )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Submitted by{" "}
@@ -242,30 +307,33 @@ export const AdminQuizReviewDetail = () => {
       </div>
 
       <div className="p-6">
-        {/* Resubmission Banner */}
-        {submission.updated_at &&
-          submission.updated_at !== submission.created_at &&
-          submission.status === "pending" && (
-            <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
-              <span className="text-2xl">🔄</span>
-              <div>
-                <p className="text-sm font-semibold text-brand-navy">
-                  Resubmission
-                </p>
-                <p className="text-xs text-brand-navy">
-                  This analysis was resubmitted by the instructor after revision.
-                  Updated on{" "}
-                  {new Date(submission.updated_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
+        {/* Version / Resubmission Banner */}
+        {submission.previous_submission_id && (
+          <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
+            <span className="text-2xl">🔄</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-brand-navy">
+                Revised Submission
+                {(submission.quizzes?.version_number || 0) > 1 &&
+                  ` (Version ${submission.quizzes.version_number})`}
+              </p>
+              <p className="text-xs text-brand-navy/70">
+                The instructor revised this quiz based on previous feedback and
+                resubmitted for review.
+              </p>
             </div>
-          )}
+            <button
+              onClick={() =>
+                navigate(
+                  `/admin-dashboard/quiz-reviews/${submission.previous_submission_id}`,
+                )
+              }
+              className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+            >
+              View Previous Version
+            </button>
+          </div>
+        )}
 
         {/* Instructor Message */}
         {submission.instructor_message && (
@@ -321,10 +389,16 @@ export const AdminQuizReviewDetail = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {results?.summary?.distribution &&
-                ["Remembering", "Understanding", "Applying", "Analyzing", "Evaluating", "Creating"].map(
-                  (level) => {
-                    const count = results.summary.distribution[level] ?? 0;
-                    return (
+                [
+                  "Remembering",
+                  "Understanding",
+                  "Applying",
+                  "Analyzing",
+                  "Evaluating",
+                  "Creating",
+                ].map((level) => {
+                  const count = results.summary.distribution[level] ?? 0;
+                  return (
                     <div
                       key={level}
                       className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}
@@ -332,8 +406,8 @@ export const AdminQuizReviewDetail = () => {
                       <span className="font-semibold">{level}:</span>
                       <span className="font-bold">{count}</span>
                     </div>
-                    );
-                  })}
+                  );
+                })}
             </div>
           </div>
 
@@ -364,87 +438,135 @@ export const AdminQuizReviewDetail = () => {
             Question Analysis
           </h3>
           <div className="space-y-4">
-            {results?.analysis?.map((item, idx) => (
-              <div
-                key={item.questionId}
-                className={`border-2 rounded-lg p-4 transition-colors ${
-                  item.needsReview
-                    ? "border-yellow-400 bg-yellow-50"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-bold text-gray-500">
-                        Q{idx + 1}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
-                      >
-                        {item.thinkingOrder}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
-                      >
-                        {item.bloomsLevel}
-                      </span>
-                      {item.needsReview && (
-                        <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
-                          ⚠️ Low Confidence
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-800">{item.questionText}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm text-gray-500">Confidence</p>
-                    <p
-                      className={`text-lg font-bold ${
-                        item.confidence >= 0.9
-                          ? "text-green-600"
-                          : item.confidence >= 0.75
-                            ? "text-yellow-600"
-                            : "text-red-600"
-                      }`}
-                    >
-                      {(item.confidence * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
+            {results?.analysis?.map((item, idx) =>
+              (() => {
+                const questionMeta =
+                  snapshotById[String(item.questionId)] ||
+                  snapshotByText[normalizeQuestionText(item.questionText)] ||
+                  questionMetaById[String(item.questionId)] ||
+                  questionMetaByText[
+                    normalizeQuestionText(item.questionText)
+                  ] ||
+                  questionMetaByIndex[idx] ||
+                  null;
+                const options = Array.isArray(questionMeta?.options)
+                  ? questionMeta.options
+                  : [];
 
-                {/* Per-question feedback */}
-                {submission.status === "pending" ? (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <textarea
-                      value={questionFeedback[item.questionId] || ""}
-                      onChange={(e) =>
-                        setQuestionFeedback((prev) => ({
-                          ...prev,
-                          [item.questionId]: e.target.value,
-                        }))
-                      }
-                      placeholder={`Add feedback for Q${idx + 1}...`}
-                      rows="2"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none"
-                    />
-                  </div>
-                ) : (
-                  questionFeedback[item.questionId] && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                        <p className="text-xs font-semibold text-orange-600 mb-1">
-                          Admin Feedback:
-                        </p>
-                        <p className="text-sm text-orange-800">
-                          {questionFeedback[item.questionId]}
+                return (
+                  <div
+                    key={item.questionId}
+                    className={`border-2 rounded-lg p-4 transition-colors ${
+                      item.needsReview
+                        ? "border-yellow-400 bg-yellow-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-bold text-gray-500">
+                            Q{idx + 1}
+                          </span>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
+                          >
+                            {item.thinkingOrder}
+                          </span>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
+                          >
+                            {item.bloomsLevel}
+                          </span>
+                          {item.needsReview && (
+                            <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
+                              ⚠️ Low Confidence
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-800">{item.questionText}</p>
+
+                        {options.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {options.map((opt, optIdx) => {
+                              const letter = String.fromCharCode(65 + optIdx);
+                              const isCorrect =
+                                String(opt) ===
+                                String(questionMeta.correctAnswer);
+                              return (
+                                <div
+                                  key={`${item.questionId}-opt-${optIdx}`}
+                                  className={`text-sm border rounded-md px-3 py-2 ${
+                                    isCorrect
+                                      ? "border-green-300 bg-green-50 text-green-800"
+                                      : "border-gray-200 bg-gray-50 text-gray-700"
+                                  }`}
+                                >
+                                  <span className="font-semibold mr-2">
+                                    {letter}.
+                                  </span>
+                                  <span>{opt}</span>
+                                  {isCorrect && (
+                                    <span className="ml-2 text-xs font-bold text-green-700">
+                                      Correct
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="text-sm text-gray-500">Confidence</p>
+                        <p
+                          className={`text-lg font-bold ${
+                            item.confidence >= 0.9
+                              ? "text-green-600"
+                              : item.confidence >= 0.75
+                                ? "text-yellow-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {(item.confidence * 100).toFixed(1)}%
                         </p>
                       </div>
                     </div>
-                  )
-                )}
-              </div>
-            ))}
+
+                    {/* Per-question feedback */}
+                    {submission.status === "pending" ? (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <textarea
+                          value={questionFeedback[item.questionId] || ""}
+                          onChange={(e) =>
+                            setQuestionFeedback((prev) => ({
+                              ...prev,
+                              [item.questionId]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Add feedback for Q${idx + 1}...`}
+                          rows="2"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none"
+                        />
+                      </div>
+                    ) : (
+                      questionFeedback[item.questionId] && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                            <p className="text-xs font-semibold text-orange-600 mb-1">
+                              Admin Feedback:
+                            </p>
+                            <p className="text-sm text-orange-800">
+                              {questionFeedback[item.questionId]}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })(),
+            )}
           </div>
         </div>
 
@@ -484,13 +606,6 @@ export const AdminQuizReviewDetail = () => {
         {submission.status === "pending" && (
           <div className="flex flex-wrap gap-4 justify-end">
             <button
-              onClick={() => handleAction("rejected")}
-              disabled={actionLoading}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
-            >
-              Reject
-            </button>
-            <button
               onClick={() => handleAction("revision_requested")}
               disabled={actionLoading}
               className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
@@ -513,9 +628,7 @@ export const AdminQuizReviewDetail = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">
-              {pendingAction === "rejected"
-                ? "Rejection Feedback"
-                : "Revision Request Feedback"}
+              Revision Request Feedback
             </h3>
             <p className="text-sm text-gray-500 mb-4">
               Please provide overall feedback or per-question feedback above to

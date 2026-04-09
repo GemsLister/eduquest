@@ -8,6 +8,7 @@ export const useCreateSection = (onSectionCreated, userId) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    subject_code: "",
   });
 
   const handleInputChange = (e) => {
@@ -46,6 +47,7 @@ export const useCreateSection = (onSectionCreated, userId) => {
             instructor_id: userId,
             name: formData.name.trim(),
             description: formData.description.trim() || null,
+            subject_code: formData.subject_code.trim() || null,
             exam_code: examCode(),
           },
         ])
@@ -53,7 +55,7 @@ export const useCreateSection = (onSectionCreated, userId) => {
 
       if (insertError) throw insertError;
 
-      setFormData({ name: "", description: "" });
+      setFormData({ name: "", description: "", subject_code: "" });
       setShowForm(false);
 
       if (onSectionCreated) {

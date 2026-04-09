@@ -5,7 +5,6 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
-import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
@@ -14,6 +13,15 @@ export const FacultyHeadApprovalDetail = () => {
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [questionMetaById, setQuestionMetaById] = useState({});
+  const [questionMetaByText, setQuestionMetaByText] = useState({});
+  const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
+
+  const normalizeQuestionText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
   useEffect(() => {
     loadSubmission();
@@ -37,7 +45,63 @@ export const FacultyHeadApprovalDetail = () => {
           .eq("id", data.instructor_id)
           .single();
 
-        setSubmission({ ...data, profiles: profile });
+        // Fetch section data via quiz_sections junction table
+        let sectionData = null;
+        if (data.quiz_id) {
+          const { data: qs } = await supabase
+            .from("quiz_sections")
+            .select("section_id, sections(name, subject_code)")
+            .eq("quiz_id", data.quiz_id)
+            .limit(1)
+            .maybeSingle();
+          sectionData = qs?.sections || null;
+        }
+
+        // Fetch questions with options
+        if (data.quiz_id) {
+          const { data: questionRows } = await supabase
+            .from("questions")
+            .select("id, text, type, options, correct_answer")
+            .eq("quiz_id", data.quiz_id)
+            .order("created_at", { ascending: true });
+
+          const metaMapById = (questionRows || []).reduce((acc, q) => {
+            acc[String(q.id)] = {
+              type: q.type,
+              text: q.text,
+              options: q.options || [],
+              correctAnswer: q.correct_answer,
+            };
+            return acc;
+          }, {});
+
+          const metaMapByText = (questionRows || []).reduce((acc, q) => {
+            const key = normalizeQuestionText(q.text);
+            if (!key) return acc;
+            if (!acc[key]) {
+              acc[key] = {
+                type: q.type,
+                text: q.text,
+                options: q.options || [],
+                correctAnswer: q.correct_answer,
+              };
+            }
+            return acc;
+          }, {});
+
+          setQuestionMetaById(metaMapById);
+          setQuestionMetaByText(metaMapByText);
+          setQuestionMetaByIndex(
+            (questionRows || []).map((q) => ({
+              type: q.type,
+              text: q.text,
+              options: q.options || [],
+              correctAnswer: q.correct_answer,
+            })),
+          );
+        }
+
+        setSubmission({ ...data, profiles: profile, section: sectionData });
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -79,39 +143,6 @@ export const FacultyHeadApprovalDetail = () => {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const handleExportPdf = async () => {
-    const instructorName = submission.profiles
-      ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
-        submission.profiles.username ||
-        submission.profiles.email
-      : undefined;
-
-    // Fetch signatory names from settings
-    let reviewerName, approverName;
-    if (user) {
-      const { data: signatories } = await supabase
-        .from("tos_signatories")
-        .select("reviewer_name, approver_name")
-        .eq("faculty_head_id", user.id)
-        .single();
-      if (signatories) {
-        reviewerName = signatories.reviewer_name;
-        approverName = signatories.approver_name;
-      }
-    }
-
-    await exportBloomsPdf({
-      quizTitle: submission.quizzes?.title,
-      results: submission.analysis_results,
-      instructorName,
-      reviewerName,
-      approverName,
-      submittedAt: submission.created_at,
-      adminFeedback: submission.admin_feedback,
-      status: submission.status,
-    });
   };
 
   const getLevelColor = (level) => {
@@ -178,6 +209,21 @@ export const FacultyHeadApprovalDetail = () => {
   }
 
   const results = submission.analysis_results;
+  const snapshotById = (results?.questionSnapshots || []).reduce(
+    (acc, item) => {
+      acc[String(item.questionId)] = item;
+      return acc;
+    },
+    {},
+  );
+  const snapshotByText = (results?.questionSnapshots || []).reduce(
+    (acc, item) => {
+      const key = normalizeQuestionText(item.questionText);
+      if (key && !acc[key]) acc[key] = item;
+      return acc;
+    },
+    {},
+  );
 
   return (
     <>
@@ -192,7 +238,7 @@ export const FacultyHeadApprovalDetail = () => {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              {submission.quizzes?.title || "Quiz Analysis Review"}
+              {(submission.quizzes?.title || "Quiz Analysis Review").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Submitted by{" "}
@@ -205,17 +251,6 @@ export const FacultyHeadApprovalDetail = () => {
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            {submission.status === "faculty_head_approved" && (
-              <button
-                onClick={handleExportPdf}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5 text-sm"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export PDF
-              </button>
-            )}
             {getStatusBadge(submission.status)}
           </div>
         </div>
@@ -359,64 +394,108 @@ export const FacultyHeadApprovalDetail = () => {
             Question Analysis
           </h3>
           <div className="space-y-4">
-            {results?.analysis?.map((item, idx) => (
-              <div
-                key={item.questionId}
-                className={`border-2 rounded-lg p-4 transition-colors ${
-                  item.needsReview
-                    ? "border-yellow-400 bg-yellow-50"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-bold text-gray-500">
-                        Q{idx + 1}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
-                      >
-                        {item.thinkingOrder}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
-                      >
-                        {item.bloomsLevel}
-                      </span>
-                      {item.needsReview && (
-                        <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
-                          ⚠️ Low Confidence
+            {results?.analysis?.map((item, idx) => {
+              const questionMeta =
+                snapshotById[String(item.questionId)] ||
+                snapshotByText[normalizeQuestionText(item.questionText)] ||
+                questionMetaById[String(item.questionId)] ||
+                questionMetaByText[normalizeQuestionText(item.questionText)] ||
+                questionMetaByIndex[idx] ||
+                null;
+              const options = Array.isArray(questionMeta?.options)
+                ? questionMeta.options
+                : [];
+
+              return (
+                <div
+                  key={item.questionId}
+                  className={`border-2 rounded-lg p-4 transition-colors ${
+                    item.needsReview
+                      ? "border-yellow-400 bg-yellow-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-bold text-gray-500">
+                          Q{idx + 1}
                         </span>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
+                        >
+                          {item.thinkingOrder}
+                        </span>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
+                        >
+                          {item.bloomsLevel}
+                        </span>
+                        {item.needsReview && (
+                          <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
+                            ⚠️ Low Confidence
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-800">{item.questionText}</p>
+
+                      {options.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {options.map((opt, optIdx) => {
+                            const letter = String.fromCharCode(65 + optIdx);
+                            const isCorrect =
+                              String(opt) ===
+                              String(questionMeta.correctAnswer);
+                            return (
+                              <div
+                                key={`${item.questionId}-opt-${optIdx}`}
+                                className={`text-sm border rounded-md px-3 py-2 ${
+                                  isCorrect
+                                    ? "border-green-300 bg-green-50 text-green-800"
+                                    : "border-gray-200 bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                <span className="font-semibold mr-2">
+                                  {letter}.
+                                </span>
+                                <span>{opt}</span>
+                                {isCorrect && (
+                                  <span className="ml-2 text-xs font-bold text-green-700">
+                                    Correct
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
-                    <p className="text-gray-800">{item.questionText}</p>
+                    <div className="text-right ml-4">
+                      <p className="text-sm text-gray-500">Confidence</p>
+                      <p
+                        className={`text-lg font-bold ${
+                          item.confidence >= 0.9
+                            ? "text-green-600"
+                            : item.confidence >= 0.75
+                              ? "text-yellow-600"
+                              : "text-red-600"
+                        }`}
+                      >
+                        {(item.confidence * 100).toFixed(1)}%
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm text-gray-500">Confidence</p>
-                    <p
-                      className={`text-lg font-bold ${
-                        item.confidence >= 0.9
-                          ? "text-green-600"
-                          : item.confidence >= 0.75
-                            ? "text-yellow-600"
-                            : "text-red-600"
-                      }`}
-                    >
-                      {(item.confidence * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
 
-                {/* Inline per-question feedback */}
-                {submission.question_feedback?.[item.questionId] && (
-                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-xs font-semibold text-blue-600 mb-0.5">Admin Feedback:</p>
-                    <p className="text-sm text-blue-800">{submission.question_feedback[item.questionId]}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+                  {/* Inline per-question feedback */}
+                  {submission.question_feedback?.[item.questionId] && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs font-semibold text-blue-600 mb-0.5">Admin Feedback:</p>
+                      <p className="text-sm text-blue-800">{submission.question_feedback[item.questionId]}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -445,25 +524,16 @@ export const FacultyHeadApprovalDetail = () => {
           </div>
         )}
 
-        {/* After approval - show export prompt */}
+        {/* After approval - show approved banner */}
         {submission.status === "faculty_head_approved" && (
           <div className="p-6 bg-green-50 border border-green-200 rounded-xl text-center">
             <div className="text-4xl mb-3">✅</div>
             <h3 className="text-lg font-bold text-green-800 mb-2">
               This quiz has been approved
             </h3>
-            <p className="text-green-600 text-sm mb-4">
-              You can export the analysis report as a PDF.
+            <p className="text-green-600 text-sm">
+              You can export the PDFs from the approvals list page.
             </p>
-            <button
-              onClick={handleExportPdf}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors inline-flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export PDF
-            </button>
           </div>
         )}
       </div>
