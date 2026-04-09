@@ -9,12 +9,15 @@ import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
 import { createRevisionCopy } from "../../services/createRevisionCopy";
 import { notify } from "../../utils/notify.jsx";
 
+const ITEMS_PER_PAGE = 5;
+
 export const MySubmissions = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
   const [instructorName, setInstructorName] = useState(null);
   const [creatingRevisionFor, setCreatingRevisionFor] = useState(null);
@@ -255,18 +258,32 @@ export const MySubmissions = () => {
       .replace(/\s+/g, " ")
       .trim();
 
+  const totalPages = Math.ceil(submissions.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedSubmissions = submissions.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  useEffect(() => {
+    if (totalPages === 0 && currentPage !== 1) {
+      setCurrentPage(1);
+    } else if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
     <>
       {/* Hero Banner */}
       <div className="bg-brand-navy px-6 py-8">
-        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          My Submissions
-        </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Quiz Analysis Submissions
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Track the status of your forwarded quiz analyses
+          Track the status of your forwarded quiz analysis
         </p>
       </div>
 
@@ -327,7 +344,7 @@ export const MySubmissions = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {submissions.map((submission) => (
+            {paginatedSubmissions.map((submission) => (
               <div
                 key={submission.id}
                 className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6"
@@ -940,6 +957,52 @@ export const MySubmissions = () => {
                 </div>
               </div>
             ))}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <p className="text-xs text-gray-400">
+                  Showing {startIndex + 1}–
+                  {Math.min(endIndex, submissions.length)} of{" "}
+                  {submissions.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Prev
+                  </button>
+                  {Array.from(
+                    { length: totalPages },
+                    (_, index) => index + 1,
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                        page === currentPage
+                          ? "bg-brand-gold text-brand-navy"
+                          : "text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
