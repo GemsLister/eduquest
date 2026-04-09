@@ -62,14 +62,14 @@ export const useLogin = () => {
 
       if (profile?.is_disabled) {
         await supabase.auth.signOut();
-        notify.error("This account has been disabled by the admin");
+        notify.error("This account has been disabled by the Senior Faculty");
         return;
       }
 
       // Block if explicitly pending approval (is_approved === false)
       if (profile?.is_approved === false) {
         await supabase.auth.signOut();
-        notify.info("Your account is pending admin approval.");
+        notify.info("Your account is pending Senior Faculty approval.");
         return;
       }
 

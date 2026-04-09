@@ -48,7 +48,7 @@ export const useRegister = () => {
         });
       }
 
-      notify.success("Registration submitted! Awaiting admin approval.");
+      notify.success("Registration submitted! Awaiting Senior Faculty approval.");
       return { success: true, data };
     } catch (error) {
       notify.error(error.message || "Registration failed");

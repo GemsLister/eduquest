@@ -117,7 +117,7 @@ export const AdminQuizReviewDetail = () => {
 
     setActionLoading(true);
     try {
-      // When admin approves, forward to faculty head for final approval
+      // When admin approves, forward to department head for final approval
       const actualStatus =
         status === "approved" ? "faculty_head_review" : status;
 
@@ -146,13 +146,13 @@ export const AdminQuizReviewDetail = () => {
       const quizTitle = submission.quizzes?.title || "your quiz";
       const notificationMap = {
         approved: {
-          title: "Quiz Analysis Reviewed by Admin",
-          message: `Your quiz analysis for "${quizTitle}" has been reviewed by the admin and forwarded to the Faculty Head for final approval.`,
+          title: "Quiz Analysis Reviewed by Senior Faculty",
+          message: `Your quiz analysis for "${quizTitle}" has been reviewed by the Senior Faculty and forwarded to the Department Head for final approval.`,
           type: "info",
         },
         revision_requested: {
           title: "Revision Requested",
-          message: `The admin has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
+          message: `The Senior Faculty has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
           type: "warning",
         },
       };
@@ -169,7 +169,7 @@ export const AdminQuizReviewDetail = () => {
       }
 
       const messages = {
-        approved: "Quiz forwarded to Faculty Head for approval!",
+        approved: "Quiz forwarded to Department Head for approval!",
         revision_requested: "Revision request sent to instructor.",
       };
 
@@ -214,8 +214,8 @@ export const AdminQuizReviewDetail = () => {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Faculty Head",
-      faculty_head_approved: "Faculty Head Approved",
+      faculty_head_review: "Awaiting Department Head",
+      faculty_head_approved: "Department Head Approved",
     };
     return (
       <span
@@ -554,7 +554,7 @@ export const AdminQuizReviewDetail = () => {
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                             <p className="text-xs font-semibold text-orange-600 mb-1">
-                              Admin Feedback:
+                              Senior Faculty Feedback:
                             </p>
                             <p className="text-sm text-orange-800">
                               {questionFeedback[item.questionId]}
@@ -570,7 +570,7 @@ export const AdminQuizReviewDetail = () => {
           </div>
         </div>
 
-        {/* Admin Feedback */}
+        {/* Senior Faculty Feedback */}
         {submission.status === "pending" && (
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -590,7 +590,7 @@ export const AdminQuizReviewDetail = () => {
         {submission.admin_feedback && submission.status !== "pending" && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
             <p className="text-sm font-semibold text-gray-600 mb-1">
-              Admin Feedback:
+              Senior Faculty Feedback:
             </p>
             <p className="text-gray-800">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
@@ -617,7 +617,7 @@ export const AdminQuizReviewDetail = () => {
               disabled={actionLoading}
               className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
             >
-              Forward to Faculty Head
+              Forward to Department Head
             </button>
           </div>
         )}

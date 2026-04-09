@@ -56,12 +56,15 @@ export const AdminInstructors = () => {
   }, [error]);
 
   const handleStatusClick = async (instructor) => {
-    const result = await toggleInstructorStatus(instructor.id, !instructor.is_disabled);
+    const result = await toggleInstructorStatus(
+      instructor.id,
+      !instructor.is_disabled,
+    );
     if (result?.success) {
       notify.success(
         instructor.is_disabled
           ? `${instructor.first_name || instructor.email} has been activated.`
-          : `${instructor.first_name || instructor.email} has been disabled.`
+          : `${instructor.first_name || instructor.email} has been disabled.`,
       );
     }
   };
@@ -77,7 +80,7 @@ export const AdminInstructors = () => {
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Admin
+          Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Instructor Accounts
@@ -251,7 +254,6 @@ export const AdminInstructors = () => {
           </div>
         )}
       </div>
-
     </>
   );
 };

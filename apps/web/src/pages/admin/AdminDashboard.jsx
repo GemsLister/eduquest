@@ -25,7 +25,9 @@ export const AdminDashboard = () => {
   useEffect(() => {
     if (user) {
       const name =
-        user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin";
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Senior Faculty";
       setAdminName(name);
     }
     loadPendingReviews();
@@ -62,7 +64,9 @@ export const AdminDashboard = () => {
 
       const submissions = data || [];
       const total = submissions.length;
-      const approved = submissions.filter((s) => s.status === "approved").length;
+      const approved = submissions.filter(
+        (s) => s.status === "approved",
+      ).length;
       const revisionRequested = submissions.filter(
         (s) => s.status === "revision_requested",
       ).length;
@@ -158,7 +162,9 @@ export const AdminDashboard = () => {
       }
 
       const quizIds = [...new Set(submissions.map((s) => s.quiz_id))];
-      const instructorIds = [...new Set(submissions.map((s) => s.instructor_id))];
+      const instructorIds = [
+        ...new Set(submissions.map((s) => s.instructor_id)),
+      ];
 
       const [quizRes, profileRes] = await Promise.all([
         supabase.from("quizzes").select("id, title").in("id", quizIds),
@@ -168,9 +174,7 @@ export const AdminDashboard = () => {
           .in("id", instructorIds),
       ]);
 
-      const quizMap = new Map(
-        (quizRes.data || []).map((q) => [q.id, q.title]),
-      );
+      const quizMap = new Map((quizRes.data || []).map((q) => [q.id, q.title]));
       const profileMap = new Map(
         (profileRes.data || []).map((p) => {
           const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
@@ -207,7 +211,11 @@ export const AdminDashboard = () => {
             }
           }
         });
-        setTosCompliance({ compliant, nonCompliant, total: compliant + nonCompliant });
+        setTosCompliance({
+          compliant,
+          nonCompliant,
+          total: compliant + nonCompliant,
+        });
       }
     } catch (err) {
       console.error("Error loading recent submissions:", err);
@@ -228,11 +236,13 @@ export const AdminDashboard = () => {
       pending: "Pending",
       approved: "Approved",
       revision_requested: "Revision",
-      faculty_head_review: "Faculty Head",
-      faculty_head_approved: "FH Approved",
+      faculty_head_review: "Department Head",
+      faculty_head_approved: "DH Approved",
     };
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-gray-100 text-gray-600"}`}>
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-gray-100 text-gray-600"}`}
+      >
         {labels[status] || status}
       </span>
     );
@@ -253,7 +263,7 @@ export const AdminDashboard = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Admin
+          Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Welcome back, {adminName}
@@ -309,7 +319,6 @@ export const AdminDashboard = () => {
               </p>
             </div>
           </div>
-
         </div>
 
         {/* Bloom's Analytics Section */}
@@ -466,8 +475,19 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-brand-navy"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                    />
                   </svg>
                 </div>
                 {pendingReviews > 0 && (
@@ -490,8 +510,19 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                    />
                   </svg>
                 </div>
                 {pendingRequests > 0 && (
@@ -514,8 +545,19 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-brand-navy"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -533,8 +575,19 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-brand-gold/15 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-brand-gold-dark"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
                   </svg>
                 </div>
               </div>
@@ -561,13 +614,22 @@ export const AdminDashboard = () => {
                   {/* Donut-style visual */}
                   <div className="flex items-center gap-6 mb-5">
                     <div className="relative w-28 h-28 shrink-0">
-                      <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <svg
+                        viewBox="0 0 36 36"
+                        className="w-full h-full -rotate-90"
+                      >
                         <circle
-                          cx="18" cy="18" r="15.915"
-                          fill="none" stroke="#f3f4f6" strokeWidth="3"
+                          cx="18"
+                          cy="18"
+                          r="15.915"
+                          fill="none"
+                          stroke="#f3f4f6"
+                          strokeWidth="3"
                         />
                         <circle
-                          cx="18" cy="18" r="15.915"
+                          cx="18"
+                          cy="18"
+                          r="15.915"
                           fill="none"
                           stroke="#22c55e"
                           strokeWidth="3"
@@ -577,16 +639,24 @@ export const AdminDashboard = () => {
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-xl font-black text-gray-800">
-                          {Math.round((tosCompliance.compliant / tosCompliance.total) * 100)}%
+                          {Math.round(
+                            (tosCompliance.compliant / tosCompliance.total) *
+                              100,
+                          )}
+                          %
                         </span>
-                        <span className="text-[10px] text-gray-400 font-medium">Compliant</span>
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          Compliant
+                        </span>
                       </div>
                     </div>
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-green-500" />
-                          <span className="text-sm text-gray-600">Compliant</span>
+                          <span className="text-sm text-gray-600">
+                            Compliant
+                          </span>
                         </div>
                         <span className="text-sm font-bold text-green-600">
                           {tosCompliance.compliant} quizzes
@@ -595,14 +665,18 @@ export const AdminDashboard = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-red-500" />
-                          <span className="text-sm text-gray-600">Non-Compliant</span>
+                          <span className="text-sm text-gray-600">
+                            Non-Compliant
+                          </span>
                         </div>
                         <span className="text-sm font-bold text-red-600">
                           {tosCompliance.nonCompliant} quizzes
                         </span>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <span className="text-sm text-gray-500">Total Approved</span>
+                        <span className="text-sm text-gray-500">
+                          Total Approved
+                        </span>
                         <span className="text-sm font-bold text-gray-700">
                           {tosCompliance.total} quizzes
                         </span>
@@ -612,18 +686,36 @@ export const AdminDashboard = () => {
 
                   <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-xs text-gray-500">
-                      School TOS requires <span className="font-semibold text-gray-700">30% LOTS / 70% HOTS</span> distribution with 5% tolerance. Quizzes outside this range are flagged as non-compliant.
+                      School TOS requires{" "}
+                      <span className="font-semibold text-gray-700">
+                        30% LOTS / 70% HOTS
+                      </span>{" "}
+                      distribution with 5% tolerance. Quizzes outside this range
+                      are flagged as non-compliant.
                     </p>
                   </div>
                 </>
               ) : (
                 <div className="text-center py-8">
                   <div className="w-14 h-14 mx-auto mb-3 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-7 w-7 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
                     </svg>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600">No Compliance Data Yet</p>
+                  <p className="text-sm font-semibold text-gray-600">
+                    No Compliance Data Yet
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">
                     TOS compliance will appear once quizzes are approved.
                   </p>
@@ -653,13 +745,27 @@ export const AdminDashboard = () => {
               ) : recentSubmissions.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-14 h-14 mx-auto mb-3 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-7 w-7 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                      />
                     </svg>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600">No Submissions Yet</p>
+                  <p className="text-sm font-semibold text-gray-600">
+                    No Submissions Yet
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Submissions will appear here when instructors submit quizzes for review.
+                    Submissions will appear here when instructors submit quizzes
+                    for review.
                   </p>
                 </div>
               ) : (
@@ -685,8 +791,19 @@ export const AdminDashboard = () => {
                         <span className="text-xs text-gray-400 w-12 text-right">
                           {timeAgo(sub.created_at)}
                         </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </div>
                     </button>
@@ -696,7 +813,6 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
       </div>
     </>
   );

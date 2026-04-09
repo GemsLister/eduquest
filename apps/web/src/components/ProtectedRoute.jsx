@@ -80,7 +80,7 @@ export const ProtectedRoute = ({ children }) => {
             Pending Approval
           </h1>
           <p className="text-gray-500 text-sm">
-            Your account registration is being reviewed by the admin. You will
+            Your account registration is being reviewed by the Senior Faculty. You will
             be able to log in once your account has been approved.
           </p>
           <button

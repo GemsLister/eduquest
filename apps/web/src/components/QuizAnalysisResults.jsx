@@ -19,7 +19,7 @@ const ProgressStepper = ({ currentStep }) => {
       label: "Review Results",
       icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
     },
-    { label: "Submit to Admin", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
+    { label: "Submit to Senior Faculty", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
   ];
   return (
     <div className="flex items-center justify-center gap-1 px-6 py-3 bg-black/20">
@@ -223,8 +223,8 @@ export const QuizAnalysisResults = ({
       setForwarded(true);
       notify.success(
         prevSubId
-          ? "Revised quiz submitted for admin review!"
-          : "Quiz submitted for admin review!",
+          ? "Revised quiz submitted for Senior Faculty review!"
+          : "Quiz submitted for Senior Faculty review!",
       );
     } catch (err) {
       console.error("Forward error:", err);
@@ -313,7 +313,7 @@ export const QuizAnalysisResults = ({
                 }`}
               >
                 {existingSubmission.status === "revision_requested"
-                  ? "Revision Requested by Admin"
+                  ? "Revision Requested by Senior Faculty"
                   : "Previously Rejected"}
               </p>
               {existingSubmission.admin_feedback && (
@@ -773,20 +773,20 @@ export const QuizAnalysisResults = ({
                 )}
               </div>
 
-              {/* Submit to Admin — grouped card */}
+              {/* Submit to Senior Faculty — grouped card */}
               {!forwarded ? (
                 <div className="bg-brand-navy/5 border border-brand-navy/20 rounded-xl p-5">
                   <h4 className="font-bold text-gray-800 mb-1">
-                    Submit for Admin Review
+                    Submit for Senior Faculty Review
                   </h4>
                   <p className="text-xs text-gray-500 mb-3">
-                    Send your analysis results to the admin for approval. You
+                    Send your analysis results to the Senior Faculty for approval. You
                     can include a message for context.
                   </p>
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Add any notes or context for the admin reviewer..."
+                    placeholder="Add any notes or context for the Senior Faculty reviewer..."
                     rows="2"
                     className="w-full px-4 py-2 border border-brand-navy/20 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 text-sm mb-3 bg-white"
                   />
@@ -871,7 +871,7 @@ export const QuizAnalysisResults = ({
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    The admin will review your quiz analysis and provide
+                    The Senior Faculty will review your quiz analysis and provide
                     feedback.
                   </p>
                 </div>

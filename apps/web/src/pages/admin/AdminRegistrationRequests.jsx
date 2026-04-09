@@ -68,7 +68,7 @@ export const AdminRegistrationRequests = () => {
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Admin
+          Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
           Registration Requests
@@ -144,7 +144,9 @@ export const AdminRegistrationRequests = () => {
                     />
                   </svg>
                   <p className="text-sm text-brand-navy">
-                    <span className="font-semibold">{requests.length} requests</span>{" "}
+                    <span className="font-semibold">
+                      {requests.length} requests
+                    </span>{" "}
                     are waiting for your review.
                   </p>
                 </div>
@@ -325,7 +327,6 @@ export const AdminRegistrationRequests = () => {
           </>
         )}
       </div>
-
     </>
   );
 };

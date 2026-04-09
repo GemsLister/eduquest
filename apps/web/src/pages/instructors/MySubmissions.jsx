@@ -106,8 +106,8 @@ export const MySubmissions = () => {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Faculty Head",
-      faculty_head_approved: "Approved by Faculty Head",
+      faculty_head_review: "Awaiting Department Head",
+      faculty_head_approved: "Approved by Department Head",
     };
     return (
       <span
@@ -321,7 +321,7 @@ export const MySubmissions = () => {
             </h3>
             <p className="text-gray-500">
               {filter === "all"
-                ? "You haven't submitted any quiz analyses yet. Analyze a quiz and forward it to the admin for review."
+                ? "You haven't submitted any quiz analyses yet. Analyze a quiz and forward it to the Senior Faculty for review."
                 : "No submissions match the selected filter."}
             </p>
           </div>
@@ -337,7 +337,10 @@ export const MySubmissions = () => {
                   <div className="flex items-center gap-3">
                     {getStatusIcon(submission.status)}
                     <h3 className="text-lg font-bold text-gray-800 flex-1 flex items-center gap-2">
-                      {(submission.quizzes?.title || "Unknown Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                      {(submission.quizzes?.title || "Unknown Quiz").replace(
+                        /\s*\(Revised(?:\s+\d+)?\)\s*$/,
+                        "",
+                      )}
                       {(submission.quizzes?.version_number || 0) > 1 && (
                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full text-[10px] font-bold">
                           V{submission.quizzes.version_number}
@@ -385,7 +388,7 @@ export const MySubmissions = () => {
                     </div>
                   )}
 
-                  {/* Admin Overall Feedback */}
+                  {/* Senior Faculty Overall Feedback */}
                   {submission.admin_feedback && (
                     <div
                       className={`p-3 rounded-lg border ${
@@ -401,7 +404,7 @@ export const MySubmissions = () => {
                             : "text-orange-600"
                         }`}
                       >
-                        Overall Admin Feedback:
+                        Overall Senior Faculty Feedback:
                       </p>
                       <p
                         className={`text-sm ${
@@ -742,7 +745,7 @@ export const MySubmissions = () => {
                                         ] && (
                                           <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
                                             <p className="text-xs font-semibold text-orange-600 mb-0.5">
-                                              Admin Feedback:
+                                              Senior Faculty Feedback:
                                             </p>
                                             <p className="text-sm text-orange-800">
                                               {
@@ -777,10 +780,15 @@ export const MySubmissions = () => {
                       <button
                         onClick={async () => {
                           // Fetch signatory names and semester/school year settings
-                          let reviewerName, approverName, semesterOverride, schoolYearOverride;
+                          let reviewerName,
+                            approverName,
+                            semesterOverride,
+                            schoolYearOverride;
                           const { data: signatories } = await supabase
                             .from("tos_signatories")
-                            .select("reviewer_name, approver_name, semester_override, school_year_override")
+                            .select(
+                              "reviewer_name, approver_name, semester_override, school_year_override",
+                            )
                             .order("updated_at", { ascending: false })
                             .limit(1)
                             .single();
@@ -788,7 +796,8 @@ export const MySubmissions = () => {
                             reviewerName = signatories.reviewer_name;
                             approverName = signatories.approver_name;
                             semesterOverride = signatories.semester_override;
-                            schoolYearOverride = signatories.school_year_override;
+                            schoolYearOverride =
+                              signatories.school_year_override;
                           }
                           await exportBloomsPdf({
                             quizTitle: submission.quizzes?.title,
@@ -804,7 +813,8 @@ export const MySubmissions = () => {
                             semesterOverride,
                             schoolYearOverride,
                             reviewedAt: submission.reviewed_at,
-                            facultyHeadApprovedAt: submission.faculty_head_approved_at,
+                            facultyHeadApprovedAt:
+                              submission.faculty_head_approved_at,
                           });
                         }}
                         className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
@@ -836,11 +846,14 @@ export const MySubmissions = () => {
                             .single();
                           if (signatories) {
                             semesterOverride = signatories.semester_override;
-                            schoolYearOverride = signatories.school_year_override;
+                            schoolYearOverride =
+                              signatories.school_year_override;
                           }
 
                           // Get questions from snapshots in analysis_results
-                          const snapshots = submission.analysis_results?.questionSnapshots || [];
+                          const snapshots =
+                            submission.analysis_results?.questionSnapshots ||
+                            [];
                           // If no snapshots, fetch questions from DB
                           let questions = snapshots;
                           if (questions.length === 0 && submission.quiz_id) {
@@ -888,9 +901,7 @@ export const MySubmissions = () => {
                       {submission.status === "revision_requested" &&
                         !submission.hasNewerVersion && (
                           <button
-                            disabled={
-                              creatingRevisionFor === submission.id
-                            }
+                            disabled={creatingRevisionFor === submission.id}
                             onClick={async () => {
                               try {
                                 setCreatingRevisionFor(submission.id);
@@ -911,8 +922,7 @@ export const MySubmissions = () => {
                                   err,
                                 );
                                 notify.error(
-                                  "Failed to create revision: " +
-                                    err.message,
+                                  "Failed to create revision: " + err.message,
                                 );
                               } finally {
                                 setCreatingRevisionFor(null);

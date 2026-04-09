@@ -129,8 +129,8 @@ export const FacultyHeadApprovalDetail = () => {
       const quizTitle = submission.quizzes?.title || "your quiz";
       await supabase.from("notifications").insert({
         user_id: submission.instructor_id,
-        title: "Quiz Approved by Faculty Head",
-        message: `Your quiz analysis for "${quizTitle}" has been approved by the Faculty Head.`,
+        title: "Quiz Approved by Department Head",
+        message: `Your quiz analysis for "${quizTitle}" has been approved by the Department Head.`,
         type: "success",
         link: `/instructor-dashboard/my-submissions`,
       });
@@ -238,7 +238,10 @@ export const FacultyHeadApprovalDetail = () => {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              {(submission.quizzes?.title || "Quiz Analysis Review").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+              {(submission.quizzes?.title || "Quiz Analysis Review").replace(
+                /\s*\(Revised(?:\s+\d+)?\)\s*$/,
+                "",
+              )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Submitted by{" "}
@@ -257,11 +260,11 @@ export const FacultyHeadApprovalDetail = () => {
       </div>
 
       <div className="p-6">
-        {/* Admin Overall Feedback */}
+        {/* Senior Faculty Overall Feedback */}
         {submission.admin_feedback && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-sm font-semibold text-blue-700 mb-1">
-              Admin (Senior Faculty) Overall Feedback:
+              Senior Faculty Overall Feedback:
             </p>
             <p className="text-blue-800">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
@@ -278,16 +281,24 @@ export const FacultyHeadApprovalDetail = () => {
           Object.keys(submission.question_feedback).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-sm font-semibold text-blue-700 mb-2">
-                Per-Question Feedback from Admin:
+                Per-Question Feedback from Senior Faculty:
               </p>
               <div className="space-y-2">
                 {results?.analysis?.map((item, idx) => {
                   const fb = submission.question_feedback[item.questionId];
                   if (!fb) return null;
                   return (
-                    <div key={item.questionId} className="p-3 bg-white rounded-lg border border-blue-100">
+                    <div
+                      key={item.questionId}
+                      className="p-3 bg-white rounded-lg border border-blue-100"
+                    >
                       <p className="text-xs font-bold text-gray-500 mb-0.5">
-                        Q{idx + 1}: <span className="font-normal text-gray-700">{item.questionText.length > 100 ? item.questionText.slice(0, 100) + "..." : item.questionText}</span>
+                        Q{idx + 1}:{" "}
+                        <span className="font-normal text-gray-700">
+                          {item.questionText.length > 100
+                            ? item.questionText.slice(0, 100) + "..."
+                            : item.questionText}
+                        </span>
                       </p>
                       <p className="text-sm text-blue-800">{fb}</p>
                     </div>
@@ -351,10 +362,16 @@ export const FacultyHeadApprovalDetail = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {results?.summary?.distribution &&
-                ["Remembering", "Understanding", "Applying", "Analyzing", "Evaluating", "Creating"].map(
-                  (level) => {
-                    const count = results.summary.distribution[level] ?? 0;
-                    return (
+                [
+                  "Remembering",
+                  "Understanding",
+                  "Applying",
+                  "Analyzing",
+                  "Evaluating",
+                  "Creating",
+                ].map((level) => {
+                  const count = results.summary.distribution[level] ?? 0;
+                  return (
                     <div
                       key={level}
                       className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}
@@ -362,8 +379,8 @@ export const FacultyHeadApprovalDetail = () => {
                       <span className="font-semibold">{level}:</span>
                       <span className="font-bold">{count}</span>
                     </div>
-                    );
-                  })}
+                  );
+                })}
             </div>
           </div>
 
@@ -489,8 +506,12 @@ export const FacultyHeadApprovalDetail = () => {
                   {/* Inline per-question feedback */}
                   {submission.question_feedback?.[item.questionId] && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs font-semibold text-blue-600 mb-0.5">Admin Feedback:</p>
-                      <p className="text-sm text-blue-800">{submission.question_feedback[item.questionId]}</p>
+                      <p className="text-xs font-semibold text-blue-600 mb-0.5">
+                        Senior Faculty Feedback:
+                      </p>
+                      <p className="text-sm text-blue-800">
+                        {submission.question_feedback[item.questionId]}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -514,8 +535,19 @@ export const FacultyHeadApprovalDetail = () => {
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   Approve Quiz
                 </>

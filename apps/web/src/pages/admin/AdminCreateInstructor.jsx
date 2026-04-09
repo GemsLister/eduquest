@@ -26,7 +26,7 @@ export const AdminCreateInstructor = () => {
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Admin
+          Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Create Instructor

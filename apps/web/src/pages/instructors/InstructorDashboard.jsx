@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
@@ -7,6 +7,8 @@ import { sectionService } from "../../services/sectionService.js";
 import { supabase } from "../../supabaseClient.js";
 import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
+
+const ITEMS_PER_PAGE = 6;
 
 export const InstructorDashboard = () => {
   const {
@@ -18,6 +20,8 @@ export const InstructorDashboard = () => {
   } = useFetchSectionQuiz();
 
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [archivedPage, setArchivedPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
   const [archivedSections, setArchivedSections] = useState([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
@@ -138,6 +142,11 @@ export const InstructorDashboard = () => {
     );
   }, [sections, search]);
 
+  const totalPages = Math.ceil(filteredSections.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedSections = filteredSections.slice(startIndex, endIndex);
+
   const filteredArchived = useMemo(() => {
     if (!search.trim()) return archivedSections;
     const q = search.trim().toLowerCase();
@@ -147,6 +156,36 @@ export const InstructorDashboard = () => {
         s.description?.toLowerCase().includes(q),
     );
   }, [archivedSections, search]);
+
+  const archivedTotalPages = Math.ceil(
+    filteredArchived.length / ITEMS_PER_PAGE,
+  );
+  const archivedStartIndex = (archivedPage - 1) * ITEMS_PER_PAGE;
+  const archivedEndIndex = archivedStartIndex + ITEMS_PER_PAGE;
+  const paginatedArchived = filteredArchived.slice(
+    archivedStartIndex,
+    archivedEndIndex,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setArchivedPage(1);
+  }, [search, showArchived]);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (archivedPage > archivedTotalPages && archivedTotalPages > 0) {
+      setArchivedPage(archivedTotalPages);
+    }
+  }, [archivedPage, archivedTotalPages]);
 
   if (loading) {
     return (
@@ -217,8 +256,19 @@ export const InstructorDashboard = () => {
                   onClick={() => setSearch("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               )}
@@ -233,8 +283,19 @@ export const InstructorDashboard = () => {
                   : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
               }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                />
               </svg>
               Archived
               {archivedSections.length > 0 && (
@@ -259,30 +320,89 @@ export const InstructorDashboard = () => {
             icon={search.trim() ? "🔍" : "📚"}
           />
         ) : (
-          <Container.ContentContainer>
-            {filteredSections.map((section) => (
-              <Container.SectionContainer key={section.id}>
-                <ClassCard.ClassInfo
-                  sectionId={section.id}
-                  sectionName={section.name}
-                  subject={section.description}
-                  quizzes={sectionQuizzes[section.id] || []}
-                  onEdit={() => handleEditSection(section)}
-                  onArchive={() =>
-                    handleArchiveSection(section.id, section.name)
-                  }
-                />
-              </Container.SectionContainer>
-            ))}
-          </Container.ContentContainer>
+          <>
+            <Container.ContentContainer>
+              {paginatedSections.map((section) => (
+                <Container.SectionContainer key={section.id}>
+                  <ClassCard.ClassInfo
+                    sectionId={section.id}
+                    sectionName={section.name}
+                    subject={section.description}
+                    quizzes={sectionQuizzes[section.id] || []}
+                    onEdit={() => handleEditSection(section)}
+                    onArchive={() =>
+                      handleArchiveSection(section.id, section.name)
+                    }
+                  />
+                </Container.SectionContainer>
+              ))}
+            </Container.ContentContainer>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <p className="text-xs text-gray-400">
+                  Showing {startIndex + 1}–
+                  {Math.min(endIndex, filteredSections.length)} of{" "}
+                  {filteredSections.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Prev
+                  </button>
+                  {Array.from(
+                    { length: totalPages },
+                    (_, index) => index + 1,
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                        page === currentPage
+                          ? "bg-brand-gold text-brand-navy"
+                          : "text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Archived Sections */}
         {showArchived && (
           <div className="mt-8">
             <h2 className="text-lg font-bold text-gray-600 mb-4 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                />
               </svg>
               Archived Subjects
             </h2>
@@ -299,29 +419,79 @@ export const InstructorDashboard = () => {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredArchived.map((section) => (
-                  <div
-                    key={section.id}
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-between opacity-70"
-                  >
-                    <div>
-                      <h3 className="font-bold text-gray-700">
-                        {section.name}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {section.description || "No subject"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleRestoreSection(section.id)}
-                      className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark transition-colors"
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedArchived.map((section) => (
+                    <div
+                      key={section.id}
+                      className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-between opacity-70"
                     >
-                      Restore
-                    </button>
+                      <div>
+                        <h3 className="font-bold text-gray-700">
+                          {section.name}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {section.description || "No subject"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRestoreSection(section.id)}
+                        className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark transition-colors"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {archivedTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <p className="text-xs text-gray-400">
+                      Showing {archivedStartIndex + 1}–
+                      {Math.min(archivedEndIndex, filteredArchived.length)} of{" "}
+                      {filteredArchived.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          setArchivedPage((page) => Math.max(1, page - 1))
+                        }
+                        disabled={archivedPage === 1}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Prev
+                      </button>
+                      {Array.from(
+                        { length: archivedTotalPages },
+                        (_, index) => index + 1,
+                      ).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setArchivedPage(page)}
+                          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                            page === archivedPage
+                              ? "bg-brand-gold text-brand-navy"
+                              : "text-gray-500 hover:bg-gray-100"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() =>
+                          setArchivedPage((page) =>
+                            Math.min(archivedTotalPages, page + 1),
+                          )
+                        }
+                        disabled={archivedPage === archivedTotalPages}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         )}

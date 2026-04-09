@@ -9,9 +9,9 @@ import * as AuthIndex from "../pages/auth/authIndex.js";
 import * as InstructorIndex from "../pages/instructors/instructorPageIndex.js";
 // Item Analysis Routes
 import { ItemAnalysisPage } from "../pages/item-analysis/ItemAnalysisPage.jsx";
-// Admin Routes
+// Senior Faculty Routes
 import * as AdminIndex from "../pages/admin/adminPageIndex.js";
-// Faculty Head Routes
+// Department Head Routes
 import * as FacultyHeadIndex from "../pages/faculty-head/facultyHeadPageIndex.js";
 // Public Routes
 import { PublicQuizPage } from "../pages/PublicQuizPage.jsx";
@@ -122,7 +122,7 @@ export const router = createBrowserRouter(
             },
           ],
         },
-        // Admin dashboard routing
+        // Senior Faculty dashboard routing
         {
           path: "admin-dashboard",
           element: (
@@ -157,7 +157,7 @@ export const router = createBrowserRouter(
             },
           ],
         },
-        // Faculty Head dashboard routing
+        // Department Head dashboard routing
         {
           path: "faculty-head-dashboard",
           element: (

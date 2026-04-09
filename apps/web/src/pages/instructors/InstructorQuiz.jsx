@@ -916,7 +916,7 @@ export const InstructorQuiz = () => {
                   : isApprovedStatus
                     ? "Approved — you can now publish this quiz"
                     : isReviewLocked
-                      ? "Submitted for review — view only until admin decision"
+                      ? "Submitted for review — view only until Senior Faculty decision"
                       : "Draft — add questions and submit for review when ready"
                 : "Set up your quiz and start adding questions"}
             </p>
@@ -1163,7 +1163,7 @@ export const InstructorQuiz = () => {
               className="mb-4 px-4 py-3 border rounded-lg bg-orange-50 border-orange-200"
             >
               <p className="text-sm font-bold text-orange-700">
-                Admin Revision Feedback
+                Senior Faculty Revision Feedback
               </p>
               {revisionOverallFeedback && (
                 <p className="text-sm mt-1 text-orange-800">
@@ -1491,7 +1491,7 @@ export const InstructorQuiz = () => {
                             className="mb-4 p-3 border rounded-lg bg-orange-50 border-orange-200"
                           >
                             <p className="text-xs font-semibold mb-1 text-orange-700">
-                              Admin Feedback on this question:
+                              Senior Faculty Feedback on this question:
                             </p>
                             <p className="text-sm text-orange-800">
 
@@ -1823,7 +1823,7 @@ export const InstructorQuiz = () => {
                   title={
                     questions.length === 0
                       ? "Add questions first"
-                      : "Analyze questions with AI and submit for admin review"
+                      : "Analyze questions with AI and submit for Senior Faculty review"
                   }
                 >
                   <svg

@@ -274,7 +274,7 @@ export const FacultyHeadQuizApprovals = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Faculty Head
+          Department Head
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
           Quiz Approvals
@@ -288,7 +288,7 @@ export const FacultyHeadQuizApprovals = () => {
           )}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Approve quiz analyses reviewed by the admin
+          Approve quiz analyses reviewed by the Senior Faculty
         </p>
       </div>
 
@@ -380,7 +380,7 @@ export const FacultyHeadQuizApprovals = () => {
             <p className="text-gray-400 text-sm max-w-sm mx-auto">
               {search
                 ? `No submissions match "${search}".`
-                : "Quiz analyses forwarded by admin will appear here."}
+                : "Quiz analyses forwarded by Senior Faculty will appear here."}
             </p>
           </div>
         ) : (
@@ -470,7 +470,7 @@ export const FacultyHeadQuizApprovals = () => {
                           </svg>
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
-                              Admin Feedback
+                              Senior Faculty Feedback
                             </p>
                             <p className="text-xs text-blue-700 line-clamp-2">
                               {submission.admin_feedback}

@@ -115,7 +115,7 @@ export const QuizzesPageMain = () => {
       };
     if (quiz.admin_review_status === "faculty_head_review")
       return {
-        label: "Faculty Head Review",
+        label: "Department Head Review",
         bg: "bg-blue-100 text-blue-700 border-blue-300",
       };
     if (quiz.admin_review_status === "revision_requested")
@@ -361,12 +361,12 @@ export const QuizzesPageMain = () => {
 
                   {/* Card Body */}
                   <div className="p-4 flex-1 flex flex-col gap-3">
-                    {/* Admin Feedback Inline */}
+                    {/* Senior Faculty Feedback Inline */}
                     {quiz.admin_review_status === "revision_requested" && (
                       <div
                         className="rounded-lg border px-3 py-2 text-xs border-orange-200 bg-orange-50 text-orange-700"
                       >
-                        <span className="font-bold">Admin Feedback: </span>
+                        <span className="font-bold">Senior Faculty Feedback: </span>
                         {quiz.admin_review_feedback?.trim() ||
                           "No feedback provided yet."}
                       </div>

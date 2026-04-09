@@ -15,7 +15,7 @@ export const FacultyHeadDashboard = () => {
   useEffect(() => {
     if (user) {
       const displayName =
-        user.user_metadata?.full_name || user.email?.split("@")[0] || "Faculty Head";
+        user.user_metadata?.full_name || user.email?.split("@")[0] || "Department Head";
       setName(displayName);
     }
     loadStats();
@@ -23,13 +23,13 @@ export const FacultyHeadDashboard = () => {
 
   const loadStats = async () => {
     try {
-      // Count pending for faculty head (status = 'faculty_head_review')
+      // Count pending for department head (status = 'faculty_head_review')
       const { count: pending } = await supabase
         .from("quiz_analysis_submissions")
         .select("*", { count: "exact", head: true })
         .eq("status", "faculty_head_review");
 
-      // Count approved by faculty head
+      // Count approved by department head
       const { count: approved } = await supabase
         .from("quiz_analysis_submissions")
         .select("*", { count: "exact", head: true })
@@ -38,7 +38,7 @@ export const FacultyHeadDashboard = () => {
       setPendingApprovals(pending || 0);
       setApprovedCount(approved || 0);
 
-      // Recent submissions for faculty head
+      // Recent submissions for department head
       const { data } = await supabase
         .from("quiz_analysis_submissions")
         .select("id, quiz_id, instructor_id, status, created_at, reviewed_at")
@@ -77,7 +77,7 @@ export const FacultyHeadDashboard = () => {
         );
       }
     } catch (err) {
-      console.error("Error loading faculty head stats:", err);
+      console.error("Error loading department head stats:", err);
     } finally {
       setLoading(false);
     }
@@ -112,13 +112,13 @@ export const FacultyHeadDashboard = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-          Faculty Head
+          Department Head
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
           Welcome back, {name}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Review and approve quiz analyses forwarded by the admin.
+          Review and approve quiz analyses forwarded by the Senior Faculty.
         </p>
       </div>
 
@@ -182,7 +182,7 @@ export const FacultyHeadDashboard = () => {
                 Review Quiz Approvals
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Approve quizzes forwarded by admin
+                Approve quizzes forwarded by Senior Faculty
               </p>
             </button>
           </div>
@@ -215,7 +215,7 @@ export const FacultyHeadDashboard = () => {
                 </div>
                 <p className="text-sm font-semibold text-gray-600">No Submissions Yet</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Submissions forwarded by admin will appear here.
+                  Submissions forwarded by Senior Faculty will appear here.
                 </p>
               </div>
             ) : (

@@ -78,24 +78,29 @@ export const PublicQuizPage = () => {
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
-    if (hrs > 0) return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    if (hrs > 0)
+      return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   // Low time warning (last 5 minutes)
-  const isLowTime = remainingSeconds !== null && remainingSeconds <= 300 && remainingSeconds > 0;
-
+  const isLowTime =
+    remainingSeconds !== null &&
+    remainingSeconds <= 300 &&
+    remainingSeconds > 0;
 
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
 
     // Auto-save answer via server-side grading (fire and forget)
     if (attemptId) {
-      supabase.rpc("save_quiz_response", {
-        p_attempt_id: attemptId,
-        p_question_id: questionId,
-        p_answer: value,
-      }).then(() => {});
+      supabase
+        .rpc("save_quiz_response", {
+          p_attempt_id: attemptId,
+          p_question_id: questionId,
+          p_answer: value,
+        })
+        .then(() => {});
     }
   };
 
@@ -133,7 +138,8 @@ export const PublicQuizPage = () => {
     }
 
     // Load saved answers
-    const { data: savedResponses } = await quizService.getResponsesDetailsByAttempt(existingAttemptId);
+    const { data: savedResponses } =
+      await quizService.getResponsesDetailsByAttempt(existingAttemptId);
     if (savedResponses && savedResponses.length > 0) {
       const restoredAnswers = {};
       savedResponses.forEach((r) => {
@@ -200,7 +206,6 @@ export const PublicQuizPage = () => {
     const loadQuiz = async () => {
       setError("");
       try {
-
         const { data: quizData, error: quizError } = await supabase
           .from("quizzes")
           .select(
@@ -214,7 +219,6 @@ export const PublicQuizPage = () => {
           .eq("share_token", shareToken)
           .eq("is_published", true)
           .single();
-
 
         if (quizError) {
           console.error("Quiz loading error:", quizError);
@@ -246,7 +250,8 @@ export const PublicQuizPage = () => {
             .select("*")
             .eq("id", requestedSectionId)
             .maybeSingle();
-          if (sectionData) setSectionName(sectionData.section_name || sectionData.name || "");
+          if (sectionData)
+            setSectionName(sectionData.section_name || sectionData.name || "");
         }
 
         if (quizData.is_open === false) {
@@ -320,8 +325,10 @@ export const PublicQuizPage = () => {
     const studentId = email.split("@")[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-    if (!email.endsWith('@gmail.com')) {
-      setError('You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.');
+    if (!email.endsWith("@gmail.com")) {
+      setError(
+        "You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.",
+      );
       await supabase.auth.signOut();
       setSession(null);
       setAuthenticating(false);
@@ -381,14 +388,18 @@ export const PublicQuizPage = () => {
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
-        const completedAttempt = existingAttempts.find((a) => a.status === "completed");
+        const completedAttempt = existingAttempts.find(
+          (a) => a.status === "completed",
+        );
         if (completedAttempt) {
           setAlreadyTaken(true);
           setAuthenticating(false);
           return;
         }
         // Resume in-progress attempt
-        const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
+        const inProgressAttempt = existingAttempts.find(
+          (a) => a.status === "in_progress",
+        );
         if (inProgressAttempt) {
           setAttemptId(inProgressAttempt.id);
           await restoreAttemptState(inProgressAttempt.id, questions);
@@ -496,14 +507,18 @@ export const PublicQuizPage = () => {
       if (checkError) throw new Error(checkError.message);
 
       if (existingAttempts && existingAttempts.length > 0) {
-        const completedAttempt = existingAttempts.find((a) => a.status === "completed");
+        const completedAttempt = existingAttempts.find(
+          (a) => a.status === "completed",
+        );
         if (completedAttempt) {
           setAlreadyTaken(true);
           setAuthenticating(false);
           return;
         }
         // Resume in-progress attempt
-        const inProgressAttempt = existingAttempts.find((a) => a.status === "in_progress");
+        const inProgressAttempt = existingAttempts.find(
+          (a) => a.status === "in_progress",
+        );
         if (inProgressAttempt) {
           setAttemptId(inProgressAttempt.id);
           await restoreAttemptState(inProgressAttempt.id, questions);
@@ -613,7 +628,9 @@ export const PublicQuizPage = () => {
   if (loading)
     return (
       <div className="flex h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
-        Loading...
+        <span className="text-brand-gold font-semibold drop-shadow-md">
+          Loading...
+        </span>
       </div>
     );
 
@@ -627,7 +644,9 @@ export const PublicQuizPage = () => {
       return (
         <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
           <div className="rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
-            <h1 className="text-2xl font-bold text-brand-navy mb-2">Signed Out</h1>
+            <h1 className="text-2xl font-bold text-brand-navy mb-2">
+              Signed Out
+            </h1>
             <p className="text-gray-600">You may now close this tab.</p>
           </div>
         </div>
@@ -638,13 +657,27 @@ export const PublicQuizPage = () => {
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         <div className="rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
           <div className="text-5xl mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-16 w-16 mx-auto text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+              />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-brand-navy mb-2">Quiz Already Taken</h1>
+          <h1 className="text-2xl font-bold text-brand-navy mb-2">
+            Quiz Already Taken
+          </h1>
           <p className="text-gray-600 mb-6">
-            You have already completed this quiz. Each student is only allowed one attempt.
+            You have already completed this quiz. Each student is only allowed
+            one attempt.
           </p>
           <button
             onClick={handleExitAlreadyTaken}
@@ -669,8 +702,12 @@ export const PublicQuizPage = () => {
       return (
         <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
           <div className="rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
-            <h1 className="text-2xl font-bold text-brand-navy mb-2">Thank You!</h1>
-            <p className="text-gray-600">You have been signed out successfully. You may now close this tab.</p>
+            <h1 className="text-2xl font-bold text-brand-navy mb-2">
+              Thank You!
+            </h1>
+            <p className="text-gray-600">
+              You have been signed out successfully. You may now close this tab.
+            </p>
           </div>
         </div>
       );
@@ -678,7 +715,9 @@ export const PublicQuizPage = () => {
 
     return (
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
-        <h1 className="text-3xl font-bold text-white drop-shadow-lg">Quiz Complete!</h1>
+        <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+          Quiz Complete!
+        </h1>
         <div className="mt-4 rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
           <p className="text-5xl font-bold text-brand-navy">
             {score}/{totalPoints}
@@ -687,7 +726,8 @@ export const PublicQuizPage = () => {
 
           <div className="mt-8 border-t pt-6">
             <p className="text-xs text-gray-500 mb-4 italic">
-              Note: You will be signed out when you exit to protect your account.
+              Note: You will be signed out when you exit to protect your
+              account.
             </p>
             <button
               onClick={handleExit}
@@ -701,12 +741,19 @@ export const PublicQuizPage = () => {
     );
   }
 
-  if (!hasStarted && searchParams.get("auth") === "success" && !error && !alreadyTaken) {
+  if (
+    !hasStarted &&
+    searchParams.get("auth") === "success" &&
+    !error &&
+    !alreadyTaken
+  ) {
     return (
       <div className="flex h-screen items-center justify-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-navy"></div>
-          <p className="mt-4 text-brand-navy font-semibold">Signing you in...</p>
+          <p className="mt-4 text-brand-gold font-semibold drop-shadow-md">
+            Signing you in...
+          </p>
         </div>
       </div>
     );
@@ -756,23 +803,44 @@ export const PublicQuizPage = () => {
                 </div>
               )}
               {sectionName && (
-                <p className="text-sm font-semibold text-brand-navy/60 uppercase tracking-wider">{sectionName}</p>
+                <p className="text-sm font-semibold text-brand-navy/60 uppercase tracking-wider">
+                  {sectionName}
+                </p>
               )}
-              <h1 className="text-2xl font-bold text-brand-navy">{cleanTitle(quiz?.title) || "Loading Quiz..."}</h1>
+              <h1 className="text-2xl font-bold text-brand-navy">
+                {cleanTitle(quiz?.title) || "Loading Quiz..."}
+              </h1>
               {quiz?.description && (
                 <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Instructions</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-line">{quiz.description}</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    Instructions
+                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">
+                    {quiz.description}
+                  </p>
                 </div>
               )}
 
               {quiz?.duration && (
                 <div className="mt-3 flex items-center gap-2 p-3 bg-brand-navy/5 border border-brand-navy/10 rounded-lg">
-                  <svg className="w-4 h-4 text-brand-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-4 h-4 text-brand-navy"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <p className="text-sm font-semibold text-brand-navy">
-                    Time Limit: {quiz.duration >= 60 ? `${Math.floor(quiz.duration / 60)}h ${quiz.duration % 60 > 0 ? `${quiz.duration % 60}m` : ""}` : `${quiz.duration} minutes`}
+                    Time Limit:{" "}
+                    {quiz.duration >= 60
+                      ? `${Math.floor(quiz.duration / 60)}h ${quiz.duration % 60 > 0 ? `${quiz.duration % 60}m` : ""}`
+                      : `${quiz.duration} minutes`}
                   </p>
                 </div>
               )}
@@ -780,7 +848,9 @@ export const PublicQuizPage = () => {
               {authenticating ? (
                 <div className="mt-6 flex flex-col items-center space-y-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-navy"></div>
-                  <p className="text-gray-600">Signing in with Google...</p>
+                  <p className="text-brand-gold font-medium drop-shadow-sm">
+                    Signing in with Google...
+                  </p>
                 </div>
               ) : (
                 <div className="mt-6">
@@ -810,7 +880,8 @@ export const PublicQuizPage = () => {
 
   // Review page (shown after last question)
   if (showReviewPage) {
-    const reviewProgressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+    const reviewProgressPercent =
+      questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
     return (
       <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0">
@@ -821,7 +892,9 @@ export const PublicQuizPage = () => {
             <div className="bg-brand-navy rounded-t-lg px-6 py-4 shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-lg font-bold text-white">{cleanTitle(quiz?.title)}</h1>
+                  <h1 className="text-lg font-bold text-white">
+                    {cleanTitle(quiz?.title)}
+                  </h1>
                   <p className="text-sm text-white/70 mt-1">Review</p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -829,7 +902,9 @@ export const PublicQuizPage = () => {
                     {answeredCount}/{questions.length} answered
                   </div>
                   {quizDurationSeconds ? (
-                    <div className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}>
+                    <div
+                      className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}
+                    >
                       {formatTime(remainingSeconds ?? quizDurationSeconds)}
                     </div>
                   ) : (
@@ -864,7 +939,7 @@ export const PublicQuizPage = () => {
                         ${
                           isUnanswered
                             ? "bg-red-50 text-red-400 border border-red-200 hover:bg-red-100"
-                            : "bg-brand-navy/10 text-brand-navy border border-brand-navy/30 hover:bg-brand-navy/20"
+                            : "bg-green-500 text-white border border-green-600 hover:bg-green-600"
                         }`}
                     >
                       {i + 1}
@@ -874,7 +949,7 @@ export const PublicQuizPage = () => {
               </div>
               <div className="flex gap-4 mt-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded bg-brand-navy/10 border border-brand-navy/30"></span>{" "}
+                  <span className="inline-block w-3 h-3 rounded bg-green-500 border border-green-600"></span>{" "}
                   Answered
                 </span>
                 <span className="flex items-center gap-1">
@@ -889,13 +964,29 @@ export const PublicQuizPage = () => {
           <div className="bg-white p-6 shadow-md rounded-b-lg">
             {/* Time summary */}
             <div className="mb-5 flex items-center gap-2 text-sm text-gray-500">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              Time elapsed: <span className="font-bold text-brand-navy">{formatTime(elapsedSeconds)}</span>
+              Time elapsed:{" "}
+              <span className="font-bold text-brand-navy">
+                {formatTime(elapsedSeconds)}
+              </span>
               {quizDurationSeconds && (
-                <span className={`ml-2 font-bold ${isLowTime ? "text-red-600" : "text-gray-600"}`}>
-                  &middot; Remaining: {formatTime(remainingSeconds ?? quizDurationSeconds)}
+                <span
+                  className={`ml-2 font-bold ${isLowTime ? "text-red-600" : "text-gray-600"}`}
+                >
+                  &middot; Remaining:{" "}
+                  {formatTime(remainingSeconds ?? quizDurationSeconds)}
                 </span>
               )}
             </div>
@@ -904,10 +995,13 @@ export const PublicQuizPage = () => {
             {unansweredQuestions.length > 0 ? (
               <div className="mb-5 p-4 bg-red-50 border-l-4 border-red-400 rounded">
                 <p className="text-sm font-semibold text-red-700 mb-1">
-                  You have {unansweredQuestions.length} unanswered {unansweredQuestions.length === 1 ? "question" : "questions"} remaining.
+                  You have {unansweredQuestions.length} unanswered{" "}
+                  {unansweredQuestions.length === 1 ? "question" : "questions"}{" "}
+                  remaining.
                 </p>
                 <p className="text-sm text-red-600 mb-2">
-                  Unanswered: {unansweredQuestions.map((item) => (
+                  Unanswered:{" "}
+                  {unansweredQuestions.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => goToQuestion(item.index)}
@@ -972,25 +1066,39 @@ export const PublicQuizPage = () => {
         {showConfirmModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-bold text-brand-navy mb-2">Submit Assessment?</h3>
+              <h3 className="text-lg font-bold text-brand-navy mb-2">
+                Submit Assessment?
+              </h3>
               <p className="text-gray-600 text-sm mb-1">
                 You are about to submit your assessment for grading.
               </p>
               <p className="text-gray-600 text-sm mb-1">
-                <span className="font-semibold">{answeredCount}/{questions.length}</span> questions answered
+                <span className="font-semibold">
+                  {answeredCount}/{questions.length}
+                </span>{" "}
+                questions answered
               </p>
               <p className="text-gray-600 text-sm mb-1">
-                Time spent: <span className="font-semibold">{formatTime(elapsedSeconds)}</span>
+                Time spent:{" "}
+                <span className="font-semibold">
+                  {formatTime(elapsedSeconds)}
+                </span>
               </p>
               {quizDurationSeconds && (
-                <p className={`text-sm mb-4 ${isLowTime ? "text-red-600 font-semibold" : "text-gray-600"}`}>
-                  Time remaining: <span className="font-semibold">{formatTime(remainingSeconds ?? quizDurationSeconds)}</span>
+                <p
+                  className={`text-sm mb-4 ${isLowTime ? "text-red-600 font-semibold" : "text-gray-600"}`}
+                >
+                  Time remaining:{" "}
+                  <span className="font-semibold">
+                    {formatTime(remainingSeconds ?? quizDurationSeconds)}
+                  </span>
                 </p>
               )}
               {!quizDurationSeconds && <div className="mb-3" />}
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-5">
                 <p className="text-yellow-700 text-xs font-medium">
-                  This action cannot be undone. You will not be able to change your answers after submitting.
+                  This action cannot be undone. You will not be able to change
+                  your answers after submitting.
                 </p>
               </div>
               <div className="flex gap-3">
@@ -1021,7 +1129,8 @@ export const PublicQuizPage = () => {
   // Question display
   const currentQuestion = questions[currentQuestionIndex];
 
-  const progressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+  const progressPercent =
+    questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0">
@@ -1032,7 +1141,9 @@ export const PublicQuizPage = () => {
           <div className="bg-brand-navy rounded-t-lg px-6 py-4 shadow-md mb-0">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-lg font-bold text-white">{cleanTitle(quiz?.title)}</h1>
+                <h1 className="text-lg font-bold text-white">
+                  {cleanTitle(quiz?.title)}
+                </h1>
                 <p className="text-sm text-white/70 mt-1">
                   Question {currentQuestionIndex + 1} of {questions.length}
                 </p>
@@ -1044,7 +1155,9 @@ export const PublicQuizPage = () => {
                 </div>
                 {/* Timer */}
                 {quizDurationSeconds ? (
-                  <div className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}>
+                  <div
+                    className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}
+                  >
                     {formatTime(remainingSeconds ?? quizDurationSeconds)}
                   </div>
                 ) : (
@@ -1080,7 +1193,7 @@ export const PublicQuizPage = () => {
                         isCurrent
                           ? "bg-brand-gold text-brand-navy ring-2 ring-brand-gold-dark"
                           : isAnswered
-                            ? "bg-brand-navy/10 text-brand-navy border border-brand-navy/30 hover:bg-brand-navy/20"
+                            ? "bg-green-500 text-white border border-green-600 hover:bg-green-600"
                             : "bg-red-50 text-red-400 border border-red-200 hover:bg-red-100"
                       }`}
                   >
