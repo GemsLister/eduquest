@@ -10,6 +10,7 @@ export const StudentProfiles = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState(null);
+  const [performanceFilter, setPerformanceFilter] = useState("all"); // all, strong, average, weak
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,13 +127,36 @@ export const StudentProfiles = () => {
   const [subjectResults, setSubjectResults] = useState([]);
   const [subjectQuizzes, setSubjectQuizzes] = useState([]);
 
-  // Filter student results based on search
+  // Filter student results based on search and performance
   const filteredResults = useMemo(() => {
-    if (!studentSearch) return subjectResults;
-    return subjectResults.filter(student =>
-      student.student_name.toLowerCase() === studentSearch.toLowerCase()
-    );
-  }, [subjectResults, studentSearch]);
+    let results = subjectResults;
+    
+    // Filter by search
+    if (studentSearch) {
+      results = results.filter(student =>
+        student.student_name.toLowerCase().includes(studentSearch.toLowerCase())
+      );
+    }
+    
+    // Filter by performance
+    if (performanceFilter !== "all") {
+      results = results.filter(student => {
+        const percentage = student.percentageScore;
+        switch (performanceFilter) {
+          case "strong":
+            return percentage >= 80;
+          case "average":
+            return percentage >= 60 && percentage < 80;
+          case "weak":
+            return percentage < 60;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    return results;
+  }, [subjectResults, studentSearch, performanceFilter]);
 
   // Pagination logic
   const paginatedResults = useMemo(() => {
@@ -651,58 +675,108 @@ export const StudentProfiles = () => {
 
         {/* Selection Controls */}
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Subject Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Subject
-              </label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => {
-                  setSelectedSubject(e.target.value);
-                  setSelectedQuiz("");
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              >
-                <option value="">-- Select a Subject --</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name || subject.section_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Subject Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Select Subject
+            </label>
+            <select
+              value={selectedSubject}
+              onChange={(e) => {
+                setSelectedSubject(e.target.value);
+                setSelectedQuiz("");
+              }}
+              className="w-[40%] px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">-- Select a Subject --</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name || subject.section_name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Student Search Bar */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Search Students
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Search by student name..."
-                  className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          {/* Search and Filter Section */}
+          {selectedSubject && (
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="flex items-center gap-4">
+                <div className="flex w-[40%]">
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    placeholder="Search by student name..."
+                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   />
-                </svg>
+                  <svg
+                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                
+                {/* Action Button */}
+                <button className="px-4 py-2 bg-brand-gold text-brand-navy rounded-full hover:bg-blue-700 transition-colors font-medium">
+                  Manage Students
+                </button>
+              </div>
+
+              {/* Filter Buttons */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600 mr-2">Filter:</span>
+                <button 
+                  onClick={() => setPerformanceFilter("all")}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    performanceFilter === "all"
+                      ? "text-gray-700 bg-gray-100"
+                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setPerformanceFilter("strong")}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    performanceFilter === "strong"
+                      ? "text-gray-700 bg-gray-100"
+                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  Strong (80%+)
+                </button>
+                <button 
+                  onClick={() => setPerformanceFilter("average")}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    performanceFilter === "average"
+                      ? "text-gray-700 bg-gray-100"
+                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  Average (60-79%)
+                </button>
+                <button 
+                  onClick={() => setPerformanceFilter("weak")}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    performanceFilter === "weak"
+                      ? "text-gray-700 bg-gray-100"
+                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  Weak (&lt;60%)
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -917,17 +991,23 @@ export const StudentProfiles = () => {
                   <div className="text-sm text-gray-700">
                     Showing {((currentPage - 1) * studentsPerPage) + 1} to {Math.min(currentPage * studentsPerPage, filteredResults.length)} of {filteredResults.length} students
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
+                        currentPage === 1
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                      }`}
                     >
-                      Previous
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
                     </button>
                     
                     {/* Page Numbers */}
-                    <div className="flex space-x-1">
+                    <div className="flex items-center space-x-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                         // Show first page, last page, current page, and pages around current
                         if (
@@ -939,10 +1019,10 @@ export const StudentProfiles = () => {
                             <button
                               key={page}
                               onClick={() => setCurrentPage(page)}
-                              className={`relative inline-flex items-center px-3 py-2 text-sm font-semibold rounded-md ${
+                              className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
                                 currentPage === page
-                                  ? 'z-10 bg-indigo-600 text-white'
-                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                                  ? 'bg-gray-800 text-white'
+                                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
                               }`}
                             >
                               {page}
@@ -953,7 +1033,7 @@ export const StudentProfiles = () => {
                           page === currentPage + 2
                         ) {
                           return (
-                            <span key={page} className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-700">
+                            <span key={page} className="relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium text-gray-400">
                               ...
                             </span>
                           );
@@ -965,9 +1045,15 @@ export const StudentProfiles = () => {
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
+                        currentPage === totalPages
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                      }`}
                     >
-                      Next
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </button>
                   </div>
                 </div>
