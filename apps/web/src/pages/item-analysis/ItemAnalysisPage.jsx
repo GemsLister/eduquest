@@ -40,25 +40,25 @@ export const ItemAnalysisPage = () => {
   // --- 0. Helper: Find Searched Student Info ---
   const searchedStudentInfo = useMemo(() => {
     if (!studentSearchTerm || analysis.length === 0) return null;
-    
+
     // Use a map to collect unique attempts for this student name
     const matchingAttempts = new Map();
-    
+
     for (const item of analysis) {
-      (item.takersDetails || []).forEach(t => {
+      (item.takersDetails || []).forEach((t) => {
         if (t.name.toLowerCase() === studentSearchTerm.toLowerCase()) {
           // Key by a combination of name and score to identify unique attempts shown in your screenshot
           const key = `${t.name}-${t.totalScore}`;
           if (!matchingAttempts.has(key)) {
             matchingAttempts.set(key, {
               name: t.name,
-              totalScore: t.totalScore
+              totalScore: t.totalScore,
             });
           }
         }
       });
     }
-    
+
     return Array.from(matchingAttempts.values());
   }, [studentSearchTerm, analysis]);
 
@@ -70,7 +70,7 @@ export const ItemAnalysisPage = () => {
           // Fetch only sections that are NOT archived
           const { data, error } = await supabase
             .from("sections")
-            .select("id, name")
+            .select("id, name, description")
             .eq("instructor_id", user.id)
             .eq("is_archived", false);
 
@@ -97,6 +97,7 @@ export const ItemAnalysisPage = () => {
         .from("quizzes")
         .select("id, title")
         .eq("section_id", selectedSection)
+        .eq("is_published", true)
         .eq("is_archived", false);
       setQuizzes(data || []);
       setLoadingQuizzes(false);
@@ -152,29 +153,27 @@ export const ItemAnalysisPage = () => {
 
       // Check if there are any revisions (either pending revisions or revision history)
       const revisedQuestions = analysis.filter(
-        (item) => 
-          item.revised_content || 
-          item.revised_options || 
-          item.revised_correct_answer || 
-          (item.revision_history && item.revision_history.length > 0)
+        (item) =>
+          item.revised_content ||
+          item.revised_options ||
+          item.revised_correct_answer ||
+          (item.revision_history && item.revision_history.length > 0),
       );
 
       // If there are revisions, automatically create a new quiz version
       if (revisedQuestions.length > 0) {
-        const { quizId: newQuizId, error: versionError } = await createQuizVersion(
-          selectedQuiz,
-          revisedQuestions
-        );
+        const { quizId: newQuizId, error: versionError } =
+          await createQuizVersion(selectedQuiz, revisedQuestions);
 
         if (versionError) {
           console.warn("Could not auto-create quiz version:", versionError);
           alert(
-            `Analysis saved! However, automatic quiz version creation failed: ${versionError}. You can manually create a new version if needed.`
+            `Analysis saved! However, automatic quiz version creation failed: ${versionError}. You can manually create a new version if needed.`,
           );
         } else {
           setAnalysisSaved(true);
           alert(
-            `Analysis saved successfully!\n\nA new quiz version has been automatically created with your revisions. You can find it in your quiz library.`
+            `Analysis saved successfully!\n\nA new quiz version has been automatically created with your revisions. You can find it in your quiz library.`,
           );
         }
       } else {
@@ -210,13 +209,18 @@ export const ItemAnalysisPage = () => {
       // 1. Fetch Quiz Data (Questions)
       const { data: questions, error: qError } = await supabase
         .from("questions")
-        .select("id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, created_at")
+        .select(
+          "id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, created_at",
+        )
         .eq("quiz_id", quizId)
         .order("created_at", { ascending: true });
       if (qError) throw qError;
-      
-      let attemptsQuery = supabase.from("quiz_attempts").select("*").eq("quiz_id", quizId);
-      
+
+      let attemptsQuery = supabase
+        .from("quiz_attempts")
+        .select("*")
+        .eq("quiz_id", quizId);
+
       // Apply cohort filtering
       if (selectedCohortFilter !== "all" && selectedSection) {
         // First get all attempts to calculate performance-based cohorts
@@ -232,9 +236,11 @@ export const ItemAnalysisPage = () => {
         }
 
         // Sort by score to calculate percentiles
-        const sortedAttempts = allAttempts.sort((a, b) => (b.score || 0) - (a.score || 0));
+        const sortedAttempts = allAttempts.sort(
+          (a, b) => (b.score || 0) - (a.score || 0),
+        );
         const totalAttempts = sortedAttempts.length;
-        
+
         let filteredAttempts = [];
 
         if (selectedCohortFilter === "top_performers") {
@@ -257,72 +263,88 @@ export const ItemAnalysisPage = () => {
             .from("questions")
             .select("points")
             .eq("quiz_id", quizId);
-          
-          const totalPossiblePoints = questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
-          
-          filteredAttempts = allAttempts.filter(a => (a.score || 0) === totalPossiblePoints);
+
+          const totalPossiblePoints =
+            questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
+
+          filteredAttempts = allAttempts.filter(
+            (a) => (a.score || 0) === totalPossiblePoints,
+          );
         } else if (selectedCohortFilter === "failing_scores") {
           // Students with scores below 60%
           const { data: questions } = await supabase
             .from("questions")
             .select("points")
             .eq("quiz_id", quizId);
-          
-          const totalPossiblePoints = questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
+
+          const totalPossiblePoints =
+            questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
           const passingThreshold = totalPossiblePoints * 0.6;
-          
-          filteredAttempts = allAttempts.filter(a => (a.score || 0) < passingThreshold);
+
+          filteredAttempts = allAttempts.filter(
+            (a) => (a.score || 0) < passingThreshold,
+          );
         }
 
         // Use the filtered attempts for analysis
-        const filteredAttemptIds = filteredAttempts.map(a => a.id);
+        const filteredAttemptIds = filteredAttempts.map((a) => a.id);
         attemptsQuery = supabase
           .from("quiz_attempts")
           .select("*")
           .eq("quiz_id", quizId)
           .in("id", filteredAttemptIds);
       }
-      
+
       const { data: attempts } = await attemptsQuery;
 
       // Map attempt IDs to student names and total scores for Discrimination math
       const takersMap = {};
-      const attemptIds = attempts?.map(att => {
-        const displayName = att.guest_name || att.student_name || 
-          (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous");
-        
-        takersMap[att.id] = { 
-          name: displayName, 
-          totalScore: att.score || 0,
-          isGuest: !att.user_id,
-          userId: att.user_id
-        };
-        return att.id;
-      }) || [];
+      const attemptIds =
+        attempts?.map((att) => {
+          const displayName =
+            att.guest_name ||
+            att.student_name ||
+            (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous");
+
+          takersMap[att.id] = {
+            name: displayName,
+            totalScore: att.score || 0,
+            isGuest: !att.user_id,
+            userId: att.user_id,
+          };
+          return att.id;
+        }) || [];
 
       // 2. Fetch ALL individual responses for these students
-      const { data: responses } = await supabase.from("quiz_responses").select("*").in("attempt_id", attemptIds);
+      const { data: responses } = await supabase
+        .from("quiz_responses")
+        .select("*")
+        .in("attempt_id", attemptIds);
 
       const results = questions.map((q) => {
-        const qResponses = responses?.filter(r => r.question_id === q.id) || [];
+        const qResponses =
+          responses?.filter((r) => r.question_id === q.id) || [];
         const total = qResponses.length;
 
         // --- 3. DISTRACTOR ANALYSIS ---
-        const distractorData = q.options?.map((opt, idx) => {
-          const count = qResponses.filter(r => 
-            String(r.answer) === String(opt) || String(r.answer) === String(idx)
-          ).length;
+        const distractorData =
+          q.options?.map((opt, idx) => {
+            const count = qResponses.filter(
+              (r) =>
+                String(r.answer) === String(opt) ||
+                String(r.answer) === String(idx),
+            ).length;
 
-          return {
-            text: opt,
-            count: count,
-            percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
-            isCorrect: String(opt) === String(q.correct_answer)
-          };
-        }) || [];
+            return {
+              text: opt,
+              count: count,
+              percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0,
+              isCorrect: String(opt) === String(q.correct_answer),
+            };
+          }) || [];
 
         // --- 4. DIFFICULTY ($P$) ---
-        const correctCount = qResponses.filter(r => r.is_correct).length;
+        const correctCount = qResponses.filter((r) => r.is_correct).length;
         const fi = total > 0 ? correctCount / total : 0;
 
         // --- 5. DISCRIMINATION ($D$) ---
@@ -330,13 +352,19 @@ export const ItemAnalysisPage = () => {
         const discrimination = parseFloat(discriminationData.discrimination);
         const discStatus = discriminationData.discStatus;
 
-        const sortedTakers = qResponses.map(r => ({
-          isCorrect: r.is_correct,
-          totalScore: takersMap[r.attempt_id]?.totalScore || 0
-        })).sort((a, b) => b.totalScore - a.totalScore);
+        const sortedTakers = qResponses
+          .map((r) => ({
+            isCorrect: r.is_correct,
+            totalScore: takersMap[r.attempt_id]?.totalScore || 0,
+          }))
+          .sort((a, b) => b.totalScore - a.totalScore);
 
-        const highestScore = sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
-        const lowestScore = sortedTakers.length > 0 ? sortedTakers[sortedTakers.length - 1].totalScore : 0;
+        const highestScore =
+          sortedTakers.length > 0 ? sortedTakers[0].totalScore : 0;
+        const lowestScore =
+          sortedTakers.length > 0
+            ? sortedTakers[sortedTakers.length - 1].totalScore
+            : 0;
 
         // --- 6. AI DECISION (Flag Logic) ---
         let autoFlag = "approved"; // Default to approved
@@ -346,20 +374,23 @@ export const ItemAnalysisPage = () => {
         const discValue = discrimination; // D-value
 
         // RETAIN: Difficulty 0.25-0.75 AND Discrimination >= 0.30
-        if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.30) {
+        if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.3) {
           autoFlag = "approved";
         }
         // REVISE: (Difficulty outside 0.25-0.75 OR Discrimination 0.20-0.29) AND not meeting REJECT criteria
         else if (
-          ((difficulty < 0.25 || difficulty > 0.75) || (discValue >= 0.20 && discValue <= 0.29)) &&
+          (difficulty < 0.25 ||
+            difficulty > 0.75 ||
+            (discValue >= 0.2 && discValue <= 0.29)) &&
           !(discValue < 0.19 || discValue < 0) &&
-          !(difficulty === 0.00 || difficulty === 1.00)
+          !(difficulty === 0.0 || difficulty === 1.0)
         ) {
           autoFlag = "revise";
         }
         // REJECT: Extreme difficulty (0.00 or 1.00) OR Discrimination < 0.19 OR Negative discrimination
         else if (
-          difficulty === 0.00 || difficulty === 1.00 ||
+          difficulty === 0.0 ||
+          difficulty === 1.0 ||
           discValue < 0.19 ||
           discValue < 0
         ) {
@@ -375,18 +406,19 @@ export const ItemAnalysisPage = () => {
           // Ability level based on score ranges (e.g., 0-10%, 10-20%...)
           const minScore = (highestScore * i) / 10;
           const maxScore = (highestScore * (i + 1)) / 10;
-          
-          const group = sortedTakers.filter(t => 
-            t.totalScore > minScore && t.totalScore <= maxScore
+
+          const group = sortedTakers.filter(
+            (t) => t.totalScore > minScore && t.totalScore <= maxScore,
           );
-          
-          const proportionRight = group.length > 0 
-            ? (group.filter(t => t.isCorrect).length / group.length) * 100 
-            : 0;
-            
+
+          const proportionRight =
+            group.length > 0
+              ? (group.filter((t) => t.isCorrect).length / group.length) * 100
+              : 0;
+
           return {
             ability: decile,
-            proportion: Math.round(proportionRight)
+            proportion: Math.round(proportionRight),
           };
         });
 
@@ -421,12 +453,12 @@ export const ItemAnalysisPage = () => {
           totalResponses: total,
           decilePerformance,
           distractorAnalysis: distractorData,
-          takersDetails: qResponses.map(r => ({
+          takersDetails: qResponses.map((r) => ({
             name: takersMap[r.attempt_id]?.name || "Student",
             answer: getLetter(r.answer),
             isCorrect: r.is_correct,
-            totalScore: takersMap[r.attempt_id]?.totalScore || 0
-          }))
+            totalScore: takersMap[r.attempt_id]?.totalScore || 0,
+          })),
         };
       });
 
@@ -443,7 +475,9 @@ export const ItemAnalysisPage = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">Loading sections...</p>
+          <p className="mt-4 text-brand-navy font-semibold">
+            Loading sections...
+          </p>
         </div>
       </div>
     );
@@ -479,25 +513,36 @@ export const ItemAnalysisPage = () => {
 
         {(() => {
           if (!selectedQuiz) return null;
-          if (loading) return (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold"></div>
-                <p className="mt-3 text-brand-navy font-semibold text-sm">Analyzing...</p>
+          if (loading)
+            return (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold"></div>
+                  <p className="mt-3 text-brand-navy font-semibold text-sm">
+                    Analyzing...
+                  </p>
+                </div>
               </div>
-            </div>
-          );
-          if (analysis.length === 0) return <div className="text-center py-8">No responses found for this quiz.</div>;
+            );
+          if (analysis.length === 0)
+            return (
+              <div className="text-center py-8">
+                No responses found for this quiz.
+              </div>
+            );
 
           const filteredAnalysis = analysis.filter((item) =>
-            item.text.toLowerCase().includes(searchTerm.toLowerCase())
+            item.text.toLowerCase().includes(searchTerm.toLowerCase()),
           );
 
           if (filteredAnalysis.length > 0) {
             return (
               <ItemAnalysisTable
                 loading={loading}
-                analysis={filteredAnalysis.map((item, idx) => ({...item, index: idx}))}
+                analysis={filteredAnalysis.map((item, idx) => ({
+                  ...item,
+                  index: idx,
+                }))}
                 studentSearchTerm={studentSearchTerm}
                 expandedQuestion={expandedQuestion}
                 toggleDetails={(id) =>
@@ -520,16 +565,14 @@ export const ItemAnalysisPage = () => {
           return null;
         })()}
 
-        <EditChoiceModal 
+        <EditChoiceModal
           isOpen={editModalOpen}
           onClose={() => setEditModalOpen(false)}
           questionData={selectedQuestion}
           onManualEdit={onManualEdit}
           questionId={selectedQuestion?.question_id}
         />
-
       </div>
     </div>
   );
 };
-

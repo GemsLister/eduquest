@@ -22,6 +22,28 @@ export const StudentProfiles = () => {
   const [analysis, setAnalysis] = useState([]);
   const [analysisSaved, setAnalysisSaved] = useState(false);
 
+  const formatSubjectLabel = (subject) => {
+    if (!subject) return "";
+    const name = String(subject.name || subject.section_name || "").trim();
+    const code = String(
+      subject.description || subject.section_code || "",
+    ).trim();
+
+    if (!code) {
+      return name.length > 64 ? `${name.slice(0, 61)}...` : name;
+    }
+
+    const maxTotal = 64;
+    const reservedForCode = Math.min(code.length + 1, 20);
+    const maxNameLength = Math.max(16, maxTotal - reservedForCode);
+    const shortName =
+      name.length > maxNameLength
+        ? `${name.slice(0, maxNameLength - 3)}...`
+        : name;
+
+    return `${shortName} ${code}`.trim();
+  };
+
   // Fetch subjects and students on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -176,6 +198,7 @@ export const StudentProfiles = () => {
               .from("quizzes")
               .select("id, title, is_archived, created_at")
               .in("id", quizIdsWithAttempts)
+              .eq("is_published", true)
               .neq("is_archived", true);
 
             if (quizzesError) throw quizzesError;
@@ -200,6 +223,7 @@ export const StudentProfiles = () => {
             .from("quizzes")
             .select("id, title, is_archived, created_at")
             .eq("section_id", selectedSubject)
+            .eq("is_published", true)
             .neq("is_archived", true);
 
           if (directQuizzesData) {
@@ -232,6 +256,7 @@ export const StudentProfiles = () => {
               .from("quizzes")
               .select("id, title, is_archived, created_at")
               .in("id", mIds)
+              .eq("is_published", true)
               .neq("is_archived", true);
 
             if (mappedQuizzesData) {
@@ -758,7 +783,7 @@ export const StudentProfiles = () => {
                 <option value="">-- Select a Subject --</option>
                 {subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
-                    {subject.name || subject.section_name}
+                    {formatSubjectLabel(subject)}
                   </option>
                 ))}
               </select>

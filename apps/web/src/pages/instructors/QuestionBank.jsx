@@ -27,7 +27,7 @@ export const QuestionBank = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
   const [showQuizDropdown, setShowQuizDropdown] = useState(false);
-  
+
   // Subject and Quiz filter state
   const [selectedSectionId, setSelectedSectionId] = useState(null);
   const [selectedQuizIdFilter, setSelectedQuizIdFilter] = useState(null);
@@ -54,6 +54,29 @@ export const QuestionBank = () => {
     points: 1,
   });
 
+  const formatSectionLabel = (section) => {
+    if (!section) return "";
+    const name = String(section.name || "").trim();
+    const code = String(
+      section.description || section.section_code || "",
+    ).trim();
+
+    // Keep section code visible even when subject names are very long.
+    if (!code) {
+      return name.length > 64 ? `${name.slice(0, 61)}...` : name;
+    }
+
+    const maxTotal = 64;
+    const reservedForCode = Math.min(code.length + 1, 20);
+    const maxNameLength = Math.max(16, maxTotal - reservedForCode);
+    const shortName =
+      name.length > maxNameLength
+        ? `${name.slice(0, maxNameLength - 3)}...`
+        : name;
+
+    return `${shortName} ${code}`.trim();
+  };
+
   // Reset page & bulk selection when tab/search/filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -72,7 +95,7 @@ export const QuestionBank = () => {
 
         const { data, error } = await supabase
           .from("sections")
-          .select("id, name")
+          .select("id, name, description")
           .eq("instructor_id", user.id)
           .eq("is_archived", false)
           .order("name", { ascending: true });
@@ -119,7 +142,11 @@ export const QuestionBank = () => {
         const seen = new Set();
         data?.forEach((qs) => {
           // Only add if the quiz exists, is not archived, and hasn't been seen yet
-          if (qs.quizzes && !qs.quizzes.is_archived && !seen.has(qs.quizzes.id)) {
+          if (
+            qs.quizzes &&
+            !qs.quizzes.is_archived &&
+            !seen.has(qs.quizzes.id)
+          ) {
             seen.add(qs.quizzes.id);
             uniqueQuizzes.push(qs.quizzes);
           }
@@ -131,9 +158,9 @@ export const QuestionBank = () => {
           .select("id, title")
           .eq("section_id", selectedSectionId)
           .eq("is_archived", false);
-        
+
         if (directQuizzes) {
-          directQuizzes.forEach(dq => {
+          directQuizzes.forEach((dq) => {
             if (!seen.has(dq.id)) {
               seen.add(dq.id);
               uniqueQuizzes.push(dq);
@@ -161,16 +188,20 @@ export const QuestionBank = () => {
       filteredList = filteredList.filter((q) => {
         const quizIdStr = String(selectedQuizIdFilter);
         const directMatch = String(q.quiz_id) === quizIdStr;
-        const dedupeMatch = q.all_quiz_ids?.some(id => String(id) === quizIdStr);
+        const dedupeMatch = q.all_quiz_ids?.some(
+          (id) => String(id) === quizIdStr,
+        );
         return directMatch || dedupeMatch;
       });
     } else if (selectedSectionId) {
       // If section selected but no quiz yet, show questions from any quiz in this section
-      const quizIdsInSection = quizzesFromSection.map(q => String(q.id));
+      const quizIdsInSection = quizzesFromSection.map((q) => String(q.id));
       if (quizIdsInSection.length > 0) {
         filteredList = filteredList.filter((q) => {
           const directMatch = quizIdsInSection.includes(String(q.quiz_id));
-          const dedupeMatch = q.all_quiz_ids?.some(id => quizIdsInSection.includes(String(id)));
+          const dedupeMatch = q.all_quiz_ids?.some((id) =>
+            quizIdsInSection.includes(String(id)),
+          );
           return directMatch || dedupeMatch;
         });
       } else {
@@ -184,7 +215,9 @@ export const QuestionBank = () => {
         activeQuestions
           .filter((q) => {
             const directMatch = String(q.quiz_id) === quizIdStr;
-            const dedupeMatch = q.all_quiz_ids?.some(id => String(id) === quizIdStr);
+            const dedupeMatch = q.all_quiz_ids?.some(
+              (id) => String(id) === quizIdStr,
+            );
             return directMatch || dedupeMatch;
           })
           .map((q) => q.text?.toLowerCase().trim()),
@@ -192,7 +225,7 @@ export const QuestionBank = () => {
       filteredList = filteredList.filter(
         (q) =>
           String(q.quiz_id) !== quizIdStr &&
-          !q.all_quiz_ids?.some(id => String(id) === quizIdStr) &&
+          !q.all_quiz_ids?.some((id) => String(id) === quizIdStr) &&
           !currentQuizTexts.has(q.text?.toLowerCase().trim()),
       );
     }
@@ -233,7 +266,10 @@ export const QuestionBank = () => {
         : filterQuestions(activeQuestions);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(allFiltered.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(allFiltered.length / ITEMS_PER_PAGE),
+  );
   const displayedQuestions = allFiltered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
@@ -462,18 +498,46 @@ export const QuestionBank = () => {
 
   // Active filters for chips
   const activeFilters = [];
-  if (searchTerm) activeFilters.push({ key: "search", label: `"${searchTerm}"`, clear: () => setSearchTerm("") });
+  if (searchTerm)
+    activeFilters.push({
+      key: "search",
+      label: `"${searchTerm}"`,
+      clear: () => setSearchTerm(""),
+    });
   if (sortBy !== "newest") {
-    const sortLabels = { oldest: "Oldest First", "points-high": "Points: High→Low", "points-low": "Points: Low→High", quiz: "By Quiz" };
-    activeFilters.push({ key: "sort", label: `Sort: ${sortLabels[sortBy]}`, clear: () => setSortBy("newest") });
+    const sortLabels = {
+      oldest: "Oldest First",
+      "points-high": "Points: High→Low",
+      "points-low": "Points: Low→High",
+      quiz: "By Quiz",
+    };
+    activeFilters.push({
+      key: "sort",
+      label: `Sort: ${sortLabels[sortBy]}`,
+      clear: () => setSortBy("newest"),
+    });
   }
   if (selectedSectionId) {
-    const sectionName = sections.find(s => s.id === selectedSectionId)?.name || "Subject";
-    activeFilters.push({ key: "section", label: `Subject: ${sectionName}`, clear: () => { setSelectedSectionId(null); setSelectedQuizIdFilter(null); } });
+    const sectionName =
+      sections.find((s) => s.id === selectedSectionId)?.name || "Subject";
+    activeFilters.push({
+      key: "section",
+      label: `Subject: ${sectionName}`,
+      clear: () => {
+        setSelectedSectionId(null);
+        setSelectedQuizIdFilter(null);
+      },
+    });
   }
   if (selectedQuizIdFilter) {
-    const quizTitle = quizzesFromSection.find(q => q.id === selectedQuizIdFilter)?.title || "Quiz";
-    activeFilters.push({ key: "quiz", label: `Quiz: ${quizTitle}`, clear: () => setSelectedQuizIdFilter(null) });
+    const quizTitle =
+      quizzesFromSection.find((q) => q.id === selectedQuizIdFilter)?.title ||
+      "Quiz";
+    activeFilters.push({
+      key: "quiz",
+      label: `Quiz: ${quizTitle}`,
+      clear: () => setSelectedQuizIdFilter(null),
+    });
   }
 
   if (loading) {
@@ -481,7 +545,9 @@ export const QuestionBank = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">Loading questions...</p>
+          <p className="mt-4 text-brand-navy font-semibold">
+            Loading questions...
+          </p>
         </div>
       </div>
     );
@@ -496,10 +562,25 @@ export const QuestionBank = () => {
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
             Back
           </button>
-          <h1 className="text-3xl font-bold text-brand-navy mb-2">Question Bank</h1>
+          <h1 className="text-3xl font-bold text-brand-navy mb-2">
+            Question Bank
+          </h1>
           <p className="text-gray-600">
             {quizId
               ? "Select questions to import to your quiz"
@@ -518,7 +599,20 @@ export const QuestionBank = () => {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-brand-navy"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
           </div>
           <div>
             <p className="text-2xl font-bold text-brand-navy">{totalCount}</p>
@@ -527,19 +621,49 @@ export const QuestionBank = () => {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
           </div>
           <div>
-            <p className="text-2xl font-bold text-brand-navy">{activeQuestions.length}</p>
+            <p className="text-2xl font-bold text-brand-navy">
+              {activeQuestions.length}
+            </p>
             <p className="text-xs text-gray-500 font-medium">Active</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-yellow-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+              />
+            </svg>
           </div>
           <div>
-            <p className="text-2xl font-bold text-brand-navy">{archivedQuestions.length}</p>
+            <p className="text-2xl font-bold text-brand-navy">
+              {archivedQuestions.length}
+            </p>
             <p className="text-xs text-gray-500 font-medium">Archived</p>
           </div>
         </div>
@@ -595,14 +719,16 @@ export const QuestionBank = () => {
           disabled={sectionsLoading}
         >
           <option value="">
-            {sectionsLoading ? "Loading subjects..." : "📚 -- Select Subject --"}
+            {sectionsLoading
+              ? "Loading subjects..."
+              : "📚 -- Select Subject --"}
           </option>
           {sections.length === 0 && !sectionsLoading && (
             <option disabled>No subjects found</option>
           )}
           {sections.map((section) => (
             <option key={section.id} value={section.id}>
-              {section.name}
+              {formatSectionLabel(section)}
             </option>
           ))}
         </select>
@@ -629,7 +755,17 @@ export const QuestionBank = () => {
 
         {/* Search bar */}
         <div className="flex-1 relative">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
           <input
             type="text"
             placeholder="Search questions..."
@@ -645,12 +781,28 @@ export const QuestionBank = () => {
             onClick={() => setShowSortDropdown(!showSortDropdown)}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-full text-sm font-semibold text-gray-600 hover:border-brand-gold transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+              />
+            </svg>
             Sort
           </button>
           {showSortDropdown && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowSortDropdown(false)}
+              />
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
                 {[
                   { value: "newest", label: "Newest First" },
@@ -661,9 +813,14 @@ export const QuestionBank = () => {
                 ].map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => { setSortBy(opt.value); setShowSortDropdown(false); }}
+                    onClick={() => {
+                      setSortBy(opt.value);
+                      setShowSortDropdown(false);
+                    }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-brand-gold/10 transition-colors ${
-                      sortBy === opt.value ? "text-brand-gold font-semibold bg-brand-gold/5" : "text-gray-700"
+                      sortBy === opt.value
+                        ? "text-brand-gold font-semibold bg-brand-gold/5"
+                        : "text-gray-700"
                     }`}
                   >
                     {opt.label}
@@ -688,12 +845,30 @@ export const QuestionBank = () => {
                 onClick={filter.clear}
                 className="hover:text-red-600 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </span>
           ))}
           <button
-            onClick={() => { setSearchTerm(""); setSortBy("newest"); setSelectedSectionId(null); setSelectedQuizIdFilter(null); }}
+            onClick={() => {
+              setSearchTerm("");
+              setSortBy("newest");
+              setSelectedSectionId(null);
+              setSelectedQuizIdFilter(null);
+            }}
             className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"
           >
             Clear all
@@ -723,7 +898,20 @@ export const QuestionBank = () => {
                 onClick={handleBulkArchive}
                 className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                  />
+                </svg>
                 Archive Selected
               </button>
             )}
@@ -733,14 +921,40 @@ export const QuestionBank = () => {
                   onClick={handleBulkRestore}
                   className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
                   Restore Selected
                 </button>
                 <button
                   onClick={handleBulkDelete}
                   className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
                   Remove Selected
                 </button>
               </>
@@ -785,8 +999,19 @@ export const QuestionBank = () => {
         /* 2. Empty State SVG */
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <div className="mx-auto w-20 h-20 bg-brand-navy/5 rounded-full flex items-center justify-center mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-brand-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-10 w-10 text-brand-navy/30"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-brand-navy mb-1">
@@ -797,7 +1022,7 @@ export const QuestionBank = () => {
               ? "Try adjusting your search to find what you're looking for."
               : activeTab === "archived"
                 ? "Archived questions will appear here. Archive questions from the Active tab to see them."
-                : "Start building your question bank by clicking the \"+ Add to Bank\" button above."}
+                : 'Start building your question bank by clicking the "+ Add to Bank" button above.'}
           </p>
         </div>
       ) : (
@@ -819,7 +1044,9 @@ export const QuestionBank = () => {
 
           {displayedQuestions.map((question) => {
             const isExpanded = expandedIds.has(question.id);
-            const isImportSelected = selectedQuestions.some((q) => q.id === question.id);
+            const isImportSelected = selectedQuestions.some(
+              (q) => q.id === question.id,
+            );
             const isBulkChecked = bulkSelected.has(question.id);
 
             return (
@@ -885,53 +1112,105 @@ export const QuestionBank = () => {
                       }}
                       className={`text-left w-full ${activeTab !== "import" ? "cursor-pointer" : ""}`}
                     >
-                      <h3 className={`text-[15px] font-semibold text-gray-800 ${
-                        !isExpanded && activeTab !== "import" ? "line-clamp-2" : ""
-                      }`}>
+                      <h3
+                        className={`text-[15px] font-semibold text-gray-800 ${
+                          !isExpanded && activeTab !== "import"
+                            ? "line-clamp-2"
+                            : ""
+                        }`}
+                      >
                         {question.text}
                       </h3>
                     </button>
 
                     {/* 7. Expandable options preview */}
-                    {(isExpanded || activeTab === "import") && question.options && (
-                      <div className="mt-3 space-y-1.5">
-                        {question.options.map((opt, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg ${
-                              opt === question.correct_answer
-                                ? "bg-green-50 text-green-700 font-semibold"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-xs font-bold shrink-0">
-                              {String.fromCharCode(65 + idx)}
-                            </span>
-                            {opt}
-                            {opt === question.correct_answer && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {(isExpanded || activeTab === "import") &&
+                      question.options && (
+                        <div className="mt-3 space-y-1.5">
+                          {question.options.map((opt, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg ${
+                                opt === question.correct_answer
+                                  ? "bg-green-50 text-green-700 font-semibold"
+                                  : "text-gray-600"
+                              }`}
+                            >
+                              <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-xs font-bold shrink-0">
+                                {String.fromCharCode(65 + idx)}
+                              </span>
+                              {opt}
+                              {opt === question.correct_answer && (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4 ml-auto text-green-600 shrink-0"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                     {/* Expand hint */}
-                    {!isExpanded && activeTab !== "import" && question.options?.length > 0 && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleExpand(question.id); }}
-                        className="mt-2 text-xs text-gray-400 hover:text-brand-gold transition-colors flex items-center gap-1"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                        Show {question.options.length} options
-                      </button>
-                    )}
+                    {!isExpanded &&
+                      activeTab !== "import" &&
+                      question.options?.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(question.id);
+                          }}
+                          className="mt-2 text-xs text-gray-400 hover:text-brand-gold transition-colors flex items-center gap-1"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                          Show {question.options.length} options
+                        </button>
+                      )}
                     {isExpanded && activeTab !== "import" && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleExpand(question.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpand(question.id);
+                        }}
                         className="mt-2 text-xs text-gray-400 hover:text-brand-gold transition-colors flex items-center gap-1"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 15l7-7 7 7"
+                          />
+                        </svg>
                         Hide options
                       </button>
                     )}
@@ -945,7 +1224,20 @@ export const QuestionBank = () => {
                         className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors"
                         title="Archive"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                          />
+                        </svg>
                       </button>
                       {quizId && (
                         <button
@@ -956,7 +1248,20 @@ export const QuestionBank = () => {
                           className="p-2 rounded-lg text-brand-navy hover:bg-brand-navy/10 transition-colors"
                           title="Import"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                          </svg>
                         </button>
                       )}
                     </div>
@@ -968,13 +1273,27 @@ export const QuestionBank = () => {
                         className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
                         title="Restore"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
                       </button>
                       <button
                         onClick={async () => {
                           const confirmed = await confirm({
                             title: "Remove Question Permanently",
-                            message: "Are you sure you want to permanently remove this question?",
+                            message:
+                              "Are you sure you want to permanently remove this question?",
                             confirmText: "Remove",
                             cancelText: "Cancel",
                             variant: "danger",
@@ -987,7 +1306,20 @@ export const QuestionBank = () => {
                         className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                         title="Remove permanently"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
                       </button>
                     </div>
                   )}
@@ -1002,7 +1334,9 @@ export const QuestionBank = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, allFiltered.length)} of {allFiltered.length} questions
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+            {Math.min(currentPage * ITEMS_PER_PAGE, allFiltered.length)} of{" "}
+            {allFiltered.length} questions
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -1010,7 +1344,20 @@ export const QuestionBank = () => {
               disabled={currentPage === 1}
               className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
@@ -1030,7 +1377,20 @@ export const QuestionBank = () => {
               disabled={currentPage === totalPages}
               className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -1042,12 +1402,27 @@ export const QuestionBank = () => {
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal Header */}
             <div className="bg-brand-navy px-6 py-4 rounded-t-xl flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Add Question to Bank</h2>
+              <h2 className="text-xl font-bold text-white">
+                Add Question to Bank
+              </h2>
               <button
                 onClick={() => setShowAddForm(false)}
                 className="text-white/60 hover:text-white transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
 
@@ -1100,7 +1475,20 @@ export const QuestionBank = () => {
                           onClick={() => removeOption(idx)}
                           className="text-red-500 hover:text-red-700 px-3 transition-colors"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
                         </button>
                       )}
                     </div>

@@ -7,7 +7,7 @@ export const ItemAnalysisHeader = ({
   selectedQuiz,
   loadingQuizzes,
   onSectionChange, // Use the prop from the parent
-  onQuizChange,    // Use the prop from the parent
+  onQuizChange, // Use the prop from the parent
   onSearchChange,
   onStudentSearchChange,
   onCohortFilterChange,
@@ -15,6 +15,28 @@ export const ItemAnalysisHeader = ({
   cohortOptions,
   searchedStudent,
 }) => {
+  const formatSectionLabel = (section) => {
+    if (!section) return "";
+    const name = String(section.name || section.section_name || "").trim();
+    const code = String(
+      section.description || section.section_code || "",
+    ).trim();
+
+    if (!code) {
+      return name.length > 64 ? `${name.slice(0, 61)}...` : name;
+    }
+
+    const maxTotal = 64;
+    const reservedForCode = Math.min(code.length + 1, 20);
+    const maxNameLength = Math.max(16, maxTotal - reservedForCode);
+    const shortName =
+      name.length > maxNameLength
+        ? `${name.slice(0, maxNameLength - 3)}...`
+        : name;
+
+    return `${shortName} ${code}`.trim();
+  };
+
   return (
     <div>
       <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
@@ -29,7 +51,7 @@ export const ItemAnalysisHeader = ({
               responses
             </p>
           </div>
-          
+
           {/* Display Searched Student Overall Score(s) */}
           {searchedStudent && searchedStudent.length > 0 && (
             <div className="bg-white/20 backdrop-blur-md p-3 px-5 rounded-xl border border-white/30 text-right animate-in fade-in slide-in-from-right-4 duration-500 max-h-32 overflow-y-auto scrollbar-hide">
@@ -38,12 +60,18 @@ export const ItemAnalysisHeader = ({
               </div>
               <div className="space-y-2">
                 {searchedStudent.map((student, idx) => (
-                  <div key={idx} className="border-b border-white/10 pb-1 last:border-0">
+                  <div
+                    key={idx}
+                    className="border-b border-white/10 pb-1 last:border-0"
+                  >
                     <div className="text-sm font-black truncate max-w-[200px]">
                       {student.name}
                     </div>
                     <div className="text-xs font-bold">
-                      Score: <span className="text-yellow-300 text-sm">{student.totalScore}</span>
+                      Score:{" "}
+                      <span className="text-yellow-300 text-sm">
+                        {student.totalScore}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -55,7 +83,6 @@ export const ItemAnalysisHeader = ({
         {/* Selection Controls */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            
             {/* Section Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -69,8 +96,7 @@ export const ItemAnalysisHeader = ({
                 <option value="">-- Select Subject --</option>
                 {sections.map((section) => (
                   <option key={section.id} value={section.id}>
-                    {section.name}
-                    {section.description ? ` - ${section.description}` : ""}
+                    {formatSectionLabel(section)}
                   </option>
                 ))}
               </select>
@@ -117,7 +143,9 @@ export const ItemAnalysisHeader = ({
                 type="text"
                 placeholder="Search by question text..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+                onChange={(e) =>
+                  onSearchChange && onSearchChange(e.target.value)
+                }
               />
             </div>
 
@@ -130,7 +158,9 @@ export const ItemAnalysisHeader = ({
                 type="text"
                 placeholder="Search student name..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                onChange={(e) => onStudentSearchChange && onStudentSearchChange(e.target.value)}
+                onChange={(e) =>
+                  onStudentSearchChange && onStudentSearchChange(e.target.value)
+                }
               />
             </div>
 
@@ -141,7 +171,9 @@ export const ItemAnalysisHeader = ({
               </label>
               <select
                 value={selectedCohortFilter}
-                onChange={(e) => onCohortFilterChange && onCohortFilterChange(e.target.value)}
+                onChange={(e) =>
+                  onCohortFilterChange && onCohortFilterChange(e.target.value)
+                }
                 disabled={!selectedSection}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
               >

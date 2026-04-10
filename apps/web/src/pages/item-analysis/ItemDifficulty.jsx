@@ -80,6 +80,7 @@ export const ItemDifficulty = () => {
           .from("quizzes")
           .select("id, title, is_published, description, duration")
           .eq("section_id", selectedSection)
+          .eq("is_published", true)
           .eq("is_archived", false)
           .order("created_at", { ascending: false });
 
@@ -116,7 +117,9 @@ export const ItemDifficulty = () => {
         if (quizData) {
           setQuizTitle(quizData.title);
           setQuizDescription(quizData.description || "");
-          setQuizDuration(quizData.duration ? quizData.duration.toString() : "");
+          setQuizDuration(
+            quizData.duration ? quizData.duration.toString() : "",
+          );
         }
       } catch (err) {
         console.error("Error fetching quiz details:", err);
@@ -458,10 +461,10 @@ export const ItemDifficulty = () => {
 
   const handleDoneRevision = async () => {
     if (!selectedQuiz || analysis.length === 0) return;
-    
+
     setSaveError("");
     setSavingAnalysis(true);
-    
+
     try {
       if (!authUser) {
         setSaveError("User not authenticated");
@@ -470,17 +473,21 @@ export const ItemDifficulty = () => {
       }
 
       // Get questions that were flagged for revision (difficulty status)
-      const flaggedQuestions = analysis.filter(q => q.difficultyStatus === "needs_revision");
-      
+      const flaggedQuestions = analysis.filter(
+        (q) => q.difficultyStatus === "needs_revision",
+      );
+
       if (flaggedQuestions.length === 0) {
-        setSaveError("No questions were marked for revision. Please mark questions for revision first.");
+        setSaveError(
+          "No questions were marked for revision. Please mark questions for revision first.",
+        );
         setSavingAnalysis(false);
         return;
       }
 
       // Create new quiz version with parent_quiz_id pointing to original
       const revisedQuizTitle = `${quizTitle} (Revised)`;
-      
+
       const { data: newQuiz, error: newQuizError } = await supabase
         .from("quizzes")
         .insert([
@@ -505,7 +512,7 @@ export const ItemDifficulty = () => {
       const revisedQuizData = newQuiz[0];
 
       // Add revised questions to new quiz
-      const revisedQuestionsData = flaggedQuestions.map(q => ({
+      const revisedQuestionsData = flaggedQuestions.map((q) => ({
         quiz_id: revisedQuizData.id,
         type: q.type || "mcq",
         text: q.questionText || q.text,
@@ -518,18 +525,19 @@ export const ItemDifficulty = () => {
         const { error: questionsError } = await supabase
           .from("questions")
           .insert(revisedQuestionsData);
-        
+
         if (questionsError) throw questionsError;
       }
 
       setSaveError("");
-      notify.success("Revised quiz version created! You can now edit it in Quiz Management.");
-      
+      notify.success(
+        "Revised quiz version created! You can now edit it in Quiz Management.",
+      );
+
       setTimeout(() => {
         setSavingAnalysis(false);
         navigate("/instructor-dashboard/quizzes");
       }, 2000);
-      
     } catch (err) {
       setSaveError(err.message || "Failed to create revised quiz version");
       setSavingAnalysis(false);
@@ -552,7 +560,7 @@ export const ItemDifficulty = () => {
     if (!takersPage[questionId]) {
       setTakersPage({
         ...takersPage,
-        [questionId]: 1
+        [questionId]: 1,
       });
     }
   };
@@ -731,9 +739,7 @@ export const ItemDifficulty = () => {
                       : "bg-emerald-600 hover:bg-emerald-700"
                   }`}
                 >
-                  {savingAnalysis
-                    ? "Creating..."
-                    : "Done Revision"}
+                  {savingAnalysis ? "Creating..." : "Done Revision"}
                 </button>
               </div>
             </div>
