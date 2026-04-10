@@ -92,13 +92,13 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Section / Schedule
+                Section Code
               </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="e.g., T301 - 2nd Sem 25-26"
+                placeholder="e.g., T301"
                 rows="3"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-casual-green text-sm md:text-base"
               />

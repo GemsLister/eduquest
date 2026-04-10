@@ -62,13 +62,13 @@ export const CreateClassPopup = ({
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Section / Schedule
+              Section Code
             </label>
             <input
               name="description"
               value={formDataDescription}
               onChange={onInputChange}
-              placeholder="e.g., T301 - 2nd Sem 25-26"
+              placeholder="e.g., T301"
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20 text-sm"
             />
           </div>

@@ -103,7 +103,7 @@ export const InstructorDashboard = () => {
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) {
-      notify.error("Course name is required");
+      notify.error("Subject name is required");
       return;
     }
 
@@ -316,7 +316,7 @@ export const InstructorDashboard = () => {
         {/* Active Sections */}
         {filteredSections.length === 0 && !showArchived ? (
           <ClassCard.EmptyClassSection
-            title={search.trim() ? "No Sections Found" : "No Sections Found"}
+            title={search.trim() ? "No Subjects Found" : "No Subjects Found"}
             icon={search.trim() ? "🔍" : "📚"}
           />
         ) : (
@@ -497,7 +497,7 @@ export const InstructorDashboard = () => {
         )}
       </div>
 
-      {/* Edit Section Modal */}
+      {/* Edit Subject Modal */}
       {editModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div
@@ -515,7 +515,7 @@ export const InstructorDashboard = () => {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Course Name
+                  Subject Name
                 </label>
                 <input
                   type="text"
@@ -527,14 +527,14 @@ export const InstructorDashboard = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Section / Schedule
+                  Section Code
                 </label>
                 <input
                   type="text"
                   value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
-                  placeholder="e.g., T301 - 2nd Sem 25-26"
+                  placeholder="e.g., T301"
                 />
               </div>
             </div>
