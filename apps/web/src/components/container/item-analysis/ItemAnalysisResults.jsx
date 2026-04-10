@@ -44,9 +44,9 @@ export const ItemAnalysisResults = ({
                 </span>
               </div>
             )}
-            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+            {/* <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
               💡 <strong>Auto-Versioning:</strong> When you save with revisions, a new quiz version is automatically created with your changes applied.
-            </div>
+            </div> */}
           </div>
             
             <div className="flex gap-2">
@@ -58,7 +58,7 @@ export const ItemAnalysisResults = ({
               <button
                 onClick={handleSaveAnalysis}
                 disabled={savingAnalysis || !analysis || analysis.length === 0}
-                className={`px-6 py-2 rounded-lg font-semibold text-white transition-colors ${
+                className={`px-6 py-2 rounded-full font-semibold text-white transition-colors ${
                   savingAnalysis || !analysis || analysis.length === 0
                     ? "bg-gray-400 cursor-not-allowed"
                     : analysisSaved

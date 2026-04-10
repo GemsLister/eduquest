@@ -64,9 +64,9 @@ export const ItemAnalysisHeader = ({
               <select
                 value={selectedSection}
                 onChange={(e) => onSectionChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               >
-                <option value="">-- Select Subject --</option>
+                <option value=""> Select Subject </option>
                 {sections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.name}
@@ -90,14 +90,14 @@ export const ItemAnalysisHeader = ({
                 value={selectedQuiz}
                 onChange={(e) => onQuizChange(e.target.value)}
                 disabled={!selectedSection || loadingQuizzes}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">
                   {loadingQuizzes
                     ? "Loading quizzes..."
                     : !selectedSection
                       ? "Select a subject first"
-                      : "-- Select a Quiz --"}
+                      : " Select a Quiz "}
                 </option>
                 {quizzes &&
                   quizzes.map((quiz) => (
@@ -116,7 +116,7 @@ export const ItemAnalysisHeader = ({
               <input
                 type="text"
                 placeholder="Search by question text..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
               />
             </div>
@@ -129,7 +129,7 @@ export const ItemAnalysisHeader = ({
               <input
                 type="text"
                 placeholder="Search student name..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 onChange={(e) => onStudentSearchChange && onStudentSearchChange(e.target.value)}
               />
             </div>
@@ -143,7 +143,7 @@ export const ItemAnalysisHeader = ({
                 value={selectedCohortFilter}
                 onChange={(e) => onCohortFilterChange && onCohortFilterChange(e.target.value)}
                 disabled={!selectedSection}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="all">All Students</option>
                 {cohortOptions?.map((option) => (
