@@ -927,9 +927,9 @@ export const StudentProfiles = () => {
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-48">
                           Student Name
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
+                        {/* <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
                           Section
-                        </th>
+                        </th> */}
                         {subjectQuizzes.map((quiz) => (
                           <th key={quiz.id} className="text-center py-3 px-4 text-sm font-semibold text-gray-700 min-w-[80px]">
                             {quiz.title}
@@ -946,9 +946,9 @@ export const StudentProfiles = () => {
                           <td className="py-6 px-4 text-sm font-bold text-gray-800">
                             {student.student_name}
                           </td>
-                          <td className="py-6 px-4 text-xs text-gray-500 max-w-[200px] leading-relaxed">
+                          {/* <td className="py-6 px-4 text-xs text-gray-500 max-w-[200px] leading-relaxed">
                             {student.section}
-                          </td>
+                          </td> */}
                           {subjectQuizzes.map((quiz) => {
                             const quizResult = student.quizzes?.[quiz.id];
                             const percentage = quizResult?.percentage || 0;
