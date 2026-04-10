@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
+const SKIP_GATE_LOADER_KEY = "skipGateLoaderOnce";
+
 export const ProtectedRoute = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isFacultyHead, setIsFacultyHead] = useState(false);
   const [isApproved, setIsApproved] = useState(null);
@@ -44,11 +47,28 @@ export const ProtectedRoute = ({ children }) => {
     checkProfile();
   }, [user, authLoading]);
 
-  if (authLoading || profileLoading) {
+  const hasSkipLoaderSessionFlag =
+    sessionStorage.getItem(SKIP_GATE_LOADER_KEY) === "1";
+  const allowOptimisticRender = Boolean(
+    (location.state?.skipGateLoader || hasSkipLoaderSessionFlag) && user,
+  );
+
+  useEffect(() => {
+    if (allowOptimisticRender) {
+      sessionStorage.removeItem(SKIP_GATE_LOADER_KEY);
+    }
+  }, [allowOptimisticRender]);
+
+  const shouldShowGateLoader =
+    authLoading ||
+    (!user && profileLoading) ||
+    (profileLoading && !allowOptimisticRender);
+
+  if (shouldShowGateLoader) {
     return (
-      <div className="flex items-center justify-center h-screen flex-1">
+      <div className="flex items-center justify-center h-screen flex-1 bg-authentic-white">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sea-green mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold mx-auto mb-4"></div>
           <p className="text-elephant">Loading...</p>
         </div>
       </div>
@@ -71,7 +91,7 @@ export const ProtectedRoute = ({ children }) => {
     return <Navigate to="/faculty-head-dashboard" replace />;
   }
 
-  if (!isApproved) {
+  if (!profileLoading && !isApproved) {
     return (
       <div className="flex items-center justify-center h-screen flex-1 bg-gray-50">
         <div className="bg-white rounded-xl shadow-lg p-10 max-w-md w-full text-center">
@@ -80,8 +100,8 @@ export const ProtectedRoute = ({ children }) => {
             Pending Approval
           </h1>
           <p className="text-gray-500 text-sm">
-            Your account registration is being reviewed by the Senior Faculty. You will
-            be able to log in once your account has been approved.
+            Your account registration is being reviewed by the Senior Faculty.
+            You will be able to log in once your account has been approved.
           </p>
           <button
             onClick={() =>
