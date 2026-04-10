@@ -27,7 +27,6 @@ export const InstructorQuiz = () => {
   const [availableSections, setAvailableSections] = useState([]);
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
-  const [showShareUrl, setShowShareUrl] = useState(false);
   const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
   const [questionCount, setQuestionCount] = useState(1);
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -42,6 +41,7 @@ export const InstructorQuiz = () => {
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [quizReviewStatus, setQuizReviewStatus] = useState(null);
+  const [hasNewerVersion, setHasNewerVersion] = useState(false);
   const [revisionStatus, setRevisionStatus] = useState(null);
   const [revisionOverallFeedback, setRevisionOverallFeedback] = useState("");
   const [revisionQuestionFeedbackById, setRevisionQuestionFeedbackById] =
@@ -50,8 +50,7 @@ export const InstructorQuiz = () => {
     useState({});
   const [revisionQuestionFeedbackByIndex, setRevisionQuestionFeedbackByIndex] =
     useState({});
-  const revisionOfSubmissionId =
-    location.state?.revisionOfSubmissionId || null;
+  const revisionOfSubmissionId = location.state?.revisionOfSubmissionId || null;
 
   const isApprovedStatus =
     quizReviewStatus === "approved" ||
@@ -59,7 +58,9 @@ export const InstructorQuiz = () => {
   const isReviewLocked =
     quizReviewStatus === "pending" ||
     quizReviewStatus === "faculty_head_review";
-  const isEditingDisabled = isPublished || isReviewLocked || isApprovedStatus;
+  const isOutdatedVersion = !!quizId && hasNewerVersion;
+  const isEditingDisabled =
+    isPublished || isReviewLocked || isApprovedStatus || isOutdatedVersion;
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -211,6 +212,7 @@ export const InstructorQuiz = () => {
     if (quizId) {
       loadQuiz();
     } else {
+      setHasNewerVersion(false);
       setLoading(false);
     }
   }, [quizId]);
@@ -302,6 +304,16 @@ export const InstructorQuiz = () => {
       if (quizError) throw quizError;
       if (!quiz) throw new Error("Quiz not found");
 
+      const rootId = quiz.parent_quiz_id || quiz.id;
+      const { data: newerVersions } = await supabase
+        .from("quizzes")
+        .select("id")
+        .eq("parent_quiz_id", rootId)
+        .eq("is_archived", false)
+        .gt("version_number", quiz.version_number || 1)
+        .limit(1);
+      setHasNewerVersion((newerVersions || []).length > 0);
+
       const { data: latestSubmission } = await supabase
         .from("quiz_analysis_submissions")
         .select("status")
@@ -373,11 +385,15 @@ export const InstructorQuiz = () => {
         latestRevisionSubmission = chainRevisionSub;
       }
 
-      setQuizTitle(quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || "");
+      setQuizTitle(
+        quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || "",
+      );
       setQuizDescription(quiz.description || "");
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
-      setQuizReviewStatus(isApproved ? "approved" : (latestSubmission?.status || null));
+      setQuizReviewStatus(
+        isApproved ? "approved" : latestSubmission?.status || null,
+      );
 
       if (latestRevisionSubmission) {
         const qf = latestRevisionSubmission.question_feedback || {};
@@ -567,12 +583,6 @@ export const InstructorQuiz = () => {
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return token;
-  };
-
-  const copyToClipboard = (url) => {
-    navigator.clipboard.writeText(url).then(() => {
-      notify.success("URL copied to clipboard!");
-    });
   };
 
   const archiveQuestion = async (id) => {
@@ -844,8 +854,7 @@ export const InstructorQuiz = () => {
       localStorage.removeItem(NEW_QUIZ_DRAFT_KEY);
 
       if (publish) {
-        setShowShareUrl(true);
-        notify.success("Quiz published! Share URL generated.");
+        notify.success("Quiz published successfully!");
       } else if (!silent) {
         notify.success("Draft saved!");
         setTimeout(() => {
@@ -962,7 +971,11 @@ export const InstructorQuiz = () => {
                       : "bg-yellow-400/90 text-yellow-900"
                 }`}
               >
-                {isPublished ? "Published" : isApprovedStatus ? "Approved" : "Draft"}
+                {isPublished
+                  ? "Published"
+                  : isApprovedStatus
+                    ? "Approved"
+                    : "Draft"}
               </span>
             )}
           </div>
@@ -975,7 +988,8 @@ export const InstructorQuiz = () => {
         )}
         {quizId && isApprovedStatus && !isPublished && (
           <div className="mt-4 px-4 py-2 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 font-semibold">
-            This quiz has been approved! You can now publish it to make it available to students.
+            This quiz has been approved! You can now publish it to make it
+            available to students.
           </div>
         )}
 
@@ -1007,28 +1021,6 @@ export const InstructorQuiz = () => {
                 />
               </svg>
               View Results
-            </button>
-            <button
-              onClick={() =>
-                navigate(`/instructor-dashboard/question-bank/${quizId}`)
-              }
-              className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              Question Bank
             </button>
           </div>
         )}
@@ -1072,116 +1064,37 @@ export const InstructorQuiz = () => {
             </div>
           </div>
         )}
-        {(showShareUrl || isPublished) && shareToken && (
-          <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
-            <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Quiz Published Successfully!
-            </h3>
-            <p className="text-gray-700 mb-4">
-              Share the link for each subject with the corresponding students:
-            </p>
-            {selectedSectionIds.length > 0 ? (
-              <div className="space-y-3">
-                {selectedSectionIds.map((sId) => {
-                  const sec = availableSections.find((s) => s.id === sId);
-                  const sectionUrl = `${window.location.origin}/quiz/${shareToken}?section=${sId}`;
-                  return (
-                    <div key={sId}>
-                      <p className="text-xs font-semibold text-gray-500 mb-1">
-                        {sec?.section_name || sec?.name || sId}
-                      </p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={sectionUrl}
-                          readOnly
-                          className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-                        />
-                        <button
-                          onClick={() => copyToClipboard(sectionUrl)}
-                          className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={`${window.location.origin}/quiz/${shareToken}`}
-                  readOnly
-                  className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-                />
-                <button
-                  onClick={() =>
-                    copyToClipboard(
-                      `${window.location.origin}/quiz/${shareToken}`,
-                    )
-                  }
-                  className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-                >
-                  Copy Link
-                </button>
-              </div>
-            )}
-            <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
-              <strong>Share Code:</strong>{" "}
-              <code className="bg-gray-100 px-2 py-1 rounded font-mono">
-                {shareToken}
-              </code>
-            </p>
-          </div>
-        )}
-
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-bold text-brand-navy mb-4">
             Quiz Information
           </h2>
 
-          {quizReviewStatus !== "approved" && quizReviewStatus !== "faculty_head_approved" &&
+          {quizReviewStatus !== "approved" &&
+            quizReviewStatus !== "faculty_head_approved" &&
             (revisionOverallFeedback ||
               Object.keys(revisionQuestionFeedbackById).length > 0) && (
-            <div
-              className="mb-4 px-4 py-3 border rounded-lg bg-orange-50 border-orange-200"
-            >
-              <p className="text-sm font-bold text-orange-700">
-                Senior Faculty Revision Feedback
-              </p>
-              {revisionOverallFeedback && (
-                <p className="text-sm mt-1 text-orange-800">
-
-                  {revisionOverallFeedback}
+              <div className="mb-4 px-4 py-3 border rounded-lg bg-orange-50 border-orange-200">
+                <p className="text-sm font-bold text-orange-700">
+                  Senior Faculty Revision Feedback
                 </p>
-              )}
-              {!revisionOverallFeedback && (
-                <p className="text-xs mt-1 text-gray-600">
-                  See question-level comments below.
-                </p>
-              )}
-            </div>
-          )}
+                {revisionOverallFeedback && (
+                  <p className="text-sm mt-1 text-orange-800">
+                    {revisionOverallFeedback}
+                  </p>
+                )}
+                {!revisionOverallFeedback && (
+                  <p className="text-xs mt-1 text-gray-600">
+                    See question-level comments below.
+                  </p>
+                )}
+              </div>
+            )}
 
           {isEditingDisabled && (
             <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
-              🔒 This quiz is view-only right now.
+              {isOutdatedVersion
+                ? "This quiz is view-only because a newer version already exists."
+                : "This quiz is view-only right now."}
             </div>
           )}
           <div className="space-y-4">
@@ -1486,19 +1399,18 @@ export const InstructorQuiz = () => {
                     {/* Expandable content */}
                     {expandedQuestions.has(question.id) && (
                       <div className="mt-4">
-                        {questionFeedback && quizReviewStatus !== "approved" && quizReviewStatus !== "faculty_head_approved" && (
-                          <div
-                            className="mb-4 p-3 border rounded-lg bg-orange-50 border-orange-200"
-                          >
-                            <p className="text-xs font-semibold mb-1 text-orange-700">
-                              Senior Faculty Feedback on this question:
-                            </p>
-                            <p className="text-sm text-orange-800">
-
-                              {questionFeedback}
-                            </p>
-                          </div>
-                        )}
+                        {questionFeedback &&
+                          quizReviewStatus !== "approved" &&
+                          quizReviewStatus !== "faculty_head_approved" && (
+                            <div className="mb-4 p-3 border rounded-lg bg-orange-50 border-orange-200">
+                              <p className="text-xs font-semibold mb-1 text-orange-700">
+                                Senior Faculty Feedback on this question:
+                              </p>
+                              <p className="text-sm text-orange-800">
+                                {questionFeedback}
+                              </p>
+                            </div>
+                          )}
 
                         {!isEditingDisabled && (
                           <div className="flex justify-end gap-2 mb-4">
@@ -1843,37 +1755,6 @@ export const InstructorQuiz = () => {
                   Submit for Review
                 </button>
               </>
-            )}
-
-            {/* Divider between primary and secondary */}
-            {!isEditingDisabled && quizId && (
-              <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-            )}
-
-            {/* Secondary Actions */}
-            {quizId && !isEditingDisabled && (
-              <button
-                onClick={() =>
-                  navigate(`/instructor-dashboard/question-bank/${quizId}`)
-                }
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                Question Bank
-              </button>
             )}
 
             {/* Publish button for approved quizzes */}

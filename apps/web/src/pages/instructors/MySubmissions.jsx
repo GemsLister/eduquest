@@ -50,7 +50,9 @@ export const MySubmissions = () => {
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (filter === "approved") {
+      if (filter === "pending") {
+        query = query.in("status", ["pending", "faculty_head_review"]);
+      } else if (filter === "approved") {
         query = query.in("status", ["approved", "faculty_head_approved"]);
       } else if (filter !== "all") {
         query = query.eq("status", filter);
@@ -687,21 +689,25 @@ export const MySubmissions = () => {
                                                   return (
                                                     <div
                                                       key={`${item.questionId}-opt-${optIdx}`}
-                                                      className={`text-xs border rounded px-2 py-1 ${
+                                                      className={`text-xs border rounded px-2 py-1 break-words ${
                                                         isCorrect
                                                           ? "border-green-300 bg-green-50 text-green-800"
                                                           : "border-gray-200 bg-gray-50 text-gray-700"
                                                       }`}
                                                     >
-                                                      <span className="font-semibold mr-1.5">
-                                                        {letter}.
-                                                      </span>
-                                                      <span>{opt}</span>
-                                                      {isCorrect && (
-                                                        <span className="ml-2 font-bold">
-                                                          Correct
+                                                      <div className="flex items-start gap-1.5 min-w-0">
+                                                        <span className="font-semibold shrink-0">
+                                                          {letter}.
                                                         </span>
-                                                      )}
+                                                        <span className="min-w-0 break-words break-all whitespace-pre-wrap">
+                                                          {String(opt || "")}
+                                                        </span>
+                                                        {isCorrect && (
+                                                          <span className="ml-1 font-bold shrink-0">
+                                                            Correct
+                                                          </span>
+                                                        )}
+                                                      </div>
                                                     </div>
                                                   );
                                                 })}
@@ -876,15 +882,26 @@ export const MySubmissions = () => {
                           if (questions.length === 0 && submission.quiz_id) {
                             const { data: qRows } = await supabase
                               .from("questions")
-                              .select("text, type, options")
+                              .select("id, text, type, options")
                               .eq("quiz_id", submission.quiz_id)
                               .order("created_at", { ascending: true });
                             questions = (qRows || []).map((q) => ({
+                              questionId: q.id,
                               questionText: q.text,
                               type: q.type,
                               options: q.options || [],
                             }));
                           }
+
+                          const questionFeedback =
+                            submission.question_feedback || {};
+                          const questionFeedbackByNumber = {};
+                          (submission.analysis_results?.analysis || []).forEach(
+                            (item, idx) => {
+                              const fb = questionFeedback[item.questionId];
+                              if (fb) questionFeedbackByNumber[idx + 1] = fb;
+                            },
+                          );
 
                           await exportQuizPaperPdf({
                             quizTitle: submission.quizzes?.title,
@@ -895,6 +912,8 @@ export const MySubmissions = () => {
                             schoolYearOverride,
                             submittedAt: submission.created_at,
                             questions,
+                            questionFeedback,
+                            questionFeedbackByNumber,
                           });
                         }}
                         className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"

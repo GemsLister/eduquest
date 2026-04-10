@@ -32,7 +32,7 @@ export const AuthButton = ({ name, user }) => {
   const { handleChangePassword } = AuthHooks.useChangePassword();
   const { handleLogin } = AuthHooks.useLogin();
 
-  const handleClick = (e) => {
+  const handleClick = async (e) => {
     e.preventDefault();
     switch (name) {
       case "Login":
@@ -41,10 +41,8 @@ export const AuthButton = ({ name, user }) => {
             notify.error("Fill out the form");
             return;
           }
-          const result = handleLogin(user);
-          if (!result && result.success) console.error(error);
+          await handleLogin(user);
         } catch (error) {
-          // notify();
           console.error(error);
         }
         break;
@@ -83,7 +81,8 @@ export const AuthButton = ({ name, user }) => {
 
       case "Change Password":
         try {
-          if (!user.password) notify.error(error.message || "Fill out the form");
+          if (!user.password)
+            notify.error(error.message || "Fill out the form");
           handleChangePassword(user);
           console.log(`change password ${user.password}`);
         } catch (error) {

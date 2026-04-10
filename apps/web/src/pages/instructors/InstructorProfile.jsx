@@ -33,12 +33,6 @@ export const InstructorProfile = () => {
   const fetchUserData = async () => {
     try {
       if (authUser) {
-        // STRICT GUARD: If logged in as student (gmail) but trying to access instructor profile
-        if (authUser.email.endsWith("@gmail.com")) {
-          notify.error("Access Denied: You are signed in with a student account. Please log out to access instructor features.");
-          setLoading(false);
-          return;
-        }
         setUser(authUser);
 
         const { data: profileData, error: profileError } = await supabase
@@ -73,6 +67,20 @@ export const InstructorProfile = () => {
 
           if (createError) throw createError;
 
+          const hasInstructorAccess =
+            !!newProfile.is_instructor ||
+            newProfile.role === "teacher" ||
+            !!newProfile.is_admin ||
+            !!newProfile.is_faculty_head;
+
+          if (!hasInstructorAccess) {
+            notify.error(
+              "Access Denied: You are signed in with a student account. Please log out to access instructor features.",
+            );
+            setLoading(false);
+            return;
+          }
+
           setProfile({
             username: newProfile.username || "",
             firstName: newProfile.first_name || "",
@@ -87,6 +95,20 @@ export const InstructorProfile = () => {
         } else if (profileError) {
           throw profileError;
         } else {
+          const hasInstructorAccess =
+            !!profileData.is_instructor ||
+            profileData.role === "teacher" ||
+            !!profileData.is_admin ||
+            !!profileData.is_faculty_head;
+
+          if (!hasInstructorAccess) {
+            notify.error(
+              "Access Denied: You are signed in with a student account. Please log out to access instructor features.",
+            );
+            setLoading(false);
+            return;
+          }
+
           setProfile({
             username: profileData.username || "",
             firstName: profileData.first_name || "",
@@ -137,7 +159,9 @@ export const InstructorProfile = () => {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      notify.error("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
+      notify.error(
+        "Please upload a valid image file (JPEG, PNG, GIF, or WebP)",
+      );
       return;
     }
 
@@ -239,7 +263,11 @@ export const InstructorProfile = () => {
     <div className="flex-1 overflow-auto bg-gray-50">
       {/* Banner */}
       <div className="relative h-52 bg-brand-navy overflow-hidden">
-        <img src={citlCover} alt="CITL Cover" className="absolute inset-0 w-full h-full object-cover object-[center_55%] opacity-30" />
+        <img
+          src={citlCover}
+          alt="CITL Cover"
+          className="absolute inset-0 w-full h-full object-cover object-[center_55%] opacity-30"
+        />
         {/* Edit button in banner */}
         {!editMode && (
           <button
@@ -276,32 +304,62 @@ export const InstructorProfile = () => {
                 alt="profile"
                 className="h-28 w-28 rounded-2xl border-4 border-white shadow-lg object-cover"
               />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={avatarUploading}
-                  className="absolute -bottom-1 -right-1 bg-brand-gold hover:bg-brand-gold-dark text-white rounded-lg p-1.5 shadow-md transition-colors"
-                  title="Change profile picture"
-                >
-                  {avatarUploading ? (
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute -bottom-1 -right-1 bg-brand-gold hover:bg-brand-gold-dark text-white rounded-lg p-1.5 shadow-md transition-colors"
+                title="Change profile picture"
+              >
+                {avatarUploading ? (
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                )}
+              </button>
             </div>
 
             {/* Name + Meta */}
@@ -446,9 +504,25 @@ export const InstructorProfile = () => {
                 >
                   {saveLoading ? (
                     <>
-                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <svg
+                        className="animate-spin h-4 w-4"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
                       </svg>
                       Saving...
                     </>
@@ -465,29 +539,70 @@ export const InstructorProfile = () => {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-indigo-100 rounded-xl flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-indigo-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
               </svg>
             </div>
             <p className="text-2xl font-black text-gray-800">{stats.quizzes}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">Quizzes Created</p>
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              Quizzes Created
+            </p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-green-100 rounded-xl flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
-            <p className="text-2xl font-black text-gray-800">{stats.published}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">Published</p>
+            <p className="text-2xl font-black text-gray-800">
+              {stats.published}
+            </p>
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              Published
+            </p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-amber-100 rounded-xl flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-amber-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
               </svg>
             </div>
-            <p className="text-2xl font-black text-gray-800">{stats.subjects}</p>
+            <p className="text-2xl font-black text-gray-800">
+              {stats.subjects}
+            </p>
             <p className="text-xs text-gray-400 font-medium mt-0.5">Subjects</p>
           </div>
         </div>
@@ -500,36 +615,79 @@ export const InstructorProfile = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Email</p>
-                <p className="text-sm font-semibold text-gray-700 truncate">{profile.email}</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Email
+                </p>
+                <p className="text-sm font-semibold text-gray-700 truncate">
+                  {profile.email}
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
                 </svg>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Role</p>
-                <p className="text-sm font-semibold text-gray-700">Instructor</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Role
+                </p>
+                <p className="text-sm font-semibold text-gray-700">
+                  Instructor
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 12h.01" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 12h.01"
+                  />
                 </svg>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Status
+                </p>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-green-500" />
                   <p className="text-sm font-semibold text-green-600">Active</p>
@@ -539,13 +697,28 @@ export const InstructorProfile = () => {
 
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-purple-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Member Since</p>
-                <p className="text-sm font-semibold text-gray-700">{formatDate(profile.createdAt)}</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Member Since
+                </p>
+                <p className="text-sm font-semibold text-gray-700">
+                  {formatDate(profile.createdAt)}
+                </p>
               </div>
             </div>
           </div>

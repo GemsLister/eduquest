@@ -76,7 +76,11 @@ export const FacultyHeadQuizApprovals = () => {
                 .maybeSingle();
               section = qs?.sections || null;
             }
-            return { ...s, profiles: profileMap[s.instructor_id] || null, section };
+            return {
+              ...s,
+              profiles: profileMap[s.instructor_id] || null,
+              section,
+            };
           }),
         );
 
@@ -130,14 +134,22 @@ export const FacultyHeadQuizApprovals = () => {
     const p = submission.profiles;
     if (!p) return "?";
     if (p.first_name || p.last_name) {
-      return ((p.first_name || "")[0] + (p.last_name || "")[0]).toUpperCase() || "?";
+      return (
+        ((p.first_name || "")[0] + (p.last_name || "")[0]).toUpperCase() || "?"
+      );
     }
     return (p.username || p.email || "?")[0].toUpperCase();
   };
 
   const avatarColors = [
-    "bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-amber-500",
-    "bg-rose-500", "bg-cyan-500", "bg-indigo-500", "bg-teal-500",
+    "bg-blue-500",
+    "bg-emerald-500",
+    "bg-purple-500",
+    "bg-amber-500",
+    "bg-rose-500",
+    "bg-cyan-500",
+    "bg-indigo-500",
+    "bg-teal-500",
   ];
 
   const getAvatarColor = (id) => {
@@ -150,10 +162,19 @@ export const FacultyHeadQuizApprovals = () => {
 
   const getStatusBadge = (status) => {
     const config = {
-      faculty_head_review: { bg: "bg-yellow-100 text-yellow-700", label: "Pending Approval" },
-      faculty_head_approved: { bg: "bg-green-100 text-green-700", label: "Approved" },
+      faculty_head_review: {
+        bg: "bg-yellow-100 text-yellow-700",
+        label: "Pending Approval",
+      },
+      faculty_head_approved: {
+        bg: "bg-green-100 text-green-700",
+        label: "Approved",
+      },
     };
-    const c = config[status] || { bg: "bg-gray-100 text-gray-600", label: status };
+    const c = config[status] || {
+      bg: "bg-gray-100 text-gray-600",
+      label: status,
+    };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${c.bg}`}>
         {c.label}
@@ -181,14 +202,18 @@ export const FacultyHeadQuizApprovals = () => {
     e.stopPropagation();
     const p = submission.profiles;
     const instructorName = p
-      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email
+      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
+        p.username ||
+        p.email
       : undefined;
 
     let reviewerName, approverName, semesterOverride, schoolYearOverride;
     if (user) {
       const { data: signatories } = await supabase
         .from("tos_signatories")
-        .select("reviewer_name, approver_name, semester_override, school_year_override")
+        .select(
+          "reviewer_name, approver_name, semester_override, school_year_override",
+        )
         .eq("faculty_head_id", user.id)
         .single();
       if (signatories) {
@@ -221,7 +246,9 @@ export const FacultyHeadQuizApprovals = () => {
     e.stopPropagation();
     const p = submission.profiles;
     const instructorName = p
-      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email
+      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
+        p.username ||
+        p.email
       : undefined;
 
     let semesterOverride, schoolYearOverride;
@@ -241,15 +268,23 @@ export const FacultyHeadQuizApprovals = () => {
     if (questions.length === 0 && submission.quiz_id) {
       const { data: qRows } = await supabase
         .from("questions")
-        .select("text, type, options")
+        .select("id, text, type, options")
         .eq("quiz_id", submission.quiz_id)
         .order("created_at", { ascending: true });
       questions = (qRows || []).map((q) => ({
+        questionId: q.id,
         questionText: q.text,
         type: q.type,
         options: q.options || [],
       }));
     }
+
+    const questionFeedback = submission.question_feedback || {};
+    const questionFeedbackByNumber = {};
+    (submission.analysis_results?.analysis || []).forEach((item, idx) => {
+      const fb = questionFeedback[item.questionId];
+      if (fb) questionFeedbackByNumber[idx + 1] = fb;
+    });
 
     await exportQuizPaperPdf({
       quizTitle: submission.quizzes?.title,
@@ -260,12 +295,18 @@ export const FacultyHeadQuizApprovals = () => {
       schoolYearOverride,
       submittedAt: submission.created_at,
       questions,
+      questionFeedback,
+      questionFeedbackByNumber,
     });
   };
 
   const tabs = [
     { key: "faculty_head_review", label: "Pending", dotColor: "bg-yellow-400" },
-    { key: "faculty_head_approved", label: "Approved", dotColor: "bg-green-500" },
+    {
+      key: "faculty_head_approved",
+      label: "Approved",
+      dotColor: "bg-green-500",
+    },
     { key: "all", label: "All", dotColor: "bg-gray-400" },
   ];
 
@@ -304,7 +345,11 @@ export const FacultyHeadQuizApprovals = () => {
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               type="text"
@@ -318,8 +363,19 @@ export const FacultyHeadQuizApprovals = () => {
                 onClick={() => setSearch("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             )}
@@ -371,7 +427,11 @@ export const FacultyHeadQuizApprovals = () => {
                 stroke="currentColor"
                 strokeWidth={1.5}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
               </svg>
             </div>
             <h3 className="text-lg font-bold text-gray-700 mb-2">
@@ -394,7 +454,9 @@ export const FacultyHeadQuizApprovals = () => {
                 <div
                   key={submission.id}
                   onClick={() =>
-                    navigate(`/faculty-head-dashboard/quiz-approvals/${submission.id}`)
+                    navigate(
+                      `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
+                    )
                   }
                   className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
                 >
@@ -410,7 +472,9 @@ export const FacultyHeadQuizApprovals = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
-                          {(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                          {(
+                            submission.quizzes?.title || "Untitled Quiz"
+                          ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                         </h3>
                         {getStatusBadge(submission.status)}
                       </div>
@@ -423,8 +487,19 @@ export const FacultyHeadQuizApprovals = () => {
                           </span>
                         </span>
                         <span className="flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           {timeAgo(submission.created_at)}
                         </span>
@@ -433,8 +508,19 @@ export const FacultyHeadQuizApprovals = () => {
                       {summary && (
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="flex items-center gap-1 px-2.5 py-1 bg-brand-navy/10 rounded-lg text-xs font-semibold text-brand-navy">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                             {summary.totalQuestions} questions
                           </span>
@@ -442,16 +528,26 @@ export const FacultyHeadQuizApprovals = () => {
                           <div className="flex items-center gap-2">
                             <div className="flex h-2 w-24 rounded-full overflow-hidden bg-gray-100">
                               {lotsPct > 0 && (
-                                <div className="bg-emerald-500 transition-all" style={{ width: `${lotsPct}%` }} />
+                                <div
+                                  className="bg-emerald-500 transition-all"
+                                  style={{ width: `${lotsPct}%` }}
+                                />
                               )}
                               {hotsPct > 0 && (
-                                <div className="bg-amber-500 transition-all" style={{ width: `${hotsPct}%` }} />
+                                <div
+                                  className="bg-amber-500 transition-all"
+                                  style={{ width: `${hotsPct}%` }}
+                                />
                               )}
                             </div>
                             <span className="text-[11px] text-gray-400 font-medium">
-                              <span className="text-emerald-600 font-semibold">{lotsPct}%</span>
+                              <span className="text-emerald-600 font-semibold">
+                                {lotsPct}%
+                              </span>
                               {" / "}
-                              <span className="text-amber-600 font-semibold">{hotsPct}%</span>
+                              <span className="text-amber-600 font-semibold">
+                                {hotsPct}%
+                              </span>
                             </span>
                           </div>
 
@@ -465,8 +561,19 @@ export const FacultyHeadQuizApprovals = () => {
 
                       {submission.admin_feedback && (
                         <div className="mt-3 flex items-start gap-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                            />
                           </svg>
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
@@ -488,18 +595,42 @@ export const FacultyHeadQuizApprovals = () => {
                             className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                             title="Export TOS PDF"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
                             </svg>
                             PDF
                           </button>
                           <button
-                            onClick={(e) => handleExportQuizPaper(e, submission)}
+                            onClick={(e) =>
+                              handleExportQuizPaper(e, submission)
+                            }
                             className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                             title="Export Quiz Paper"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
                             </svg>
                             Quiz Paper
                           </button>
@@ -514,7 +645,11 @@ export const FacultyHeadQuizApprovals = () => {
                           stroke="currentColor"
                           strokeWidth={2}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </div>
                     </div>

@@ -328,6 +328,8 @@ export const QuizzesPageMain = () => {
                 const isReviewLocked =
                   quiz.admin_review_status === "pending" ||
                   quiz.admin_review_status === "faculty_head_review";
+                const isOutdatedVersion =
+                  !quiz.is_archived && quiz.hasNewerVersion;
 
                 return (
                   <div
@@ -432,7 +434,9 @@ export const QuizzesPageMain = () => {
                             }
                             className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
                           >
-                            {isApproved || isReviewLocked ? "View" : "Edit"}
+                            {isApproved || isReviewLocked || isOutdatedVersion
+                              ? "View"
+                              : "Edit"}
                           </button>
                         )}
 

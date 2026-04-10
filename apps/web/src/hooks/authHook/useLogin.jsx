@@ -6,7 +6,9 @@ export const useLogin = () => {
   const navigate = useNavigate();
   const handleLogin = async (userData) => {
     try {
-      const email = userData.email.trim();
+      const email = String(userData.email || "")
+        .trim()
+        .toLowerCase();
 
       if (!userData.captchaToken) {
         notify.error("Please complete the captcha verification");
@@ -31,6 +33,27 @@ export const useLogin = () => {
       });
 
       if (error) {
+        const errorMessage = String(error.message || "").toLowerCase();
+        const isInvalidCredentials =
+          errorMessage.includes("invalid login credentials") ||
+          errorMessage.includes("invalid email") ||
+          errorMessage.includes("invalid password") ||
+          errorMessage.includes("email not confirmed");
+        const isCaptchaError =
+          !isInvalidCredentials &&
+          (errorMessage.includes("captcha") ||
+            errorMessage.includes("challenge") ||
+            errorMessage.includes("turnstile") ||
+            errorMessage.includes("token"));
+
+        if (isCaptchaError) {
+          notify.error(
+            "Captcha verification failed or expired. Please complete captcha again.",
+          );
+          userData.onCaptchaReset?.();
+          return;
+        }
+
         // Record failed attempt server-side
         const { data: result } = await supabase.rpc("record_failed_login", {
           p_email: email,
@@ -47,6 +70,7 @@ export const useLogin = () => {
         } else {
           notify.error("Invalid email or password");
         }
+        userData.onCaptchaReset?.();
         return;
       }
 
@@ -70,6 +94,7 @@ export const useLogin = () => {
       if (profile?.is_approved === false) {
         await supabase.auth.signOut();
         notify.info("Your account is pending Senior Faculty approval.");
+        userData.onCaptchaReset?.();
         return;
       }
 
@@ -90,13 +115,18 @@ export const useLogin = () => {
         notify.error(
           "Access Denied: Students should take quizzes via shared links.",
         );
+        userData.onCaptchaReset?.();
       } else {
         await supabase.auth.signOut();
         notify.error("Access Denied: Instructors Only!");
+        userData.onCaptchaReset?.();
       }
     } catch (error) {
       console.error(error);
-      notify.error("An error occurred during login");
+      notify.error(
+        "Login failed due to a network or server issue. Please try again.",
+      );
+      userData.onCaptchaReset?.();
     }
   };
   return { handleLogin };

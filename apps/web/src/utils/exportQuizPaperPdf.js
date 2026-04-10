@@ -37,11 +37,13 @@ const deriveSchoolYear = (date) => {
  */
 const cleanQuizTitle = (title) => {
   if (!title) return "Quiz";
-  return title
-    .replace(/\s*\(Revised(?:\s+\d+)?\)/gi, "")
-    .replace(/\s*\(V\d+\)/gi, "")
-    .replace(/\s*\(Version\s*\d+\)/gi, "")
-    .trim() || "Quiz";
+  return (
+    title
+      .replace(/\s*\(Revised(?:\s+\d+)?\)/gi, "")
+      .replace(/\s*\(V\d+\)/gi, "")
+      .replace(/\s*\(Version\s*\d+\)/gi, "")
+      .trim() || "Quiz"
+  );
 };
 
 /**
@@ -57,6 +59,8 @@ export const exportQuizPaperPdf = async ({
   schoolYearOverride,
   submittedAt,
   questions,
+  questionFeedback = {},
+  questionFeedbackByNumber = {},
 }) => {
   try {
     const doc = new jsPDF();
@@ -97,7 +101,14 @@ export const exportQuizPaperPdf = async ({
     // Right logo — COT seal
     try {
       const rightLogo = await loadImage("/logo2.jpg");
-      doc.addImage(rightLogo, "JPEG", pageWidth - margin - logoSize, y - 5, logoSize, logoSize);
+      doc.addImage(
+        rightLogo,
+        "JPEG",
+        pageWidth - margin - logoSize,
+        y - 5,
+        logoSize,
+        logoSize,
+      );
     } catch {
       // no logo
     }
@@ -106,14 +117,20 @@ export const exportQuizPaperPdf = async ({
     doc.setTextColor(0, 0, 0);
     doc.setFont("times", "bold");
     doc.setFontSize(14);
-    doc.text("BUKIDNON STATE UNIVERSITY", textCenterX, y + 1, { align: "center" });
+    doc.text("BUKIDNON STATE UNIVERSITY", textCenterX, y + 1, {
+      align: "center",
+    });
 
     doc.setFontSize(11);
-    doc.text("COLLEGE OF TECHNOLOGIES", textCenterX, y + 6, { align: "center" });
+    doc.text("COLLEGE OF TECHNOLOGIES", textCenterX, y + 6, {
+      align: "center",
+    });
 
     doc.setFont("times", "normal");
     doc.setFontSize(9);
-    doc.text("Malaybalay City, Bukidnon 8700", textCenterX, y + 11, { align: "center" });
+    doc.text("Malaybalay City, Bukidnon 8700", textCenterX, y + 11, {
+      align: "center",
+    });
 
     doc.setFontSize(7.5);
     doc.text(
@@ -132,7 +149,9 @@ export const exportQuizPaperPdf = async ({
 
     doc.setFont("times", "bolditalic");
     doc.setFontSize(11);
-    doc.text("Information Technology Department", textCenterX, y + 6, { align: "center" });
+    doc.text("Information Technology Department", textCenterX, y + 6, {
+      align: "center",
+    });
 
     y += 15;
 
@@ -196,11 +215,21 @@ export const exportQuizPaperPdf = async ({
     doc.line(margin + doc.getTextWidth("Name: "), y + 1, nameFieldEnd, y + 1);
 
     doc.text("Date:", dateLabelX, y);
-    doc.line(dateLabelX + doc.getTextWidth("Date: "), y + 1, pageWidth - margin, y + 1);
+    doc.line(
+      dateLabelX + doc.getTextWidth("Date: "),
+      y + 1,
+      pageWidth - margin,
+      y + 1,
+    );
     y += 7;
 
     doc.text("Subject and Section Code:", margin, y);
-    doc.line(margin + doc.getTextWidth("Subject and Section Code: "), y + 1, nameFieldEnd, y + 1);
+    doc.line(
+      margin + doc.getTextWidth("Subject and Section Code: "),
+      y + 1,
+      nameFieldEnd,
+      y + 1,
+    );
     y += 14;
 
     // ══════════════════════════════════════════════
@@ -220,17 +249,49 @@ export const exportQuizPaperPdf = async ({
       (q) => q.type === "identification" || q.type === "short_answer",
     );
 
-    // Question layout — indented from a center-ish area
-    const qNumX = margin + 8;       // question number position
-    const qTextX = margin + 20;     // question text position
-    const optLetterX = margin + 30;  // option letter position
-    const optTextX = margin + 38;    // option text position
+    // Question layout — keep number close to the first word of each question.
+    doc.setFont("times", "bold");
+    doc.setFontSize(11);
+    const maxQuestionNumber = Math.max(questionList.length, 9);
+    const qNumberSlotWidth = doc.getTextWidth(`${maxQuestionNumber}.`) + 2;
+    const qNumX = margin + 8; // question number position
+    const qTextX = qNumX + qNumberSlotWidth; // question text starts right after number slot
+    const optLetterX = qTextX + 10; // option letter position
+    const optTextX = optLetterX + 8; // option text position
     const qTextWidth = pageWidth - margin - qTextX - 5;
     const optTextWidth = pageWidth - margin - optTextX - 5;
 
     let globalNum = 1;
     let sectionNum = 1;
     const romanNumerals = ["I", "II", "III", "IV", "V", "VI"];
+
+    const getQuestionComment = (q, number) => {
+      const byId = q?.questionId ? questionFeedback?.[q.questionId] : null;
+      const byNum = questionFeedbackByNumber?.[number];
+      const comment = byId || byNum || "";
+      return String(comment || "").trim();
+    };
+
+    const renderQuestionComment = (q, number, x, width) => {
+      const comment = getQuestionComment(q, number);
+      if (!comment) return;
+
+      doc.setFont("times", "italic");
+      doc.setFontSize(10);
+      doc.setTextColor(180, 40, 20);
+      const commentLines = doc.splitTextToSize(
+        `Senior Faculty Comment: ${comment}`,
+        width,
+      );
+      ensureSpace(commentLines.length * 5 + 3);
+      for (let li = 0; li < commentLines.length; li++) {
+        doc.text(commentLines[li], x, y + li * 5);
+      }
+      y += commentLines.length * 5 + 3;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("times", "normal");
+      doc.setFontSize(11);
+    };
 
     // ── Multiple Choice Section ──
     if (mcqQuestions.length > 0) {
@@ -297,6 +358,8 @@ export const exportQuizPaperPdf = async ({
           y += optLines.length * 5.5 + 2;
         }
 
+        renderQuestionComment(q, globalNum, qTextX, qTextWidth);
+
         y += 5;
         globalNum++;
       }
@@ -336,7 +399,9 @@ export const exportQuizPaperPdf = async ({
         for (let li = 0; li < qTextLines.length; li++) {
           doc.text(qTextLines[li], qTextX, y + li * 5.5);
         }
-        y += qTextLines.length * 5.5 + 6;
+        y += qTextLines.length * 5.5 + 2;
+        renderQuestionComment(q, globalNum, qTextX, qTextWidth);
+        y += 4;
         globalNum++;
       }
       sectionNum++;
@@ -362,23 +427,30 @@ export const exportQuizPaperPdf = async ({
       );
       y += 8;
 
+      const identBlankX = margin + 2;
+      const identNumX = margin + 34;
+      const identTextX = identNumX + qNumberSlotWidth;
+      const identTextWidth = pageWidth - margin - identTextX - 5;
+
       for (const q of identQuestions) {
         const qText = q.questionText || q.text || "";
-        const qTextLines = doc.splitTextToSize(qText, qTextWidth - 30);
+        const qTextLines = doc.splitTextToSize(qText, identTextWidth);
         ensureSpace(qTextLines.length * 5.5 + 8);
 
         doc.setFont("times", "normal");
         doc.setFontSize(11);
-        doc.text("__________________", margin + 2, y);
+        doc.text("__________________", identBlankX, y);
 
         doc.setFont("times", "bold");
-        doc.text(`${globalNum}.`, margin + 42, y);
+        doc.text(`${globalNum}.`, identNumX, y);
 
         doc.setFont("times", "normal");
         for (let li = 0; li < qTextLines.length; li++) {
-          doc.text(qTextLines[li], margin + 50, y + li * 5.5);
+          doc.text(qTextLines[li], identTextX, y + li * 5.5);
         }
-        y += qTextLines.length * 5.5 + 6;
+        y += qTextLines.length * 5.5 + 2;
+        renderQuestionComment(q, globalNum, identTextX, identTextWidth);
+        y += 4;
         globalNum++;
       }
       sectionNum++;

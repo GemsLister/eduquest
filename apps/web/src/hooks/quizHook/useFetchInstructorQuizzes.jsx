@@ -52,6 +52,20 @@ export const useFetchInstructorQuizzes = () => {
 
       if (submissionsError) throw submissionsError;
 
+      const maxVersionByRoot = new Map();
+      (data || [])
+        .filter((quiz) => !quiz.is_archived)
+        .forEach((quiz) => {
+          const rootId = quiz.parent_quiz_id || quiz.id;
+          const version = quiz.version_number || 1;
+          const currentMax = maxVersionByRoot.get(rootId) || 1;
+          if (version > currentMax) {
+            maxVersionByRoot.set(rootId, version);
+          } else if (!maxVersionByRoot.has(rootId)) {
+            maxVersionByRoot.set(rootId, currentMax);
+          }
+        });
+
       const latestSubmissionByQuiz = new Map();
       (submissions || []).forEach((submission) => {
         if (!latestSubmissionByQuiz.has(submission.quiz_id)) {
@@ -97,6 +111,11 @@ export const useFetchInstructorQuizzes = () => {
             questions_count: !countError ? count : 0,
             admin_review_status: latestSubmission?.status || null,
             admin_review_feedback: latestSubmission?.admin_feedback || "",
+            hasNewerVersion:
+              (quiz.version_number || 1) <
+              (maxVersionByRoot.get(quiz.parent_quiz_id || quiz.id) ||
+                quiz.version_number ||
+                1),
             section_count:
               sectionCountByQuiz.get(quiz.id) || (quiz.section_id ? 1 : 0),
           };
