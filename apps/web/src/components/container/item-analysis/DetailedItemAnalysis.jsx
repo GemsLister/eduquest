@@ -41,7 +41,7 @@ export const DetailedItemAnalysis = ({ item, index }) => {
           </div>
 
           {/* ITEM RESPONSE THEORY - AREA CHART */}
-          <div className="border border-gray-300 p-2">
+          {/* <div className="border border-gray-300 p-2">
             <h3 className="text-[11px] font-bold text-center text-gray-700 uppercase mb-2">
               ITEM RESPONSE THEORY
             </h3>
@@ -72,11 +72,8 @@ export const DetailedItemAnalysis = ({ item, index }) => {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        </div>
-
-        {/* HIGH AND LOW GROUP STUDENT NAMES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          </div> */}
+          <div className="flex flex-col gap-4 mt-4">
           {/* HIGH GROUP */}
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-gray-600 mb-1">High Group (Top 27%)</span>
@@ -131,6 +128,10 @@ export const DetailedItemAnalysis = ({ item, index }) => {
             </div>
           </div>
         </div>
+        </div>
+
+        {/* HIGH AND LOW GROUP STUDENT NAMES */}
+        
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           {/* TEST TABLE */}
