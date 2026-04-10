@@ -185,17 +185,23 @@ export const ItemAnalysisTable = ({
                   <span className="font-medium">{analysis.length}</span> results
                 </p>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <button
                   onClick={handlePreviousPage}
                   disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
+                    currentPage === 1
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  Previous
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
                 </button>
                 
                 {/* Page Numbers */}
-                <div className="flex space-x-1">
+                <div className="flex items-center space-x-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                     // Show first page, last page, current page, and pages around current
                     if (
@@ -207,10 +213,10 @@ export const ItemAnalysisTable = ({
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`relative inline-flex items-center px-3 py-2 text-sm font-semibold rounded-md ${
+                          className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
                             currentPage === page
-                              ? 'z-10 bg-indigo-600 text-white'
-                              : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              ? 'bg-gray-800 text-white'
+                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
                           }`}
                         >
                           {page}
@@ -221,7 +227,7 @@ export const ItemAnalysisTable = ({
                       page === currentPage + 2
                     ) {
                       return (
-                        <span key={page} className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-700">
+                        <span key={page} className="relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium text-gray-400">
                           ...
                         </span>
                       );
@@ -233,9 +239,15 @@ export const ItemAnalysisTable = ({
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-3 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
+                    currentPage === totalPages
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  Next
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -257,7 +269,7 @@ export const ItemAnalysisTable = ({
               </div>
             </div>
             <div className="group">
-              <span className="block w-full h-7 bg-red-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REVISE</span>
+              <span className="block w-full h-7 bg-orange-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REVISE</span>
               <div className="text-xs text-slate-700 text-center">
                 <strong className="text-red-700">D: 0.20-0.39</strong>
                 <br />
@@ -265,7 +277,7 @@ export const ItemAnalysisTable = ({
               </div>
             </div>
             <div className="group">
-              <span className="block w-full h-7 bg-gray-700 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REJECT</span>
+              <span className="block w-full h-7 bg-red-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REJECT</span>
               <div className="text-xs text-slate-700 text-center">
                 <strong className="text-gray-700">D: 0.00-0.19</strong>
                 <br />
@@ -282,23 +294,23 @@ export const ItemAnalysisTable = ({
             </div>
             
             <div className="pt-2 border-t border-slate-200 mt-2">
-              <div className="flex items-center gap-2 mb-1">
+              {/* <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider border border-amber-200 shadow-sm">
                   📝 Revision Pending
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 italic mb-2">
                 A draft revision exists. Click to compare and finalize.
-              </p>
+              </p> */}
 
-              <div className="flex items-center gap-2 mb-1">
+              {/* <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
                   ✓ Item Revised
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 italic mb-2">
                 This item has been finalized with a revision.
-              </p>
+              </p> */}
 
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
