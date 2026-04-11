@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
+import { QuestionBankImport } from "../../components/QuestionBankImport.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
@@ -29,6 +30,8 @@ export const InstructorQuiz = () => {
   const [shareToken, setShareToken] = useState("");
   const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
   const [questionCount, setQuestionCount] = useState(1);
+  const [showQuestionBankModal, setShowQuestionBankModal] = useState(false);
+  const [selectedBankQuestions, setSelectedBankQuestions] = useState([]);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [saveSectionsLoading, setSaveSectionsLoading] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
@@ -530,6 +533,58 @@ export const InstructorQuiz = () => {
     });
     setQuestions([...questions, ...newQuestions]);
     setShowAddQuestionPopup(false);
+  };
+
+  const importQuestionsFromBank = () => {
+    if (isEditingDisabled || selectedBankQuestions.length === 0) return;
+    
+    const importedQuestions = selectedBankQuestions.map((q, index) => {
+      let correctAnswerValue;
+      if (q.type === "mcq") {
+        // Find the index of the correct answer text in the options array
+        correctAnswerValue = (q.options || []).indexOf(q.correct_answer);
+        
+        // If not found by text, try to match by letter (A, B, C, D...) or if it's already an index
+        if (correctAnswerValue === -1 && q.correct_answer !== undefined) {
+          const letterMatch = String(q.correct_answer).toUpperCase().match(/^[A-Z]$/);
+          if (letterMatch) {
+            correctAnswerValue = letterMatch[0].charCodeAt(0) - 65;
+          } else if (!isNaN(q.correct_answer) && q.correct_answer >= 0 && q.correct_answer < (q.options?.length || 0)) {
+            correctAnswerValue = parseInt(q.correct_answer);
+          }
+        }
+        
+        // Fallback to 0 if still not found
+        if (correctAnswerValue === -1 || correctAnswerValue >= (q.options?.length || 0)) {
+          correctAnswerValue = 0;
+        }
+      } else if (q.type === "true_false") {
+        correctAnswerValue = q.correct_answer === "true" ? 0 : 1;
+      } else {
+        correctAnswerValue = q.correct_answer !== undefined ? q.correct_answer : 0;
+      }
+
+      return {
+        id: Date.now() + index,
+        text: q.text,
+        type: q.type || "mcq",
+        options: q.options || ["", "", "", ""],
+        correctAnswer: correctAnswerValue,
+        points: q.points || 1,
+      };
+    });
+    
+    // Auto-expand imported questions
+    setExpandedQuestions((prev) => {
+      const next = new Set(prev);
+      importedQuestions.forEach((q) => next.add(q.id));
+      return next;
+    });
+    
+    setQuestions([...questions, ...importedQuestions]);
+    setSelectedBankQuestions([]);
+    setShowQuestionBankModal(false);
+    notify.success(`Imported ${importedQuestions.length} question${importedQuestions.length > 1 ? 's' : ''} with correct answers from Question Bank`);
   };
 
   const updateQuestion = (id, field, value) => {
@@ -1180,19 +1235,39 @@ export const InstructorQuiz = () => {
                 autoFocus
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
               />
-              <div className="flex gap-3">
+              <div className="space-y-3">
                 <button
                   onClick={() =>
                     addMultipleQuestions(parseInt(questionCount) || 1)
                   }
-                  className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+                  className="w-full bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
                 >
                   Add {parseInt(questionCount) || 1} Question
                   {(parseInt(questionCount) || 1) > 1 ? "s" : ""}
                 </button>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">or</span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowAddQuestionPopup(false);
+                    setShowQuestionBankModal(true);
+                  }}
+                  className="w-full bg-brand-navy hover:bg-brand-indigo text-white py-2 rounded-lg font-semibold transition-colors"
+                >
+                  Import from Question Bank
+                </button>
+                
                 <button
                   onClick={() => setShowAddQuestionPopup(false)}
-                  className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                  className="w-full bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1814,14 +1889,61 @@ export const InstructorQuiz = () => {
 
       {/* Archive Subject Selection Modal */}
       <SelectSubjectModal
-        isOpen={showSubjectModal}
+        isOpen={showSectionModal}
         onClose={() => {
-          setShowSubjectModal(false);
+          setShowSectionModal(false);
           setQuestionToArchive(null);
         }}
         onConfirm={handleArchiveWithSubject}
         questionText={questionToArchive?.text}
       />
+
+      {/* Question Bank Import Modal */}
+      {showQuestionBankModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-brand-navy">
+                Import Questions from Question Bank
+              </h3>
+              <button
+                onClick={() => setShowQuestionBankModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              <QuestionBankImport 
+                selectedQuestions={selectedBankQuestions}
+                setSelectedQuestions={setSelectedBankQuestions}
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={importQuestionsFromBank}
+                disabled={selectedBankQuestions.length === 0}
+                className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Import {selectedBankQuestions.length} Question{selectedBankQuestions.length !== 1 ? 's' : ''}
+              </button>
+              <button
+                onClick={() => {
+                  setShowQuestionBankModal(false);
+                  setSelectedBankQuestions([]);
+                }}
+                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
