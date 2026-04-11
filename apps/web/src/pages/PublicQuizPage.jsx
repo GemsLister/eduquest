@@ -148,6 +148,29 @@ export const PublicQuizPage = () => {
       setAnswers(restoredAnswers);
     }
 
+    // Auto-answer questions with auto_answer flag that don't have saved answers
+    const autoAnswers = {};
+    questionsArr.forEach(question => {
+      if (question.auto_answer && 
+          question.correct_answer !== undefined && 
+          !restoredAnswers[question.id]) {
+        autoAnswers[question.id] = String(question.correct_answer);
+      }
+    });
+    
+    if (Object.keys(autoAnswers).length > 0) {
+      setAnswers(prev => ({ ...prev, ...autoAnswers }));
+      
+      // Save auto-answers to server
+      for (const [questionId, answer] of Object.entries(autoAnswers)) {
+        supabase.rpc("save_quiz_response", {
+          p_attempt_id: existingAttemptId,
+          p_question_id: questionId,
+          p_response: answer
+        }).catch(err => console.error("Error saving auto-answer:", err));
+      }
+    }
+
     // Restore timer from started_at
     if (attemptData?.started_at) {
       const startedAt = new Date(attemptData.started_at).getTime();
@@ -264,7 +287,7 @@ export const PublicQuizPage = () => {
 
         const { data: questionsData, error: questionsError } = await supabase
           .from("questions")
-          .select("id, quiz_id, type, text, options, points, created_at")
+          .select("id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer")
           .eq("quiz_id", quizData.id)
           .order("created_at", { ascending: true });
 
@@ -430,6 +453,28 @@ export const PublicQuizPage = () => {
 
       setAttemptId(attempt.id);
       await shuffleAndSaveOrder(questions, attempt.id);
+      
+      // Auto-answer questions with auto_answer flag
+      const autoAnswers = {};
+      questions.forEach(question => {
+        if (question.auto_answer && question.correct_answer !== undefined) {
+          autoAnswers[question.id] = String(question.correct_answer);
+        }
+      });
+      
+      if (Object.keys(autoAnswers).length > 0) {
+        setAnswers(prev => ({ ...prev, ...autoAnswers }));
+        
+        // Save auto-answers to server
+        for (const [questionId, answer] of Object.entries(autoAnswers)) {
+          supabase.rpc("save_quiz_response", {
+            p_attempt_id: attempt.id,
+            p_question_id: questionId,
+            p_response: answer
+          }).catch(err => console.error("Error saving auto-answer:", err));
+        }
+      }
+      
       setHasStarted(true);
     } catch (err) {
       setError(err.message || "Failed to start quiz");
@@ -546,6 +591,28 @@ export const PublicQuizPage = () => {
       if (attemptError) throw attemptError;
       setAttemptId(attempt.id);
       await shuffleAndSaveOrder(questions, attempt.id);
+      
+      // Auto-answer questions with auto_answer flag
+      const autoAnswers = {};
+      questions.forEach(question => {
+        if (question.auto_answer && question.correct_answer !== undefined) {
+          autoAnswers[question.id] = String(question.correct_answer);
+        }
+      });
+      
+      if (Object.keys(autoAnswers).length > 0) {
+        setAnswers(prev => ({ ...prev, ...autoAnswers }));
+        
+        // Save auto-answers to server
+        for (const [questionId, answer] of Object.entries(autoAnswers)) {
+          supabase.rpc("save_quiz_response", {
+            p_attempt_id: attempt.id,
+            p_question_id: questionId,
+            p_response: answer
+          }).catch(err => console.error("Error saving auto-answer:", err));
+        }
+      }
+      
       setHasStarted(true);
     } catch (err) {
       setError(err.message);
@@ -559,6 +626,31 @@ export const PublicQuizPage = () => {
     setShowReviewPage(false);
     setCurrentQuestionIndex(index);
   };
+
+  // Apply auto-answers when questions and attempt are loaded
+  useEffect(() => {
+    if (hasStarted && questions.length > 0 && attemptId) {
+      const autoAnswers = {};
+      questions.forEach(question => {
+        if (question.auto_answer && question.correct_answer !== undefined && !answers[question.id]) {
+          autoAnswers[question.id] = String(question.correct_answer);
+        }
+      });
+      
+      if (Object.keys(autoAnswers).length > 0) {
+        setAnswers(prev => ({ ...prev, ...autoAnswers }));
+        
+        // Save auto-answers to server
+        for (const [questionId, answer] of Object.entries(autoAnswers)) {
+          supabase.rpc("save_quiz_response", {
+            p_attempt_id: attemptId,
+            p_question_id: questionId,
+            p_response: answer
+          }).catch(err => console.error("Error saving auto-answer:", err));
+        }
+      }
+    }
+  }, [hasStarted, questions, attemptId]);
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
