@@ -354,7 +354,11 @@ export const QuizzesPageMain = () => {
                         )}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
-                        {quiz.version_number && (
+                        {(quiz.version_number || 1) === 1 ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-white">
+                            Original
+                          </span>
+                        ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
                             v{quiz.version_number}
                           </span>

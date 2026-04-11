@@ -43,26 +43,42 @@ export const AdminQuizReviews = () => {
           profiles: profileMap[s.instructor_id] || null,
         }));
 
-        // Build set of superseded submission IDs
-        // (submissions that have a newer revision pointing to them)
-        const supersededIds = new Set();
-        enrichedData.forEach((s) => {
-          if (s.previous_submission_id) {
-            supersededIds.add(s.previous_submission_id);
-          }
-        });
+        // Group submissions by quiz chain (rootId). For each chain:
+        //   - compute displayVersion per submission based on chronological
+        //     rank within the chain (1 = original, 2 = first revision, ...)
+        //   - keep only the single latest submission per chain
+        const rootIdOf = (s) =>
+          s.quizzes?.parent_quiz_id || s.quiz_id;
 
-        // Filter out superseded submissions only if they are still pending
-        // Keep reviewed submissions (revision_requested, approved) visible
-        const visibleData = enrichedData.filter(
-          (s) =>
-            !supersededIds.has(s.id) ||
-            s.status === "revision_requested" ||
-            s.status === "approved" ||
-            s.status === "faculty_head_approved",
+        const chains = new Map();
+        for (const s of enrichedData) {
+          const rootId = rootIdOf(s);
+          if (!rootId) continue;
+          if (!chains.has(rootId)) chains.set(rootId, []);
+          chains.get(rootId).push(s);
+        }
+
+        const latestPerChain = [];
+        for (const chainSubs of chains.values()) {
+          const sortedAsc = [...chainSubs].sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
+          );
+          sortedAsc.forEach((s, idx) => {
+            s.displayVersion = idx + 1;
+            s.chainLength = sortedAsc.length;
+          });
+          latestPerChain.push(sortedAsc[sortedAsc.length - 1]);
+        }
+
+        latestPerChain.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
         );
 
-        setAllSubmissions(visibleData);
+        setAllSubmissions(latestPerChain);
       } else {
         setAllSubmissions(data || []);
       }
@@ -419,12 +435,16 @@ export const AdminQuizReviews = () => {
                               submission.quizzes?.title || "Untitled Quiz"
                             ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                           </h3>
-                          {(submission.quizzes?.version_number || 0) > 1 && (
+                          {submission.displayVersion === 1 ? (
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full text-[10px] font-bold">
+                              Original
+                            </span>
+                          ) : (
                             <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full text-[10px] font-bold">
-                              V{submission.quizzes.version_number}
+                              V{submission.displayVersion}
                             </span>
                           )}
-                          {submission.previous_submission_id && (
+                          {submission.displayVersion > 1 && (
                             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">
                               Resubmission
                             </span>

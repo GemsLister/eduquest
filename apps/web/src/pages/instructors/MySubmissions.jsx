@@ -44,26 +44,62 @@ export const MySubmissions = () => {
         setInstructorName(name);
       }
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("quiz_analysis_submissions")
         .select("*, quizzes(*)")
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false });
+      if (error) throw error;
 
-      if (filter === "pending") {
-        query = query.in("status", ["pending", "faculty_head_review"]);
-      } else if (filter === "approved") {
-        query = query.in("status", ["approved", "faculty_head_approved"]);
-      } else if (filter !== "all") {
-        query = query.eq("status", filter);
+      // Group submissions by quiz chain (rootId), compute displayVersion
+      // per submission (chronological rank within the chain), then keep
+      // both the original and the latest submission per chain so the
+      // Original badge remains visible alongside the current revision.
+      const rootIdOf = (s) => s.quizzes?.parent_quiz_id || s.quiz_id;
+      const chains = new Map();
+      for (const sub of data || []) {
+        if (!sub.quiz_id) continue;
+        const rootId = rootIdOf(sub);
+        if (!chains.has(rootId)) chains.set(rootId, []);
+        chains.get(rootId).push(sub);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const latestByQuiz = [];
+      for (const chainSubs of chains.values()) {
+        const sortedAsc = [...chainSubs].sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime(),
+        );
+        sortedAsc.forEach((s, idx) => {
+          s.displayVersion = idx + 1;
+          s.chainLength = sortedAsc.length;
+        });
+        const original = sortedAsc[0];
+        const latest = sortedAsc[sortedAsc.length - 1];
+        latestByQuiz.push(original);
+        if (latest !== original) latestByQuiz.push(latest);
+      }
+
+      latestByQuiz.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime(),
+      );
+
+      // Apply status filter client-side against the latest submission.
+      const filtered = latestByQuiz.filter((sub) => {
+        if (filter === "all") return true;
+        if (filter === "pending")
+          return ["pending", "faculty_head_review"].includes(sub.status);
+        if (filter === "approved")
+          return ["approved", "faculty_head_approved"].includes(sub.status);
+        return sub.status === filter;
+      });
 
       // Fetch section data and check for newer versions for each submission
       const enriched = await Promise.all(
-        (data || []).map(async (sub) => {
+        filtered.map(async (sub) => {
           if (!sub.quiz_id) return sub;
           const { data: qs } = await supabase
             .from("quiz_sections")
@@ -360,9 +396,13 @@ export const MySubmissions = () => {
                         /\s*\(Revised(?:\s+\d+)?\)\s*$/,
                         "",
                       )}
-                      {(submission.quizzes?.version_number || 0) > 1 && (
+                      {submission.displayVersion === 1 ? (
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full text-[10px] font-bold">
+                          Original
+                        </span>
+                      ) : (
                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full text-[10px] font-bold">
-                          V{submission.quizzes.version_number}
+                          V{submission.displayVersion}
                         </span>
                       )}
                     </h3>

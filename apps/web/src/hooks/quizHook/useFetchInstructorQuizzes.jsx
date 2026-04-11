@@ -122,7 +122,11 @@ export const useFetchInstructorQuizzes = () => {
         }),
       );
 
-      setQuizzes(quizzesWithCounts);
+      const visibleQuizzes = quizzesWithCounts.filter(
+        (quiz) => !quiz.hasNewerVersion || quiz.is_archived,
+      );
+
+      setQuizzes(visibleQuizzes);
     } catch (error) {
       console.error("Error fetching quizzes:", error);
     } finally {
