@@ -53,13 +53,30 @@ export const CreateQuizFormButton = ({
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 shrink-0">
-              <h3 className="text-xl font-bold text-white">Create New Quiz</h3>
-              <p className="text-white/70 text-sm mt-1">
-                Set up your quiz details before adding questions.
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    Create New Quiz
+                  </h3>
+                  <p className="text-white/70 text-sm mt-1">
+                    Set up your quiz details before adding questions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQuizForm(false)}
+                  aria-label="Close create quiz form"
+                  className="text-white/80 hover:text-white text-2xl leading-none font-semibold transition-colors"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+            <form
+              onSubmit={handleSubmit}
+              className="p-6 space-y-4 overflow-y-auto"
+            >
               {/* Subject / Section multi-select */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -71,7 +88,9 @@ export const CreateQuizFormButton = ({
                     <label className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
                       <input
                         type="checkbox"
-                        checked={selectedIds.length === availableSections.length}
+                        checked={
+                          selectedIds.length === availableSections.length
+                        }
                         onChange={toggleAll}
                         className="form-checkbox h-4 w-4 text-brand-navy border-gray-300 rounded"
                       />
@@ -105,7 +124,8 @@ export const CreateQuizFormButton = ({
                               {sec.name}
                               {sec.subject_code ? (
                                 <span className="text-gray-400 font-normal">
-                                  {" "}({sec.subject_code})
+                                  {" "}
+                                  ({sec.subject_code})
                                 </span>
                               ) : null}
                             </span>
