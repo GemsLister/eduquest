@@ -133,7 +133,7 @@ export const QuestionBank = () => {
       try {
         const { data, error } = await supabase
           .from("quiz_sections")
-          .select("quiz_id, quizzes(id, title, is_archived)")
+          .select("quiz_id, quizzes(id, title, is_archived, is_published)")
           .eq("section_id", selectedSectionId);
 
         if (error) throw error;
@@ -141,10 +141,10 @@ export const QuestionBank = () => {
         const uniqueQuizzes = [];
         const seen = new Set();
         data?.forEach((qs) => {
-          // Only add if the quiz exists, is not archived, and hasn't been seen yet
+          // Only add if the quiz exists, is not archived or is published, and hasn't been seen yet
           if (
             qs.quizzes &&
-            !qs.quizzes.is_archived &&
+            (!qs.quizzes.is_archived || qs.quizzes.is_published) &&
             !seen.has(qs.quizzes.id)
           ) {
             seen.add(qs.quizzes.id);
@@ -157,7 +157,7 @@ export const QuestionBank = () => {
           .from("quizzes")
           .select("id, title")
           .eq("section_id", selectedSectionId)
-          .eq("is_archived", false);
+          .or("is_archived.eq.false,is_published.eq.true");
 
         if (directQuizzes) {
           directQuizzes.forEach((dq) => {
@@ -444,13 +444,14 @@ export const QuestionBank = () => {
           options: q.options,
           correct_answer: q.correct_answer,
           points: q.points,
+          auto_answer: true, // Auto-answer flag for imported questions
         });
         if (error) throw error;
         orderIndex++;
       }
 
       notify.success(
-        `Successfully imported ${selectedQuestions.length} question(s) to the quiz!`,
+        `Successfully imported ${selectedQuestions.length} question(s) with correct answers to the quiz!`,
       );
       setSelectedQuestions([]);
       navigate(`/instructor-dashboard/instructor-quiz/${quizId}`);
