@@ -1,14 +1,19 @@
 import { supabase } from "../supabaseClient";
 
 /**
- * Create a copy of a quiz for revision purposes.
- * The original quiz stays untouched; the instructor edits the copy.
+ * Create (or update) the single revision copy of a quiz.
  *
- * @param {string} originalQuizId - The quiz to copy
- * @returns {Promise<object>} The newly created quiz record
+ * On the first revision cycle a new quiz row is inserted as version 2 so the
+ * original (v1) stays untouched as the historical record. On every subsequent
+ * revision cycle the existing revision copy is updated in place — its
+ * version_number is bumped (2 → 3 → 4 ...) and its title is re-suffixed, but
+ * no new quiz row is created and the instructor's prior edits are preserved.
+ *
+ * @param {string} originalQuizId - The quiz the instructor clicked "Edit & Resubmit" on
+ * @returns {Promise<object>} The revision-copy quiz record (new or updated)
  */
 export const createRevisionCopy = async (originalQuizId) => {
-  // 1. Fetch original quiz
+  // 1. Fetch the quiz the caller handed us.
   const { data: originalQuiz, error: quizError } = await supabase
     .from("quizzes")
     .select("*")
@@ -21,35 +26,75 @@ export const createRevisionCopy = async (originalQuizId) => {
 
   const rootId = originalQuiz.parent_quiz_id || originalQuizId;
 
-  // 2. Get the highest version number across the ENTIRE chain
-  const { data: allVersions } = await supabase
-    .from("quizzes")
-    .select("id, version_number")
-    .or(`id.eq.${rootId},parent_quiz_id.eq.${rootId}`)
-    .order("version_number", { ascending: false });
+  // 2. Fetch the root (v1) quiz — we base titles off of it, not off of the
+  //    revision copy, to avoid double-suffixing "(Revised) (Revised 2)".
+  const { data: rootQuiz, error: rootError } =
+    rootId === originalQuizId
+      ? { data: originalQuiz, error: null }
+      : await supabase
+          .from("quizzes")
+          .select("*")
+          .eq("id", rootId)
+          .single();
 
-  const maxVersion = Math.max(
-    ...((allVersions || []).map((v) => v.version_number || 1)),
-    1,
-  );
-  const versionNumber = maxVersion + 1;
+  if (rootError || !rootQuiz) {
+    throw new Error("Failed to fetch root quiz");
+  }
 
-  // 3. Build the title
-  const baseTitle = originalQuiz.title.replace(
+  const baseTitle = rootQuiz.title.replace(
     /\s*\(Revised(?:\s+\d+)?\)\s*$/,
     "",
   );
-  const newTitle = `${baseTitle} (Revised ${versionNumber - 1})`;
 
-  // 4. Create new quiz
+  // 3. Look for an existing revision copy of this chain.
+  const { data: existingRevisions } = await supabase
+    .from("quizzes")
+    .select("*")
+    .eq("parent_quiz_id", rootId)
+    .eq("is_archived", false)
+    .order("version_number", { ascending: false });
+
+  const existingRevision = (existingRevisions || [])[0] || null;
+
+  // Branch B: a revision copy already exists — update it in place.
+  if (existingRevision) {
+    const newVersion = (existingRevision.version_number || 2) + 1;
+    const newTitle =
+      newVersion === 2 ? `${baseTitle} (Revised)` : `${baseTitle} (Revised ${newVersion - 1})`;
+
+    const updatePayload = {
+      version_number: newVersion,
+      title: newTitle,
+      is_published: false,
+    };
+
+    const { error: updateError } = await supabase
+      .from("quizzes")
+      .update(updatePayload)
+      .eq("id", existingRevision.id);
+
+    if (updateError) {
+      console.error("Revision update error:", updateError);
+      throw new Error(
+        `Failed to update existing revision copy: ${updateError.message || JSON.stringify(updateError)}`,
+      );
+    }
+
+    return { ...existingRevision, ...updatePayload };
+  }
+
+  // Branch A: no revision copy yet — create v2 from the root.
+  const versionNumber = 2;
+  const newTitle = `${baseTitle} (Revised)`;
+
   const { data: newQuiz, error: createError } = await supabase
     .from("quizzes")
     .insert({
-      instructor_id: originalQuiz.instructor_id,
-      section_id: originalQuiz.section_id,
+      instructor_id: rootQuiz.instructor_id,
+      section_id: rootQuiz.section_id,
       title: newTitle,
-      description: originalQuiz.description,
-      duration: originalQuiz.duration,
+      description: rootQuiz.description,
+      duration: rootQuiz.duration,
       is_published: false,
       is_archived: false,
       parent_quiz_id: rootId,
@@ -62,11 +107,11 @@ export const createRevisionCopy = async (originalQuizId) => {
     throw new Error("Failed to create quiz revision");
   }
 
-  // 5. Copy questions from the quiz being revised
+  // Copy questions from the root quiz.
   const { data: originalQuestions, error: questionsError } = await supabase
     .from("questions")
     .select("*")
-    .eq("quiz_id", originalQuizId)
+    .eq("quiz_id", rootId)
     .eq("is_archived", false)
     .order("created_at", { ascending: true });
 
@@ -96,20 +141,11 @@ export const createRevisionCopy = async (originalQuizId) => {
     }
   }
 
-  // 6. Mark original quiz AND all versions in the chain as having a revision
-  const allIds = (allVersions || []).map((v) => v.id);
-  if (allIds.length > 0) {
-    await supabase
-      .from("quizzes")
-      .update({ has_revision: true, latest_version_id: newQuiz.id })
-      .in("id", allIds);
-  }
-
-  // 7. Copy section assignments
+  // Copy section assignments from the root.
   const { data: sectionData } = await supabase
     .from("quiz_sections")
     .select("section_id")
-    .eq("quiz_id", originalQuizId);
+    .eq("quiz_id", rootId);
 
   if (sectionData?.length > 0) {
     await supabase.from("quiz_sections").insert(

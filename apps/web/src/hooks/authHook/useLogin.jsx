@@ -99,17 +99,19 @@ export const useLogin = () => {
       }
 
       if (profile?.is_admin) {
-        navigate("/admin-dashboard");
+        navigate("/admin-dashboard", { state: { skipGateLoader: true } });
         return;
       }
 
       if (profile?.is_faculty_head) {
-        navigate("/faculty-head-dashboard");
+        navigate("/faculty-head-dashboard", {
+          state: { skipGateLoader: true },
+        });
         return;
       }
 
       if (profile?.role === "teacher" || profile?.is_instructor) {
-        navigate("/instructor-dashboard");
+        navigate("/instructor-dashboard", { state: { skipGateLoader: true } });
       } else if (profile?.role === "student") {
         await supabase.auth.signOut();
         notify.error(

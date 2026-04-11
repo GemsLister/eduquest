@@ -11,6 +11,7 @@ export const AdminQuizReviewDetail = () => {
   const navigate = useNavigate();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
+  const [chain, setChain] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -94,6 +95,26 @@ export const AdminQuizReviewDetail = () => {
         setSubmission({ ...data, profiles: profile });
         setFeedback(data.admin_feedback || "");
         setQuestionFeedback(data.question_feedback || {});
+
+        // Build the submission chain for this quiz: all submissions for
+        // quizzes that share this chain's rootId, ordered by created_at asc.
+        const rootId = data.quizzes?.parent_quiz_id || data.quiz_id;
+        if (rootId) {
+          const { data: chainQuizzes } = await supabase
+            .from("quizzes")
+            .select("id")
+            .or(`id.eq.${rootId},parent_quiz_id.eq.${rootId}`);
+
+          const chainQuizIds = (chainQuizzes || []).map((q) => q.id);
+          if (chainQuizIds.length > 0) {
+            const { data: chainSubs } = await supabase
+              .from("quiz_analysis_submissions")
+              .select("id, quiz_id, created_at")
+              .in("quiz_id", chainQuizIds)
+              .order("created_at", { ascending: true });
+            setChain(chainSubs || []);
+          }
+        }
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -308,32 +329,87 @@ export const AdminQuizReviewDetail = () => {
 
       <div className="p-6">
         {/* Version / Resubmission Banner */}
-        {submission.previous_submission_id && (
-          <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
-            <span className="text-2xl">🔄</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-brand-navy">
-                Revised Submission
-                {(submission.quizzes?.version_number || 0) > 1 &&
-                  ` (Version ${submission.quizzes.version_number})`}
-              </p>
-              <p className="text-xs text-brand-navy/70">
-                The instructor revised this quiz based on previous feedback and
-                resubmitted for review.
-              </p>
-            </div>
-            <button
-              onClick={() =>
-                navigate(
-                  `/admin-dashboard/quiz-reviews/${submission.previous_submission_id}`,
-                )
-              }
-              className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
-            >
-              View Previous Version
-            </button>
-          </div>
-        )}
+        {(() => {
+          const currentIdx = chain.findIndex((s) => s.id === submission.id);
+          const displayVersion = currentIdx >= 0 ? currentIdx + 1 : 1;
+          const chainLength = chain.length;
+          const previousInChain =
+            currentIdx > 0 ? chain[currentIdx - 1] : null;
+          const latestInChain =
+            chainLength > 0 ? chain[chainLength - 1] : null;
+          const isLatest =
+            !latestInChain || latestInChain.id === submission.id;
+
+          if (displayVersion === 1 && chainLength > 1) {
+            return (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-3">
+                <span className="text-2xl">📌</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-emerald-900">
+                    Original Submission
+                  </p>
+                  <p className="text-xs text-emerald-900/70">
+                    This is the original version of this quiz. Newer revisions
+                    exist.
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
+                    )
+                  }
+                  className="px-3 py-1.5 bg-emerald-700/10 hover:bg-emerald-700/20 text-emerald-900 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                >
+                  View Latest Version
+                </button>
+              </div>
+            );
+          }
+
+          if (displayVersion > 1) {
+            return (
+              <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
+                <span className="text-2xl">🔄</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-brand-navy">
+                    Revised Submission (Version {displayVersion})
+                  </p>
+                  <p className="text-xs text-brand-navy/70">
+                    The instructor revised this quiz based on previous feedback
+                    and resubmitted for review.
+                  </p>
+                </div>
+                {previousInChain && (
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin-dashboard/quiz-reviews/${previousInChain.id}`,
+                      )
+                    }
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    View Previous Version
+                  </button>
+                )}
+                {!isLatest && latestInChain && (
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
+                      )
+                    }
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    View Latest Version
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Instructor Message */}
         {submission.instructor_message && (

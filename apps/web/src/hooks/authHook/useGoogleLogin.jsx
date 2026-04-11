@@ -1,15 +1,22 @@
 import { supabase } from "../../supabaseClient";
+
 export const useGoogleLogin = () => {
   const handleGoogleLogin = async (e) => {
     e.preventDefault();
+    sessionStorage.setItem("skipGateLoaderOnce", "1");
+
+    const redirectUrl =
+      import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL ||
+      `${window.location.origin}/instructor-dashboard`;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: "offline",
           prompt: "consent",
-          hd: "student.buksu.edu.ph"
+          hd: "student.buksu.edu.ph",
         },
       },
     });
@@ -26,11 +33,11 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
-          hd: "gmail.com"
+          hd: "gmail.com",
         },
       },
     });
-    if (error) console.error('Google login error:', error);
+    if (error) console.error("Google login error:", error);
   };
 
   return { handleGoogleLogin, handleGoogleQuizLogin };

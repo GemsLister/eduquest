@@ -65,13 +65,25 @@ export const useQuestionBank = () => {
     if (!user) return;
     try {
 
-      // Get instructor's quiz IDs
+      // Get instructor's quizzes, then keep only the latest version of each
+      // chain so revised quizzes replace — rather than duplicate — their
+      // originals in the question bank.
       const { data: quizzesData } = await supabase
         .from("quizzes")
-        .select("id")
+        .select("id, parent_quiz_id, version_number, is_archived")
         .eq("instructor_id", user.id);
 
-      const quizIds = quizzesData?.map((q) => q.id) || [];
+      const nonArchived = (quizzesData || []).filter((q) => !q.is_archived);
+      const latestByRoot = new Map();
+      for (const quiz of nonArchived) {
+        const rootId = quiz.parent_quiz_id || quiz.id;
+        const version = quiz.version_number || 1;
+        const existing = latestByRoot.get(rootId);
+        if (!existing || version > (existing.version_number || 1)) {
+          latestByRoot.set(rootId, quiz);
+        }
+      }
+      const quizIds = Array.from(latestByRoot.values()).map((q) => q.id);
 
       if (quizIds.length === 0) {
         setActiveQuestions([]);
