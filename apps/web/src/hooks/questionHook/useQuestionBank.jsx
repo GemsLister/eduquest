@@ -83,7 +83,7 @@ export const useQuestionBank = () => {
       // Fetch all questions from instructor's quizzes
       const { data, error } = await supabase
         .from("questions")
-        .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title)")
+        .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title, is_published)")
         .in("quiz_id", quizIds)
         .order("created_at", { ascending: false });
 
@@ -108,6 +108,10 @@ export const useQuestionBank = () => {
   // Archive a question with optional section assignment
   const archiveQuestion = async (questionId, sectionId = null) => {
     try {
+      if (!questionId) {
+        return { success: false, error: "Question ID is required" };
+      }
+
       const updateData = { 
         is_archived: true, 
         updated_at: new Date().toISOString() 
