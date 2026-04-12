@@ -1320,6 +1320,12 @@ export const InstructorQuiz = () => {
             {!isEditingDisabled && (
               <div className="flex gap-2">
                 <button
+                  onClick={() => navigate(`/instructor-dashboard/question-bank/${quizId}`)}
+                  className="bg-white border border-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold/10 transition-colors text-sm"
+                >
+                  Import from Question Bank
+                </button>
+                <button
                   onClick={addQuestion}
                   className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
                 >
