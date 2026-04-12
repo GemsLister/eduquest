@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
-import { useAuth } from "../context/AuthContext";
 
 export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText }) => {
-  const { user } = useAuth();
   const [sections, setSections] = useState([]);
   const [selectedSectionId, setSelectedSectionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,8 +13,11 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
   }, [isOpen]);
 
   const fetchSections = async () => {
-    if (!user) return;
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
       const { data, error } = await supabase
         .from("sections")
