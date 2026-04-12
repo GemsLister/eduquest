@@ -371,17 +371,19 @@ export const PublicQuizPage = () => {
         throw new Error("Failed to obtain student profile details.");
       }
 
-      // Check for existing attempt
+      // Check for existing attempt by email + section (works across devices)
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("id, status")
         .eq("quiz_id", quiz.id)
-        .eq("user_id", session.user.id)
+        .eq("student_email", email)
         .in("status", ["in_progress", "completed"]);
 
-      attemptsQuery = requestedSectionId
-        ? attemptsQuery.eq("section_id", requestedSectionId)
-        : attemptsQuery.is("section_id", null);
+      if (requestedSectionId) {
+        attemptsQuery = attemptsQuery.eq("section_id", requestedSectionId);
+      } else {
+        attemptsQuery = attemptsQuery.is("section_id", null);
+      }
 
       const { data: existingAttempts, error: checkError } = await attemptsQuery;
 
@@ -419,13 +421,20 @@ export const PublicQuizPage = () => {
             student_name: studentName,
             student_email: email,
             status: "in_progress",
-            user_id: user.id,
           },
         ])
         .select()
         .single();
 
-      if (attemptError) throw new Error(attemptError.message);
+      if (attemptError) {
+        // Unique constraint violation — another device/tab already created an attempt
+        if (attemptError.code === "23505") {
+          setAlreadyTaken(true);
+          setAuthenticating(false);
+          return;
+        }
+        throw new Error(attemptError.message);
+      }
       if (!attempt) throw new Error("Failed to create quiz attempt.");
 
       setAttemptId(attempt.id);
