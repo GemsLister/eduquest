@@ -266,7 +266,7 @@ export const AdminDashboard = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          Welcome back, {adminName}
+          {adminName}
         </h1>
         <p className="text-white/60 text-sm mt-1">
           Manage instructor accounts and system settings here.

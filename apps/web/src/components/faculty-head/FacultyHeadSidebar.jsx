@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
@@ -55,6 +56,23 @@ const navItems = [
 export const FacultyHeadSidebar = () => {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const [pendingQuizCount, setPendingQuizCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingQuizCount = async () => {
+      const { count } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "faculty_head_review");
+      setPendingQuizCount(count || 0);
+    };
+
+    fetchPendingQuizCount();
+
+    window.addEventListener("pending-quiz-approvals-changed", fetchPendingQuizCount);
+    return () =>
+      window.removeEventListener("pending-quiz-approvals-changed", fetchPendingQuizCount);
+  }, []);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -106,7 +124,14 @@ export const FacultyHeadSidebar = () => {
                   }`
                 }
               >
-                <span className="shrink-0 text-[18px]">{nav.icon}</span>
+                <span className="relative shrink-0 text-[18px]">
+                  {nav.icon}
+                  {nav.name === "Quiz Approvals" && pendingQuizCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
+                      {pendingQuizCount}
+                    </span>
+                  )}
+                </span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
                   {nav.name}
                 </span>

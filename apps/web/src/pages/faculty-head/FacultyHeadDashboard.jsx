@@ -115,7 +115,7 @@ export const FacultyHeadDashboard = () => {
           Department Head
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          Welcome back, {name}
+          {name}
         </h1>
         <p className="text-white/60 text-sm mt-1">
           Review and approve quiz analyses forwarded by the Senior Faculty.

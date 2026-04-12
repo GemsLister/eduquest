@@ -135,6 +135,7 @@ export const FacultyHeadApprovalDetail = () => {
         link: `/instructor-dashboard/my-submissions`,
       });
 
+      window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
       notify.success("Quiz approved successfully!");
       navigate("/faculty-head-dashboard/quiz-approvals");
     } catch (err) {

@@ -83,6 +83,7 @@ export const AdminSidebar = () => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingQuizCount, setPendingQuizCount] = useState(0);
 
   useEffect(() => {
     const fetchPendingCount = async () => {
@@ -100,6 +101,22 @@ export const AdminSidebar = () => {
     window.addEventListener("pending-requests-changed", fetchPendingCount);
     return () =>
       window.removeEventListener("pending-requests-changed", fetchPendingCount);
+  }, []);
+
+  useEffect(() => {
+    const fetchPendingQuizCount = async () => {
+      const { count } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      setPendingQuizCount(count || 0);
+    };
+
+    fetchPendingQuizCount();
+
+    window.addEventListener("pending-quiz-reviews-changed", fetchPendingQuizCount);
+    return () =>
+      window.removeEventListener("pending-quiz-reviews-changed", fetchPendingQuizCount);
   }, []);
 
   const handleLogout = async (e) => {
@@ -153,6 +170,11 @@ export const AdminSidebar = () => {
                   {nav.name === "Requests" && pendingCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
                       {pendingCount}
+                    </span>
+                  )}
+                  {nav.name === "Quiz Reviews" && pendingQuizCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
+                      {pendingQuizCount}
                     </span>
                   )}
                 </span>

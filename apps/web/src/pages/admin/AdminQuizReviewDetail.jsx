@@ -189,6 +189,8 @@ export const AdminQuizReviewDetail = () => {
         });
       }
 
+      window.dispatchEvent(new Event("pending-quiz-reviews-changed"));
+
       const messages = {
         approved: "Quiz forwarded to Department Head for approval!",
         revision_requested: "Revision request sent to instructor.",
