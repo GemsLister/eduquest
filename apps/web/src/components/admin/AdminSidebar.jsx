@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
@@ -81,6 +82,25 @@ const navItems = [
 export const AdminSidebar = () => {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("is_approved", false)
+        .eq("is_admin", false);
+      setPendingCount(count || 0);
+    };
+
+    fetchPendingCount();
+
+    // Re-fetch when approve/reject actions happen
+    window.addEventListener("pending-requests-changed", fetchPendingCount);
+    return () =>
+      window.removeEventListener("pending-requests-changed", fetchPendingCount);
+  }, []);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -128,7 +148,14 @@ export const AdminSidebar = () => {
                   }`
                 }
               >
-                <span className="shrink-0 text-[18px]">{nav.icon}</span>
+                <span className="relative shrink-0 text-[18px]">
+                  {nav.icon}
+                  {nav.name === "Requests" && pendingCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
                   {nav.name}
                 </span>

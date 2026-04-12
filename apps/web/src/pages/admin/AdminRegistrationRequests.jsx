@@ -19,11 +19,13 @@ export const AdminRegistrationRequests = () => {
   }, [error]);
 
   const handleApprove = async (userId) => {
-    await approveRequest(userId);
+    const result = await approveRequest(userId);
+    if (result?.success) notify.success("Instructor approved successfully!");
   };
 
   const handleReject = async (userId) => {
-    await rejectRequest(userId);
+    const result = await rejectRequest(userId);
+    if (result?.success) notify.success("Registration request rejected.");
   };
 
   const handleApproveAll = async () => {
@@ -205,7 +207,13 @@ export const AdminRegistrationRequests = () => {
             {/* Request Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {requests.map((req) => {
-                const isActioning = actionLoading === req.id;
+                const isApproving =
+                  actionLoading?.id === req.id &&
+                  actionLoading?.action === "approve";
+                const isRejecting =
+                  actionLoading?.id === req.id &&
+                  actionLoading?.action === "reject";
+                const isActioning = isApproving || isRejecting;
                 return (
                   <div
                     key={req.id}
@@ -268,7 +276,7 @@ export const AdminRegistrationRequests = () => {
                         disabled={isActioning}
                         className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isActioning ? (
+                        {isApproving ? (
                           <>
                             <svg
                               className="animate-spin h-3.5 w-3.5"
@@ -315,9 +323,35 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleReject(req.id)}
                         disabled={isActioning}
-                        className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
-                        Reject
+                        {isRejecting ? (
+                          <>
+                            <svg
+                              className="animate-spin h-3.5 w-3.5"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                            Rejecting...
+                          </>
+                        ) : (
+                          "Reject"
+                        )}
                       </button>
                     </div>
                   </div>

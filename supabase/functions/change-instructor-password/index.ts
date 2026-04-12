@@ -40,23 +40,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: callerProfile } = await adminVerifyClient
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", callerUser.id)
-      .single();
-
-    if (!callerProfile?.is_admin) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden: Admin access only" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
     const { userId, newPassword } = await req.json();
+
+    // Allow if: (a) caller is admin, or (b) caller is setting their OWN password
+    const isSelf = callerUser.id === userId;
+
+    if (!isSelf) {
+      const { data: callerProfile } = await adminVerifyClient
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", callerUser.id)
+        .single();
+
+      if (!callerProfile?.is_admin) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Admin access only" }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
 
     if (!userId || !newPassword) {
       return new Response(
@@ -78,10 +83,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Pass email alongside password to ensure an email identity is created
+    // (needed for OAuth-only users to enable signInWithPassword)
+    const targetEmail = isSelf ? callerUser.email : undefined;
+    const updatePayload: Record<string, string> = { password: newPassword };
+    if (targetEmail) updatePayload.email = targetEmail;
+
     const { error: updateError } =
-      await adminVerifyClient.auth.admin.updateUserById(userId, {
-        password: newPassword,
-      });
+      await adminVerifyClient.auth.admin.updateUserById(userId, updatePayload);
 
     if (updateError) {
       return new Response(JSON.stringify({ error: updateError.message }), {

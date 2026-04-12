@@ -5,7 +5,7 @@ export const useRegistrationRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [actionLoading, setActionLoading] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null); // { id, action } or null
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -25,7 +25,7 @@ export const useRegistrationRequests = () => {
   }, [fetchRequests]);
 
   const approveRequest = async (userId) => {
-    setActionLoading(userId);
+    setActionLoading({ id: userId, action: "approve" });
     const { error: approveError } =
       await adminService.approveRegistration(userId);
     setActionLoading(null);
@@ -34,11 +34,12 @@ export const useRegistrationRequests = () => {
       return { success: false };
     }
     setRequests((prev) => prev.filter((r) => r.id !== userId));
+    window.dispatchEvent(new Event("pending-requests-changed"));
     return { success: true };
   };
 
   const rejectRequest = async (userId) => {
-    setActionLoading(userId);
+    setActionLoading({ id: userId, action: "reject" });
     const { error: rejectError } =
       await adminService.rejectRegistration(userId);
     setActionLoading(null);
@@ -51,6 +52,7 @@ export const useRegistrationRequests = () => {
       return { success: false };
     }
     setRequests((prev) => prev.filter((r) => r.id !== userId));
+    window.dispatchEvent(new Event("pending-requests-changed"));
     return { success: true };
   };
 

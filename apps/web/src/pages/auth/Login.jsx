@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useCallback, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   GoogleButton,
   AuthButton,
@@ -8,11 +8,23 @@ import { Turnstile } from "../../components/Turnstile.jsx";
 import citlLogo from "../../assets/BUKSU_CITL.jpg";
 
 export const Login = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [authError, setAuthError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+
+  useEffect(() => {
+    if (searchParams.get("error") === "not_registered") {
+      setAuthError(
+        "This Google account isn't registered as an instructor. Please contact your Senior Faculty to request access."
+      );
+      searchParams.delete("error");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
   const resetCaptcha = useCallback(() => {
     setCaptchaToken(null);
@@ -70,6 +82,20 @@ export const Login = () => {
               </p>
             </div>
           </div>
+          {/* Auth error banner */}
+          {authError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg flex items-start gap-2">
+              <span className="text-red-500 mt-0.5 text-lg leading-none">&#9888;</span>
+              <p className="text-sm text-red-700 flex-1">{authError}</p>
+              <button
+                type="button"
+                onClick={() => setAuthError("")}
+                className="text-red-400 hover:text-red-600 text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+          )}
           {/* Google Button */}
           <GoogleButton />
           <p className="text-center text-[clamp(10px,3dvw,14px)] text-elephant my-4">
