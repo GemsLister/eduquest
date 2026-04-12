@@ -903,76 +903,6 @@ export const StudentProfiles = () => {
         </div>
       )}
 
-      {/* Item Analysis Results */}
-      {!loading && selectedQuiz && analysis.length > 0 && (
-        <div className="px-6 pb-6">
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-6 bg-gray-50 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">
-                Item Analysis Results - {quizzes.find(q => q.id === selectedQuiz)?.title}
-              </h2>
-            </div>
-
-            <div className="p-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Binary Analysis Results</h3>
-                <div className="bg-gray-100 rounded-lg p-4 font-mono text-sm max-h-64 overflow-y-auto">
-                  {analysis.map((item, index) => (
-                    <div key={index} className="mb-2 flex items-center">
-                      <span className="text-gray-600 mr-4">Q{String(index + 1).padStart(2, '0')}:</span>
-                      <span className="font-bold text-gray-800">{item.question_id}</span>
-                      <span className="text-blue-600 ml-4">{item.auto_flag}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Difficulty Analysis */}
-                <div>
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">Difficulty Analysis</h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {analysis.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                        <span className="text-sm text-gray-600">Q{String(index + 1).padStart(2, '0')}</span>
-                        <span className={`px-3 py-1 rounded text-xs font-semibold ${
-                          item.difficulty_status === 'Easy' ? 'bg-green-100 text-green-800' :
-                          item.difficulty_status === 'Moderate' ? 'bg-orange-100 text-orange-800' :
-                          item.difficulty_status === 'Difficult' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {item.difficulty_status || 'N/A'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Discrimination Analysis */}
-                <div>
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">Discrimination Analysis</h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {analysis.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                        <span className="text-sm text-gray-600">Q{String(index + 1).padStart(2, '0')}</span>
-                        <span className={`px-3 py-1 rounded text-xs font-semibold ${
-                          item.discrimination_status === 'Excellent' ? 'bg-green-100 text-green-800' :
-                          item.discrimination_status === 'Good' ? 'bg-blue-100 text-blue-800' :
-                          item.discrimination_status === 'Acceptable' ? 'bg-yellow-100 text-yellow-800' :
-                          item.discrimination_status === 'Poor' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {item.discrimination_status || 'N/A'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Student Profiles Table */}
       {!loading && selectedSubject && subjectResults.length > 0 && (
@@ -1078,6 +1008,8 @@ export const StudentProfiles = () => {
                           {subjectQuizzes.map((quiz) => {
                             const quizResult = student.quizzes?.[quiz.id];
                             const percentage = quizResult?.percentage || 0;
+                            const score = quizResult?.score || 0;
+                            const totalItems = quizResult?.totalItems || 0;
                             const hasAttempt = quizResult?.hasAttempt;
 
                             return (
@@ -1087,9 +1019,14 @@ export const StudentProfiles = () => {
                               >
                                 {hasAttempt ? (
                                   <div
-                                    className={`inline-flex items-center justify-center px-8 py-2 rounded-lg text-sm font-bold w-32 ${getPercentileColor(percentage)}`}
+                                    className={`inline-flex flex-col items-center justify-center px-4 py-2 rounded-lg text-sm font-bold w-32 shadow-sm ${getPercentileColor(percentage)}`}
                                   >
-                                    {percentage}%
+                                    <div className="text-base font-bold">
+                                      {score}/{totalItems}
+                                    </div>
+                                    <div className="text-[10px] opacity-80">
+                                      {percentage}%
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="text-gray-300 text-xs italic">
