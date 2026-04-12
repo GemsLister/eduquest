@@ -31,15 +31,16 @@ export const InstructorDashboard = () => {
   const [editSaving, setEditSaving] = useState(false);
   const confirm = useConfirm();
 
-  // Load archived sections when toggle is turned on
-  const handleToggleArchived = async () => {
-    if (!showArchived && archivedSections.length === 0) {
+  // Fetch archived sections on mount so the badge count is always available
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchArchived = async () => {
       setArchivedLoading(true);
       try {
         const { data } = await supabase
           .from("sections")
           .select("*")
-          .eq("instructor_id", user?.id)
+          .eq("instructor_id", user.id)
           .eq("is_archived", true)
           .order("created_at", { ascending: false });
         setArchivedSections(data || []);
@@ -48,7 +49,11 @@ export const InstructorDashboard = () => {
       } finally {
         setArchivedLoading(false);
       }
-    }
+    };
+    fetchArchived();
+  }, [user?.id]);
+
+  const handleToggleArchived = () => {
     setShowArchived(!showArchived);
   };
 
@@ -228,8 +233,7 @@ export const InstructorDashboard = () => {
 
       <div className="p-6">
         {/* Search + Archive Toggle */}
-        {(sections.length > 0 || archivedSections.length > 0) && (
-          <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             {/* Search Bar */}
             <div className="relative flex-1 max-w-sm">
               <svg
@@ -313,7 +317,6 @@ export const InstructorDashboard = () => {
               )}
             </button>
           </div>
-        )}
 
         {/* Active Sections */}
         {filteredSections.length === 0 && !showArchived ? (

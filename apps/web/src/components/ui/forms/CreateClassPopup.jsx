@@ -34,7 +34,7 @@ export const CreateClassPopup = ({
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Course Name <span className="text-red-500">*</span>
+              Subject Name <span className="text-red-500">*</span>
             </label>
             <input
               required

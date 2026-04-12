@@ -24,7 +24,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
 
     try {
       if (!formData.name.trim()) {
-        notify.error("Course name is required");
+        notify.error("Subject name is required");
         return;
       }
 
@@ -78,7 +78,7 @@ export const SectionManager = ({ onSectionCreated, userId }) => {
           <form onSubmit={handleCreateSection} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Course Name *
+                Subject Name *
               </label>
               <input
                 type="text"
