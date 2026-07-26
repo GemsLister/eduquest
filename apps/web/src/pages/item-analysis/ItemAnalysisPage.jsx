@@ -255,7 +255,7 @@ export const ItemAnalysisPage = () => {
           // Middle 50% performers
           const startIndex = Math.floor(totalAttempts * 0.25);
           const endIndex = Math.ceil(totalAttempts * 0.75);
-          filteredAnalysis = sortedAttempts.slice(startIndex, endIndex);
+          filteredAttempts = sortedAttempts.slice(startIndex, endIndex);
         } else if (selectedCohortFilter === "perfect_scores") {
           // Only students with perfect scores (100% of possible points)
           // First get total possible points for this quiz
