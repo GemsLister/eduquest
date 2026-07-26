@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
+import { formatTimeSpent } from "../../../utils/timeSpent.js";
 
 export const QuizResultDetail = () => {
   const { quizId, attemptId } = useParams();
@@ -110,6 +111,10 @@ export const QuizResultDetail = () => {
   const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
   const percentage =
     totalPoints > 0 ? Math.round((attempt?.score / totalPoints) * 100) : 0;
+  const totalTimeSpentSeconds = responses.reduce(
+    (sum, r) => sum + (r.time_spent_seconds || 0),
+    0,
+  );
 
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
@@ -166,6 +171,12 @@ export const QuizResultDetail = () => {
               <p className="text-white text-opacity-90 mb-2">Status</p>
               <p className="text-2xl font-bold capitalize">{attempt?.status}</p>
             </div>
+            <div>
+              <p className="text-white text-opacity-90 mb-2">Total time</p>
+              <p className="text-2xl font-bold">
+                {formatTimeSpent(totalTimeSpentSeconds)}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -184,9 +195,17 @@ export const QuizResultDetail = () => {
               {/* Question Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Question {idx + 1}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Question {idx + 1}
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-semibold">
+                      <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Time spent: {formatTimeSpent(response?.time_spent_seconds)}
+                    </span>
+                  </div>
                   <p className="text-gray-700 mt-2 text-base">
                     {question.text}
                   </p>
