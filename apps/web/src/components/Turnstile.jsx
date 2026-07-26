@@ -14,6 +14,12 @@ export const Turnstile = ({ onToken }) => {
   );
 
   useEffect(() => {
+    // If no site key, just call onToken with a dummy token immediately for dev
+    if (!SITE_KEY) {
+      onToken("dummy-token-for-dev");
+      return;
+    }
+
     let intervalId = null;
 
     const renderWidget = () => {
@@ -63,5 +69,5 @@ export const Turnstile = ({ onToken }) => {
     };
   }, [handleToken, onToken]);
 
-  return <div ref={containerRef} className="mt-4" />;
+  return SITE_KEY ? <div ref={containerRef} className="mt-4" /> : null;
 };
