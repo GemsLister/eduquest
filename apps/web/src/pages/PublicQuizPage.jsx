@@ -39,8 +39,63 @@ export const PublicQuizPage = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const [timeExpired, setTimeExpired] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Time spent per question tracking
+  const [questionTimeSpent, setQuestionTimeSpent] = useState({});
+  const questionEnteredAtRef = useRef(null);
+  const currentQuestionIdRef = useRef(null);
   const timerRef = useRef(null);
   const autoSubmitRef = useRef(false);
+  const quizContainerRef = useRef(null);
+
+  // Toggle fullscreen mode
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && quizContainerRef.current) {
+        await quizContainerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
+  };
+
+  // Track time: save time spent for a given question (now integrated with save_quiz_response)
+  const saveTimeForQuestion = async (questionId, seconds) => {
+    if (!attemptId || !questionId || !seconds || seconds <= 0) return;
+    try {
+      // Get current answer for this question
+      const currentAnswer = answers[questionId] || null;
+
+      // Use save_quiz_response to save both answer and time
+      await supabase.rpc("save_quiz_response", {
+        p_attempt_id: attemptId,
+        p_question_id: questionId,
+        p_answer: currentAnswer,
+        p_time_spent: Math.round(seconds * 10) / 10, // Round to 1 decimal place
+      });
+    } catch (err) {
+      console.error("Error saving question time:", err);
+    }
+  };
+
+  const finalizeCurrentQuestionTime = () => {
+    if (!questionEnteredAtRef.current || !currentQuestionIdRef.current) return;
+    const now = Date.now();
+    const secondsSpent = (now - questionEnteredAtRef.current) / 1000;
+    if (secondsSpent > 0.5) {
+      const qid = currentQuestionIdRef.current;
+      setQuestionTimeSpent(prev => ({
+        ...prev,
+        [qid]: (prev[qid] || 0) + secondsSpent
+      }));
+      saveTimeForQuestion(qid, secondsSpent);
+    }
+    questionEnteredAtRef.current = null;
+  };
 
   // Quiz duration in seconds (null if unlimited)
   const quizDurationSeconds = quiz?.duration ? quiz.duration * 60 : null;
@@ -94,11 +149,15 @@ export const PublicQuizPage = () => {
 
     // Auto-save answer via server-side grading (fire and forget)
     if (attemptId) {
+      // Calculate time spent on this question
+      const timeSpent = questionTimeSpent[questionId] || 0;
+
       supabase
         .rpc("save_quiz_response", {
           p_attempt_id: attemptId,
           p_question_id: questionId,
           p_answer: value,
+          p_time_spent: Math.round(timeSpent * 10) / 10, // Round to 1 decimal place
         })
         .then(() => {});
     }
@@ -166,7 +225,8 @@ export const PublicQuizPage = () => {
         supabase.rpc("save_quiz_response", {
           p_attempt_id: existingAttemptId,
           p_question_id: questionId,
-          p_response: answer
+          p_answer: answer,
+          p_time_spent: 0 // Auto-answers have no time spent
         }).catch(err => console.error("Error saving auto-answer:", err));
       }
     }
@@ -285,11 +345,21 @@ export const PublicQuizPage = () => {
 
         setQuiz(quizData);
 
-        const { data: questionsData, error: questionsError } = await supabase
+        let { data: questionsData, error: questionsError } = await supabase
           .from("questions")
           .select("id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer")
           .eq("quiz_id", quizData.id)
           .order("created_at", { ascending: true });
+
+        if (questionsError && (questionsError.code === "42703" || questionsError.message?.includes("auto_answer"))) {
+          const retry = await supabase
+            .from("questions")
+            .select("id, quiz_id, type, text, options, points, created_at, correct_answer")
+            .eq("quiz_id", quizData.id)
+            .order("created_at", { ascending: true });
+          questionsData = retry.data;
+          questionsError = retry.error;
+        }
 
         if (questionsError) throw questionsError;
         // Store questions in original order; shuffling happens when starting/resuming
@@ -442,7 +512,6 @@ export const PublicQuizPage = () => {
             student_name: studentName,
             student_email: email,
             status: "in_progress",
-            user_id: user.id,
           },
         ])
         .select()
@@ -461,20 +530,21 @@ export const PublicQuizPage = () => {
           autoAnswers[question.id] = String(question.correct_answer);
         }
       });
-      
+
       if (Object.keys(autoAnswers).length > 0) {
         setAnswers(prev => ({ ...prev, ...autoAnswers }));
-        
+
         // Save auto-answers to server
         for (const [questionId, answer] of Object.entries(autoAnswers)) {
           supabase.rpc("save_quiz_response", {
             p_attempt_id: attempt.id,
             p_question_id: questionId,
-            p_response: answer
+            p_answer: answer,
+            p_time_spent: 0 // Auto-answers have no time spent
           }).catch(err => console.error("Error saving auto-answer:", err));
         }
       }
-      
+
       setHasStarted(true);
     } catch (err) {
       setError(err.message || "Failed to start quiz");
@@ -599,20 +669,21 @@ export const PublicQuizPage = () => {
           autoAnswers[question.id] = String(question.correct_answer);
         }
       });
-      
+
       if (Object.keys(autoAnswers).length > 0) {
         setAnswers(prev => ({ ...prev, ...autoAnswers }));
-        
+
         // Save auto-answers to server
         for (const [questionId, answer] of Object.entries(autoAnswers)) {
           supabase.rpc("save_quiz_response", {
             p_attempt_id: attempt.id,
             p_question_id: questionId,
-            p_response: answer
+            p_answer: answer,
+            p_time_spent: 0 // Auto-answers have no time spent
           }).catch(err => console.error("Error saving auto-answer:", err));
         }
       }
-      
+
       setHasStarted(true);
     } catch (err) {
       setError(err.message);
@@ -623,6 +694,8 @@ export const PublicQuizPage = () => {
 
   // Navigate between questions freely
   const goToQuestion = (index) => {
+    // Save time first before moving
+    finalizeCurrentQuestionTime();
     setShowReviewPage(false);
     setCurrentQuestionIndex(index);
   };
@@ -639,20 +712,47 @@ export const PublicQuizPage = () => {
       
       if (Object.keys(autoAnswers).length > 0) {
         setAnswers(prev => ({ ...prev, ...autoAnswers }));
-        
+
         // Save auto-answers to server
         for (const [questionId, answer] of Object.entries(autoAnswers)) {
           supabase.rpc("save_quiz_response", {
             p_attempt_id: attemptId,
             p_question_id: questionId,
-            p_response: answer
+            p_answer: answer,
+            p_time_spent: 0 // Auto-answers have no time spent
           }).catch(err => console.error("Error saving auto-answer:", err));
         }
       }
     }
   }, [hasStarted, questions, attemptId]);
 
+  // Fetch existing time spent for this attempt (restore from DB)
+  useEffect(() => {
+    if (!hasStarted || !attemptId || questions.length === 0) return;
+    const fetchTimeSpent = async () => {
+      try {
+        const { data } = await supabase
+          .from("quiz_responses")
+          .select("question_id, time_spent_seconds")
+          .eq("attempt_id", attemptId);
+        if (data && data.length > 0) {
+          const timeMap = {};
+          data.forEach(r => {
+            if (r.time_spent_seconds) {
+              timeMap[r.question_id] = r.time_spent_seconds;
+            }
+          });
+          setQuestionTimeSpent(timeMap);
+        }
+      } catch (err) {
+        console.error("Error fetching time spent:", err);
+      }
+    };
+    fetchTimeSpent();
+  }, [hasStarted, attemptId, questions]);
+
   const handleNext = () => {
+    finalizeCurrentQuestionTime();
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -662,6 +762,7 @@ export const PublicQuizPage = () => {
   };
 
   const handlePrevious = () => {
+    finalizeCurrentQuestionTime();
     if (showReviewPage) {
       setShowReviewPage(false);
     } else if (currentQuestionIndex > 0) {
@@ -673,6 +774,8 @@ export const PublicQuizPage = () => {
   const handleSubmitQuiz = async () => {
     try {
       setSubmitting(true);
+      // Finalize time on current question
+      finalizeCurrentQuestionTime();
 
       // Build answers array for server-side grading
       const answersPayload = questions.map((q) => ({
@@ -707,6 +810,40 @@ export const PublicQuizPage = () => {
       handleSubmitQuiz();
     }
   }, [timeExpired, completed]);
+
+  // Update isFullscreen when fullscreen status changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // Track time on question change / review page
+  useEffect(() => {
+    if (!hasStarted || !attemptId) return;
+    // Start tracking new question
+    if (!showReviewPage && questions.length > 0 && currentQuestionIndex < questions.length) {
+      const qid = questions[currentQuestionIndex].id;
+      currentQuestionIdRef.current = qid;
+      questionEnteredAtRef.current = Date.now();
+    } else {
+      // Review page: no current question active
+      currentQuestionIdRef.current = null;
+      questionEnteredAtRef.current = null;
+    }
+    return () => {
+      finalizeCurrentQuestionTime();
+    };
+  }, [currentQuestionIndex, showReviewPage, hasStarted, attemptId, questions]);
+
+  // Final cleanup on unmount
+  useEffect(() => {
+    return () => {
+      finalizeCurrentQuestionTime();
+    };
+  }, []);
 
   // Helper: count answered questions
   const answeredCount = questions.filter(
@@ -976,36 +1113,52 @@ export const PublicQuizPage = () => {
       questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
     return (
-      <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0">
+      <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0" ref={quizContainerRef}>
         <div className="mx-auto max-w-4xl">
           {/* Sticky header + nav */}
           <div className="sticky top-0 z-20">
             {/* Header — matches question page */}
             <div className="bg-brand-navy rounded-t-lg px-6 py-4 shadow-md">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-lg font-bold text-white">
-                    {cleanTitle(quiz?.title)}
-                  </h1>
-                  <p className="text-sm text-white/70 mt-1">Review</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="bg-brand-gold/20 text-brand-gold px-3 py-1.5 rounded-full text-sm font-bold">
-                    {answeredCount}/{questions.length} answered
-                  </div>
-                  {quizDurationSeconds ? (
-                    <div
-                      className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}
-                    >
-                      {formatTime(remainingSeconds ?? quizDurationSeconds)}
-                    </div>
-                  ) : (
-                    <div className="bg-white/10 text-white px-3 py-1.5 rounded-full text-sm font-mono font-bold">
-                      {formatTime(elapsedSeconds)}
-                    </div>
-                  )}
-                </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">
+                  {cleanTitle(quiz?.title)}
+                </h1>
+                <p className="text-sm text-white/70 mt-1">Review</p>
               </div>
+              <div className="flex items-center gap-4">
+                {/* Fullscreen toggle */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4V9m0 0H9m-9 0l4-4m11 4h5m0 0V4m0 5l-4-4M4 20v-5m0 0H9m-9 0l4 4m11-4h5m0 0v5m0-5l-4 4" />
+                    </svg>
+                  )}
+                </button>
+                <div className="bg-brand-gold/20 text-brand-gold px-3 py-1.5 rounded-full text-sm font-bold">
+                  {answeredCount}/{questions.length} answered
+                </div>
+                {quizDurationSeconds ? (
+                  <div
+                    className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold ${isLowTime ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-white"}`}
+                  >
+                    {formatTime(remainingSeconds ?? quizDurationSeconds)}
+                  </div>
+                ) : (
+                  <div className="bg-white/10 text-white px-3 py-1.5 rounded-full text-sm font-mono font-bold">
+                    {formatTime(elapsedSeconds)}
+                  </div>
+                )}
+              </div>
+            </div>
 
               {/* Progress bar */}
               <div className="mt-3 h-2 bg-white/20 rounded-full overflow-hidden">
@@ -1225,7 +1378,7 @@ export const PublicQuizPage = () => {
     questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0">
+    <div className="min-h-screen bg-[url('/src/assets/bg.svg')] bg-cover bg-center pt-0" ref={quizContainerRef}>
       <div className="mx-auto max-w-4xl">
         {/* Sticky header + nav */}
         <div className="sticky top-0 z-20">
@@ -1241,6 +1394,22 @@ export const PublicQuizPage = () => {
                 </p>
               </div>
               <div className="flex items-center gap-4">
+                {/* Fullscreen toggle */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4V9m0 0H9m-9 0l4-4m11 4h5m0 0V4m0 5l-4-4M4 20v-5m0 0H9m-9 0l4 4m11-4h5m0 0v5m0-5l-4 4" />
+                    </svg>
+                  )}
+                </button>
                 {/* Answered badge */}
                 <div className="bg-brand-gold/20 text-brand-gold px-3 py-1.5 rounded-full text-sm font-bold">
                   {answeredCount}/{questions.length} answered
