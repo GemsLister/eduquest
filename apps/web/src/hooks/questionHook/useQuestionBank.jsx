@@ -310,6 +310,66 @@ export const useQuestionBank = () => {
     }
   };
 
+  // Add multiple questions to the bank under a single container draft quiz
+  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft") => {
+    try {
+      if (!user) return { success: false, error: "Not authenticated" };
+      if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
+        return { success: false, error: "No questions to import" };
+      }
+
+      // Create a single draft quiz container for all imported questions
+      const { data: quiz, error: quizError } = await supabase
+        .from("quizzes")
+        .insert({
+          instructor_id: user.id,
+          title: containerTitle,
+          is_published: false,
+        })
+        .select()
+        .single();
+
+      if (quizError) throw quizError;
+
+      const questionRows = questionsArray.map((q) => {
+        let correctAnswer = q.correct_answer ?? q.correctAnswer;
+        if (
+          q.type === "mcq" &&
+          typeof correctAnswer === "number" &&
+          Array.isArray(q.options) &&
+          q.options[correctAnswer] !== undefined
+        ) {
+          correctAnswer = q.options[correctAnswer];
+        }
+
+        return {
+          quiz_id: quiz.id,
+          type: q.type || "mcq",
+          text: q.text,
+          options:
+            (q.type || "mcq") === "mcq" && Array.isArray(q.options)
+              ? q.options.filter((opt) => opt !== null && opt !== undefined && String(opt).trim() !== "")
+              : null,
+          correct_answer: String(correctAnswer ?? ""),
+          points: q.points || 1,
+          is_archived: false,
+        };
+      });
+
+      const { error: questionError } = await supabase
+        .from("questions")
+        .insert(questionRows);
+
+      if (questionError) throw questionError;
+
+      await fetchQuestions();
+      return { success: true, count: questionRows.length };
+    } catch (error) {
+      console.error("Error bulk adding to bank:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   useEffect(() => {
     fetchQuestions();
   }, []);
@@ -323,5 +383,6 @@ export const useQuestionBank = () => {
     restoreQuestion,
     deleteQuestion,
     addToBank,
+    addBulkToBank,
   };
 };
