@@ -23,6 +23,21 @@ export const ItemAnalysisResults = ({
 }) => {
   return (
     <div>
+      {/* Sampling Procedure Clarification */}
+      {selectedQuiz && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <h4 className="text-sm font-bold text-blue-800 mb-2">
+            📊 Sampling Procedure
+          </h4>
+          <ul className="text-xs text-blue-700 space-y-1">
+            <li>• <strong>Discrimination Index:</strong> Calculated using upper (top 27%) and lower (bottom 27%) groups based on total quiz scores.</li>
+            <li>• <strong>Difficulty Index (P-value):</strong> Proportion of students who answered the item correctly (range: 0.00 to 1.00).</li>
+            <li>• <strong>Cohort Filters:</strong> Allow analysis of specific performance groups to strengthen validity of results.</li>
+            <li>• <strong>Distractor Analysis:</strong> Evaluates effectiveness of each option by counting student selections.</li>
+          </ul>
+        </div>
+      )}
+      
       {/* Analysis Results */}
       {selectedQuiz && (
         <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
