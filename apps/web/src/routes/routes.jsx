@@ -182,6 +182,10 @@ export const router = createBrowserRouter(
               path: "settings",
               element: <FacultyHeadIndex.FacultyHeadSettings />,
             },
+            {
+              path: "audit-trail",
+              element: <FacultyHeadIndex.FacultyHeadAuditTrail />,
+            },
           ],
         },
       ],
