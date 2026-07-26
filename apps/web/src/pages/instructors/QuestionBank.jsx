@@ -27,6 +27,7 @@ export const QuestionBank = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
   const [showQuizDropdown, setShowQuizDropdown] = useState(false);
+  const [importProcessing, setImportProcessing] = useState(false);
 
   // Subject and Quiz filter state
   const [selectedSectionId, setSelectedSectionId] = useState(null);
@@ -43,6 +44,7 @@ export const QuestionBank = () => {
     restoreQuestion,
     deleteQuestion,
     addToBank,
+    addBulkToBank,
     fetchQuestions,
   } = useQuestionBank();
 
@@ -437,7 +439,7 @@ export const QuestionBank = () => {
       let orderIndex = existingQuestions?.length || 0;
 
       for (const q of selectedQuestions) {
-        const { error } = await supabase.from("questions").insert({
+        const payload = {
           quiz_id: quizId,
           type: q.type,
           text: q.text,
@@ -445,7 +447,13 @@ export const QuestionBank = () => {
           correct_answer: q.correct_answer,
           points: q.points,
           auto_answer: true, // Auto-answer flag for imported questions
-        });
+        };
+        let { error } = await supabase.from("questions").insert(payload);
+        if (error && (error.code === "42703" || error.message?.includes("auto_answer"))) {
+          delete payload.auto_answer;
+          const retry = await supabase.from("questions").insert(payload);
+          error = retry.error;
+        }
         if (error) throw error;
         orderIndex++;
       }
@@ -461,6 +469,212 @@ export const QuestionBank = () => {
     } finally {
       setImporting(false);
     }
+  };
+
+  // ---------------- Export Functions ----------------
+  const getQuestionsToExport = () => {
+    const questions = activeTab === "archived" ? archivedQuestions : activeQuestions;
+    if (bulkSelected.size > 0) {
+      return questions.filter(q => bulkSelected.has(q.id));
+    }
+    return questions;
+  };
+
+  const handleExportJSON = () => {
+    const questions = getQuestionsToExport();
+    if (questions.length === 0) {
+      notify.warning("No questions to export");
+      return;
+    }
+    const exportData = {
+      questions: questions.map(q => ({
+        text: q.text,
+        type: q.type || "mcq",
+        options: q.options,
+        correct_answer: q.correct_answer,
+        points: q.points || 1,
+        difficulty: q.difficulty || null,
+        blooms_level: q.blooms_level || null,
+      }))
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `question-bank-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify.success(`Exported ${questions.length} question(s) as JSON!`);
+  };
+
+  const handleExportCSV = () => {
+    const questions = getQuestionsToExport();
+    if (questions.length === 0) {
+      notify.warning("No questions to export");
+      return;
+    }
+    const headers = ["text", "type", "points", "correct_answer", "option_1", "option_2", "option_3", "option_4", "option_5", "option_6", "difficulty", "blooms_level"];
+    const rows = questions.map(q => {
+      const opts = q.options || [];
+      const correctIdx = typeof q.correct_answer === "number" ? q.correct_answer : opts.indexOf(q.correct_answer);
+      const correctLetter = correctIdx >= 0 ? String.fromCharCode(65 + correctIdx) : q.correct_answer;
+      return [
+        `"${(q.text || "").replace(/"/g, '""')}"`,
+        q.type || "mcq",
+        q.points || 1,
+        correctLetter,
+        ...(opts.length > 0 ? opts.map(o => `"${(o || "").replace(/"/g, '""')}"`) : Array(6).fill('""')),
+        q.difficulty || "",
+        q.blooms_level || "",
+      ].slice(0, headers.length);
+    });
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `question-bank-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify.success(`Exported ${questions.length} question(s) as CSV!`);
+  };
+
+  // ---------------- Import Functions ----------------
+  const processImport = async (parsedQuestions, fileName = "") => {
+    if (!parsedQuestions || parsedQuestions.length === 0) {
+      notify.warning("No questions found in file");
+      return;
+    }
+    setImportProcessing(true);
+    try {
+      const preparedQuestions = [];
+      for (const rawQ of parsedQuestions) {
+        const text = rawQ.text || rawQ.question || rawQ.Question || rawQ.question_text;
+        if (!text) continue;
+
+        const type = (rawQ.type || rawQ.Type || "mcq").toString().toLowerCase();
+        const points = parseInt(rawQ.points || rawQ.Points || rawQ.weight || 1) || 1;
+
+        // Collect options
+        let options = [];
+        if (Array.isArray(rawQ.options)) options = rawQ.options.filter(o => o !== null && o !== undefined && o !== "");
+        else if (Array.isArray(rawQ.Options)) options = rawQ.Options.filter(o => o !== null && o !== undefined && o !== "");
+        else {
+          // Try numbered columns: option_1, option_2, A, B, C, D
+          for (let i = 1; i <= 6; i++) {
+            const opt = rawQ[`option_${i}`] || rawQ[`Option ${i}`] || rawQ[`Option${i}`] || rawQ[String.fromCharCode(64 + i)];
+            if (opt !== null && opt !== undefined && String(opt).trim() !== "") options.push(String(opt).trim());
+          }
+        }
+        if (type === "mcq" && options.length < 2) options = ["", ""];
+
+        // Determine correct answer
+        let correctAnswer = rawQ.correct_answer ?? rawQ.correct ?? rawQ.CorrectAnswer ?? rawQ.answer ?? 0;
+        if (typeof correctAnswer === "string") {
+          // If it's a letter like "A"
+          if (/^[A-F]$/i.test(correctAnswer.trim())) {
+            const idx = correctAnswer.toUpperCase().charCodeAt(0) - 65;
+            correctAnswer = options[idx] || idx;
+          } else if (!isNaN(parseInt(correctAnswer)) && parseInt(correctAnswer) < options.length) {
+            const idx = parseInt(correctAnswer);
+            correctAnswer = options[idx] || idx;
+          }
+        } else if (typeof correctAnswer === "number" && correctAnswer < options.length) {
+          correctAnswer = options[correctAnswer] || correctAnswer;
+        }
+
+        preparedQuestions.push({
+          text: text.toString().trim(),
+          type,
+          options,
+          correct_answer: typeof correctAnswer === "string" ? correctAnswer : (options[correctAnswer] || correctAnswer),
+          points,
+          difficulty: rawQ.difficulty || rawQ.Difficulty || null,
+          blooms_level: rawQ.blooms_level || rawQ.BloomsLevel || null,
+        });
+      }
+
+      if (preparedQuestions.length === 0) {
+        notify.warning("No valid questions found to import");
+        return;
+      }
+
+      const containerName = fileName 
+        ? `Question Bank - ${fileName.replace(/\.[^/.]+$/, "")}`
+        : "Question Bank - Draft";
+
+      const res = await addBulkToBank(preparedQuestions, containerName);
+      if (res.success) {
+        notify.success(`Successfully imported ${preparedQuestions.length} question(s) into 1 container!`);
+        await fetchQuestions();
+      } else {
+        notify.error("Error importing questions: " + res.error);
+      }
+    } catch (err) {
+      console.error("Import error:", err);
+      notify.error("Error importing questions: " + err.message);
+    } finally {
+      setImportProcessing(false);
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const content = ev.target?.result;
+        let parsed = null;
+        if (file.name.toLowerCase().endsWith(".json")) {
+          parsed = JSON.parse(content);
+          if (!Array.isArray(parsed)) {
+            parsed = parsed.questions || parsed.data || parsed.items || [parsed];
+          }
+        } else if (file.name.toLowerCase().endsWith(".csv")) {
+          const lines = content.split(/\r?\n/).filter(l => l.trim() !== "");
+          if (lines.length < 2) { notify.warning("CSV file needs header + at least one row"); return; }
+          const headers = parseCSVLine(lines[0]);
+          parsed = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            const obj = {};
+            headers.forEach((h, idx) => { obj[h.trim()] = cols[idx] ?? ""; });
+            parsed.push(obj);
+          }
+        } else {
+          notify.warning("Only .json and .csv files are supported");
+          return;
+        }
+        await processImport(parsed, file.name);
+      } catch (err) {
+        console.error(err);
+        notify.error("Failed to parse file: " + err.message);
+      } finally {
+        if (e.target) e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCSVLine = (line) => {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current);
+    return result;
   };
 
   const toggleQuestionSelection = (question) => {
@@ -588,12 +802,50 @@ export const QuestionBank = () => {
               : "Archive and manage your questions for reuse"}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
-        >
-          + Add to Bank
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <label
+            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            style={{ display: importProcessing ? "none" : "inline-flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            {importProcessing ? "Importing..." : "Import"}
+            <input
+              type="file"
+              accept=".json,.csv"
+              onChange={handleImportFile}
+              className="hidden"
+              disabled={importProcessing}
+            />
+          </label>
+          <button
+            onClick={handleExportJSON}
+            disabled={importProcessing}
+            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export JSON
+          </button>
+          <button
+            onClick={handleExportCSV}
+            disabled={importProcessing}
+            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+          >
+            + Add to Bank
+          </button>
+        </div>
       </div>
 
       {/* 1. Stats Summary Bar */}
