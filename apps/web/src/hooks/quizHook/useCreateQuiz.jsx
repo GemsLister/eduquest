@@ -80,10 +80,28 @@ export const useCreateQuiz = ({ user } = {}) => {
 
       const { error: qsError } = await supabase
         .from("quiz_sections")
-        .insert(rows);
+        .insert(rows)
+        .select(); // Select to get the generated share tokens
 
       if (qsError) {
         console.error("Error inserting quiz_sections:", qsError);
+      } else {
+        console.log("Quiz sections created with share tokens:", qsError?.data);
+      }
+
+      // Auto-share quiz with all sections in the same subject
+      try {
+        const { error: autoShareError } = await supabase.rpc("auto_share_quiz_with_subject_sections", {
+          p_quiz_id: data.id
+        });
+        
+        if (autoShareError) {
+          console.error("Error auto-sharing quiz:", autoShareError);
+        } else {
+          console.log("Quiz auto-shared with same-subject sections");
+        }
+      } catch (autoShareError) {
+        console.error("Auto-share failed:", autoShareError);
       }
 
       setQuizFormData({ title: "", description: "", duration: "", section_ids: [] });
