@@ -65,13 +65,31 @@ export const useQuestionBank = () => {
     if (!user) return;
     try {
 
-      // Get instructor's quizzes, then keep only the latest version of each
-      // chain so revised quizzes replace — rather than duplicate — their
-      // originals in the question bank.
+      // Get instructor's subjects to find other instructors in the same subjects
+      const { data: instructorSubjects } = await supabase
+        .from("instructor_subjects")
+        .select("subject_id")
+        .eq("instructor_id", user.id);
+
+      const subjectIds = instructorSubjects?.map((is) => is.subject_id) || [];
+
+      // Get all instructors assigned to the same subjects
+      let coInstructorIds = [user.id];
+      if (subjectIds.length > 0) {
+        const { data: coInstructors } = await supabase
+          .from("instructor_subjects")
+          .select("instructor_id")
+          .in("subject_id", subjectIds);
+
+        const uniqueCoInstructorIds = new Set(coInstructors?.map((ci) => ci.instructor_id) || []);
+        coInstructorIds = Array.from(uniqueCoInstructorIds);
+      }
+
+      // Get quizzes from all instructors in the same subjects
       const { data: quizzesData } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id, version_number, is_archived")
-        .eq("instructor_id", user.id);
+        .select("id, parent_quiz_id, version_number, is_archived, instructor_id")
+        .in("instructor_id", coInstructorIds);
 
       const nonArchived = (quizzesData || []).filter((q) => !q.is_archived);
       const latestByRoot = new Map();
@@ -85,24 +103,67 @@ export const useQuestionBank = () => {
       }
       const quizIds = Array.from(latestByRoot.values()).map((q) => q.id);
 
-      if (quizIds.length === 0) {
+      // Get instructor's sections for standalone questions
+      const { data: sectionsData } = await supabase
+        .from("sections")
+        .select("id")
+        .eq("instructor_id", user.id)
+        .eq("is_archived", false);
+
+      const sectionIds = sectionsData?.map((s) => s.id) || [];
+
+      // Fetch questions from instructor's quizzes (including co-instructors)
+      let quizQuestions = [];
+      if (quizIds.length > 0) {
+        const { data: quizQs, error: quizQError } = await supabase
+          .from("questions")
+          .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title, is_published, instructor_id)")
+          .in("quiz_id", quizIds)
+          .order("created_at", { ascending: false });
+
+        if (quizQError) throw quizQError;
+        quizQuestions = quizQs || [];
+      }
+
+      // Fetch standalone questions (quiz_id IS NULL) from instructor's sections only
+      let standaloneQuestions = [];
+      if (sectionIds.length > 0) {
+        // Fetch standalone questions assigned to instructor's sections
+        const { data: standaloneQs, error: standaloneQError } = await supabase
+          .from("questions")
+          .select("*, revision_history, revised_options, updated_at, created_at")
+          .is("quiz_id", null)
+          .in("section_id", sectionIds)
+          .order("created_at", { ascending: false });
+
+        if (standaloneQError) throw standaloneQError;
+        standaloneQuestions = standaloneQs || [];
+      }
+
+      // Also fetch standalone questions without section_id (created by current instructor)
+      const { data: standaloneNoSection, error: noSectionError } = await supabase
+        .from("questions")
+        .select("*, revision_history, revised_options, updated_at, created_at")
+        .is("quiz_id", null)
+        .is("section_id", null)
+        .order("created_at", { ascending: false });
+
+      if (!noSectionError && standaloneNoSection) {
+        standaloneQuestions = [...standaloneQuestions, ...standaloneNoSection];
+      }
+
+      // Combine both types of questions
+      const allQuestions = [...quizQuestions, ...standaloneQuestions];
+
+      if (allQuestions.length === 0) {
         setActiveQuestions([]);
         setArchivedQuestions([]);
         setLoading(false);
         return;
       }
 
-      // Fetch all questions from instructor's quizzes
-      const { data, error } = await supabase
-        .from("questions")
-        .select("*, revision_history, revised_options, updated_at, created_at, quizzes(title, is_published)")
-        .in("quiz_id", quizIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
       // 1. Deduplicate ALL fetched questions by content first.
-      const allUniqueQuestions = dedupeQuestions(data || []);
+      const allUniqueQuestions = dedupeQuestions(allQuestions);
 
       // 2. Separate into active and archived based on the canonical (oldest) instance's status.
       const active = allUniqueQuestions.filter((q) => !q.is_archived);
@@ -265,24 +326,11 @@ export const useQuestionBank = () => {
   };
 
   // Add a new question to the bank (without assigning to a quiz yet)
-  const addToBank = async (questionData) => {
+  const addToBank = async (questionData, sectionId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
 
-      // Create a draft quiz for the question
-      const { data: quiz, error: quizError } = await supabase
-        .from("quizzes")
-        .insert({
-          instructor_id: user.id,
-          title: "Question Bank - Draft",
-          is_published: false,
-        })
-        .select()
-        .single();
-
-      if (quizError) throw quizError;
-
-      // Add question to the draft quiz
+      // Add question as standalone (quiz_id = NULL) with section assignment
       const correctAnswer =
         questionData.type === "mcq"
           ? questionData.options[questionData.correctAnswer] || questionData.correctAnswer
@@ -290,15 +338,22 @@ export const useQuestionBank = () => {
             ? questionData.correctAnswer === 0 ? "true" : "false"
             : questionData.correctAnswer;
 
-      const { error: questionError } = await supabase.from("questions").insert({
-        quiz_id: quiz.id,
+      const questionPayload = {
+        quiz_id: null, // Standalone question in bank
         type: questionData.type || "mcq",
         text: questionData.text,
         options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
         correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
-      });
+      };
+
+      // Assign to section if provided
+      if (sectionId) {
+        questionPayload.section_id = sectionId;
+      }
+
+      const { error: questionError } = await supabase.from("questions").insert(questionPayload);
 
       if (questionError) throw questionError;
 
@@ -310,26 +365,13 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Add multiple questions to the bank under a single container draft quiz
-  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft") => {
+  // Add multiple questions to the bank as standalone questions (no quiz container)
+  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft", sectionId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
       if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
         return { success: false, error: "No questions to import" };
       }
-
-      // Create a single draft quiz container for all imported questions
-      const { data: quiz, error: quizError } = await supabase
-        .from("quizzes")
-        .insert({
-          instructor_id: user.id,
-          title: containerTitle,
-          is_published: false,
-        })
-        .select()
-        .single();
-
-      if (quizError) throw quizError;
 
       const questionRows = questionsArray.map((q) => {
         let correctAnswer = q.correct_answer ?? q.correctAnswer;
@@ -342,8 +384,8 @@ export const useQuestionBank = () => {
           correctAnswer = q.options[correctAnswer];
         }
 
-        return {
-          quiz_id: quiz.id,
+        const questionRow = {
+          quiz_id: null, // Standalone question in bank
           type: q.type || "mcq",
           text: q.text,
           options:
@@ -354,6 +396,13 @@ export const useQuestionBank = () => {
           points: q.points || 1,
           is_archived: false,
         };
+
+        // Assign to section if provided
+        if (sectionId) {
+          questionRow.section_id = sectionId;
+        }
+
+        return questionRow;
       });
 
       const { error: questionError } = await supabase
