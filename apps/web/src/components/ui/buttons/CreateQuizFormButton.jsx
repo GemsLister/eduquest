@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
 
 export const CreateQuizFormButton = ({
   onCreateQuiz,
@@ -142,8 +143,7 @@ export const CreateQuizFormButton = ({
                 ) : (
                   <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-xs text-yellow-700">
-                      No subjects found. Please create a subject first from the
-                      dashboard before creating a quiz.
+                      No sections found. Please create a section with an assigned subject first from the dashboard before creating a quiz.
                     </p>
                   </div>
                 )}
