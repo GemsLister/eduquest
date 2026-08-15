@@ -30,11 +30,12 @@ export const QuestionBank = () => {
   const [importProcessing, setImportProcessing] = useState(false);
 
   // Subject and Quiz filter state
-  const [selectedSectionId, setSelectedSectionId] = useState(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [selectedQuizIdFilter, setSelectedQuizIdFilter] = useState(null);
-  const [sections, setSections] = useState([]);
-  const [quizzesFromSection, setQuizzesFromSection] = useState([]);
-  const [sectionsLoading, setSectionsLoading] = useState(true);
+  const [ownershipFilter, setOwnershipFilter] = useState("all");
+  const [subjects, setSubjects] = useState([]);
+  const [quizzesFromSubject, setQuizzesFromSubject] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
 
   const {
     activeQuestions,
@@ -56,14 +57,14 @@ export const QuestionBank = () => {
     points: 1,
   });
 
-  const formatSectionLabel = (section) => {
-    if (!section) return "";
-    const name = String(section.name || "").trim();
+  const formatSubjectLabel = (subject) => {
+    if (!subject) return "";
+    const name = String(subject.name || "").trim();
     const code = String(
-      section.description || section.section_code || "",
+      subject.code || subject.description || "",
     ).trim();
 
-    // Keep section code visible even when subject names are very long.
+    // Keep subject code visible even when subject names are very long.
     if (!code) {
       return name.length > 64 ? `${name.slice(0, 61)}...` : name;
     }
@@ -83,133 +84,208 @@ export const QuestionBank = () => {
   useEffect(() => {
     setCurrentPage(1);
     setBulkSelected(new Set());
-  }, [activeTab, searchTerm, sortBy, selectedSectionId, selectedQuizIdFilter]);
+  }, [activeTab, searchTerm, sortBy, selectedSubjectId, selectedQuizIdFilter, ownershipFilter]);
 
-  // Fetch sections on mount
+  // Fetch subjects on mount
   useEffect(() => {
-    const fetchSections = async () => {
+    const fetchSubjects = async () => {
       try {
-        setSectionsLoading(true);
+        setSubjectsLoading(true);
         if (!user) {
-          setSectionsLoading(false);
+          setSubjectsLoading(false);
           return;
         }
 
         const { data, error } = await supabase
-          .from("sections")
-          .select("id, name, description")
-          .eq("instructor_id", user.id)
-          .eq("is_archived", false)
+          .from("subjects")
+          .select("id, name, code, description")
+          .or("is_archived.is.null,is_archived.eq.false")
           .order("name", { ascending: true });
 
         if (error) throw error;
-        setSections(data || []);
+        setSubjects(data || []);
       } catch (err) {
-        console.error("Error fetching sections:", err);
-        setSections([]);
+        console.error("Error fetching subjects:", err);
+        setSubjects([]);
       } finally {
-        setSectionsLoading(false);
+        setSubjectsLoading(false);
       }
     };
 
-    fetchSections();
+    fetchSubjects();
   }, []);
 
-  // Read URL params and set initial section
+  // Read URL params and set initial subject
   useEffect(() => {
-    const sectionId = searchParams.get("sectionId");
-    if (sectionId) {
-      setSelectedSectionId(sectionId);
+    const subjectId = searchParams.get("subjectId");
+    if (subjectId) {
+      setSelectedSubjectId(subjectId);
     }
   }, [searchParams]);
 
-  // Fetch quizzes when section changes
+  // Fetch quizzes when subject changes
   useEffect(() => {
-    if (!selectedSectionId) {
-      setQuizzesFromSection([]);
+    if (!selectedSubjectId) {
+      setQuizzesFromSubject([]);
       setSelectedQuizIdFilter(null);
       return;
     }
 
     const fetchQuizzes = async () => {
       try {
-        const { data, error } = await supabase
-          .from("quiz_sections")
-          .select("quiz_id, quizzes(id, title, is_archived, is_published)")
-          .eq("section_id", selectedSectionId);
+        // Fetch quizzes directly assigned to this subject
+        const { data: subjectQuizzes, error: subjectError } = await supabase
+          .from("quizzes")
+          .select("id, title, is_archived, is_published, is_private, instructor_id")
+          .eq("subject_id", selectedSubjectId)
+          .or("is_archived.is.null,is_archived.eq.false");
 
-        if (error) throw error;
+        if (subjectError) throw subjectError;
 
         const uniqueQuizzes = [];
         const seen = new Set();
-        data?.forEach((qs) => {
-          // Only add if the quiz exists, is not archived or is published, and hasn't been seen yet
-          if (
-            qs.quizzes &&
-            (!qs.quizzes.is_archived || qs.quizzes.is_published) &&
-            !seen.has(qs.quizzes.id)
-          ) {
-            seen.add(qs.quizzes.id);
-            uniqueQuizzes.push(qs.quizzes);
+
+        // Add subject quizzes
+        subjectQuizzes?.forEach((q) => {
+          const isOwner = q.instructor_id === user?.id;
+          const isPublic = q.is_private === false;
+          const isNotArchived = !q.is_archived;
+          if ((isOwner || isPublic) && isNotArchived && !seen.has(q.id)) {
+            seen.add(q.id);
+            uniqueQuizzes.push(q);
           }
         });
 
-        // Also fetch direct quiz assignments (backward compatibility)
-        const { data: directQuizzes } = await supabase
-          .from("quizzes")
-          .select("id, title")
-          .eq("section_id", selectedSectionId)
-          .or("is_archived.eq.false,is_published.eq.true");
+        // Also fetch quizzes from sections that belong to this subject
+        const { data: sectionsData } = await supabase
+          .from("sections")
+          .select("id")
+          .eq("subject_id", selectedSubjectId)
+          .or("is_archived.is.null,is_archived.eq.false");
 
-        if (directQuizzes) {
-          directQuizzes.forEach((dq) => {
-            if (!seen.has(dq.id)) {
+        if (sectionsData && sectionsData.length > 0) {
+          const sectionIds = sectionsData.map(s => s.id);
+
+          // Fetch quizzes from quiz_sections junction
+          const { data: junctionQuizzes } = await supabase
+            .from("quiz_sections")
+            .select("quiz_id, quizzes(id, title, is_archived, is_published, is_private, instructor_id)")
+            .in("section_id", sectionIds);
+
+          junctionQuizzes?.forEach((jq) => {
+            if (jq.quizzes) {
+              const isOwner = jq.quizzes.instructor_id === user?.id;
+              const isPublic = jq.quizzes.is_private === false;
+              const isNotArchived = !jq.quizzes.is_archived;
+              if ((isOwner || isPublic) && isNotArchived && !seen.has(jq.quizzes.id)) {
+                seen.add(jq.quizzes.id);
+                uniqueQuizzes.push(jq.quizzes);
+              }
+            }
+          });
+
+          // Fetch direct quiz assignments to sections (backward compatibility)
+          const { data: directQuizzes } = await supabase
+            .from("quizzes")
+            .select("id, title, is_private, instructor_id, is_archived")
+            .in("section_id", sectionIds)
+            .or("is_archived.is.null,is_archived.eq.false");
+
+          directQuizzes?.forEach((dq) => {
+            const isOwner = dq.instructor_id === user?.id;
+            const isPublic = dq.is_private === false;
+            if ((isOwner || isPublic) && !seen.has(dq.id)) {
               seen.add(dq.id);
               uniqueQuizzes.push(dq);
             }
           });
         }
 
-        setQuizzesFromSection(uniqueQuizzes);
+        setQuizzesFromSubject(uniqueQuizzes);
       } catch (err) {
         console.error("Error fetching quizzes:", err);
-        setQuizzesFromSection([]);
+        setQuizzesFromSubject([]);
       }
     };
 
     fetchQuizzes();
-  }, [selectedSectionId]);
+  }, [selectedSubjectId]);
 
   // Filter questions
   const filterQuestions = (questions) => {
     let filteredList = questions;
 
-    // First, handle quiz dropdown selection (Subject → Quiz filter)
-    if (selectedQuizIdFilter) {
-      // Show questions that belong to the selected quiz (either directly or as part of deduplicated list)
+    // Apply Ownership & Privacy Filter
+    if (ownershipFilter === "mine") {
+      // Show questions created by current instructor (both Private and Public)
       filteredList = filteredList.filter((q) => {
-        const quizIdStr = String(selectedQuizIdFilter);
-        const directMatch = String(q.quiz_id) === quizIdStr;
-        const dedupeMatch = q.all_quiz_ids?.some(
-          (id) => String(id) === quizIdStr,
-        );
-        return directMatch || dedupeMatch;
+        const isOwnQuiz = q.quizzes?.instructor_id === user?.id;
+        return q.is_own || isOwnQuiz;
       });
-    } else if (selectedSectionId) {
-      // If section selected but no quiz yet, show questions from any quiz in this section
-      const quizIdsInSection = quizzesFromSection.map((q) => String(q.id));
-      if (quizIdsInSection.length > 0) {
-        filteredList = filteredList.filter((q) => {
-          const directMatch = quizIdsInSection.includes(String(q.quiz_id));
-          const dedupeMatch = q.all_quiz_ids?.some((id) =>
-            quizIdsInSection.includes(String(id)),
-          );
-          return directMatch || dedupeMatch;
-        });
-      } else {
-        // No quizzes in this section, show no questions
-        filteredList = [];
-      }
+    } else if (ownershipFilter === "my_private") {
+      // Show questions created by current instructor in Private quizzes
+      filteredList = filteredList.filter((q) => {
+        const isOwnQuiz = q.quizzes?.instructor_id === user?.id || q.is_own;
+        const isPrivate = q.is_private !== false && q.quizzes?.is_private !== false;
+        return isOwnQuiz && isPrivate;
+      });
+    } else if (ownershipFilter === "others_public") {
+      // Show public questions created by other instructors
+      filteredList = filteredList.filter((q) => {
+        const isOtherQuiz = q.quizzes && q.quizzes.instructor_id !== user?.id;
+        const isPublic = q.quizzes?.is_private === false;
+        return isOtherQuiz && isPublic;
+      });
+    }
+
+    // Handle quiz dropdown selection (Subject → Quiz filter)
+    if (selectedQuizIdFilter) {
+      const selectedQuizObj = quizzesFromSubject.find((q) => String(q.id) === String(selectedQuizIdFilter));
+      const targetQuizTitle = selectedQuizObj?.title?.trim().toLowerCase();
+      const targetQuizIds = new Set([
+        String(selectedQuizIdFilter),
+        selectedQuizObj?.parent_quiz_id ? String(selectedQuizObj.parent_quiz_id) : null
+      ].filter(Boolean));
+
+      filteredList = filteredList.filter((q) => {
+        const directMatch = targetQuizIds.has(String(q.quiz_id));
+        const dedupeMatch = q.all_quiz_ids?.some((id) => targetQuizIds.has(String(id)));
+        const parentMatch =
+          q.all_parent_quiz_ids?.some((id) => targetQuizIds.has(String(id))) ||
+          (q.quizzes?.parent_quiz_id && targetQuizIds.has(String(q.quizzes.parent_quiz_id))) ||
+          (q.parent_quiz_id && targetQuizIds.has(String(q.parent_quiz_id)));
+        const titleMatch = targetQuizTitle && q.quizzes?.title?.trim().toLowerCase() === targetQuizTitle;
+
+        return directMatch || dedupeMatch || parentMatch || titleMatch;
+      });
+    } else if (selectedSubjectId) {
+      // If subject selected but no quiz yet, show questions from any quiz in this subject
+      // AND standalone questions assigned to this subject
+      const quizIdsInSubject = new Set(
+        quizzesFromSubject.flatMap((q) => [
+          String(q.id),
+          q.parent_quiz_id ? String(q.parent_quiz_id) : null
+        ]).filter(Boolean)
+      );
+      const subjectIdStr = String(selectedSubjectId);
+      
+      filteredList = filteredList.filter((q) => {
+        // Include standalone questions assigned to this subject
+        const standaloneMatch = q.quiz_id === null && String(q.subject_id) === subjectIdStr;
+        
+        // Include questions from quizzes in this subject
+        let quizMatch = false;
+        if (quizIdsInSubject.size > 0) {
+          const directMatch = quizIdsInSubject.has(String(q.quiz_id));
+          const dedupeMatch = q.all_quiz_ids?.some((id) => quizIdsInSubject.has(String(id)));
+          const parentMatch =
+            q.all_parent_quiz_ids?.some((id) => quizIdsInSubject.has(String(id))) ||
+            (q.quizzes?.parent_quiz_id && quizIdsInSubject.has(String(q.quizzes.parent_quiz_id)));
+          quizMatch = directMatch || dedupeMatch || parentMatch;
+        }
+        
+        return standaloneMatch || quizMatch;
+      });
     } else if (quizId) {
       // URL-based import mode: show questions NOT from this quiz
       const quizIdStr = String(quizId);
@@ -403,7 +479,7 @@ export const QuestionBank = () => {
       notify.warning("All options must be filled");
       return;
     }
-    const result = await addToBank(newQuestion);
+    const result = await addToBank(newQuestion, null, selectedSubjectId);
     if (result.success) {
       notify.success("Question added to bank!");
       setNewQuestion({
@@ -458,6 +534,47 @@ export const QuestionBank = () => {
         orderIndex++;
       }
 
+      try {
+        const { data: allQuestions, error: qsFetchErr } = await supabase
+          .from("questions")
+          .select("id, created_at")
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true });
+
+        if (!qsFetchErr && allQuestions && allQuestions.length > 0) {
+          await supabase
+            .from("quiz_questions")
+            .delete()
+            .eq("quiz_id", quizId);
+
+          const junctionRows = allQuestions.map((q, idx) => ({
+            quiz_id: quizId,
+            question_id: q.id,
+            order_index: idx,
+          }));
+
+          const { error: juncInsErr } = await supabase
+            .from("quiz_questions")
+            .insert(junctionRows);
+
+          if (juncInsErr) {
+            const msg = (juncInsErr.message || "").toLowerCase();
+            const code = juncInsErr.code || "";
+            const isMissingTable =
+              code === "42P01" ||
+              msg.includes("could not find the table") ||
+              msg.includes("does not exist") ||
+              (msg.includes("relation") && msg.includes("does not exist"));
+            if (!isMissingTable) throw juncInsErr;
+          }
+        }
+      } catch (junctionSyncErr) {
+        console.warn(
+          "quiz_questions sync skipped (table may not exist yet):",
+          junctionSyncErr,
+        );
+      }
+
       notify.success(
         `Successfully imported ${selectedQuestions.length} question(s) with correct answers to the quiz!`,
       );
@@ -472,22 +589,45 @@ export const QuestionBank = () => {
   };
 
   // ---------------- Export Functions ----------------
+  const getExportFilename = (ext = "json") => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const subjectObj = subjects.find((s) => String(s.id) === String(selectedSubjectId));
+    const subjectPrefix = subjectObj
+      ? (subjectObj.code || subjectObj.name || "").replace(/[^a-zA-Z0-9]/g, "_")
+      : "";
+    const filterTag =
+      ownershipFilter === "my_private"
+        ? "private"
+        : ownershipFilter === "mine"
+        ? "public"
+        : ownershipFilter === "others_public"
+        ? "shared"
+        : "all";
+
+    const parts = ["question-bank"];
+    if (subjectPrefix) parts.push(subjectPrefix);
+    parts.push(filterTag);
+    parts.push(dateStr);
+
+    return `${parts.join("-")}.${ext}`;
+  };
+
   const getQuestionsToExport = () => {
-    const questions = activeTab === "archived" ? archivedQuestions : activeQuestions;
+    // Respects current activeTab, selectedSubjectId, selectedQuizIdFilter, ownershipFilter, and searchTerm
     if (bulkSelected.size > 0) {
-      return questions.filter(q => bulkSelected.has(q.id));
+      return allFiltered.filter((q) => bulkSelected.has(q.id));
     }
-    return questions;
+    return allFiltered;
   };
 
   const handleExportJSON = () => {
     const questions = getQuestionsToExport();
     if (questions.length === 0) {
-      notify.warning("No questions to export");
+      notify.warning("No questions to export for the selected filter/subject.");
       return;
     }
     const exportData = {
-      questions: questions.map(q => ({
+      questions: questions.map((q) => ({
         text: q.text,
         type: q.type || "mcq",
         options: q.options,
@@ -495,13 +635,17 @@ export const QuestionBank = () => {
         points: q.points || 1,
         difficulty: q.difficulty || null,
         blooms_level: q.blooms_level || null,
-      }))
+        creator_name: q.creator_name || null,
+        subject_name: q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name || null,
+      })),
     };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `question-bank-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = getExportFilename("json");
     a.click();
     URL.revokeObjectURL(url);
     notify.success(`Exported ${questions.length} question(s) as JSON!`);
@@ -510,30 +654,57 @@ export const QuestionBank = () => {
   const handleExportCSV = () => {
     const questions = getQuestionsToExport();
     if (questions.length === 0) {
-      notify.warning("No questions to export");
+      notify.warning("No questions to export for the selected filter/subject.");
       return;
     }
-    const headers = ["text", "type", "points", "correct_answer", "option_1", "option_2", "option_3", "option_4", "option_5", "option_6", "difficulty", "blooms_level"];
-    const rows = questions.map(q => {
+    const headers = [
+      "text",
+      "type",
+      "points",
+      "correct_answer",
+      "option_1",
+      "option_2",
+      "option_3",
+      "option_4",
+      "option_5",
+      "option_6",
+      "difficulty",
+      "blooms_level",
+      "creator_name",
+      "subject_name",
+    ];
+    const rows = questions.map((q) => {
       const opts = q.options || [];
-      const correctIdx = typeof q.correct_answer === "number" ? q.correct_answer : opts.indexOf(q.correct_answer);
-      const correctLetter = correctIdx >= 0 ? String.fromCharCode(65 + correctIdx) : q.correct_answer;
+      const correctIdx =
+        typeof q.correct_answer === "number"
+          ? q.correct_answer
+          : opts.indexOf(q.correct_answer);
+      const correctLetter =
+        correctIdx >= 0
+          ? String.fromCharCode(65 + correctIdx)
+          : q.correct_answer;
+      const subjectName =
+        q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name || "";
       return [
         `"${(q.text || "").replace(/"/g, '""')}"`,
         q.type || "mcq",
         q.points || 1,
         correctLetter,
-        ...(opts.length > 0 ? opts.map(o => `"${(o || "").replace(/"/g, '""')}"`) : Array(6).fill('""')),
+        ...(opts.length > 0
+          ? opts.map((o) => `"${(o || "").replace(/"/g, '""')}"`)
+          : Array(6).fill('""')),
         q.difficulty || "",
         q.blooms_level || "",
+        `"${(q.creator_name || "").replace(/"/g, '""')}"`,
+        `"${(subjectName || "").replace(/"/g, '""')}"`,
       ].slice(0, headers.length);
     });
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `question-bank-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = getExportFilename("csv");
     a.click();
     URL.revokeObjectURL(url);
     notify.success(`Exported ${questions.length} question(s) as CSV!`);
@@ -599,13 +770,9 @@ export const QuestionBank = () => {
         return;
       }
 
-      const containerName = fileName 
-        ? `Question Bank - ${fileName.replace(/\.[^/.]+$/, "")}`
-        : "Question Bank - Draft";
-
-      const res = await addBulkToBank(preparedQuestions, containerName);
+      const res = await addBulkToBank(preparedQuestions, null, null, selectedSubjectId);
       if (res.success) {
-        notify.success(`Successfully imported ${preparedQuestions.length} question(s) into 1 container!`);
+        notify.success(`Successfully imported ${preparedQuestions.length} question(s) to question bank!`);
         await fetchQuestions();
       } else {
         notify.error("Error importing questions: " + res.error);
@@ -732,21 +899,21 @@ export const QuestionBank = () => {
       clear: () => setSortBy("newest"),
     });
   }
-  if (selectedSectionId) {
-    const sectionName =
-      sections.find((s) => s.id === selectedSectionId)?.name || "Subject";
+  if (selectedSubjectId) {
+    const subjectName =
+      subjects.find((s) => s.id === selectedSubjectId)?.name || "Subject";
     activeFilters.push({
-      key: "section",
-      label: `Subject: ${sectionName}`,
+      key: "subject",
+      label: `Subject: ${subjectName}`,
       clear: () => {
-        setSelectedSectionId(null);
+        setSelectedSubjectId(null);
         setSelectedQuizIdFilter(null);
       },
     });
   }
   if (selectedQuizIdFilter) {
     const quizTitle =
-      quizzesFromSection.find((q) => q.id === selectedQuizIdFilter)?.title ||
+      quizzesFromSubject.find((q) => q.id === selectedQuizIdFilter)?.title ||
       "Quiz";
     activeFilters.push({
       key: "quiz",
@@ -958,46 +1125,94 @@ export const QuestionBank = () => {
         )}
       </div>
 
-      {/* Subject + Quiz Select Filters */}
-      <div className="flex gap-4 mb-4 items-center">
+      {/* Subject + Quiz + Ownership Filters */}
+      <div className="flex flex-wrap gap-4 mb-4 items-center">
+        {/* Ownership & Privacy Filter Buttons */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter("all")}
+            className={`px-4 py-2 rounded-full text-xs font-black transition-all border ${
+              ownershipFilter === "all"
+                ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            📚 All Questions
+          </button>
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter("my_private")}
+            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+              ownershipFilter === "my_private"
+                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                : "bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100"
+            }`}
+          >
+            🔒 Private Questions
+          </button>
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter("mine")}
+            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+              ownershipFilter === "mine"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                : "bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100"
+            }`}
+          >
+            🌐 Public Questions
+          </button>
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter("others_public")}
+            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+              ownershipFilter === "others_public"
+                ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                : "bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100"
+            }`}
+          >
+            👥 Shared Questions
+          </button>
+        </div>
+
         {/* Subject Dropdown */}
         <select
-          value={selectedSectionId || ""}
+          value={selectedSubjectId || ""}
           onChange={(e) => {
-            const sectionId = e.target.value || null;
-            setSelectedSectionId(sectionId);
+            const subjectId = e.target.value || null;
+            setSelectedSubjectId(subjectId);
             setSelectedQuizIdFilter(null);
           }}
           className="px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[200px]"
-          disabled={sectionsLoading}
+          disabled={subjectsLoading}
         >
           <option value="">
-            {sectionsLoading
+            {subjectsLoading
               ? "Loading subjects..."
               : "📚 -- Select Subject --"}
           </option>
-          {sections.length === 0 && !sectionsLoading && (
+          {subjects.length === 0 && !subjectsLoading && (
             <option disabled>No subjects found</option>
           )}
-          {sections.map((section) => (
-            <option key={section.id} value={section.id}>
-              {formatSectionLabel(section)}
+          {subjects.map((subject) => (
+            <option key={subject.id} value={subject.id}>
+              {formatSubjectLabel(subject)}
             </option>
           ))}
         </select>
 
         {/* Quiz Dropdown (only show if subject selected) */}
-        {selectedSectionId && (
+        {selectedSubjectId && (
           <select
             value={selectedQuizIdFilter || ""}
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
             className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
           >
             <option value="">📝 -- Select Quiz --</option>
-            {quizzesFromSection.length === 0 ? (
+            {quizzesFromSubject.length === 0 ? (
               <option disabled>No quizzes in this subject</option>
             ) : (
-              quizzesFromSection.map((quiz) => (
+              quizzesFromSubject.map((quiz) => (
                 <option key={quiz.id} value={quiz.id}>
                   {quiz.title}
                 </option>
@@ -1346,13 +1561,18 @@ export const QuestionBank = () => {
 
                   <div className="flex-1 p-4">
                     {/* Top metadata row */}
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className="text-xs text-gray-400 font-medium">
-                        {question.quizzes?.title || "Draft Quiz"}
+                        📝 {question.quizzes?.title || "Draft Quiz"}
                       </span>
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
                       </span>
+                      {question.creator_name && (
+                        <span className="px-2 py-0.5 border rounded text-[10px] font-extrabold bg-purple-100 text-purple-950 border-purple-300">
+                          👤 Owner: ({question.creator_name || "Instructor"})
+                        </span>
+                      )}
                     </div>
 
                     {/* Question text - clickable to expand */}
