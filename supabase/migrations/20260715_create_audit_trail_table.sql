@@ -33,6 +33,14 @@ USING (
     )
 );
 
+-- Policy: Instructors can view their own audit logs
+CREATE POLICY "Instructors can view their own audit logs"
+ON audit_trail
+FOR SELECT
+USING (
+    auth.uid() = user_id
+);
+
 -- Policy: Users can insert audit logs for their own actions
 CREATE POLICY "Users can insert their own audit logs"
 ON audit_trail
