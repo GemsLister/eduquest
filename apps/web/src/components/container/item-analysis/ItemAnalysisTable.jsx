@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { TakersDetailTable } from "./TakersDetailTable";
 import { DetailedItemAnalysis } from "./DetailedItemAnalysis";
 import { DistractorAnalysis } from "./DistractorAnalysis";
+import { ItemRevisionComparisonModal } from "./ItemRevisionComparisonModal";
 
 export const ItemAnalysisTable = ({
   analysis,
@@ -11,6 +12,8 @@ export const ItemAnalysisTable = ({
   onFlagClick,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedComparisonItem, setSelectedComparisonItem] = useState(null);
+  const [selectedComparisonIndex, setSelectedComparisonIndex] = useState(null);
   const itemsPerPage = 10;
 
   // Pagination calculations
@@ -143,13 +146,26 @@ export const ItemAnalysisTable = ({
                     </td>
 
                     <td className="p-3">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <button
                           onClick={() => toggleDetails(item.question_id)}
                           className="w-full text-indigo-600 font-bold text-xs uppercase hover:underline px-3 py-1 rounded hover:bg-indigo-50 transition-colors text-center block"
                         >
                           {expandedQuestion === item.question_id ? "Hide" : "View"}
                         </button>
+
+                        {(item.autoFlag === 'revise' || item.autoFlag === 'reject' || item.status === 'Revise' || item.status === 'Reject' || (item.revision_history && item.revision_history.length > 0)) && (
+                          <button
+                            onClick={() => {
+                              setSelectedComparisonItem(item);
+                              setSelectedComparisonIndex(startIndex + index);
+                            }}
+                            className="w-full text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors text-center flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                            title="View full side-by-side revision history comparison"
+                          >
+                            <span>📜 History</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -157,7 +173,14 @@ export const ItemAnalysisTable = ({
                     <tr className="bg-gray-50">
                       <td colSpan="5" className="p-0 border-t border-b border-indigo-100">
                         <div className="p-6">
-                          <DetailedItemAnalysis item={item} index={startIndex + index} />
+                          <DetailedItemAnalysis
+                            item={item}
+                            index={startIndex + index}
+                            onOpenRevisionHistory={(itemToCompare, idxToCompare) => {
+                              setSelectedComparisonItem(itemToCompare);
+                              setSelectedComparisonIndex(idxToCompare);
+                            }}
+                          />
                           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <div className="max-h-[600px] overflow-y-auto">
                               <DistractorAnalysis item={item} />
@@ -328,6 +351,19 @@ export const ItemAnalysisTable = ({
           </div>
         </div>
       </div>
+
+      {/* Side-by-Side Revision History Comparison Modal */}
+      {selectedComparisonItem && (
+        <ItemRevisionComparisonModal
+          isOpen={!!selectedComparisonItem}
+          onClose={() => {
+            setSelectedComparisonItem(null);
+            setSelectedComparisonIndex(null);
+          }}
+          item={selectedComparisonItem}
+          itemIndex={selectedComparisonIndex}
+        />
+      )}
     </div>
   );
 };
