@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { logAudit } from "./auditService.js";
 
 /**
  * Section Service
@@ -14,7 +15,7 @@ export const sectionService = {
   getSectionsByInstructor: async (instructorId) => {
     const { data, error } = await supabase
       .from("sections")
-      .select("*")
+      .select("*, subjects(id, name, code, description)")
       .eq("instructor_id", instructorId)
       .eq("is_archived", false)
       .order("created_at", { ascending: false });
@@ -42,7 +43,37 @@ export const sectionService = {
    * @returns {Promise<{data, error}>}
    */
   createSection: async (sectionData) => {
-    return await supabase.from("sections").insert([sectionData]).select();
+    const result = await supabase.from("sections").insert([sectionData]).select();
+    
+    // Log to audit trail and create teaching assignment if successful
+    if (result.data && result.data[0]) {
+      const createdSection = result.data[0];
+
+      // Create teaching_assignments record
+      if (createdSection.instructor_id && createdSection.subject_id) {
+        try {
+          await supabase.from("teaching_assignments").insert([
+            {
+              instructor_id: createdSection.instructor_id,
+              subject_id: createdSection.subject_id,
+              section_id: createdSection.id,
+            },
+          ]);
+        } catch (taErr) {
+          console.warn("Could not insert teaching assignment:", taErr);
+        }
+      }
+
+      await logAudit({
+        action: "SECTION_CREATED",
+        tableName: "sections",
+        recordId: createdSection.id,
+        newValues: { name: sectionData.name, description: sectionData.description },
+        userRole: "instructor"
+      });
+    }
+    
+    return result;
   },
 
   /**
@@ -52,11 +83,32 @@ export const sectionService = {
    * @returns {Promise<{data, error}>}
    */
   updateSection: async (sectionId, updates) => {
-    return await supabase
+    // Get old values for audit log
+    const { data: oldData } = await supabase
+      .from("sections")
+      .select("*")
+      .eq("id", sectionId)
+      .single();
+    
+    const result = await supabase
       .from("sections")
       .update(updates)
       .eq("id", sectionId)
       .select();
+    
+    // Log to audit trail if successful
+    if (result.data && !result.error) {
+      await logAudit({
+        action: "SECTION_UPDATED",
+        tableName: "sections",
+        recordId: sectionId,
+        oldValues: { name: oldData?.name, description: oldData?.description },
+        newValues: updates,
+        userRole: "instructor"
+      });
+    }
+    
+    return result;
   },
 
   /**
@@ -74,10 +126,30 @@ export const sectionService = {
    * @returns {Promise<{data, error}>}
    */
   archiveSection: async (sectionId) => {
-    return await supabase
+    // Get section info for audit log
+    const { data: sectionData } = await supabase
+      .from("sections")
+      .select("name, description")
+      .eq("id", sectionId)
+      .single();
+    
+    const result = await supabase
       .from("sections")
       .update({ is_archived: true })
       .eq("id", sectionId)
       .select();
+    
+    // Log to audit trail if successful
+    if (result.data && !result.error) {
+      await logAudit({
+        action: "SECTION_ARCHIVED",
+        tableName: "sections",
+        recordId: sectionId,
+        newValues: { name: sectionData?.name, description: sectionData?.description },
+        userRole: "instructor"
+      });
+    }
+    
+    return result;
   },
 };
