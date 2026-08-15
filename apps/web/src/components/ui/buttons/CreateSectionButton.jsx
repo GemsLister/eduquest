@@ -3,12 +3,18 @@ import { supabase } from "../../../supabaseClient";
 import { notify } from "../../../utils/notify.jsx";
 import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
 
-export const CreateSectionButton = ({ onSectionCreated, userId }) => {
-  const [showForm, setShowForm] = useState(false);
+export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubject, isOpen: externalIsOpen, onClose: externalOnClose }) => {
+  const [internalShowForm, setInternalShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(preselectedSubject || null);
   const [sectionName, setSectionName] = useState("");
   const [error, setError] = useState("");
+
+  const showForm = externalIsOpen !== undefined ? externalIsOpen : internalShowForm;
+  const setShowForm = (val) => {
+    if (externalOnClose && !val) externalOnClose();
+    setInternalShowForm(val);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +22,8 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
     setError("");
 
     try {
-      if (!selectedSubject) {
+      const activeSubject = selectedSubject || preselectedSubject;
+      if (!activeSubject) {
         setError("Please select a subject");
         return;
       }
@@ -30,7 +37,23 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
         Math.random().toString(36).substring(2, 8).toUpperCase();
 
       // Combine subject name with section name
-      const fullSectionName = `${selectedSubject.name} - ${sectionName.trim()}`;
+      const fullSectionName = `${activeSubject.name} - ${sectionName.trim()}`;
+      const subjectIdToUse = activeSubject.id || activeSubject.subject_id;
+
+      // Duplicate check: ensure section is not assigned twice to same subject
+      const { data: existingSection } = await supabase
+        .from("sections")
+        .select("id, name")
+        .eq("instructor_id", userId)
+        .eq("subject_id", subjectIdToUse)
+        .ilike("name", fullSectionName)
+        .maybeSingle();
+
+      if (existingSection) {
+        setError(`Section "${sectionName.trim()}" is already assigned to ${activeSubject.name}.`);
+        setLoading(false);
+        return;
+      }
 
       const { data, error: insertError } = await supabase
         .from("sections")
@@ -38,21 +61,35 @@ export const CreateSectionButton = ({ onSectionCreated, userId }) => {
           {
             instructor_id: userId,
             name: fullSectionName,
-            description: null, // Will be derived from subject
-            subject_id: selectedSubject.id,
+            description: null,
+            subject_id: activeSubject.id,
             exam_code: examCode(),
           },
         ])
         .select();
 
       if (insertError) throw insertError;
+      const newSection = data[0];
+
+      // Also record in teaching_assignments table
+      try {
+        await supabase.from("teaching_assignments").insert([
+          {
+            instructor_id: userId,
+            subject_id: activeSubject.id,
+            section_id: newSection.id,
+          },
+        ]);
+      } catch (taErr) {
+        console.warn("Could not insert teaching assignment:", taErr);
+      }
 
       setSectionName("");
       setSelectedSubject(null);
       setShowForm(false);
 
       if (onSectionCreated) {
-        onSectionCreated(data[0]);
+        onSectionCreated(newSection);
       }
 
       notify.success("Section created successfully!");
