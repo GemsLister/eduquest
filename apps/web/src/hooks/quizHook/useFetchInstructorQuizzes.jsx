@@ -3,6 +3,18 @@ import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 
+const isMissingTableError = (error) => {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  const code = error.code || "";
+  return (
+    code === "42P01" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+};
+
 export const useFetchInstructorQuizzes = () => {
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
@@ -36,24 +48,80 @@ export const useFetchInstructorQuizzes = () => {
   const fetchQuizzes = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from("quizzes")
-        .select("*, quiz_attempts(count)")
-        .eq("instructor_id", user.id)
-        .order("created_at", { ascending: false });
+      // 1. Fetch instructor's section IDs
+      const { data: mySections } = await supabase
+        .from("sections")
+        .select("id")
+        .eq("instructor_id", user.id);
+      const mySectionIds = (mySections || []).map((s) => s.id).filter(Boolean);
 
-      if (error) throw error;
+      // 2. Fetch quiz IDs assigned to instructor's sections via quiz_sections junction
+      let sectionQuizIds = [];
+      if (mySectionIds.length > 0) {
+        const { data: qSecs } = await supabase
+          .from("quiz_sections")
+          .select("quiz_id")
+          .in("section_id", mySectionIds);
+        sectionQuizIds = (qSecs || []).map((qs) => qs.quiz_id).filter(Boolean);
+      }
 
+      // 3. Fetch submissions by instructor
       const { data: submissions, error: submissionsError } = await supabase
         .from("quiz_analysis_submissions")
-        .select("quiz_id, status, admin_feedback, created_at")
+        .select("quiz_id, status, admin_feedback, analysis_results, created_at")
         .eq("instructor_id", user.id)
         .order("created_at", { ascending: false });
 
       if (submissionsError) throw submissionsError;
 
+      const submissionQuizIds = (submissions || []).map((s) => s.quiz_id).filter(Boolean);
+
+      // Combine section & submission candidate quiz IDs
+      const candidateQuizIds = Array.from(new Set([...sectionQuizIds, ...submissionQuizIds]));
+
+      // 4. Fetch quizzes directly with profiles join
+      let rawQuizzes = [];
+      if (candidateQuizIds.length > 0) {
+        const { data: directQuizzes, error: fetchErr } = await supabase
+          .from("quizzes")
+          .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
+          .or(`instructor_id.eq.${user.id},id.in.(${candidateQuizIds.join(",")}),is_private.eq.false,is_private.is.null`)
+          .order("created_at", { ascending: false });
+
+        if (fetchErr) {
+          console.error("Error fetching quizzes with candidate IDs:", fetchErr);
+          const { data: ownerData } = await supabase
+            .from("quizzes")
+            .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
+            .or(`instructor_id.eq.${user.id},is_private.eq.false,is_private.is.null`)
+            .order("created_at", { ascending: false });
+          rawQuizzes = ownerData || [];
+        } else {
+          rawQuizzes = directQuizzes || [];
+        }
+      } else {
+        const { data: directQuizzes } = await supabase
+          .from("quizzes")
+          .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
+          .or(`instructor_id.eq.${user.id},is_private.eq.false,is_private.is.null`)
+          .order("created_at", { ascending: false });
+        rawQuizzes = directQuizzes || [];
+      }
+
+      const data = (rawQuizzes || []).map((q) => {
+        const ownerFirstName = q.profiles?.first_name || "";
+        const ownerLastName = q.profiles?.last_name || "";
+        const fullName = `${ownerFirstName} ${ownerLastName}`.trim();
+        return {
+          ...q,
+          owner_id: q.instructor_id,
+          owner_name: fullName || q.profiles?.email || "Instructor",
+          is_archived: Boolean(q.is_archived),
+        };
+      });
+
       const maxVersionByRoot = new Map();
-      (data || [])
+      data
         .filter((quiz) => !quiz.is_archived)
         .forEach((quiz) => {
           const rootId = quiz.parent_quiz_id || quiz.id;
@@ -73,7 +141,7 @@ export const useFetchInstructorQuizzes = () => {
         }
       });
 
-      const quizIds = (data || []).map((quiz) => quiz.id);
+      const quizIds = data.map((quiz) => quiz.id);
       const sectionCountByQuiz = new Map();
 
       if (quizIds.length > 0) {
@@ -90,25 +158,94 @@ export const useFetchInstructorQuizzes = () => {
             uniqueSections.set(row.quiz_id, existing);
           });
 
-          uniqueSections.forEach((sectionSet, quizId) => {
-            sectionCountByQuiz.set(quizId, sectionSet.size);
+          uniqueSections.forEach((sectionSet, qId) => {
+            sectionCountByQuiz.set(qId, sectionSet.size);
           });
         }
       }
 
+      const submissionQuizIdsSet = new Set(submissionQuizIds);
+      const sectionQuizIdsSet = new Set(sectionQuizIds);
+      const mySectionIdsSet = new Set(mySectionIds);
+
       const quizzesWithCounts = await Promise.all(
-        (data || []).map(async (quiz) => {
-          const { count, error: countError } = await supabase
-            .from("questions")
-            .select("*", { count: "exact", head: true })
-            .eq("quiz_id", quiz.id);
+        data.map(async (quiz) => {
+          let count = null;
+          let countError = null;
+          try {
+            const { count: juncCount, error: juncError } = await supabase
+              .from("quiz_questions")
+              .select("*", { count: "exact", head: true })
+              .eq("quiz_id", quiz.id);
+            if (!isMissingTableError(juncError) && juncCount && juncCount > 0) {
+              count = juncCount;
+              countError = null;
+            } else if (!isMissingTableError(juncError) && !juncError) {
+              count = juncCount || 0;
+              countError = null;
+            } else {
+              const direct = await supabase
+                .from("questions")
+                .select("*", { count: "exact", head: true })
+                .eq("quiz_id", quiz.id);
+              count = direct.count || 0;
+              countError = direct.error;
+            }
+          } catch (e) {
+            const direct = await supabase
+              .from("questions")
+              .select("*", { count: "exact", head: true })
+              .eq("quiz_id", quiz.id);
+            count = direct.count || 0;
+            countError = direct.error;
+          }
 
           const latestSubmission = latestSubmissionByQuiz.get(quiz.id);
+
+          let resolvedQuestionsCount = !countError ? count || 0 : 0;
+
+          if (resolvedQuestionsCount === 0 && latestSubmission?.analysis_results) {
+            const payload =
+              latestSubmission.analysis_results.analysis ||
+              latestSubmission.analysis_results.questionSnapshots ||
+              [];
+            if (Array.isArray(payload) && payload.length > 0) {
+              resolvedQuestionsCount = payload.length;
+            }
+          }
+
+          if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
+            try {
+              const { count: rootJunc, error: rootJuncErr } = await supabase
+                .from("quiz_questions")
+                .select("*", { count: "exact", head: true })
+                .eq("quiz_id", quiz.parent_quiz_id);
+              if (!isMissingTableError(rootJuncErr) && rootJunc && rootJunc > 0) {
+                resolvedQuestionsCount = rootJunc;
+              } else {
+                const { count: rootCount } = await supabase
+                  .from("questions")
+                  .select("*", { count: "exact", head: true })
+                  .eq("quiz_id", quiz.parent_quiz_id);
+                if (rootCount && rootCount > 0) {
+                  resolvedQuestionsCount = rootCount;
+                }
+              }
+            } catch (e) {
+              const { count: rootCount } = await supabase
+                .from("questions")
+                .select("*", { count: "exact", head: true })
+                .eq("quiz_id", quiz.parent_quiz_id);
+              if (rootCount && rootCount > 0) {
+                resolvedQuestionsCount = rootCount;
+              }
+            }
+          }
 
           return {
             ...quiz,
             attempts: quiz.quiz_attempts?.[0]?.count || 0,
-            questions_count: !countError ? count : 0,
+            questions_count: resolvedQuestionsCount,
             admin_review_status: latestSubmission?.status || null,
             admin_review_feedback: latestSubmission?.admin_feedback || "",
             hasNewerVersion:
@@ -119,12 +256,19 @@ export const useFetchInstructorQuizzes = () => {
             section_count:
               sectionCountByQuiz.get(quiz.id) || (quiz.section_id ? 1 : 0),
           };
-        }),
+        })
       );
 
-      const visibleQuizzes = quizzesWithCounts.filter(
-        (quiz) => !quiz.hasNewerVersion || quiz.is_archived,
-      );
+      const visibleQuizzes = quizzesWithCounts.filter((quiz) => {
+        const isOwner = (quiz.instructor_id || quiz.owner_id) === user.id;
+        const isSubmittedByMe = submissionQuizIdsSet.has(quiz.id);
+        const isAssignedToMySection =
+          sectionQuizIdsSet.has(quiz.id) || (quiz.section_id && mySectionIdsSet.has(quiz.section_id));
+        const isPublic = quiz.is_private === false;
+
+        const isAccessible = isOwner || isSubmittedByMe || isAssignedToMySection || isPublic;
+        return isAccessible && (!quiz.hasNewerVersion || quiz.is_archived);
+      });
 
       setQuizzes(visibleQuizzes);
     } catch (error) {
@@ -164,6 +308,13 @@ export const useFetchInstructorQuizzes = () => {
 
       if (error) throw error;
 
+      // Log status change
+      await supabase.rpc("log_quiz_status_change", {
+        p_quiz_id: quizId,
+        p_new_status: "archived",
+        p_reason: "Quiz archived by instructor"
+      });
+
       await fetchQuizzes();
       notify.success("Quiz archived successfully!");
     } catch (error) {
@@ -190,6 +341,13 @@ export const useFetchInstructorQuizzes = () => {
         .eq("id", quizId);
 
       if (error) throw error;
+
+      // Log status change
+      await supabase.rpc("log_quiz_status_change", {
+        p_quiz_id: quizId,
+        p_new_status: "published",
+        p_reason: "Quiz published by instructor"
+      });
 
       await fetchQuizzes();
       notify.success("Quiz published successfully!");
