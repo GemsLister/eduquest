@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 
@@ -163,8 +164,34 @@ export const AdminQuizReviewDetail = () => {
 
       if (error) throw error;
 
-      // Send notification to instructor
       const quizTitle = submission.quizzes?.title || "your quiz";
+      const targetQuizId = submission.quiz_id;
+
+      // Log quiz status change and structured audit entry
+      if (targetQuizId) {
+        try {
+          await supabase.rpc("log_quiz_status_change", {
+            p_quiz_id: targetQuizId,
+            p_new_status: status === "approved" ? "forwarded_to_head" : "rejected",
+            p_reason: feedback || (status === "approved" ? "Forwarded to Department Head for final approval" : "Revision requested by Senior Faculty"),
+          });
+
+          await logAudit({
+            action: status === "approved" ? "FORWARDED_TO_HEAD" : "REVISION_REQUESTED",
+            tableName: "quizzes",
+            recordId: targetQuizId,
+            itemName: quizTitle,
+            previousStatus: "submitted_for_review",
+            newStatus: status === "approved" ? "forwarded_to_head" : "revision_requested",
+            reason: feedback || (status === "approved" ? "Forwarded to Department Head for final approval" : "Revision requested by Senior Faculty"),
+            userRole: "senior_faculty",
+          });
+        } catch (lErr) {
+          console.warn("Could not log Senior Faculty action history:", lErr);
+        }
+      }
+
+      // Send notification to instructor
       const notificationMap = {
         approved: {
           title: "Quiz Analysis Reviewed by Senior Faculty",
