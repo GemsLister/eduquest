@@ -74,7 +74,7 @@ export const useFetchSectionQuiz = () => {
             quiz &&
             !grouped[qs.section_id].some((existing) => existing.id === quiz.id)
           ) {
-            grouped[qs.section_id].push(quiz);
+            grouped[qs.section_id].push({ ...quiz, section_id: qs.section_id });
           }
         });
 
@@ -93,6 +93,32 @@ export const useFetchSectionQuiz = () => {
             }
           }
         });
+
+        // 3. Add cross-section quizzes for sections with same subject
+        // Only add PUBLIC quizzes (respect privacy)
+        for (const section of sectionsData) {
+          if (section.subject_id) {
+            // Find other sections with same subject
+            const sameSubjectSections = sectionsData.filter(
+              s => s.subject_id === section.subject_id && s.id !== section.id
+            );
+            
+            for (const sameSection of sameSubjectSections) {
+              const sameSectionQuizzes = grouped[sameSection.id] || [];
+              for (const quiz of sameSectionQuizzes) {
+                // Only add public quizzes (is_private = false)
+                if (quiz.is_private === false) {
+                  if (!grouped[section.id]) {
+                    grouped[section.id] = [];
+                  }
+                  if (!grouped[section.id].some((existing) => existing.id === quiz.id)) {
+                    grouped[section.id].push({ ...quiz, section_id: sameSection.id, is_cross_section: true });
+                  }
+                }
+              }
+            }
+          }
+        }
 
         // Re-count attempts per section (filter by section_id)
         for (const sectionId of Object.keys(grouped)) {
