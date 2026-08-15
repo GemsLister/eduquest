@@ -6,8 +6,48 @@ import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
+import { logAudit } from "../../services/auditService.js";
+import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
+
+const transformQuestions = (rows) => {
+  const seenIds = new Set();
+  const seenTexts = new Set();
+  const uniqueRows = (rows || []).filter((q) => {
+    if (!q || !q.id) return false;
+    const normalizedText = (q.text || "").toLowerCase().trim();
+    if (seenIds.has(q.id)) return false;
+    if (normalizedText && seenTexts.has(normalizedText)) return false;
+    seenIds.add(q.id);
+    if (normalizedText) seenTexts.add(normalizedText);
+    return true;
+  });
+
+  return uniqueRows.map((q) => {
+    let correctAnswerValue;
+    if (q.type === "mcq") {
+      correctAnswerValue = Array.isArray(q.options)
+        ? q.options.indexOf(q.correct_answer)
+        : 0;
+      if (correctAnswerValue === -1) correctAnswerValue = 0;
+    } else if (q.type === "true_false") {
+      correctAnswerValue = q.correct_answer === "true" ? 0 : 1;
+    } else {
+      correctAnswerValue = q.correct_answer;
+    }
+    return {
+      id: q.id,
+      type: q.type,
+      text: q.text,
+      options: q.type === "mcq" && Array.isArray(q.options)
+        ? q.options
+        : [""],
+      correctAnswer: correctAnswerValue,
+      points: q.points || 1,
+    };
+  });
+};
 
 export const InstructorQuiz = () => {
   const navigate = useNavigate();
@@ -21,12 +61,14 @@ export const InstructorQuiz = () => {
   const [loading, setLoading] = useState(quizId ? true : false);
   const [error, setError] = useState("");
   const [isPublished, setIsPublished] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
   const [availableSections, setAvailableSections] = useState([]);
   const [saveStatus, setSaveStatus] = useState("");
   const [deletingQuestionId, setDeletingQuestionId] = useState(null);
   const [shareToken, setShareToken] = useState("");
   const [showShareUrl, setShowShareUrl] = useState(false);
+  const [sectionShareTokens, setSectionShareTokens] = useState([]);
   const [showAddQuestionPopup, setShowAddQuestionPopup] = useState(false);
   const [questionCount, setQuestionCount] = useState(1);
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -40,10 +82,277 @@ export const InstructorQuiz = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [parentQuizId, setParentQuizId] = useState(null);
-  
+  const [restoredFromSnapshot, setRestoredFromSnapshot] = useState(0);
+  const [crossSectionSource, setCrossSectionSource] = useState(null);
+  const [crossSectionSourceQuiz, setCrossSectionSourceQuiz] = useState(null);
+  const [autoSharing, setAutoSharing] = useState(false);
+
+  // Question Bank import modal state
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankTargetIndex, setBankTargetIndex] = useState(null);
+
+  const handleImportFromBank = (importedQuestion) => {
+    if (bankTargetIndex !== null && bankTargetIndex >= 0 && bankTargetIndex < questions.length) {
+      const updated = [...questions];
+      const targetId = updated[bankTargetIndex].id;
+      updated[bankTargetIndex] = {
+        ...importedQuestion,
+        id: targetId,
+      };
+      setQuestions(updated);
+      setExpandedQuestions(new Set([...expandedQuestions, targetId]));
+      markDirty();
+      toast.success(`Question #${bankTargetIndex + 1} updated from Question Bank!`);
+    } else {
+      const newQuestionObj = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        ...importedQuestion,
+      };
+      setQuestions([...questions, newQuestionObj]);
+      setExpandedQuestions(new Set([...expandedQuestions, newQuestionObj.id]));
+      markDirty();
+      toast.success("New question imported from Question Bank!");
+    }
+  };
+
+  const parseCSVLine = (line) => {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const handleImportCSVFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const content = ev.target?.result;
+        if (!content) return;
+
+        let parsedItems = [];
+
+        if (file.name.toLowerCase().endsWith(".json")) {
+          let json = JSON.parse(content);
+          if (!Array.isArray(json)) {
+            json = json.questions || json.data || json.items || [json];
+          }
+          parsedItems = json;
+        } else {
+          const lines = content.split(/\r?\n/).filter((l) => l.trim() !== "");
+          if (lines.length < 2) {
+            toast.error("CSV file must have a header row and at least one question row.");
+            return;
+          }
+          const headers = parseCSVLine(lines[0]).map((h) =>
+            h.toLowerCase().trim().replace(/^"|"$/g, "")
+          );
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            const rowObj = {};
+            headers.forEach((h, idx) => {
+              let val = cols[idx] ?? "";
+              if (val.startsWith('"') && val.endsWith('"')) {
+                val = val.slice(1, -1).replace(/""/g, '"');
+              }
+              rowObj[h] = val;
+            });
+            parsedItems.push(rowObj);
+          }
+        }
+
+        const newQuestions = [];
+        const now = Date.now();
+
+        parsedItems.forEach((raw, idx) => {
+          const text =
+            raw.text ||
+            raw.question ||
+            raw.question_text ||
+            raw["question text"] ||
+            raw.item_text ||
+            "";
+
+          if (!text || String(text).trim() === "") return;
+
+          let type = (raw.type || raw.question_type || "mcq").toString().toLowerCase().trim();
+          if (!["mcq", "true_false", "identification"].includes(type)) type = "mcq";
+
+          const points = parseInt(raw.points || raw.weight || raw.score || 1) || 1;
+
+          // Process options
+          let options = [];
+          if (Array.isArray(raw.options)) {
+            options = raw.options.map((o) => String(o).trim());
+          } else {
+            for (let k = 1; k <= 6; k++) {
+              const optVal =
+                raw[`option_${k}`] ||
+                raw[`option ${k}`] ||
+                raw[`option${k}`] ||
+                raw[String.fromCharCode(64 + k).toLowerCase()] ||
+                raw[String.fromCharCode(64 + k)];
+              if (optVal !== undefined && optVal !== null && String(optVal).trim() !== "") {
+                options.push(String(optVal).trim());
+              }
+            }
+          }
+
+          if (type === "mcq") {
+            while (options.length < 4) {
+              options.push("");
+            }
+          } else if (type === "true_false") {
+            options = ["True", "False"];
+          }
+
+          // Determine correct answer
+          let rawCorrect =
+            raw.correct_answer ??
+            raw.correct ??
+            raw["correct answer"] ??
+            raw.answer ??
+            0;
+
+          let correctAnswer = 0;
+          if (typeof rawCorrect === "number") {
+            correctAnswer = rawCorrect;
+          } else if (typeof rawCorrect === "string") {
+            const trimmed = rawCorrect.trim();
+            if (/^[A-F]$/i.test(trimmed)) {
+              correctAnswer = trimmed.toUpperCase().charCodeAt(0) - 65;
+            } else if (!isNaN(parseInt(trimmed))) {
+              correctAnswer = parseInt(trimmed);
+            } else {
+              const matchedIdx = options.findIndex(
+                (opt) => String(opt).trim().toLowerCase() === trimmed.toLowerCase()
+              );
+              if (matchedIdx !== -1) correctAnswer = matchedIdx;
+            }
+          }
+
+          newQuestions.push({
+            id: now + idx + Math.floor(Math.random() * 1000),
+            type,
+            text: String(text).trim(),
+            options,
+            correctAnswer: Math.max(0, Math.min(correctAnswer, options.length - 1)),
+            points,
+            difficulty: raw.difficulty || null,
+            blooms_level: raw.blooms_level || raw.blooms || null,
+          });
+        });
+
+        if (newQuestions.length === 0) {
+          toast.error("No valid questions found in the CSV file.");
+          return;
+        }
+
+        setQuestions((prev) => {
+          const updated = [...prev, ...newQuestions];
+          const newTotalPages = Math.ceil(updated.length / QUESTIONS_PER_PAGE);
+          setCurrentPage(newTotalPages);
+          return updated;
+        });
+
+        setExpandedQuestions((prev) => {
+          const next = new Set(prev);
+          newQuestions.forEach((q) => next.add(q.id));
+          return next;
+        });
+
+        markDirty();
+        toast.success(`Successfully imported ${newQuestions.length} question(s) from CSV!`);
+      } catch (err) {
+        console.error("CSV import error:", err);
+        toast.error("Failed to parse CSV file: " + err.message);
+      } finally {
+        if (e.target) e.target.value = "";
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
   // Archive subject modal state
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [questionToArchive, setQuestionToArchive] = useState(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const QUESTIONS_PER_PAGE = 10;
+  const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages || 1);
+  const startIndex = (validCurrentPage - 1) * QUESTIONS_PER_PAGE;
+  const endIndex = startIndex + QUESTIONS_PER_PAGE;
+  const paginatedQuestions = questions.slice(startIndex, endIndex);
+
+  const renderPageButtons = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) {
+        pages.push("...");
+      }
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (validCurrentPage < totalPages - 2) {
+        pages.push("...");
+      }
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    return pages.map((page, i) => {
+      if (page === "...") {
+        return (
+          <span key={`dots-${i}`} className="px-2 text-sm text-gray-400 select-none">
+            ...
+          </span>
+        );
+      }
+      return (
+        <button
+          key={page}
+          type="button"
+          onClick={() => setCurrentPage(page)}
+          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+            validCurrentPage === page
+              ? "bg-brand-gold text-brand-navy font-bold shadow-sm"
+              : "border border-gray-200 hover:bg-gray-50 text-gray-600"
+          }`}
+        >
+          {page}
+        </button>
+      );
+    });
+  };
 
   const toggleQuestion = (questionId) => {
     setExpandedQuestions((prev) => {
@@ -76,6 +385,7 @@ export const InstructorQuiz = () => {
             title: quizTitle,
             description: quizDescription || null,
             duration: quizDuration ? parseInt(quizDuration) : null,
+            is_private: isPrivate,
           })
           .eq("id", quizId);
         setLastSaved(new Date());
@@ -86,7 +396,7 @@ export const InstructorQuiz = () => {
     }, 30000);
 
     return () => clearTimeout(autoSaveTimer.current);
-  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished]);
+  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished, isPrivate]);
 
   useEffect(() => {
     loadSections();
@@ -124,11 +434,24 @@ export const InstructorQuiz = () => {
           section_id: sectionId,
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedSections, error: insertError } = await supabase
           .from("quiz_sections")
-          .insert(sectionInserts);
+          .insert(sectionInserts)
+          .select();
 
         if (insertError) throw insertError;
+
+        // Update section share tokens state
+        if (insertedSections) {
+          const { data: sectionTokens } = await supabase
+            .from("quiz_sections")
+            .select("share_token, section_id, sections(*)")
+            .eq("quiz_id", quizId);
+          
+          if (sectionTokens) {
+            setSectionShareTokens(sectionTokens);
+          }
+        }
       }
 
       const { error: updateError } = await supabase
@@ -158,6 +481,29 @@ export const InstructorQuiz = () => {
     }
   };
 
+  const handleAutoShareWithSubjectSections = async () => {
+    if (!quizId) return;
+    
+    setAutoSharing(true);
+    try {
+      const { data, error } = await supabase.rpc("auto_share_quiz_with_subject_sections", {
+        p_quiz_id: quizId
+      });
+      
+      if (error) throw error;
+      
+      toast.success(`Quiz shared with ${data || 0} section(s)`);
+      
+      // Reload sections and tokens
+      loadQuiz();
+    } catch (err) {
+      console.error("Auto-share failed:", err);
+      toast.error("Failed to auto-share quiz: " + err.message);
+    } finally {
+      setAutoSharing(false);
+    }
+  };
+
   const loadSections = async () => {
     try {
       const {
@@ -165,11 +511,33 @@ export const InstructorQuiz = () => {
       } = await supabase.auth.getUser();
       if (!user) return;
       setUserId(user.id);
-      const { data } = await supabase
+      const { data: mySections } = await supabase
         .from("sections")
         .select("*")
         .eq("instructor_id", user.id);
-      if (data) setAvailableSections(data);
+
+      const subjectIds = Array.from(
+        new Set((mySections || []).map((s) => s.subject_id).filter(Boolean))
+      );
+
+      let allSections = mySections || [];
+      if (subjectIds.length > 0) {
+        const { data: subjectSections } = await supabase
+          .from("sections")
+          .select("*")
+          .in("subject_id", subjectIds)
+          .eq("is_archived", false);
+
+        if (subjectSections && subjectSections.length > 0) {
+          const sectionMap = new Map();
+          [...allSections, ...subjectSections].forEach((s) =>
+            sectionMap.set(s.id, s)
+          );
+          allSections = Array.from(sectionMap.values());
+        }
+      }
+
+      setAvailableSections(allSections);
     } catch (e) {
       console.error("Failed to load sections", e);
     }
@@ -186,52 +554,317 @@ export const InstructorQuiz = () => {
       if (quizError) throw quizError;
       if (!quiz) throw new Error("Quiz not found");
 
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (quiz.is_private !== false && currentUser?.id && quiz.instructor_id !== currentUser.id) {
+        toast.error("Permission denied: This quiz is private and can only be accessed by its owner.");
+        navigate("/instructor-dashboard/quizzes");
+        return;
+      }
+
       setQuizTitle(quiz.title);
       setQuizDescription(quiz.description || "");
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
+      setIsPrivate(quiz.is_private !== false);
       setShareToken(quiz.share_token || "");
       setParentQuizId(quiz.parent_quiz_id || null);
 
-      const { data: qsData, error: qsError } = await supabase
-        .from("quiz_sections")
-        .select("section_id")
-        .eq("quiz_id", quizId);
-      if (!qsError && qsData && qsData.length > 0) {
-        setSelectedSectionIds(qsData.map((d) => d.section_id));
-      } else if (quiz.section_id) {
-        setSelectedSectionIds([quiz.section_id]); // fallback for old data
+      // Load section-specific share tokens
+      if (quizId) {
+        console.log("Loading section tokens for quiz:", quizId);
+
+        // Auto-share with any new sections in the same subject
+        try {
+          await supabase.rpc("auto_share_quiz_with_subject_sections", {
+            p_quiz_id: quizId,
+          });
+        } catch (e) {
+          console.warn("Auto-share on load skipped:", e);
+        }
+
+        const { data: sectionTokens, error: tokenError } = await supabase
+          .from("quiz_sections")
+          .select("share_token, section_id, sections(*)")
+          .eq("quiz_id", quizId);
+        
+        console.log("Section tokens loaded:", sectionTokens);
+        console.log("Token error:", tokenError);
+        console.log("Number of sections:", sectionTokens?.length || 0);
+        
+        if (sectionTokens && sectionTokens.length > 0) {
+          setSectionShareTokens(sectionTokens);
+          
+          // Check if any sections are missing tokens
+          const missingTokens = sectionTokens.filter(st => !st.share_token);
+          console.log("Sections missing tokens:", missingTokens);
+          
+          if (missingTokens.length > 0) {
+            console.log("Generating tokens for sections without tokens...");
+            const { error: genError } = await supabase.rpc("generate_share_tokens_for_quiz", {
+              p_quiz_id: quizId
+            });
+            
+            console.log("Token generation error:", genError);
+            
+            if (!genError) {
+              // Reload tokens after generation
+              const { data: newTokens } = await supabase
+                .from("quiz_sections")
+                .select("share_token, section_id, sections(*)")
+                .eq("quiz_id", quizId);
+              
+              console.log("New tokens after generation:", newTokens);
+              
+              if (newTokens) {
+                setSectionShareTokens(newTokens);
+              }
+            }
+          }
+        } else {
+          console.log("No section tokens found. Quiz might not be assigned to sections.");
+        }
       }
 
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("questions")
-        .select("*")
-        .eq("quiz_id", quizId)
-        .or("is_archived.is.null,is_archived.eq.false")
-        .order("created_at", { ascending: true });
+      const { data: qsData, error: qsError } = await supabase
+        .from("quiz_sections")
+        .select("section_id, sections(*)")
+        .eq("quiz_id", quizId);
+      
+      console.log("Quiz sections data:", qsData);
+      console.log("Quiz sections error:", qsError);
+      
+      if (!qsError && qsData && qsData.length > 0) {
+        setSelectedSectionIds(qsData.map((d) => d.section_id));
+        console.log("Quiz assigned to sections:", qsData.map(d => d.sections?.name || d.section_id));
+      } else if (quiz.section_id) {
+        setSelectedSectionIds([quiz.section_id]); // fallback for old data
+        console.log("Using fallback section_id:", quiz.section_id);
+      }
 
-      if (questionsError) throw questionsError;
+      const isMissingTableErr = (err) => {
+        if (!err) return false;
+        const msg = (err.message || "").toLowerCase();
+        const code = err.code || "";
+        return (
+          code === "42P01" ||
+          msg.includes("could not find the table") ||
+          msg.includes("does not exist") ||
+          (msg.includes("relation") && msg.includes("does not exist"))
+        );
+      };
 
-      const transformedQuestions = questionsData.map((q) => {
-        let correctAnswerValue;
-        if (q.type === "mcq") {
-          correctAnswerValue = q.options.indexOf(q.correct_answer);
-        } else if (q.type === "true_false") {
-          correctAnswerValue = q.correct_answer === "true" ? 0 : 1;
-        } else {
-          correctAnswerValue = q.correct_answer;
+      const loadViaJunction = async (id) => {
+        try {
+          const { data, error } = await supabase
+            .from("quiz_questions")
+            .select("questions(*), order_index")
+            .eq("quiz_id", id)
+            .order("order_index", { ascending: true });
+          if (isMissingTableErr(error) || error) return null;
+          if (!data || data.length === 0) {
+            return { source: "junction-empty", rows: [] };
+          }
+          const rows = data
+            .map((r) => r.questions)
+            .filter(
+              (q) =>
+                q !== null &&
+                (q.is_archived === null || q.is_archived === false),
+            );
+          return { source: "junction", rows };
+        } catch {
+          return null;
         }
-        return {
-          id: q.id,
-          type: q.type,
-          text: q.text,
-          options: q.type === "mcq" ? q.options : [""],
-          correctAnswer: correctAnswerValue,
-          points: q.points || 1,
-        };
-      });
+      };
 
-      setQuestions(transformedQuestions);
+      const loadDirect = async (id) => {
+        const { data, error } = await supabase
+          .from("questions")
+          .select("*")
+          .eq("quiz_id", id)
+          .or("is_archived.is.null,is_archived.eq.false")
+          .order("created_at", { ascending: true });
+        if (error) return null;
+        return { source: "direct", rows: data || [] };
+      };
+
+      let resolved = null;
+
+      resolved = await loadViaJunction(quizId);
+      if (!resolved || resolved.rows.length === 0) {
+        const direct = await loadDirect(quizId);
+        if (direct && (resolved === null || direct.rows.length > 0)) {
+          resolved = direct;
+        }
+      }
+
+      if (!resolved || resolved.rows.length === 0) {
+        if (quiz.parent_quiz_id) {
+          const parentViaJunction = await loadViaJunction(quiz.parent_quiz_id);
+          if (parentViaJunction && parentViaJunction.rows.length > 0) {
+            resolved = parentViaJunction;
+          } else {
+            const parentDirect = await loadDirect(quiz.parent_quiz_id);
+            if (parentDirect && parentDirect.rows.length > 0) {
+              resolved = parentDirect;
+            }
+          }
+        }
+      }
+
+      if (!resolved || resolved.rows.length === 0) {
+        // Load questions from other quizzes in the same subject (cross-section sharing)
+        try {
+          const { data: instructorSubject } = await supabase
+            .from("instructor_subjects")
+            .select("subject_id")
+            .eq("instructor_id", quiz.instructor_id)
+            .limit(1)
+            .maybeSingle();
+
+          if (instructorSubject?.subject_id) {
+            // Get all instructor_subject_ids for this subject
+            const { data: instructorSubjectIds } = await supabase
+              .from("instructor_subjects")
+              .select("id")
+              .eq("subject_id", instructorSubject.subject_id);
+
+            const issIds = instructorSubjectIds?.map(iss => iss.id) || [];
+
+            // Get all sections in the same subject
+            const { data: subjectSections } = await supabase
+              .from("instructor_subject_sections")
+              .select("section_id")
+              .in("instructor_subject_id", issIds);
+
+            const sectionIds = subjectSections?.map(ss => ss.section_id) || [];
+
+            // Get all quizzes from these sections (excluding current quiz)
+            const { data: otherQuizzes } = await supabase
+              .from("quiz_sections")
+              .select("quiz_id")
+              .in("section_id", sectionIds)
+              .neq("quiz_id", quizId);
+
+            const otherQuizIds = [...new Set(otherQuizzes?.map(oq => oq.quiz_id) || [])];
+
+            // Try to load questions from these other quizzes
+            for (const otherQuizId of otherQuizIds) {
+              const otherQuizQuestions = await loadViaJunction(otherQuizId);
+              if (otherQuizQuestions && otherQuizQuestions.rows.length > 0) {
+                resolved = otherQuizQuestions;
+                resolved._fromCrossSection = true;
+                resolved._sourceQuizId = otherQuizId;
+                setCrossSectionSource(otherQuizId);
+                
+                // Fetch the source quiz details
+                const { data: sourceQuiz } = await supabase
+                  .from("quizzes")
+                  .select("title, instructor_id")
+                  .eq("id", otherQuizId)
+                  .single();
+                
+                if (sourceQuiz) {
+                  setCrossSectionSourceQuiz(sourceQuiz);
+                }
+                
+                console.log(`Loaded questions from cross-section quiz: ${otherQuizId}`);
+                break;
+              }
+            }
+          }
+        } catch (crossSectionError) {
+          console.error("Error loading cross-section questions:", crossSectionError);
+        }
+      }
+
+      if (!resolved || resolved.rows.length === 0) {
+        try {
+          const { data: sub } = await supabase
+            .from("quiz_analysis_submissions")
+            .select("analysis_results")
+            .eq("quiz_id", quizId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const snapshots =
+            sub?.analysis_results?.questionSnapshots ||
+            sub?.analysis_results?.analysis ||
+            [];
+
+          if (Array.isArray(snapshots) && snapshots.length > 0) {
+            const restored = snapshots
+              .slice()
+              .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+              .map((snap) => {
+                const qType = snap.type || "mcq";
+                const isMCQ = qType === "mcq";
+                const isTF = qType === "true_false";
+                let rawOptions =
+                  isMCQ && Array.isArray(snap.options) ? snap.options : [];
+                while (isMCQ && rawOptions.length < 4) rawOptions.push("");
+                rawOptions = rawOptions.filter(
+                  (o, idx) =>
+                    !isMCQ ||
+                    idx < 4 ||
+                    String(o || "").trim().length > 0,
+                );
+                if (isMCQ && rawOptions.length < 4) {
+                  while (rawOptions.length < 4) rawOptions.push("");
+                }
+
+                let correctIdx = 0;
+                const snapCorrect = snap.correctAnswer;
+                if (isMCQ) {
+                  if (typeof snapCorrect === "number") {
+                    correctIdx = snapCorrect;
+                  } else if (
+                    typeof snapCorrect === "string" &&
+                    rawOptions.length > 0
+                  ) {
+                    const matchIdx = rawOptions.findIndex(
+                      (opt) =>
+                        String(opt || "").toLowerCase() ===
+                        String(snapCorrect || "").toLowerCase(),
+                    );
+                    if (matchIdx !== -1) correctIdx = matchIdx;
+                  }
+                } else if (isTF) {
+                  correctIdx =
+                    String(snapCorrect || "true").toLowerCase() === "true"
+                      ? 0
+                      : 1;
+                }
+
+                return {
+                  id: `restored-${snap.questionId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  type: isTF ? "true_false" : qType,
+                  text: snap.questionText || snap.text || "",
+                  options: isMCQ ? rawOptions : [""],
+                  correctAnswer: isTF || isMCQ ? correctIdx : (snapCorrect ?? ""),
+                  points: 1,
+                  _restoredFromSnapshot: true,
+                };
+              });
+
+            setQuestions(restored);
+            setRestoredFromSnapshot(restored.length);
+            setTimeout(() => {
+              initialLoadDone.current = true;
+            }, 100);
+            return;
+          }
+        } catch (subErr) {
+          console.warn(
+            "[loadQuiz] Could not restore from analysis submission snapshot",
+            subErr,
+          );
+        }
+      }
+
+      const finalRows = resolved?.rows || [];
+      setQuestions(transformQuestions(finalRows));
       setTimeout(() => { initialLoadDone.current = true; }, 100);
     } catch (err) {
       setError(err.message || "Failed to load quiz");
@@ -261,8 +894,11 @@ export const InstructorQuiz = () => {
       newQuestions.forEach((q) => next.add(q.id));
       return next;
     });
-    setQuestions([...questions, ...newQuestions]);
+    const updated = [...questions, ...newQuestions];
+    setQuestions(updated);
     setShowAddQuestionPopup(false);
+    const newTotalPages = Math.ceil(updated.length / QUESTIONS_PER_PAGE);
+    setCurrentPage(newTotalPages);
   };
 
   const updateQuestion = (id, field, value) => {
@@ -375,27 +1011,27 @@ export const InstructorQuiz = () => {
     }
   };
 
-  const handleSaveQuiz = async (publish = false) => {
+  const handleSaveQuiz = async (publish = false, redirectOnSave = true) => {
     setError("");
     setSaveStatus("Saving...");
 
     if (!quizTitle.trim()) {
       setError("Quiz title is required");
       setSaveStatus("");
-      return;
+      return false;
     }
 
     if (publish && questions.length === 0) {
       setError("Add at least one question before publishing");
       setSaveStatus("");
-      return;
+      return false;
     }
 
     for (let q of questions) {
       if (!q.text.trim()) {
         setError("All questions must have text");
         setSaveStatus("");
-        return;
+        return false;
       }
       if (
         q.type === "mcq" &&
@@ -408,7 +1044,7 @@ export const InstructorQuiz = () => {
         );
         if (publish) {
           setSaveStatus("");
-          return;
+          return false;
         }
       }
     }
@@ -422,11 +1058,30 @@ export const InstructorQuiz = () => {
         setError("User not authenticated");
         setLoading(false);
         setSaveStatus("");
-        return;
+        return false;
       }
 
       let quizData;
       let newToken = shareToken;
+
+      const formatCorrectAnswer = (q) => {
+        if (q.type === "mcq") {
+          const opts = (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim());
+          if (typeof q.correctAnswer === "number" && opts[q.correctAnswer]) {
+            return opts[q.correctAnswer];
+          }
+          if (typeof q.correctAnswer === "string" && q.correctAnswer.trim()) {
+            return q.correctAnswer.trim();
+          }
+          return opts[0] || "N/A";
+        }
+        if (q.type === "true_false") {
+          return q.correctAnswer === 0 || q.correctAnswer === "true" || q.correctAnswer === true
+            ? "true"
+            : "false";
+        }
+        return String(q.correctAnswer || "N/A").trim() || "N/A";
+      };
 
       if (quizId) {
         // Always generate a new share token when publishing, even if one exists
@@ -441,6 +1096,7 @@ export const InstructorQuiz = () => {
             description: quizDescription || null,
             duration: quizDuration ? parseInt(quizDuration) : null,
             is_published: publish || isPublished,
+            is_private: isPrivate,
             share_token: publish ? newToken : shareToken || null,
           })
           .eq("id", quizId)
@@ -465,47 +1121,43 @@ export const InstructorQuiz = () => {
                 text: q.text,
                 options:
                   q.type === "mcq"
-                    ? q.options.filter((opt) => opt.trim())
+                    ? (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim())
                     : null,
-                correct_answer:
-                  q.type === "mcq"
-                    ? q.options[q.correctAnswer]
-                    : q.type === "true_false"
-                      ? q.correctAnswer === 0
-                        ? "true"
-                        : "false"
-                      : q.correctAnswer,
-                points: q.points,
+                correct_answer: formatCorrectAnswer(q),
+                points: q.points ? parseInt(q.points) : 1,
               })
               .eq("id", q.id);
             if (updateQuestionError) throw updateQuestionError;
           }
         }
 
+        const baseSaveTime = Date.now();
         const questionsToAdd = questions
-          .filter((q) => typeof q.id === "number" && q.id > 10000000000)
-          .map((q) => ({
+          .filter((q) => !existingQuestionIds.has(q.id))
+          .map((q, idx) => ({
             quiz_id: quizData.id,
-            type: q.type,
+            section_id: selectedSectionIds[0] || null,
+            type: q.type || "mcq",
             text: q.text,
             options:
-              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer:
               q.type === "mcq"
-                ? q.options[q.correctAnswer]
-                : q.type === "true_false"
-                  ? q.correctAnswer === 0
-                    ? "true"
-                    : "false"
-                  : q.correctAnswer,
-            points: q.points,
+                ? (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim())
+                : null,
+            correct_answer: formatCorrectAnswer(q),
+            points: q.points ? parseInt(q.points) : 1,
+            is_archived: false,
+            created_at: new Date(baseSaveTime + idx * 100).toISOString(),
           }));
 
         if (questionsToAdd.length > 0) {
           const { error: questionsError } = await supabase
             .from("questions")
-            .insert(questionsToAdd);
-          if (questionsError) throw questionsError;
+            .insert(questionsToAdd)
+            .select();
+          if (questionsError) {
+            console.error("Error inserting new questions into database:", questionsError);
+            throw questionsError;
+          }
         }
       } else {
         newToken = publish ? generateShareToken() : null;
@@ -520,6 +1172,7 @@ export const InstructorQuiz = () => {
               description: quizDescription || null,
               duration: quizDuration ? parseInt(quizDuration) : null,
               is_published: publish,
+              is_private: isPrivate,
               share_token: newToken,
             },
           ])
@@ -530,28 +1183,54 @@ export const InstructorQuiz = () => {
           throw new Error("Failed to create quiz");
         quizData = newQuiz[0];
 
+        // Log quiz creation in workflow history & audit log
+        try {
+          await supabase.rpc("log_quiz_status_change", {
+            p_quiz_id: quizData.id,
+            p_new_status: publish ? "published" : "draft",
+            p_reason: publish ? "Quiz created and published live" : "Quiz created by instructor",
+          });
+
+          await logAudit({
+            action: publish ? "QUIZ_PUBLISHED" : "QUIZ_CREATED",
+            tableName: "quizzes",
+            recordId: quizData.id,
+            itemName: quizTitle,
+            previousStatus: null,
+            newStatus: publish ? "published" : "draft",
+            reason: publish ? "Quiz created and published live" : "Quiz created by instructor",
+          });
+        } catch (hErr) {
+          console.warn("Could not log quiz workflow history:", hErr);
+        }
+
         if (questions.length > 0) {
-          const questionsData = questions.map((q) => ({
+          const baseCreateTime = Date.now();
+          const questionsData = questions.map((q, idx) => ({
             quiz_id: quizData.id,
-            type: q.type,
+            section_id: selectedSectionIds[0] || null,
+            type: q.type || "mcq",
             text: q.text,
             options:
-              q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
-            correct_answer:
               q.type === "mcq"
-                ? q.options[q.correctAnswer]
-                : q.type === "true_false"
-                  ? q.correctAnswer === 0
-                    ? "true"
-                    : "false"
-                  : q.correctAnswer,
-            points: q.points,
+                ? (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim())
+                : null,
+            correct_answer: formatCorrectAnswer(q),
+            points: q.points ? parseInt(q.points) : 1,
+            is_archived: false,
+            created_at: new Date(baseCreateTime + idx * 100).toISOString(),
           }));
           const { error: questionsError } = await supabase
             .from("questions")
-            .insert(questionsData);
-          if (questionsError) throw questionsError;
+            .insert(questionsData)
+            .select();
+          if (questionsError) {
+            console.error("Error inserting questions for new quiz into database:", questionsError);
+            throw questionsError;
+          }
         }
+
+        navigate(`/instructor-dashboard/instructor-quiz/${quizData.id}`, { replace: true });
       }
 
       // Sync the many-to-many relationship in quiz_sections
@@ -562,7 +1241,6 @@ export const InstructorQuiz = () => {
             .delete()
             .eq("quiz_id", quizData.id);
 
-          // If no error deleting (meaning table exists)
           if (!deleteError && selectedSectionIds.length > 0) {
             const sectionInserts = selectedSectionIds.map((sId) => ({
               quiz_id: quizData.id,
@@ -572,6 +1250,51 @@ export const InstructorQuiz = () => {
           }
         } catch (tableError) {
           console.warn("quiz_sections table might not exist yet:", tableError);
+        }
+
+        try {
+          const { data: allQuestions, error: qsFetchErr } = await supabase
+            .from("questions")
+            .select("*")
+            .eq("quiz_id", quizData.id)
+            .or("is_archived.is.null,is_archived.eq.false")
+            .order("created_at", { ascending: true });
+
+          if (!qsFetchErr && allQuestions && allQuestions.length > 0) {
+            await supabase
+              .from("quiz_questions")
+              .delete()
+              .eq("quiz_id", quizData.id);
+
+            const junctionRows = allQuestions.map((q, idx) => ({
+              quiz_id: quizData.id,
+              question_id: q.id,
+              order_index: idx,
+            }));
+
+            const { error: juncInsErr } = await supabase
+              .from("quiz_questions")
+              .insert(junctionRows);
+
+            if (juncInsErr) {
+              const msg = (juncInsErr.message || "").toLowerCase();
+              const code = juncInsErr.code || "";
+              const isMissingTable =
+                code === "42P01" ||
+                msg.includes("could not find the table") ||
+                msg.includes("does not exist") ||
+                (msg.includes("relation") && msg.includes("does not exist"));
+              if (!isMissingTable) throw juncInsErr;
+            }
+
+            // Update React state with real database UUID questions
+            setQuestions(transformQuestions(allQuestions));
+          }
+        } catch (junctionSyncErr) {
+          console.warn(
+            "quiz_questions sync skipped (table may not exist yet):",
+            junctionSyncErr,
+          );
         }
 
         await supabase
@@ -584,6 +1307,9 @@ export const InstructorQuiz = () => {
       }
 
       if (newToken) setShareToken(newToken);
+      setRestoredFromSnapshot(0);
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
 
       if (publish) {
         setShowShareUrl(true);
@@ -591,15 +1317,25 @@ export const InstructorQuiz = () => {
         setTimeout(() => setSaveStatus(""), 3000);
       } else {
         setSaveStatus("Draft saved!");
-        setTimeout(() => {
-          setSaveStatus("");
-          navigate("/instructor-dashboard/quizzes");
-        }, 1000);
+        if (redirectOnSave) {
+          setTimeout(() => {
+            setSaveStatus("");
+            navigate("/instructor-dashboard/quizzes");
+          }, 1000);
+        } else {
+          setTimeout(() => setSaveStatus(""), 2000);
+        }
       }
+
+      if (!quizId && quizData?.id) {
+        navigate(`/instructor-dashboard/quiz/${quizData.id}`, { replace: true });
+      }
+      return quizData || true;
     } catch (err) {
       setError(err.message || "Failed to save quiz");
       setSaveStatus("");
       console.error(err);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -669,15 +1405,26 @@ export const InstructorQuiz = () => {
               </span>
             )}
             {quizId && (
-              <span
-                className={`px-3 py-1.5 rounded-full font-bold text-xs ${
-                  isPublished
-                    ? "bg-white/20 text-white"
-                    : "bg-yellow-400/90 text-yellow-900"
-                }`}
-              >
-                {isPublished ? "Published" : "Draft"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-3 py-1.5 rounded-full font-bold text-xs ${
+                    isPrivate
+                      ? "bg-gray-700/90 text-white border border-gray-600"
+                      : "bg-emerald-600/90 text-white border border-emerald-500"
+                  }`}
+                >
+                  {isPrivate ? "🔒 Private" : "🌐 Public"}
+                </span>
+                <span
+                  className={`px-3 py-1.5 rounded-full font-bold text-xs ${
+                    isPublished
+                      ? "bg-white/20 text-white"
+                      : "bg-yellow-400/90 text-yellow-900"
+                  }`}
+                >
+                  {isPublished ? "Published" : "Draft"}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -727,7 +1474,7 @@ export const InstructorQuiz = () => {
         </div>
       )}
 
-      {(showShareUrl || isPublished) && shareToken && (
+      {(showShareUrl || isPublished) && (
         <div className="mb-6 p-6 bg-brand-navy/5 border-2 border-brand-navy/20 rounded-lg">
           <h3 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -736,56 +1483,68 @@ export const InstructorQuiz = () => {
             Quiz Published Successfully!
           </h3>
           <p className="text-gray-700 mb-4">
-            Share the link for each subject with the corresponding students:
+            Each section has its own unique share code. Share the corresponding code with each section:
           </p>
-          {selectedSectionIds.length > 0 ? (
+          
+          {sectionShareTokens.length > 0 ? (
             <div className="space-y-3">
-              {selectedSectionIds.map((sId) => {
-                const sec = availableSections.find((s) => s.id === sId);
-                const sectionUrl = `${window.location.origin}/quiz/${shareToken}?section=${sId}`;
-                return (
-                  <div key={sId}>
-                    <p className="text-xs font-semibold text-gray-500 mb-1">
-                      {sec?.section_name || sec?.name || sId}
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={sectionUrl}
-                        readOnly
-                        className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-                      />
-                      <button
-                        onClick={() => copyToClipboard(sectionUrl)}
-                        className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
+              {(() => {
+                const userTokens = sectionShareTokens.filter(
+                  (st) => st.sections?.instructor_id === userId
                 );
-              })}
+                const tokensToDisplay = userTokens.length > 0 ? userTokens : sectionShareTokens;
+                return tokensToDisplay.map((sectionToken) => {
+                  const sectionUrl = `${window.location.origin}/quiz/${sectionToken.share_token}`;
+                  return (
+                    <div key={sectionToken.id || sectionToken.section_id} className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">
+                        {sectionToken.sections?.name || sectionToken.section_id}
+                      </p>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={sectionUrl}
+                          readOnly
+                          className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => copyToClipboard(sectionUrl)}
+                          className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-4 py-2 rounded-lg font-semibold transition text-sm"
+                        >
+                          Copy Link
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        <strong>Section Share Code:</strong>{" "}
+                        <code className="bg-gray-100 px-2 py-1 rounded font-mono">{sectionToken.share_token}</code>
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           ) : (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={`${window.location.origin}/quiz/${shareToken}`}
-                readOnly
-                className="flex-1 px-4 py-3 bg-white border border-brand-navy/20 rounded-lg font-mono text-sm"
-              />
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+              <p className="text-sm text-yellow-800 mb-3">
+                No section-specific share codes available. Make sure the quiz is assigned to sections.
+              </p>
               <button
-                onClick={() => copyToClipboard(`${window.location.origin}/quiz/${shareToken}`)}
-                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-6 py-3 rounded-lg font-semibold transition"
+                onClick={handleAutoShareWithSubjectSections}
+                disabled={autoSharing}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50"
               >
-                Copy Link
+                {autoSharing ? "Sharing..." : "Auto-Share with Same Subject Sections"}
               </button>
             </div>
           )}
-          <p className="text-sm text-gray-600 mt-3 bg-white p-3 rounded border border-gray-200">
-            <strong>Share Code:</strong>{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
-          </p>
+          
+          {shareToken && (
+            <p className="text-sm text-gray-600 mt-4 bg-white p-3 rounded border border-gray-200">
+              <strong>General Quiz Code:</strong>{" "}
+              <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
+              {" "}(for legacy access)
+            </p>
+          )}
         </div>
       )}
 
@@ -840,6 +1599,69 @@ export const InstructorQuiz = () => {
               disabled={isPublished}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Quiz Visibility Setting
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-colors ${
+                  isPrivate
+                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
+                    : "border-gray-200 hover:bg-gray-50"
+                } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="edit_quiz_visibility"
+                  checked={isPrivate}
+                  disabled={isPublished}
+                  onChange={() => {
+                    setIsPrivate(true);
+                    markDirty();
+                  }}
+                  className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                />
+                <div>
+                  <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                    🔒 Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Only you can see this quiz and its questions. Hidden from all other instructors and Question Bank.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-colors ${
+                  !isPrivate
+                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
+                    : "border-gray-200 hover:bg-gray-50"
+                } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="edit_quiz_visibility"
+                  checked={!isPrivate}
+                  disabled={isPublished}
+                  onChange={() => {
+                    setIsPrivate(false);
+                    markDirty();
+                  }}
+                  className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                />
+                <div>
+                  <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                    🌐 Public
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Visible to other instructors. Questions are available in the Question Bank for shared subjects.
+                  </span>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -1000,42 +1822,135 @@ export const InstructorQuiz = () => {
       )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        {restoredFromSnapshot > 0 && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-start gap-3">
+              <div className="text-amber-600 mt-0.5 text-lg">⚠️</div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-900">
+                  {restoredFromSnapshot} questions restored from review snapshot
+                </p>
+                <p className="text-sm text-amber-800 mt-1">
+                  These questions were recovered from your last submitted review
+                  (because the original question rows were no longer in the database).
+                  <span className="font-semibold">
+                    Click "Save as Draft" below to permanently save them back to the
+                    database.
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6 gap-4">
           <div>
             <h2 className="text-xl font-bold text-brand-navy">
               Questions ({questions.length})
             </h2>
+            {totalPages > 1 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Showing {startIndex + 1}–{Math.min(endIndex, questions.length)} of {questions.length} questions (Page {validCurrentPage} of {totalPages})
+              </p>
+            )}
           </div>
           {!isPublished && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="Import questions directly from a CSV or JSON file"
+              >
+                <span>📥</span>
+                <span>Import CSV</span>
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  onChange={handleImportCSVFile}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={() => {
+                  setBankTargetIndex(null);
+                  setShowBankModal(true);
+                }}
+                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs"
+                title="Import a new question from Question Bank"
+              >
+                <span>📚</span>
+                <span>From Question Bank</span>
+              </button>
               <button
                 onClick={addQuestion}
                 className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
               >
                 + Add Question
               </button>
-
             </div>
           )}
         </div>
 
         {questions.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <p className="text-gray-500 mb-4">No questions added yet</p>
+          <div className="text-center py-8 bg-gray-50 rounded-lg space-y-4">
+            <p className="text-gray-500 font-medium">No questions added yet</p>
             {!isPublished && (
-              <button
-                onClick={addQuestion}
-                className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
-              >
-                Add First Question
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <label
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <span>📥</span>
+                  <span>Import CSV</span>
+                  <input
+                    type="file"
+                    accept=".csv,.json"
+                    onChange={handleImportCSVFile}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={() => {
+                    setBankTargetIndex(null);
+                    setShowBankModal(true);
+                  }}
+                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs"
+                >
+                  <span>📚</span>
+                  <span>From Question Bank</span>
+                </button>
+                <button
+                  onClick={addQuestion}
+                  className="bg-brand-gold text-brand-navy px-5 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
+                >
+                  Add First Question
+                </button>
+              </div>
             )}
           </div>
         ) : (
-          <div className="space-y-6">
-            {questions.map((question, idx) => (
+          <>
+            <div className="space-y-6">
+            {crossSectionSource && crossSectionSourceQuiz && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-indigo-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm text-indigo-800">
+                      <strong>Shared Questions:</strong> These questions are from <strong>"{crossSectionSourceQuiz.title}"</strong> from another section in the same subject. You can use them as-is or modify them for your section.
+                    </p>
+                    <p className="text-xs text-indigo-600 mt-1">
+                      Total questions: {questions.length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {paginatedQuestions.map((question, index) => {
+              const idx = startIndex + index;
+              return (
               <div
-                key={question.id}
+                key={`${question.id}-${idx}`}
                 className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold transition-colors"
               >
                 {/* Collapsible header */}
@@ -1055,6 +1970,20 @@ export const InstructorQuiz = () => {
                     </h3>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    {!isPublished && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBankTargetIndex(idx);
+                          setShowBankModal(true);
+                        }}
+                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1 border border-amber-300 shadow-2xs"
+                        title={`Import question from Question Bank into Question #${idx + 1}`}
+                      >
+                        <span>📚</span>
+                        <span>Question Bank</span>
+                      </button>
+                    )}
                     <span className="text-xs text-gray-400 uppercase">{question.type === "mcq" ? "MCQ" : question.type === "true_false" ? "T/F" : question.type}</span>
                     <span className="text-xs bg-brand-navy/10 text-brand-navy px-2 py-0.5 rounded-full font-semibold">{question.points || 1} pt{(question.points || 1) > 1 ? "s" : ""}</span>
                   </div>
@@ -1064,6 +1993,20 @@ export const InstructorQuiz = () => {
                 {expandedQuestions.has(question.id) && (
                 <div className="mt-4">
                 <div className="flex justify-end gap-2 mb-4">
+                    {!isPublished && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setBankTargetIndex(idx);
+                          setShowBankModal(true);
+                        }}
+                        className="text-amber-900 hover:text-amber-950 text-xs font-bold px-3 py-1 bg-amber-100 hover:bg-amber-200 rounded-lg border border-amber-300 transition-colors flex items-center gap-1"
+                        title={`Import question from Question Bank into Question #${idx + 1}`}
+                      >
+                        <span>📚</span>
+                        <span>Import from Bank</span>
+                      </button>
+                    )}
                     <button
                       onClick={async (e) => {
                         e.preventDefault();
@@ -1260,8 +2203,37 @@ export const InstructorQuiz = () => {
                 </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-200 mt-6">
+              <p className="text-sm text-gray-500 font-medium">
+                Showing {startIndex + 1}–{Math.min(endIndex, questions.length)} of {questions.length} questions
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={validCurrentPage === 1}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700"
+                >
+                  Prev
+                </button>
+                {renderPageButtons()}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={validCurrentPage === totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
@@ -1347,6 +2319,9 @@ export const InstructorQuiz = () => {
           quizTitle={quizTitle}
           questions={questions.filter((q) => q.text.trim())}
           instructorId={userId}
+          onBeforeSubmitReview={async () => {
+            return await handleSaveQuiz(false, false);
+          }}
           onClose={() => setShowAnalysisModal(false)}
         />
       )}
@@ -1360,6 +2335,16 @@ export const InstructorQuiz = () => {
         }}
         onConfirm={handleArchiveWithSubject}
         questionText={questionToArchive?.text}
+      />
+
+      {/* Question Bank Import Modal */}
+      <ImportQuestionBankModal
+        isOpen={showBankModal}
+        onClose={() => setShowBankModal(false)}
+        onSelectQuestion={handleImportFromBank}
+        targetQuestionNumber={bankTargetIndex !== null ? bankTargetIndex + 1 : null}
+        currentSubjectIds={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_id).filter(Boolean)}
+        currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_name || s.name || s.subject_code).filter(Boolean)}
       />
     </div>
   );
