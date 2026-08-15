@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { notify } from "../utils/notify.jsx";
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { supabase } from "../supabaseClient";
+import { logAudit } from "../services/auditService";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
 import { QuizSuggestions } from "./QuizSuggestions";
 
@@ -167,14 +168,33 @@ export const QuizAnalysisResults = ({
   const handleForward = async () => {
     if (!results) return;
 
-    if (quizId === "draft" || !quizId) {
-      notify.error("Please save the quiz first before submitting for review.");
-      return;
-    }
-
     setForwardLoading(true);
 
     try {
+      let targetQuizId = quizId;
+
+      if (onBeforeSubmitReview) {
+        const saved = await onBeforeSubmitReview();
+        if (!saved) {
+          notify.error(
+            "Please fix quiz issues and save before submitting for review.",
+          );
+          setForwardLoading(false);
+          return;
+        }
+        if (typeof saved === "object" && saved?.id) {
+          targetQuizId = saved.id;
+        } else if (typeof saved === "string") {
+          targetQuizId = saved;
+        }
+      }
+
+      if (targetQuizId === "draft" || !targetQuizId) {
+        notify.error("Please save the quiz first before submitting for review.");
+        setForwardLoading(false);
+        return;
+      }
+
       const analysisPayload = {
         ...results,
         questionSnapshots: (questions || []).map((q, idx) => ({
@@ -193,16 +213,6 @@ export const QuizAnalysisResults = ({
         })),
       };
 
-      if (onBeforeSubmitReview) {
-        const saved = await onBeforeSubmitReview();
-        if (!saved) {
-          notify.error(
-            "Please fix quiz issues and save before submitting for review.",
-          );
-          return;
-        }
-      }
-
       // Determine which previous submission to link to
       const prevSubId =
         previousSubmissionId || existingSubmission?.id || null;
@@ -210,7 +220,7 @@ export const QuizAnalysisResults = ({
       const { error: insertError } = await supabase
         .from("quiz_analysis_submissions")
         .insert({
-          quiz_id: quizId,
+          quiz_id: targetQuizId,
           instructor_id: instructorId,
           analysis_results: analysisPayload,
           instructor_message: message || null,
@@ -219,6 +229,29 @@ export const QuizAnalysisResults = ({
         });
 
       if (insertError) throw insertError;
+
+      // Log quiz workflow history
+      try {
+        await supabase.rpc("log_quiz_status_change", {
+          p_quiz_id: quizId,
+          p_new_status: "submitted_for_review",
+          p_reason: prevSubId
+            ? "Resubmitted for approval after revision"
+            : "Submitted for approval by instructor",
+        });
+
+        await logAudit({
+          action: prevSubId ? "RESUBMITTED_FOR_REVIEW" : "SUBMITTED_FOR_REVIEW",
+          tableName: "quizzes",
+          recordId: quizId,
+          itemName: quizTitle || "Quiz",
+          previousStatus: prevSubId ? "revision_requested" : "draft",
+          newStatus: "submitted_for_review",
+          reason: message || (prevSubId ? "Resubmitted for approval after revision" : "Submitted for review by instructor"),
+        });
+      } catch (hErr) {
+        console.warn("Could not log status change:", hErr);
+      }
 
       setForwarded(true);
       notify.success(
