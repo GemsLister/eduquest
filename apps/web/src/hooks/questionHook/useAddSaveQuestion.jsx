@@ -14,6 +14,8 @@ export const useAddSaveQuestion = () => {
     points: 1,
     flag: "pending",
     quiz_id: null,
+    section_id: null,
+    subject_id: null,
   });
 
   const handleAddQuestion = () => {
@@ -25,6 +27,8 @@ export const useAddSaveQuestion = () => {
       points: 1,
       flag: "pending",
       quiz_id: null,
+      section_id: null,
+      subject_id: null,
     });
     setShowForm(true);
   };
@@ -78,28 +82,46 @@ export const useAddSaveQuestion = () => {
         }
         notify.success("Question updated successfully! Revision history saved.");
       } else {
-        // Create new question - need quiz_id
-        if (!formData.quiz_id) {
-          notify.warning("Please select a quiz first");
-          return;
+        // Create new question (can be linked to a quiz or saved as a standalone Question Bank entry)
+        const opts = (formData.options || []).filter((o) => o && o.trim());
+        const correctAnswerStr =
+          typeof formData.correctAnswer === "number"
+            ? opts[formData.correctAnswer] || opts[0] || "N/A"
+            : String(formData.correctAnswer || opts[0] || "N/A");
+
+        const payload = {
+          quiz_id: formData.quiz_id || null,
+          section_id: formData.section_id || null,
+          subject_id: formData.subject_id || null,
+          type: formData.type || "mcq",
+          text: formData.text,
+          options: opts,
+          correct_answer: correctAnswerStr,
+          points: formData.points || 1,
+          is_archived: false,
+        };
+
+        // If section_id is provided but no subject_id, derive subject from section
+        if (formData.section_id && !formData.subject_id) {
+          const { data: section } = await supabase
+            .from("sections")
+            .select("subject_id")
+            .eq("id", formData.section_id)
+            .single();
+          
+          if (section?.subject_id) {
+            payload.subject_id = section.subject_id;
+          }
         }
 
-        const { error } = await supabase.from("questions").insert({
-          quiz_id: formData.quiz_id,
-          type: "mcq", // Default type
-          text: formData.text,
-          options: formData.options,
-          correct_answer: formData.correctAnswer,
-          points: formData.points,
-          flag: formData.flag,
-        });
+        let { error } = await supabase.from("questions").insert(payload);
 
         if (error) {
           console.error("Error creating question:", error);
           notify.error("Failed to create question: " + error.message);
           return;
         }
-        notify.success("Question created successfully!");
+        notify.success("Question saved to Question Bank successfully!");
       }
 
       setShowForm(false);
@@ -110,6 +132,8 @@ export const useAddSaveQuestion = () => {
         points: 1,
         flag: "pending",
         quiz_id: null,
+        section_id: null,
+        subject_id: null,
       });
 
       // Refresh questions list
