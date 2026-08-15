@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
 import { formatTimeSpent } from "../../../utils/timeSpent.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
 
 export const QuizResults = () => {
   const { quizId } = useParams();
   const [searchParams] = useSearchParams();
   const sectionId = searchParams.get("section");
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quiz, setQuiz] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -30,12 +32,31 @@ export const QuizResults = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
+      // Get the instructor's sections to filter results
+      let instructorSectionIds = [];
+      if (user) {
+        const { data: sectionsData } = await supabase
+          .from("sections")
+          .select("id")
+          .eq("instructor_id", user.id);
+        
+        if (sectionsData) {
+          instructorSectionIds = sectionsData.map(s => s.id);
+        }
+      }
+
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
         .eq("quiz_id", quizId)
         .order("completed_at", { ascending: false, nullsFirst: false });
 
+      // Filter by instructor's sections to prevent cross-instructor result sharing
+      if (instructorSectionIds.length > 0) {
+        attemptsQuery = attemptsQuery.in("section_id", instructorSectionIds);
+      }
+
+      // Additionally filter by specific section if provided
       if (sectionId) {
         attemptsQuery = attemptsQuery.eq("section_id", sectionId);
       }
