@@ -6,6 +6,18 @@ import { quizService } from "../services/quizService.js";
 import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
 import { useSearchParams } from "react-router-dom";
 
+const isMissingTableError = (error) => {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  const code = error.code || "";
+  return (
+    code === "42P01" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+};
+
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
   const navigate = useNavigate();
@@ -36,6 +48,8 @@ export const PublicQuizPage = () => {
   const [hasExited, setHasExited] = useState(false);
   const [alreadyTaken, setAlreadyTaken] = useState(false);
   const [sectionName, setSectionName] = useState("");
+  const [quizSectionData, setQuizSectionData] = useState(null);
+  const [targetSectionId, setTargetSectionId] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const [timeExpired, setTimeExpired] = useState(false);
@@ -289,19 +303,44 @@ export const PublicQuizPage = () => {
     const loadQuiz = async () => {
       setError("");
       try {
-        const { data: quizData, error: quizError } = await supabase
-          .from("quizzes")
-          .select(
-            `
-            *,
-            sections (
-              exam_code
-            )
-          `,
-          )
+        let quizData = null;
+        let quizError = null;
+        let targetSectionId = requestedSectionId;
+
+        // First try to load by section-specific share token
+        const { data: sectionQuizData, error: sectionQuizError } = await supabase
+          .from("quiz_sections")
+          .select("*, quizzes(*), sections(*)")
           .eq("share_token", shareToken)
-          .eq("is_published", true)
-          .single();
+          .eq("quizzes.is_published", true)
+          .maybeSingle();
+
+        if (sectionQuizData && !sectionQuizError) {
+          // Found section-specific share token
+          quizData = sectionQuizData.quizzes;
+          setTargetSectionId(sectionQuizData.section_id);
+          setQuizSectionData(sectionQuizData);
+          console.log("Loaded quiz via section-specific share token");
+        } else {
+          // Fall back to regular quiz share token
+          const { data: regularQuizData, error: regularQuizError } = await supabase
+            .from("quizzes")
+            .select(
+              `
+              *,
+              sections (
+                exam_code
+              )
+            `,
+            )
+            .eq("share_token", shareToken)
+            .eq("is_published", true)
+            .maybeSingle();
+
+          quizData = regularQuizData;
+          quizError = regularQuizError;
+          console.log("Loaded quiz via regular share token");
+        }
 
         if (quizError) {
           console.error("Quiz loading error:", quizError);
@@ -318,7 +357,7 @@ export const PublicQuizPage = () => {
 
         const assignedToRequestedSection = await isQuizAssignedToSection(
           quizData.id,
-          requestedSectionId,
+          targetSectionId,
         );
         if (!assignedToRequestedSection) {
           setError("This quiz link is not valid for this section.");
@@ -327,11 +366,11 @@ export const PublicQuizPage = () => {
         }
 
         // Fetch section name for display
-        if (requestedSectionId) {
+        if (targetSectionId) {
           const { data: sectionData } = await supabase
             .from("sections")
             .select("*")
-            .eq("id", requestedSectionId)
+            .eq("id", targetSectionId)
             .maybeSingle();
           if (sectionData)
             setSectionName(sectionData.section_name || sectionData.name || "");
@@ -345,23 +384,171 @@ export const PublicQuizPage = () => {
 
         setQuiz(quizData);
 
-        let { data: questionsData, error: questionsError } = await supabase
-          .from("questions")
-          .select("id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer")
-          .eq("quiz_id", quizData.id)
-          .order("created_at", { ascending: true });
+        // ---------- Fetch questions via RPC, fallback to junction table & direct ----------
+        let questionsData = [];
+        let questionsError = null;
 
-        if (questionsError && (questionsError.code === "42703" || questionsError.message?.includes("auto_answer"))) {
-          const retry = await supabase
+        // Try SECURITY DEFINER RPC first to ensure questions are loaded for published private/public quizzes
+        try {
+          const { data: rpcQs, error: rpcErr } = await supabase.rpc(
+            "get_public_quiz_questions",
+            { p_quiz_id: quizData.id }
+          );
+
+          if (!rpcErr && Array.isArray(rpcQs) && rpcQs.length > 0) {
+            questionsData = rpcQs;
+          }
+        } catch (rpcCatchErr) {
+          console.warn("RPC get_public_quiz_questions skipped:", rpcCatchErr);
+        }
+
+        const tryViaJunction = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("quiz_questions")
+              .select(
+                "questions(id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer), order_index"
+              )
+              .eq("quiz_id", quizData.id)
+              .order("order_index", { ascending: true });
+            if (isMissingTableError(error)) return { ok: false, error };
+            if (error) return { ok: false, error };
+            if (!data || data.length === 0) return { ok: false, error: null };
+            const mapped = data
+              .map((r) => r.questions)
+              .filter((q) => q !== null);
+            if (mapped.length === 0) return { ok: false, error: null };
+            return { ok: true, data: mapped };
+          } catch (e) {
+            return { ok: false, error: null };
+          }
+        };
+
+        const tryDirect = async () => {
+          let { data, error } = await supabase
             .from("questions")
-            .select("id, quiz_id, type, text, options, points, created_at, correct_answer")
+            .select(
+              "id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer"
+            )
             .eq("quiz_id", quizData.id)
             .order("created_at", { ascending: true });
-          questionsData = retry.data;
-          questionsError = retry.error;
+
+          if (
+            error &&
+            (error.code === "42703" ||
+              error.message?.includes("auto_answer"))
+          ) {
+            const retry = await supabase
+              .from("questions")
+              .select(
+                "id, quiz_id, type, text, options, points, created_at, correct_answer"
+              )
+              .eq("quiz_id", quizData.id)
+              .order("created_at", { ascending: true });
+            data = retry.data;
+            error = retry.error;
+          }
+          if (error) return { ok: false, error };
+          return { ok: true, data };
+        };
+
+        if (questionsData.length === 0) {
+          const junc = await tryViaJunction();
+          if (junc.ok) {
+            questionsData = junc.data;
+          } else {
+            const dir = await tryDirect();
+            questionsData = dir.data || [];
+            if (!junc.ok && isMissingTableError(junc.error)) {
+              questionsError = dir.error || null;
+            } else {
+              questionsError = dir.error || junc.error;
+            }
+          }
         }
 
         if (questionsError) throw questionsError;
+
+        if (!questionsData || questionsData.length === 0) {
+          try {
+            const { data: sub } = await supabase
+              .from("quiz_analysis_submissions")
+              .select("analysis_results")
+              .eq("quiz_id", quizData.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const snapshots =
+              sub?.analysis_results?.questionSnapshots ||
+              sub?.analysis_results?.analysis ||
+              [];
+
+            if (Array.isArray(snapshots) && snapshots.length > 0) {
+              questionsData = snapshots
+                .slice()
+                .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+                .map((snap) => {
+                  const qType = snap.type || "mcq";
+                  const isMCQ = qType === "mcq";
+                  const isTF = qType === "true_false";
+                  let rawOptions =
+                    isMCQ && Array.isArray(snap.options) ? snap.options : [];
+                  while (isMCQ && rawOptions.length < 4) rawOptions.push("");
+                  rawOptions = rawOptions.filter(
+                    (o, idx) =>
+                      !isMCQ ||
+                      idx < 4 ||
+                      String(o || "").trim().length > 0,
+                  );
+                  if (isMCQ && rawOptions.length < 4) {
+                    while (rawOptions.length < 4) rawOptions.push("");
+                  }
+
+                  let correctAnswer = null;
+                  const snapCorrect = snap.correctAnswer;
+                  if (isMCQ) {
+                    if (typeof snapCorrect === "number") {
+                      correctAnswer = rawOptions[snapCorrect] ?? null;
+                    } else {
+                      correctAnswer = snapCorrect ?? null;
+                    }
+                  } else if (isTF) {
+                    correctAnswer =
+                      String(snapCorrect ?? "true").toLowerCase() === "true" ||
+                      snapCorrect === 0 ||
+                      snapCorrect === "0"
+                        ? "true"
+                        : "false";
+                  } else {
+                    correctAnswer = snapCorrect ?? null;
+                  }
+
+                  const pseudoId =
+                    snap.questionId ||
+                    `restored-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+                  return {
+                    id: String(pseudoId),
+                    quiz_id: quizData.id,
+                    type: isTF ? "true_false" : qType,
+                    text: snap.questionText || snap.text || "",
+                    options: isMCQ ? rawOptions : [],
+                    points: 1,
+                    correct_answer: correctAnswer,
+                    auto_answer: false,
+                    created_at: new Date().toISOString(),
+                  };
+                });
+            }
+          } catch (subErr) {
+            console.warn(
+              "[PublicQuizPage.loadQuiz] Could not restore from analysis snapshot",
+              subErr,
+            );
+          }
+        }
+
         // Store questions in original order; shuffling happens when starting/resuming
         setQuestions(questionsData || []);
       } catch (err) {
@@ -387,19 +574,80 @@ export const PublicQuizPage = () => {
 
   // Auto-start quiz after Google auth (wait for both quiz AND questions to be loaded)
   const googleStartRef = useRef(false);
+  const authDeadlineRef = useRef(null);
   useEffect(() => {
+    if (!searchParams.get("auth") || searchParams.get("auth") !== "success") return;
+
+    // Start a 20-second deadline — if we still haven't started, show a concrete error
+    if (authDeadlineRef.current === null) {
+      authDeadlineRef.current = setTimeout(() => {
+        if (!hasStarted) {
+          const why = [];
+          if (!session?.user) why.push("Google session not established");
+          if (!quiz) why.push("Quiz data not loaded");
+          if (quiz && questions.length === 0) why.push("No questions exist for this quiz");
+          if (!googleStartRef.current && quiz && questions.length === 0) {
+            googleStartRef.current = true; // block duplicate
+          }
+          setError(
+            "Could not automatically start the quiz. " +
+            (why.length > 0 ? `Reason: ${why.join(", ")}. ` : "") +
+            "Please sign in again using the button below.",
+          );
+        }
+      }, 20000);
+    }
+
     if (
       session?.user &&
-      searchParams.get("auth") === "success" &&
       !hasStarted &&
       quiz &&
       questions.length > 0 &&
       !googleStartRef.current
     ) {
       googleStartRef.current = true;
+      if (authDeadlineRef.current) {
+        clearTimeout(authDeadlineRef.current);
+        authDeadlineRef.current = null;
+      }
       handleGoogleQuizStart();
+      return;
     }
-  }, [session, searchParams, hasStarted, quiz, questions]);
+
+    // If auth=success + everything loaded but questions = 0 even after snapshot fallback,
+    // fail fast instead of infinite spinner
+    if (
+      session?.user &&
+      quiz &&
+      questions.length === 0 &&
+      !hasStarted &&
+      !googleStartRef.current &&
+      loading === false
+    ) {
+      googleStartRef.current = true;
+      if (authDeadlineRef.current) {
+        clearTimeout(authDeadlineRef.current);
+        authDeadlineRef.current = null;
+      }
+      setError(
+        "This quiz currently has no questions available to take. " +
+        "Please contact your instructor to populate the quiz before attempting again.",
+      );
+    }
+
+    return () => {
+      // don't clear on rerender; only clear if component fully unmounts below
+    };
+  }, [session, searchParams, hasStarted, quiz, questions, loading]);
+
+  useEffect(() => {
+    return () => {
+      if (authDeadlineRef.current) {
+        clearTimeout(authDeadlineRef.current);
+        authDeadlineRef.current = null;
+      }
+    };
+  }, []);
 
   const { handleGoogleQuizLogin } = useGoogleLogin();
 
@@ -412,15 +660,18 @@ export const PublicQuizPage = () => {
     if (!session?.user) return;
     setError("");
 
-    // Check if user already has an attempt for this quiz
     const user = session.user;
     const email = user.email;
     const studentId = email.split("@")[0];
     const studentName = user.user_metadata?.full_name || studentId;
 
-    if (!email.endsWith("@gmail.com")) {
+    const instructorDomain = import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION || "@student.buksu.edu.ph";
+    const studentDomain = import.meta.env.VITE_STUDENT_ACCOUNT_EXTENSION || "@gmail.com";
+
+    const isInstructorEmail = email.endsWith(instructorDomain);
+    if (isInstructorEmail) {
       setError(
-        "You are currently signed in with an instructor account. To take this quiz as a student, please switch to a @gmail.com account.",
+        `You are currently signed in with an instructor account (${email}). To take this quiz as a student, please switch to a student account (e.g. ${studentDomain}).`,
       );
       await supabase.auth.signOut();
       setSession(null);
@@ -472,8 +723,8 @@ export const PublicQuizPage = () => {
         .eq("user_id", session.user.id)
         .in("status", ["in_progress", "completed"]);
 
-      attemptsQuery = requestedSectionId
-        ? attemptsQuery.eq("section_id", requestedSectionId)
+      attemptsQuery = targetSectionId
+        ? attemptsQuery.eq("section_id", targetSectionId)
         : attemptsQuery.is("section_id", null);
 
       const { data: existingAttempts, error: checkError } = await attemptsQuery;
@@ -507,7 +758,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
-            section_id: requestedSectionId || null,
+            section_id: targetSectionId || null,
             user_id: session.user.id,
             student_name: studentName,
             student_email: email,
@@ -613,8 +864,8 @@ export const PublicQuizPage = () => {
         .eq("user_id", student.id)
         .in("status", ["in_progress", "completed"]);
 
-      attemptsQuery = requestedSectionId
-        ? attemptsQuery.eq("section_id", requestedSectionId)
+      attemptsQuery = targetSectionId
+        ? attemptsQuery.eq("section_id", targetSectionId)
         : attemptsQuery.is("section_id", null);
 
       const { data: existingAttempts, error: checkError } = await attemptsQuery;
@@ -648,7 +899,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
-            section_id: requestedSectionId || null,
+            section_id: targetSectionId || null,
             student_id: student.id,
             student_name: studentName,
             student_email: studentEmail,
@@ -921,6 +1172,14 @@ export const PublicQuizPage = () => {
 
   if (completed) {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
+    const totalTime = Object.values(questionTimeSpent).reduce((s, v) => s + (v || 0), 0);
+    const formatTimeSpentLocal = (sec) => {
+      if (!sec || sec <= 0) return "< 1s";
+      const m = Math.floor(sec / 60);
+      const s = Math.round(sec % 60);
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    };
 
     const handleExit = async () => {
       await supabase.auth.signOut();
@@ -943,18 +1202,54 @@ export const PublicQuizPage = () => {
     }
 
     return (
-      <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center">
+      <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center overflow-auto py-12">
         <h1 className="text-3xl font-bold text-white drop-shadow-lg">
           Quiz Complete!
         </h1>
-        <div className="mt-4 rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100">
-          <p className="text-5xl font-bold text-brand-navy">
-            {score}/{totalPoints}
-          </p>
-          <p className="mt-2 text-gray-600">Your responses are recorded.</p>
+        <div className="mt-4 rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100 text-left">
+          <div className="text-center">
+            <p className="text-5xl font-bold text-brand-navy">
+              {score}/{totalPoints}
+            </p>
+            <p className="mt-2 text-gray-600">Your responses are recorded.</p>
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm font-semibold">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Total Time: {formatTimeSpentLocal(totalTime)}
+            </div>
+          </div>
+
+          {/* Per Question Time Breakdown */}
+          {questions.length > 0 && (
+            <div className="mt-8 border-t pt-6">
+              <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <svg className="w-4 h-4 text-brand-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Time per Question
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                {questions.map((q, idx) => (
+                  <div
+                    key={q.id}
+                    className="flex items-center justify-between text-sm bg-gray-50 border border-gray-100 rounded-lg px-3 py-2"
+                  >
+                    <span className="text-gray-700 truncate max-w-[75%]">
+                      <span className="font-semibold text-brand-navy mr-2">Q{idx + 1}.</span>
+                      {q.text?.length > 50 ? q.text.substring(0, 50) + "…" : q.text}
+                    </span>
+                    <span className="text-gray-600 font-semibold whitespace-nowrap ml-2">
+                      {formatTimeSpentLocal(questionTimeSpent[q.id])}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 border-t pt-6">
-            <p className="text-xs text-gray-500 mb-4 italic">
+            <p className="text-xs text-gray-500 mb-4 italic text-center">
               Note: You will be signed out when you exit to protect your
               account.
             </p>
@@ -1084,8 +1379,8 @@ export const PublicQuizPage = () => {
               ) : (
                 <div className="mt-6">
                   <p className="text-sm text-gray-600 mb-4 text-center">
-                    Sign in with your institutional Google account
-                    (@student.buksu.edu.ph) to start the exam quickly.
+                    Sign in with your Google account
+                    to start the exam quickly.
                   </p>
                   <button
                     onClick={handleGoogleQuizLoginClick}
