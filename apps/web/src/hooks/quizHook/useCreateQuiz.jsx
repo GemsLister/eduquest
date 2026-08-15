@@ -10,6 +10,7 @@ export const useCreateQuiz = ({ user } = {}) => {
     description: "",
     duration: "",
     section_ids: [],
+    is_private: true,
   });
   const [showQuizForm, setShowQuizForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +62,7 @@ export const useCreateQuiz = ({ user } = {}) => {
               ? parseInt(quizFormData.duration)
               : null,
             is_published: false,
+            is_private: quizFormData.is_private !== false,
             section_id: sectionIds[0],
           },
         ])
@@ -104,7 +106,7 @@ export const useCreateQuiz = ({ user } = {}) => {
         console.error("Auto-share failed:", autoShareError);
       }
 
-      setQuizFormData({ title: "", description: "", duration: "", section_ids: [] });
+      setQuizFormData({ title: "", description: "", duration: "", section_ids: [], is_private: true });
       setShowQuizForm(false);
 
       notify.success(`Quiz "${data.title}" created successfully!`);
