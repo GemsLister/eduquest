@@ -2,6 +2,18 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 
+const isMissingTableError = (error) => {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  const code = error.code || "";
+  return (
+    code === "42P01" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+};
+
 export const QuizResultDetail = () => {
   const { quizId, attemptId } = useParams();
   const navigate = useNavigate();
@@ -38,12 +50,45 @@ export const QuizResultDetail = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
-      // Load questions
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("questions")
-        .select("*")
-        .eq("quiz_id", quizId)
-        .order("created_at", { ascending: true });
+      // Load questions - junction table first, fallback direct
+      let questionsData = [];
+      let questionsError = null;
+
+      try {
+        const { data: junc, error: juncErr } = await supabase
+          .from("quiz_questions")
+          .select("questions(*), order_index")
+          .eq("quiz_id", quizId)
+          .order("order_index", { ascending: true });
+
+        if (!isMissingTableError(juncErr) && junc && junc.length > 0) {
+          questionsData = junc.map((r) => r.questions).filter((q) => q);
+        } else if (!isMissingTableError(juncErr) && !juncErr) {
+          const direct = await supabase
+            .from("questions")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .order("created_at", { ascending: true });
+          questionsData = direct.data || [];
+          questionsError = direct.error;
+        } else {
+          const direct = await supabase
+            .from("questions")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .order("created_at", { ascending: true });
+          questionsData = direct.data || [];
+          questionsError = direct.error;
+        }
+      } catch (e) {
+        const direct = await supabase
+          .from("questions")
+          .select("*")
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true });
+        questionsData = direct.data || [];
+        questionsError = direct.error;
+      }
 
       if (questionsError) throw questionsError;
       setQuestions(questionsData || []);
