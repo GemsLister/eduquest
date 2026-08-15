@@ -30,7 +30,7 @@ SELECT
   q.id AS question_id,
   ROW_NUMBER() OVER (
     PARTITION BY q.quiz_id
-    ORDER BY COALESCE(q.order_index, 0), q.created_at
+    ORDER BY q.created_at, q.id
   ) - 1 AS order_index,
   NOW()
 FROM public.questions q
