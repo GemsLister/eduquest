@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
 
 export const CreateQuizFormButton = ({
   onCreateQuiz,
@@ -142,8 +143,7 @@ export const CreateQuizFormButton = ({
                 ) : (
                   <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-xs text-yellow-700">
-                      No subjects found. Please create a subject first from the
-                      dashboard before creating a quiz.
+                      No sections found. Please create a section with an assigned subject first from the dashboard before creating a quiz.
                     </p>
                   </div>
                 )}
@@ -200,6 +200,66 @@ export const CreateQuizFormButton = ({
                   placeholder="Leave blank for unlimited time"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
                 />
+              </div>
+
+              {/* Visibility Setting */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Quiz Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      quizFormData.is_private !== false
+                        ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="quiz_visibility"
+                      checked={quizFormData.is_private !== false}
+                      onChange={() =>
+                        setQuizFormData({ ...quizFormData, is_private: true })
+                      }
+                      className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-gray-800 flex items-center gap-1">
+                        🔒 Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
+                      </span>
+                      <span className="block text-xs text-gray-500 mt-0.5">
+                        Only you can see this quiz and its questions.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      quizFormData.is_private === false
+                        ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="quiz_visibility"
+                      checked={quizFormData.is_private === false}
+                      onChange={() =>
+                        setQuizFormData({ ...quizFormData, is_private: false })
+                      }
+                      className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-gray-800">
+                        🌐 Public
+                      </span>
+                      <span className="block text-xs text-gray-500 mt-0.5">
+                        Visible to other instructors; questions added to Question Bank.
+                      </span>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Info box */}

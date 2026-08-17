@@ -1,4 +1,5 @@
 import { supabase } from "../../supabaseClient";
+import { logAudit } from "../auditService.js";
 
 /**
  * Create (or update) the single revision copy of a quiz from item-analysis
@@ -255,6 +256,18 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
         "Auto-generated submission from Item Analysis revisions.",
       status: "approved",
       admin_feedback: "Auto-approved revision based on Item Analysis.",
+    });
+
+    // Log the revision audit event
+    await logAudit({
+      action: "REVISION_SUBMITTED",
+      tableName: "quizzes",
+      recordId: newQuiz.id,
+      newValues: {
+        quizId: newQuiz.id,
+        versionNumber,
+        revisedQuestionsCount: revisedQuestions.length,
+      },
     });
 
     return { quizId: newQuiz.id, error: null };

@@ -10,6 +10,7 @@ export const useCreateQuiz = ({ user } = {}) => {
     description: "",
     duration: "",
     section_ids: [],
+    is_private: true,
   });
   const [showQuizForm, setShowQuizForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +62,7 @@ export const useCreateQuiz = ({ user } = {}) => {
               ? parseInt(quizFormData.duration)
               : null,
             is_published: false,
+            is_private: quizFormData.is_private !== false,
             section_id: sectionIds[0],
           },
         ])
@@ -80,13 +82,31 @@ export const useCreateQuiz = ({ user } = {}) => {
 
       const { error: qsError } = await supabase
         .from("quiz_sections")
-        .insert(rows);
+        .insert(rows)
+        .select(); // Select to get the generated share tokens
 
       if (qsError) {
         console.error("Error inserting quiz_sections:", qsError);
+      } else {
+        console.log("Quiz sections created with share tokens:", qsError?.data);
       }
 
-      setQuizFormData({ title: "", description: "", duration: "", section_ids: [] });
+      // Auto-share quiz with all sections in the same subject
+      try {
+        const { error: autoShareError } = await supabase.rpc("auto_share_quiz_with_subject_sections", {
+          p_quiz_id: data.id
+        });
+        
+        if (autoShareError) {
+          console.error("Error auto-sharing quiz:", autoShareError);
+        } else {
+          console.log("Quiz auto-shared with same-subject sections");
+        }
+      } catch (autoShareError) {
+        console.error("Auto-share failed:", autoShareError);
+      }
+
+      setQuizFormData({ title: "", description: "", duration: "", section_ids: [], is_private: true });
       setShowQuizForm(false);
 
       notify.success(`Quiz "${data.title}" created successfully!`);

@@ -1,4 +1,5 @@
 import { supabase } from "../../supabaseClient";
+import { logAudit } from "../auditService.js";
 
 /**
  * Calculate auto-flag based on difficulty status
@@ -268,6 +269,14 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
 
     // Dispatch event to notify question list to refresh
     window.dispatchEvent(new Event("questions-updated"));
+
+    // Log the audit event
+    await logAudit({
+      action: "ANALYSIS_SAVED",
+      tableName: "item_analysis",
+      recordId: quizId,
+      newValues: { quizId, count: results.length },
+    });
 
     return { data: results, error: null };
   } catch (error) {

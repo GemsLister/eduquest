@@ -8,6 +8,8 @@ import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
 import { createRevisionCopy } from "../../services/createRevisionCopy";
 import { notify } from "../../utils/notify.jsx";
+import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
+import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -543,7 +545,18 @@ export const MySubmissions = () => {
                           : "View Charts"}
                       </button>
                       {expandedId === submission.id && (
-                        <div className="mt-3 space-y-4">
+                        <div className="mt-4 space-y-6">
+                          {/* Exam Progress Status Timeline */}
+                          <ExamStatusTimeline submission={submission} />
+
+                          {/* Revision History */}
+                          <ExamRevisionHistory
+                            revisions={submissions.filter(
+                              (s) => (s.quizzes?.parent_quiz_id || s.quiz_id) === (submission.quizzes?.parent_quiz_id || submission.quiz_id)
+                            )}
+                            currentSubmissionId={submission.id}
+                          />
+
                           {/* TOS Compliance Badge */}
                           {(() => {
                             const lotsPct =

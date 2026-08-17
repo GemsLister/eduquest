@@ -38,21 +38,22 @@ export const useRegister = () => {
         return { success: false, message: passwordError };
       }
 
-      if (!userData.captchaToken) {
-        notify.error("Please complete the captcha verification");
-        return { success: false, message: "Captcha required" };
+      const signUpOptions = {
+        data: {
+          username: userData.username.trim(),
+        },
+        emailRedirectTo: import.meta.env.VITE_LOGIN_URL,
+      };
+
+      // Only include captchaToken if we have a real one (not dummy)
+      if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+        signUpOptions.captchaToken = userData.captchaToken;
       }
 
       const { data, error } = await supabase.auth.signUp({
         email: userData.email.trim(),
         password: userData.password,
-        options: {
-          captchaToken: userData.captchaToken,
-          data: {
-            username: userData.username.trim(),
-          },
-          emailRedirectTo: import.meta.env.VITE_LOGIN_URL,
-        },
+        options: signUpOptions,
       });
 
       // Handle "user already exists" — this happens when someone previously

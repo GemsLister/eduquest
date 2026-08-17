@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS public.quiz_responses (
   answer TEXT, -- student's answer
   is_correct BOOLEAN,
   points_earned INTEGER DEFAULT 0,
+  time_spent_seconds NUMERIC(12, 1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

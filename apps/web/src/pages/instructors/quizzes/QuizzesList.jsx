@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "../../../context/AuthContext.jsx";
 
 export const QuizzesList = ({
   quizzes,
@@ -7,7 +8,9 @@ export const QuizzesList = ({
   archivingQuizId,
   handleToggleAccess,
   togglingQuizId,
+  currentSectionId,
 }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { sectionId } = useParams();
   const [copiedId, setCopiedId] = useState(null);
@@ -15,7 +18,7 @@ export const QuizzesList = ({
   const buildShareUrl = (quiz) => {
     if (!quiz.share_token) return "";
     const base = `${window.location.origin}/quiz/${quiz.share_token}`;
-    return sectionId ? `${base}?section=${sectionId}` : base;
+    return quiz.section_id ? `${base}?section=${quiz.section_id}` : base;
   };
 
   const copyLink = (quiz) => {
@@ -81,6 +84,14 @@ export const QuizzesList = ({
                 >
                   {/* Status badges — top right */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    {quiz.source_section_name && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700"
+                        title={`Shared from ${quiz.source_section_name}`}
+                      >
+                        From {quiz.source_section_name}
+                      </span>
+                    )}
                     {quiz.is_published && (
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -113,6 +124,17 @@ export const QuizzesList = ({
 
                 {/* Card Body */}
                 <div className="p-4 flex-1 flex flex-col gap-3">
+                  {/* Owner Row */}
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="font-semibold text-slate-500">Owner:</span>
+                    <span className="font-extrabold text-slate-900 truncate">
+                      ({quiz.owner_name || quiz.instructor_name || user?.user_metadata?.full_name || "Instructor"})
+                    </span>
+                  </div>
+
                   {/* Stats Row */}
                   <div className="flex items-center gap-3 text-xs">
                     <div className="flex items-center gap-1 text-gray-500">
@@ -219,8 +241,8 @@ export const QuizzesList = ({
                       <button
                         onClick={() =>
                           navigate(
-                            sectionId
-                              ? `/instructor-dashboard/quiz-results/${quiz.id}?section=${sectionId}`
+                            quiz.section_id
+                              ? `/instructor-dashboard/quiz-results/${quiz.id}?section=${quiz.section_id}`
                               : `/instructor-dashboard/quiz-results/${quiz.id}`,
                           )
                         }

@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
+import { formatTimeSpent } from "../../../utils/timeSpent.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
 
 export const QuizResults = () => {
   const { quizId } = useParams();
   const [searchParams] = useSearchParams();
   const sectionId = searchParams.get("section");
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quiz, setQuiz] = useState(null);
   const [attempts, setAttempts] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [timeByAttemptQuestion, setTimeByAttemptQuestion] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -27,12 +32,31 @@ export const QuizResults = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
+      // Get the instructor's sections to filter results
+      let instructorSectionIds = [];
+      if (user) {
+        const { data: sectionsData } = await supabase
+          .from("sections")
+          .select("id")
+          .eq("instructor_id", user.id);
+        
+        if (sectionsData) {
+          instructorSectionIds = sectionsData.map(s => s.id);
+        }
+      }
+
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
         .eq("quiz_id", quizId)
         .order("completed_at", { ascending: false, nullsFirst: false });
 
+      // Filter by instructor's sections to prevent cross-instructor result sharing
+      if (instructorSectionIds.length > 0) {
+        attemptsQuery = attemptsQuery.in("section_id", instructorSectionIds);
+      }
+
+      // Additionally filter by specific section if provided
       if (sectionId) {
         attemptsQuery = attemptsQuery.eq("section_id", sectionId);
       }
@@ -40,6 +64,41 @@ export const QuizResults = () => {
       const { data: attemptsData, error: attemptsError } = await attemptsQuery;
       if (attemptsError) throw attemptsError;
       setAttempts(attemptsData || []);
+
+      const { data: questionsData, error: questionsError } = await supabase
+        .from("questions")
+        .select("id, text")
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: true });
+
+      if (questionsError) throw questionsError;
+      setQuestions(questionsData || []);
+
+      const completedIds = (attemptsData || [])
+        .filter((a) => a.status === "completed")
+        .map((a) => a.id);
+
+      if (completedIds.length > 0) {
+        const { data: responsesData, error: responsesError } = await supabase
+          .from("quiz_responses")
+          .select("attempt_id, question_id, time_spent_seconds, answer")
+          .in("attempt_id", completedIds);
+
+        if (responsesError) throw responsesError;
+
+        const timeMap = {};
+        (responsesData || []).forEach((r) => {
+          const hasAnswer =
+            r.answer !== null && r.answer !== undefined && r.answer !== "";
+          const hasTime = (r.time_spent_seconds ?? 0) > 0;
+          if (!hasAnswer && !hasTime) return;
+          if (!timeMap[r.attempt_id]) timeMap[r.attempt_id] = {};
+          timeMap[r.attempt_id][r.question_id] = r.time_spent_seconds ?? 0;
+        });
+        setTimeByAttemptQuestion(timeMap);
+      } else {
+        setTimeByAttemptQuestion({});
+      }
     } catch (err) {
       setError(err.message || "Failed to load results");
       console.error(err);
@@ -54,6 +113,15 @@ export const QuizResults = () => {
 
   const getStudentEmail = (attempt) => {
     return attempt.student_email || "N/A";
+  };
+
+  const getTotalTimeForAttempt = (attemptId) => {
+    const perQuestion = timeByAttemptQuestion[attemptId];
+    if (!perQuestion) return 0;
+    return Object.values(perQuestion).reduce(
+      (sum, sec) => sum + (sec || 0),
+      0,
+    );
   };
 
   const formatDate = (dateString) => {
@@ -150,6 +218,9 @@ export const QuizResults = () => {
                 <th className="px-6 py-4 text-left font-semibold">Email</th>
                 <th className="px-6 py-4 text-center font-semibold">Score</th>
                 <th className="px-6 py-4 text-center font-semibold">Status</th>
+                <th className="px-6 py-4 text-center font-semibold">
+                  Total time
+                </th>
                 <th className="px-6 py-4 text-left font-semibold">Completed</th>
                 <th className="px-6 py-4 text-center font-semibold">Action</th>
               </tr>
@@ -173,6 +244,11 @@ export const QuizResults = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     {getStatusBadge(attempt)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-700 whitespace-nowrap">
+                    {attempt.status === "completed"
+                      ? formatTimeSpent(getTotalTimeForAttempt(attempt.id))
+                      : "—"}
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">
                     {formatDate(attempt.completed_at)}
@@ -200,6 +276,76 @@ export const QuizResults = () => {
           </table>
         </div>
       )}
+
+      {attempts.some((a) => a.status === "completed") &&
+        questions.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-lg font-bold text-brand-navy">
+                Time spent per question
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Time spent on each answered item (students who completed the quiz).
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max text-sm">
+                <thead className="bg-brand-navy text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold sticky left-0 bg-brand-navy z-10">
+                      Student
+                    </th>
+                    {questions.map((q, idx) => (
+                      <th
+                        key={q.id}
+                        className="px-3 py-3 text-center font-semibold whitespace-nowrap max-w-[8rem]"
+                        title={q.text}
+                      >
+                        Q{idx + 1}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center font-semibold">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {attempts
+                    .filter((a) => a.status === "completed")
+                    .map((attempt) => (
+                      <tr key={attempt.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-100">
+                          <div>{getStudentName(attempt)}</div>
+                          <div className="text-xs text-gray-500 font-normal">
+                            {getStudentEmail(attempt)}
+                          </div>
+                        </td>
+                        {questions.map((q) => {
+                          const perQuestion = timeByAttemptQuestion[attempt.id];
+                          const hasEntry =
+                            perQuestion && q.id in perQuestion;
+                          const seconds = hasEntry
+                            ? perQuestion[q.id]
+                            : undefined;
+                          return (
+                            <td
+                              key={q.id}
+                              className="px-3 py-3 text-center text-gray-700 whitespace-nowrap"
+                            >
+                              {hasEntry ? formatTimeSpent(seconds) : "—"}
+                            </td>
+                          );
+                        })}
+                        <td className="px-4 py-3 text-center font-semibold text-brand-navy whitespace-nowrap">
+                          {formatTimeSpent(getTotalTimeForAttempt(attempt.id))}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
       {attempts.length > 0 && (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">

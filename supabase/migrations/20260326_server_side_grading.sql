@@ -19,6 +19,7 @@ DECLARE
   v_is_correct     BOOLEAN := FALSE;
   v_points_earned  INTEGER := 0;
   v_existing_id    UUID;
+  v_existing_time  NUMERIC(12, 1);
 BEGIN
   -- Look up the question (only the DB can see correct_answer)
   SELECT correct_answer, type, options, COALESCE(points, 1)
@@ -44,8 +45,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- Upsert response
-  SELECT id INTO v_existing_id
+  -- Upsert response (preserve time_spent_seconds)
+  SELECT id, time_spent_seconds INTO v_existing_id, v_existing_time
     FROM quiz_responses
    WHERE attempt_id = p_attempt_id
      AND question_id = p_question_id;
@@ -57,8 +58,8 @@ BEGIN
            points_earned = v_points_earned
      WHERE id = v_existing_id;
   ELSE
-    INSERT INTO quiz_responses (attempt_id, question_id, answer, is_correct, points_earned)
-    VALUES (p_attempt_id, p_question_id, p_answer, v_is_correct, v_points_earned);
+    INSERT INTO quiz_responses (attempt_id, question_id, answer, is_correct, points_earned, time_spent_seconds)
+    VALUES (p_attempt_id, p_question_id, p_answer, v_is_correct, v_points_earned, 0);
   END IF;
 END;
 $$;
@@ -133,8 +134,8 @@ BEGIN
              points_earned = v_points_earned
        WHERE id = v_existing_id;
     ELSE
-      INSERT INTO quiz_responses (attempt_id, question_id, answer, is_correct, points_earned)
-      VALUES (p_attempt_id, v_question_id, v_answer, v_is_correct, v_points_earned);
+      INSERT INTO quiz_responses (attempt_id, question_id, answer, is_correct, points_earned, time_spent_seconds)
+      VALUES (p_attempt_id, v_question_id, v_answer, v_is_correct, v_points_earned, 0);
     END IF;
   END LOOP;
 

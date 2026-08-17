@@ -8,15 +8,24 @@ export const useGoogleLogin = () => {
       import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL ||
       `${window.location.origin}/instructor-dashboard`;
 
+    const instructorDomain =
+      import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION?.replace("@", "") ||
+      null;
+
+    const queryParams = {
+      access_type: "offline",
+      prompt: "consent",
+    };
+
+    if (instructorDomain) {
+      queryParams.hd = instructorDomain;
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: redirectUrl,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-          hd: "student.buksu.edu.ph",
-        },
+        queryParams,
       },
     });
   };
@@ -32,7 +41,6 @@ export const useGoogleLogin = () => {
         queryParams: {
           access_type: "offline",
           prompt: "consent",
-          hd: "gmail.com",
         },
       },
     });

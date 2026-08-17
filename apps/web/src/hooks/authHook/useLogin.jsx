@@ -10,11 +10,6 @@ export const useLogin = () => {
         .trim()
         .toLowerCase();
 
-      if (!userData.captchaToken) {
-        notify.error("Please complete the captcha verification");
-        return;
-      }
-
       // Check if account is locked (server-side)
       const { data: lockStatus } = await supabase.rpc("check_login_lockout", {
         p_email: email,
@@ -26,10 +21,16 @@ export const useLogin = () => {
         return;
       }
 
+      const signInOptions = {};
+      // Only include captchaToken if we have a real one (not dummy)
+      if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+        signInOptions.captchaToken = userData.captchaToken;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: userData.password,
-        options: { captchaToken: userData.captchaToken },
+        options: signInOptions,
       });
 
       if (error) {

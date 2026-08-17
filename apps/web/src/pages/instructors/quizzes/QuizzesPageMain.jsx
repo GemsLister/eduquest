@@ -31,18 +31,18 @@ export const QuizzesPageMain = () => {
 
   // ── Filter logic ──
   const filterQuiz = (quiz, key) => {
-    if (key === "archived") return quiz.is_archived;
+    if (key === "archived") return Boolean(quiz.is_archived);
     if (quiz.is_archived) return false;
 
     switch (key) {
       case "all":
         return true;
       case "drafts":
-        return !quiz.admin_review_status && !quiz.is_published;
+        return !quiz.is_published && (!quiz.admin_review_status || quiz.admin_review_status === "draft");
       case "in_review":
-        return !quiz.is_published && !!quiz.admin_review_status;
+        return !quiz.is_published && Boolean(quiz.admin_review_status) && quiz.admin_review_status !== "draft";
       case "published":
-        return quiz.is_published;
+        return Boolean(quiz.is_published);
       default:
         return true;
     }
@@ -340,11 +340,47 @@ export const QuizzesPageMain = () => {
                     <div
                       className={`px-5 py-4 relative bg-gradient-to-r group-hover:opacity-95 transition-opacity ${getCardGradient(quiz)}`}
                     >
-                      <span
-                        className={`absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${state.bg}`}
-                      >
-                        {state.label}
-                      </span>
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        {/* Collaboration Badge */}
+                        {quiz.owner_id && quiz.owner_id !== user?.id && (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-300"
+                            title={`Shared by ${quiz.owner_name || 'another instructor'}`}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3 inline mr-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            Shared
+                          </span>
+                        )}
+                        {/* Privacy Badge */}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            quiz.is_private !== false
+                              ? "bg-gray-800/80 text-gray-100 border-gray-600"
+                              : "bg-emerald-800/80 text-emerald-100 border-emerald-600"
+                          }`}
+                        >
+                          {quiz.is_private !== false ? "🔒 Private" : "🌐 Public"}
+                        </span>
+                        {/* Status Badge */}
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${state.bg}`}
+                        >
+                          {state.label}
+                        </span>
+                      </div>
                       <h3
                         className={`font-bold text-lg pr-20 leading-snug line-clamp-2 ${getCardTextColor(quiz)}`}
                       >
@@ -375,6 +411,17 @@ export const QuizzesPageMain = () => {
 
                     {/* Card Body */}
                     <div className="p-4 flex-1 flex flex-col gap-3">
+                      {/* Owner Row */}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="font-semibold text-slate-500">Owner:</span>
+                        <span className="font-extrabold text-slate-900 truncate">
+                          ({quiz.owner_name || (quiz.profiles ? `${quiz.profiles.first_name || ''} ${quiz.profiles.last_name || ''}`.trim() : null) || user?.user_metadata?.full_name || "Instructor"})
+                        </span>
+                      </div>
+
                       {/* Senior Faculty Feedback Inline */}
                       {quiz.admin_review_status === "revision_requested" && (
                         <div className="rounded-lg border px-3 py-2 text-xs border-orange-200 bg-orange-50 text-orange-700">

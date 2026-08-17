@@ -12,3 +12,4 @@ export { MySubmissions } from "./MySubmissions.jsx";
 export { StudentProfiles } from "./StudentProfiles.jsx";
 export { QuizVersions } from "./QuizVersions.jsx";
 export { SavedAnalysisPage } from "./SavedAnalysis.jsx";
+export { History } from "./History.jsx";

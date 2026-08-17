@@ -5,6 +5,17 @@ import { useAuth } from "../../context/AuthContext";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
 import { notify } from "../../utils/notify.jsx";
 
+const formatTimeSpent = (seconds) => {
+  if (seconds === undefined || seconds === null) return "N/A";
+  if (seconds <= 0) return "< 1s";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+};
+
 export const ItemDifficulty = () => {
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
@@ -242,7 +253,7 @@ export const ItemDifficulty = () => {
 
       const { data: responses, error: rError } = await supabase
         .from("quiz_responses")
-        .select("id, question_id, is_correct, attempt_id, answer")
+        .select("id, question_id, is_correct, attempt_id, answer, time_spent_seconds")
         .in("question_id", questionIds);
 
       if (rError) console.error("Response Error:", rError);
@@ -402,8 +413,14 @@ export const ItemDifficulty = () => {
             email: taker ? taker.email : "",
             answer: answerText,
             isCorrect: r.is_correct,
+            timeSpentSeconds: r.time_spent_seconds,
           };
         });
+
+        const validTimes = qResponses.map((r) => r.time_spent_seconds).filter((t) => t && t > 0);
+        const avgTimeSeconds = validTimes.length > 0
+          ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length)
+          : 0;
 
         return {
           question_id: q.id,
@@ -420,6 +437,7 @@ export const ItemDifficulty = () => {
           options: q.options,
           correct_answer: q.correct_answer,
           takersDetails: takersDetails,
+          avgTimeSeconds: avgTimeSeconds,
         };
       });
 
@@ -784,7 +802,12 @@ export const ItemDifficulty = () => {
                             </div>
                           </td>
                           <td className="p-4 text-center font-mono">
-                            {item.total}
+                            <div>{item.total}</div>
+                            {item.avgTimeSeconds > 0 && (
+                              <div className="text-[10px] text-gray-500 font-sans mt-1">
+                                avg {formatTimeSpent(item.avgTimeSeconds)}
+                              </div>
+                            )}
                           </td>
                           <td className="p-4 text-center font-bold text-indigo-600">
                             {item.difficulty}
@@ -854,8 +877,16 @@ export const ItemDifficulty = () => {
                                   item.takersDetails.length > 0 && (
                                     <div>
                                       <h4 className="font-semibold text-sm text-gray-700 mb-2">
-                                        Student Answers (
-                                        {item.takersDetails.length} takers)
+                                        Student Answers ({item.takersDetails.length}{" "}
+                                        takers
+                                        {item.avgTimeSeconds > 0 && (
+                                          <>
+                                            {" "}
+                                            · avg time{" "}
+                                            {formatTimeSpent(item.avgTimeSeconds)}
+                                          </>
+                                        )}
+                                        )
                                       </h4>
                                       {(() => {
                                         const currentPage =
@@ -885,10 +916,16 @@ export const ItemDifficulty = () => {
                                                       #
                                                     </th>
                                                     <th className="p-3 text-left">
-                                                      Student's Email
+                                                      Student
+                                                    </th>
+                                                    <th className="p-3 text-left">
+                                                      Email
                                                     </th>
                                                     <th className="p-3 text-left">
                                                       Answer
+                                                    </th>
+                                                    <th className="p-3 text-center">
+                                                      Time spent
                                                     </th>
                                                     <th className="p-3 text-center">
                                                       Result
@@ -916,6 +953,11 @@ export const ItemDifficulty = () => {
                                                         <td className="p-3 text-sm text-gray-700">
                                                           {taker.answer ||
                                                             "No answer"}
+                                                        </td>
+                                                        <td className="p-3 text-center text-sm text-gray-600 whitespace-nowrap">
+                                                          {formatTimeSpent(
+                                                            taker.timeSpentSeconds,
+                                                          )}
                                                         </td>
                                                         <td className="p-3 text-center">
                                                           <span

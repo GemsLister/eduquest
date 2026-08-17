@@ -27,10 +27,36 @@ export const useFetchArchivedQuizzes = () => {
             .select("*", { count: "exact", head: true })
             .eq("quiz_id", quiz.id);
 
+          let resolvedQuestionsCount = !countError ? count || 0 : 0;
+
+          if (resolvedQuestionsCount === 0) {
+            const { data: sub } = await supabase
+              .from("quiz_analysis_submissions")
+              .select("analysis_results")
+              .eq("quiz_id", quiz.id)
+              .limit(1)
+              .maybeSingle();
+
+            const payload = sub?.analysis_results?.analysis || sub?.analysis_results?.questionSnapshots || [];
+            if (payload.length > 0) {
+              resolvedQuestionsCount = payload.length;
+            }
+          }
+
+          if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
+            const { count: rootCount } = await supabase
+              .from("questions")
+              .select("*", { count: "exact", head: true })
+              .eq("quiz_id", quiz.parent_quiz_id);
+            if (rootCount && rootCount > 0) {
+              resolvedQuestionsCount = rootCount;
+            }
+          }
+
           return {
             ...quiz,
             attempts: quiz.quiz_attempts?.[0]?.count || 0,
-            questions_count: !countError ? count : 0,
+            questions_count: resolvedQuestionsCount,
           };
         }),
       );

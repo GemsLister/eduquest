@@ -4,13 +4,33 @@ import {
   AreaChart, Area 
 } from 'recharts';
 
-export const DetailedItemAnalysis = ({ item, index }) => {
+export const DetailedItemAnalysis = ({ item, index, onOpenRevisionHistory }) => {
   // 1. Prepare Chart Data (Proportion Right per Ability Decile)
   const data = item.decilePerformance || [];
 
   return (
     <div className="bg-[#e2e8f0] p-1 rounded border border-gray-400">
       <div className="bg-white p-4 border border-gray-400">
+        {/* Revision History Action Header */}
+        <div className="mb-4 pb-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+              Item Details & Analysis Breakdown (Q{index + 1})
+            </h4>
+            <p className="text-[11px] text-gray-500">
+              Flagged Status: <span className="font-bold text-gray-700 uppercase">{item.autoFlag?.toUpperCase() || item.status || "REVISE"}</span>
+            </p>
+          </div>
+
+          {onOpenRevisionHistory && (
+            <button
+              onClick={() => onOpenRevisionHistory(item, index)}
+              className="px-3.5 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <span>📜 View Full Revision History & Side-by-Side Comparison</span>
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* ITEM CHARACTERISTICS - BAR CHART */}
           <div className="border border-gray-300 p-2">

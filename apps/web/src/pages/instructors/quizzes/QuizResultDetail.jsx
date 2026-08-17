@@ -1,10 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
+import { formatTimeSpent } from "../../../utils/timeSpent.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
+
+const isMissingTableError = (error) => {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  const code = error.code || "";
+  return (
+    code === "42P01" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+};
 
 export const QuizResultDetail = () => {
   const { quizId, attemptId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [attempt, setAttempt] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -18,6 +33,19 @@ export const QuizResultDetail = () => {
 
   const loadAttemptDetails = async () => {
     try {
+      // Get instructor's sections to verify permission
+      let instructorSectionIds = [];
+      if (user) {
+        const { data: instructorSections } = await supabase
+          .from("sections")
+          .select("id")
+          .eq("instructor_id", user.id);
+        
+        if (instructorSections) {
+          instructorSectionIds = instructorSections.map(s => s.id);
+        }
+      }
+
       // Load attempt
       const { data: attemptData, error: attemptError } = await supabase
         .from("quiz_attempts")
@@ -26,6 +54,12 @@ export const QuizResultDetail = () => {
         .single();
 
       if (attemptError) throw attemptError;
+
+      // Verify the attempt belongs to instructor's sections
+      if (instructorSectionIds.length > 0 && !instructorSectionIds.includes(attemptData.section_id)) {
+        throw new Error("You don't have permission to view this attempt");
+      }
+
       setAttempt(attemptData);
 
       // Load quiz
@@ -38,12 +72,47 @@ export const QuizResultDetail = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
-      // Load questions
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("questions")
-        .select("*")
-        .eq("quiz_id", quizId)
-        .order("created_at", { ascending: true });
+      // Load questions - try junction table first, fallback direct
+      let questionsData = [];
+      let questionsError = null;
+
+      try {
+        const { data: junc, error: juncErr } = await supabase
+          .from("quiz_questions")
+          .select("questions(*), order_index")
+          .eq("quiz_id", quizId)
+          .order("order_index", { ascending: true });
+
+        if (!isMissingTableError(juncErr) && junc && junc.length > 0) {
+          questionsData = junc.map((r) => r.questions).filter((q) => q);
+        } else if (!isMissingTableError(juncErr) && !juncErr) {
+          // Empty junction is fine, fallback
+          const direct = await supabase
+            .from("questions")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .order("created_at", { ascending: true });
+          questionsData = direct.data || [];
+          questionsError = direct.error;
+        } else {
+          // Missing table or other error, fallback
+          const direct = await supabase
+            .from("questions")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .order("created_at", { ascending: true });
+          questionsData = direct.data || [];
+          questionsError = direct.error;
+        }
+      } catch (e) {
+        const direct = await supabase
+          .from("questions")
+          .select("*")
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true });
+        questionsData = direct.data || [];
+        questionsError = direct.error;
+      }
 
       if (questionsError) throw questionsError;
       setQuestions(questionsData || []);
@@ -110,6 +179,10 @@ export const QuizResultDetail = () => {
   const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
   const percentage =
     totalPoints > 0 ? Math.round((attempt?.score / totalPoints) * 100) : 0;
+  const totalTimeSpentSeconds = responses.reduce(
+    (sum, r) => sum + (r.time_spent_seconds || 0),
+    0,
+  );
 
   return (
     <div className="flex-1 overflow-auto bg-authentic-white p-6">
@@ -166,6 +239,12 @@ export const QuizResultDetail = () => {
               <p className="text-white text-opacity-90 mb-2">Status</p>
               <p className="text-2xl font-bold capitalize">{attempt?.status}</p>
             </div>
+            <div>
+              <p className="text-white text-opacity-90 mb-2">Total time</p>
+              <p className="text-2xl font-bold">
+                {formatTimeSpent(totalTimeSpentSeconds)}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -184,9 +263,17 @@ export const QuizResultDetail = () => {
               {/* Question Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Question {idx + 1}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Question {idx + 1}
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-semibold">
+                      <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Time spent: {formatTimeSpent(response?.time_spent_seconds)}
+                    </span>
+                  </div>
                   <p className="text-gray-700 mt-2 text-base">
                     {question.text}
                   </p>

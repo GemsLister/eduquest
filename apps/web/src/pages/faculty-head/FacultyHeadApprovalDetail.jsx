@@ -3,8 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
+import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
+import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
@@ -16,6 +19,10 @@ export const FacultyHeadApprovalDetail = () => {
   const [questionMetaById, setQuestionMetaById] = useState({});
   const [questionMetaByText, setQuestionMetaByText] = useState({});
   const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
+  const [revisions, setRevisions] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [feedbackInput, setFeedbackInput] = useState("");
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -32,7 +39,7 @@ export const FacultyHeadApprovalDetail = () => {
     try {
       const { data, error } = await supabase
         .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description, duration)")
+        .select("*, quizzes(title, description, duration, parent_quiz_id)")
         .eq("id", submissionId)
         .single();
 
@@ -101,6 +108,24 @@ export const FacultyHeadApprovalDetail = () => {
           );
         }
 
+        // Fetch revision history chain for this quiz
+        const rootId = data.quizzes?.parent_quiz_id || data.quiz_id;
+        const { data: allRevisions } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("*, quizzes(title, parent_quiz_id), profiles(first_name, last_name, username)")
+          .or(`quiz_id.eq.${rootId},quizzes.parent_quiz_id.eq.${rootId}`)
+          .order("created_at", { ascending: false });
+
+        setRevisions(allRevisions || [data]);
+
+        // Fetch relevant audit logs for this quiz
+        const { data: logs } = await supabase
+          .from("audit_trail")
+          .select("*")
+          .eq("record_id", data.quiz_id)
+          .order("created_at", { ascending: false });
+
+        setAuditLogs(logs || []);
         setSubmission({ ...data, profiles: profile, section: sectionData });
       }
     } catch (err) {
@@ -125,6 +150,14 @@ export const FacultyHeadApprovalDetail = () => {
 
       if (error) throw error;
 
+      // Update quiz to published/approved so questions enter Question Bank
+      if (submission?.quiz_id) {
+        await supabase
+          .from("quizzes")
+          .update({ is_published: true })
+          .eq("id", submission.quiz_id);
+      }
+
       // Notify the instructor
       const quizTitle = submission.quizzes?.title || "your quiz";
       await supabase.from("notifications").insert({
@@ -136,11 +169,96 @@ export const FacultyHeadApprovalDetail = () => {
       });
 
       window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
+
+      // Log workflow history status change
+      if (submission.quiz_id) {
+        await supabase.rpc("log_quiz_status_change", {
+          p_quiz_id: submission.quiz_id,
+          p_new_status: "approved",
+          p_reason: "Approved by Department Head",
+        });
+      }
+
+      // Log the audit event
+      await logAudit({
+        action: "QUIZ_APPROVED",
+        tableName: "quizzes",
+        recordId: submission.quiz_id,
+        newValues: {
+          submissionId: submission.id,
+          quizTitle: quizTitle,
+          instructorId: submission.instructor_id,
+          status: "faculty_head_approved",
+        },
+      });
       notify.success("Quiz approved successfully!");
       navigate("/faculty-head-dashboard/quiz-approvals");
     } catch (err) {
       console.error("Error approving submission:", err);
       notify.error("Failed to approve submission");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequestRevision = async () => {
+    if (!feedbackInput.trim()) {
+      notify.error("Please enter revision instructions or feedback for the instructor.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("quiz_analysis_submissions")
+        .update({
+          status: "revision_requested",
+          admin_feedback: feedbackInput,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", submissionId);
+
+      if (error) throw error;
+
+      const quizTitle = submission.quizzes?.title || "your quiz";
+
+      // Notify instructor
+      await supabase.from("notifications").insert({
+        user_id: submission.instructor_id,
+        title: "Revision Requested by Department Head",
+        message: `The Department Head requested changes for "${quizTitle}": "${feedbackInput.slice(0, 100)}..."`,
+        type: "warning",
+        link: `/instructor-dashboard/my-submissions`,
+      });
+
+      // Log workflow history status change
+      if (submission.quiz_id) {
+        await supabase.rpc("log_quiz_status_change", {
+          p_quiz_id: submission.quiz_id,
+          p_new_status: "rejected",
+          p_reason: feedbackInput,
+        });
+      }
+
+      // Audit log
+      await logAudit({
+        action: "REVISION_REQUESTED",
+        tableName: "quizzes",
+        recordId: submission.quiz_id,
+        newValues: {
+          submissionId: submission.id,
+          quizTitle: quizTitle,
+          feedback: feedbackInput,
+          status: "revision_requested",
+        },
+      });
+
+      notify.success("Revision requested successfully!");
+      setShowRevisionModal(false);
+      navigate("/faculty-head-dashboard/quiz-approvals");
+    } catch (err) {
+      console.error("Error requesting revision:", err);
+      notify.error("Failed to submit revision request.");
     } finally {
       setActionLoading(false);
     }
@@ -260,7 +378,13 @@ export const FacultyHeadApprovalDetail = () => {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        {/* Status Tracker Timeline */}
+        <ExamStatusTimeline submission={submission} historyLogs={auditLogs} />
+
+        {/* Revision History */}
+        <ExamRevisionHistory revisions={revisions} currentSubmissionId={submission.id} />
+
         {/* Senior Faculty Overall Feedback */}
         {submission.admin_feedback && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
@@ -521,13 +645,24 @@ export const FacultyHeadApprovalDetail = () => {
           </div>
         </div>
 
-        {/* Action Button - Approve */}
+        {/* Action Buttons - Approve & Request Revision */}
         {submission.status === "faculty_head_review" && (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => setShowRevisionModal(true)}
+              disabled={actionLoading}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Request Revision
+            </button>
+
             <button
               onClick={handleApprove}
               disabled={actionLoading}
-              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
             >
               {actionLoading ? (
                 <>
@@ -554,6 +689,57 @@ export const FacultyHeadApprovalDetail = () => {
                 </>
               )}
             </button>
+          </div>
+        )}
+
+        {/* Revision Request Feedback Modal */}
+        {showRevisionModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Request Quiz Revision
+                </h3>
+                <button
+                  onClick={() => setShowRevisionModal(false)}
+                  className="text-gray-400 hover:text-gray-600 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                  Feedback & Required Revisions for Instructor
+                </label>
+                <textarea
+                  rows={4}
+                  value={feedbackInput}
+                  onChange={(e) => setFeedbackInput(e.target.value)}
+                  placeholder="Specify question edits, Bloom's level updates, or items that require modification..."
+                  className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowRevisionModal(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRequestRevision}
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+                >
+                  {actionLoading ? "Submitting..." : "Send Revision Request"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

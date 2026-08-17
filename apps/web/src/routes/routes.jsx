@@ -113,6 +113,10 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.MySubmissions />,
             },
             {
+              path: "history",
+              element: <InstructorIndex.History />,
+            },
+            {
               path: "quiz-versions",
               element: <InstructorIndex.QuizVersions />,
             },
@@ -179,8 +183,16 @@ export const router = createBrowserRouter(
               element: <FacultyHeadIndex.FacultyHeadApprovalDetail />,
             },
             {
+              path: "subject-requests",
+              element: <FacultyHeadIndex.FacultyHeadSubjectRequests />,
+            },
+            {
               path: "settings",
               element: <FacultyHeadIndex.FacultyHeadSettings />,
+            },
+            {
+              path: "audit-trail",
+              element: <FacultyHeadIndex.FacultyHeadAuditTrail />,
             },
           ],
         },
