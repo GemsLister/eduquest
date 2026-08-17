@@ -66,56 +66,103 @@ export const useFetchInstructorQuizzes = () => {
       }
 
       // 3. Fetch submissions by instructor
-      const { data: submissions, error: submissionsError } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("quiz_id, status, admin_feedback, analysis_results, created_at")
-        .eq("instructor_id", user.id)
-        .order("created_at", { ascending: false });
+      let submissions = [];
+      try {
+        const { data: subData, error: submissionsError } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("quiz_id, status, admin_feedback, analysis_results, created_at")
+          .eq("instructor_id", user.id)
+          .order("created_at", { ascending: false });
 
-      if (submissionsError) throw submissionsError;
+        if (!submissionsError && subData) {
+          submissions = subData;
+        }
+      } catch (subErr) {
+        console.warn("Could not fetch quiz_analysis_submissions:", subErr);
+      }
 
       const submissionQuizIds = (submissions || []).map((s) => s.quiz_id).filter(Boolean);
 
       // Combine section & submission candidate quiz IDs
       const candidateQuizIds = Array.from(new Set([...sectionQuizIds, ...submissionQuizIds]));
 
-      // 4. Fetch quizzes directly with profiles join
+      // 4. Fetch quizzes directly without foreign key embedded join requirements
       let rawQuizzes = [];
-      if (candidateQuizIds.length > 0) {
-        const { data: directQuizzes, error: fetchErr } = await supabase
+      try {
+        // Fetch user's own quizzes directly (primary)
+        const { data: myQuizzes, error: myErr } = await supabase
           .from("quizzes")
-          .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
-          .or(`instructor_id.eq.${user.id},id.in.(${candidateQuizIds.join(",")}),is_private.eq.false,is_private.is.null`)
+          .select("*")
+          .eq("instructor_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (fetchErr) {
-          console.error("Error fetching quizzes with candidate IDs:", fetchErr);
-          const { data: ownerData } = await supabase
+        if (myErr) console.error("Error fetching instructor quizzes:", myErr);
+
+        // Fetch candidate/section quizzes if any
+        let candidateQuizzes = [];
+        const extraIds = candidateQuizIds.filter((id) => !(myQuizzes || []).some((q) => q.id === id));
+        if (extraIds.length > 0) {
+          const { data: extraData } = await supabase
             .from("quizzes")
-            .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
-            .or(`instructor_id.eq.${user.id},is_private.eq.false,is_private.is.null`)
+            .select("*")
+            .in("id", extraIds)
             .order("created_at", { ascending: false });
-          rawQuizzes = ownerData || [];
-        } else {
-          rawQuizzes = directQuizzes || [];
+          candidateQuizzes = extraData || [];
         }
-      } else {
-        const { data: directQuizzes } = await supabase
+
+        // Fetch public quizzes
+        const { data: publicQuizzes } = await supabase
           .from("quizzes")
-          .select("*, profiles:instructor_id(first_name, last_name, email), quiz_attempts(count)")
-          .or(`instructor_id.eq.${user.id},is_private.eq.false,is_private.is.null`)
+          .select("*")
+          .eq("is_private", false)
           .order("created_at", { ascending: false });
-        rawQuizzes = directQuizzes || [];
+
+        const combinedMap = new Map();
+        [...(myQuizzes || []), ...candidateQuizzes, ...(publicQuizzes || [])].forEach((q) => {
+          if (q && q.id && !combinedMap.has(q.id)) {
+            combinedMap.set(q.id, q);
+          }
+        });
+
+        rawQuizzes = Array.from(combinedMap.values());
+      } catch (quizErr) {
+        console.error("Error loading rawQuizzes:", quizErr);
+      }
+
+      // Fetch profiles for instructors in a separate, robust query
+      const instructorIds = Array.from(
+        new Set((rawQuizzes || []).map((q) => q.instructor_id).filter(Boolean))
+      );
+
+      const profileMap = new Map();
+      if (instructorIds.length > 0) {
+        try {
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, username, email")
+            .in("id", instructorIds);
+
+          if (profilesData) {
+            profilesData.forEach((p) => {
+              profileMap.set(p.id, p);
+            });
+          }
+        } catch (pErr) {
+          console.warn("Could not fetch profiles:", pErr);
+        }
       }
 
       const data = (rawQuizzes || []).map((q) => {
-        const ownerFirstName = q.profiles?.first_name || "";
-        const ownerLastName = q.profiles?.last_name || "";
+        const profile = profileMap.get(q.instructor_id);
+        const ownerFirstName = profile?.first_name || "";
+        const ownerLastName = profile?.last_name || "";
         const fullName = `${ownerFirstName} ${ownerLastName}`.trim();
+        const fallbackName = profile?.username || profile?.email || "Instructor";
         return {
           ...q,
+          profiles: profile,
           owner_id: q.instructor_id,
-          owner_name: fullName || q.profiles?.email || "Instructor",
+          owner_name: fullName || fallbackName,
           is_archived: Boolean(q.is_archived),
         };
       });

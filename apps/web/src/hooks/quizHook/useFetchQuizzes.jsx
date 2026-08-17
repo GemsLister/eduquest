@@ -222,7 +222,7 @@ export const useFetchQuizzes = () => {
         if (instructorIds.size > 0) {
           const { data: instructors, error: instructorsError } = await supabase
             .from("profiles")
-            .select("id, first_name, last_name")
+            .select("id, first_name, last_name, username, email")
             .in("id", Array.from(instructorIds));
 
           if (!instructorsError && instructors) {
@@ -230,16 +230,19 @@ export const useFetchQuizzes = () => {
             instructors.forEach(inst => {
               const firstName = inst.first_name || '';
               const lastName = inst.last_name || '';
-              const username = inst.username || 'Unknown Instructor';
-              instructorMap[inst.id] = (firstName || lastName) 
-                ? `${firstName} ${lastName}`.trim() 
-                : username;
+              const fullName = `${firstName} ${lastName}`.trim();
+              const fallbackName = inst.username || inst.email || 'Unknown Instructor';
+              instructorMap[inst.id] = fullName || fallbackName;
             });
 
-            quizzesData = quizzesData.map(quiz => ({
-              ...quiz,
-              instructor_name: quiz.instructor_id ? instructorMap[quiz.instructor_id] || 'Unknown Instructor' : null
-            }));
+            quizzesData = quizzesData.map(quiz => {
+              const name = quiz.instructor_id ? instructorMap[quiz.instructor_id] || 'Unknown Instructor' : null;
+              return {
+                ...quiz,
+                instructor_name: name,
+                owner_name: name
+              };
+            });
           }
         }
 
