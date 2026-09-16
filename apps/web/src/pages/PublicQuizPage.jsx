@@ -305,7 +305,7 @@ export const PublicQuizPage = () => {
       try {
         let quizData = null;
         let quizError = null;
-        let targetSectionId = requestedSectionId;
+        let effectiveSectionId = requestedSectionId || null;
 
         // First try to load by section-specific share token
         const { data: sectionQuizData, error: sectionQuizError } = await supabase
@@ -318,6 +318,7 @@ export const PublicQuizPage = () => {
         if (sectionQuizData && !sectionQuizError) {
           // Found section-specific share token
           quizData = sectionQuizData.quizzes;
+          effectiveSectionId = sectionQuizData.section_id;
           setTargetSectionId(sectionQuizData.section_id);
           setQuizSectionData(sectionQuizData);
           console.log("Loaded quiz via section-specific share token");
@@ -339,7 +340,8 @@ export const PublicQuizPage = () => {
 
           quizData = regularQuizData;
           quizError = regularQuizError;
-          console.log("Loaded quiz via regular share token");
+          setTargetSectionId(effectiveSectionId);
+          console.log("Loaded quiz via regular share token with section:", effectiveSectionId);
         }
 
         if (quizError) {
@@ -723,8 +725,10 @@ export const PublicQuizPage = () => {
         .eq("student_email", email)
         .in("status", ["in_progress", "completed"]);
 
-      attemptsQuery = targetSectionId
-        ? attemptsQuery.eq("section_id", targetSectionId)
+      const finalSectionId = targetSectionId || requestedSectionId || null;
+
+      attemptsQuery = finalSectionId
+        ? attemptsQuery.eq("section_id", finalSectionId)
         : attemptsQuery.is("section_id", null);
 
       const { data: existingAttempts, error: checkError } = await attemptsQuery;
@@ -758,7 +762,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
-            section_id: targetSectionId || null,
+            section_id: finalSectionId,
             user_id: session.user.id,
             student_name: studentName,
             student_email: email,
@@ -872,8 +876,10 @@ export const PublicQuizPage = () => {
         .eq("user_id", student.id)
         .in("status", ["in_progress", "completed"]);
 
-      attemptsQuery = targetSectionId
-        ? attemptsQuery.eq("section_id", targetSectionId)
+      const finalSectionId = targetSectionId || requestedSectionId || null;
+
+      attemptsQuery = finalSectionId
+        ? attemptsQuery.eq("section_id", finalSectionId)
         : attemptsQuery.is("section_id", null);
 
       const { data: existingAttempts, error: checkError } = await attemptsQuery;
@@ -907,7 +913,7 @@ export const PublicQuizPage = () => {
         .insert([
           {
             quiz_id: quiz.id,
-            section_id: targetSectionId || null,
+            section_id: finalSectionId,
             student_id: student.id,
             student_name: studentName,
             student_email: studentEmail,
@@ -1483,11 +1489,11 @@ export const PublicQuizPage = () => {
                     <button
                       key={q.id}
                       onClick={() => goToQuestion(i)}
-                      className={`w-9 h-9 rounded text-sm font-bold transition-colors
+                      className={`w-9 h-9 rounded-lg text-sm font-bold transition-all
                         ${
                           isUnanswered
-                            ? "bg-red-50 text-red-400 border border-red-200 hover:bg-red-100"
-                            : "bg-green-500 text-white border border-green-600 hover:bg-green-600"
+                            ? "bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200"
+                            : "bg-brand-navy text-white border border-brand-navy hover:bg-brand-navy/90 shadow-xs"
                         }`}
                     >
                       {i + 1}
@@ -1495,13 +1501,13 @@ export const PublicQuizPage = () => {
                   );
                 })}
               </div>
-              <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded bg-green-500 border border-green-600"></span>{" "}
+              <div className="flex gap-4 mt-3 text-xs text-gray-500 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3.5 h-3.5 rounded-md bg-brand-navy shadow-xs"></span>{" "}
                   Answered
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded bg-red-50 border border-red-200"></span>{" "}
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300"></span>{" "}
                   Unanswered
                 </span>
               </div>
@@ -1541,53 +1547,51 @@ export const PublicQuizPage = () => {
 
             {/* Unanswered warning */}
             {unansweredQuestions.length > 0 ? (
-              <div className="mb-5 p-4 bg-red-50 border-l-4 border-red-400 rounded">
-                <p className="text-sm font-semibold text-red-700 mb-1">
+              <div className="mb-5 p-4 bg-amber-50/70 border-l-4 border-amber-500 rounded-lg">
+                <p className="text-sm font-bold text-amber-900 mb-1">
                   You have {unansweredQuestions.length} unanswered{" "}
                   {unansweredQuestions.length === 1 ? "question" : "questions"}{" "}
                   remaining.
                 </p>
-                <p className="text-sm text-red-600 mb-2">
+                <p className="text-sm text-amber-800 mb-2">
                   Unanswered:{" "}
                   {unansweredQuestions.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => goToQuestion(item.index)}
-                      className="inline-block mx-0.5 px-2 py-0.5 bg-red-100 text-red-700 rounded font-bold text-xs hover:bg-red-200 transition-colors"
+                      className="inline-block mx-0.5 px-2 py-0.5 bg-amber-200/80 text-amber-950 rounded-md font-bold text-xs hover:bg-amber-300 transition-colors"
                     >
                       #{item.index + 1}
                     </button>
                   ))}
                 </p>
-                <p className="text-xs text-red-500">
-                  Click any number above to go back and answer it.
+                <p className="text-xs text-amber-700">
+                  Click any number above to go back and answer it before final submission.
                 </p>
               </div>
             ) : (
-              <div className="mb-5 p-4 bg-green-50 border-l-4 border-green-400 rounded">
-                <p className="text-green-700 font-semibold text-sm">
+              <div className="mb-5 p-4 bg-brand-navy/5 border-l-4 border-brand-navy rounded-lg">
+                <p className="text-brand-navy font-bold text-sm">
                   All {questions.length} questions have been answered.
                 </p>
               </div>
             )}
 
-            <p className="text-gray-700">
-              To receive a grade for this assessment, please press the{" "}
-              <strong>Grade Assessment</strong> button below.
+            <p className="text-gray-700 text-sm">
+              To complete and submit your assessment, please press the{" "}
+              <strong className="text-brand-navy">Grade Assessment</strong> button below.
             </p>
-            <p className="text-gray-600 mt-1">
-              If you want to change your answers, please do so using the{" "}
-              <strong>Previous</strong> button.
+            <p className="text-gray-600 text-sm mt-1">
+              If you want to review or change any answers, use the{" "}
+              <strong className="text-gray-800">Previous</strong> button or click a question number above.
             </p>
 
             {/* Notice */}
-            <div className="mt-5 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-              <p className="font-bold text-gray-800 text-sm">NOTICE</p>
-              <p className="text-yellow-700 text-sm mt-1">
+            <div className="mt-5 bg-brand-navy/5 border border-brand-navy/15 p-4 rounded-xl">
+              <p className="font-bold text-brand-navy text-xs uppercase tracking-wider">Assessment Notice</p>
+              <p className="text-brand-navy/80 text-xs mt-1">
                 Once you submit the assessment for grading, you will not be able
-                to return to the assessment and edit your answers! Your
-                assessment will be graded and the score will be determined for
-                this assessment.
+                to return to edit your answers. Your assessment will be permanently recorded and graded.
               </p>
             </div>
 
@@ -1752,13 +1756,13 @@ export const PublicQuizPage = () => {
                   <button
                     key={q.id}
                     onClick={() => goToQuestion(i)}
-                    className={`w-9 h-9 rounded text-sm font-bold transition-colors
+                    className={`w-9 h-9 rounded-lg text-sm font-bold transition-all
                       ${
                         isCurrent
-                          ? "bg-brand-gold text-brand-navy ring-2 ring-brand-gold-dark"
+                          ? "bg-brand-gold text-brand-navy ring-2 ring-brand-gold-dark shadow-xs"
                           : isAnswered
-                            ? "bg-green-500 text-white border border-green-600 hover:bg-green-600"
-                            : "bg-red-50 text-red-400 border border-red-200 hover:bg-red-100"
+                            ? "bg-brand-navy text-white border border-brand-navy hover:bg-brand-navy/90 shadow-xs"
+                            : "bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200"
                       }`}
                   >
                     {i + 1}
@@ -1766,17 +1770,17 @@ export const PublicQuizPage = () => {
                 );
               })}
             </div>
-            <div className="flex gap-4 mt-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-brand-navy/10 border border-brand-navy/30"></span>{" "}
+            <div className="flex gap-4 mt-3 text-xs text-gray-500 font-medium">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-md bg-brand-navy shadow-xs"></span>{" "}
                 Answered
               </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-red-50 border border-red-200"></span>{" "}
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300"></span>{" "}
                 Unanswered
               </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-brand-gold"></span>{" "}
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-md bg-brand-gold ring-1 ring-brand-gold-dark shadow-xs"></span>{" "}
                 Current
               </span>
             </div>

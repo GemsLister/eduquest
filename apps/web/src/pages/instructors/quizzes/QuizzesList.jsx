@@ -1,6 +1,7 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { notify } from "../../../utils/notify.jsx";
 
 export const QuizzesList = ({
   quizzes,
@@ -12,18 +13,22 @@ export const QuizzesList = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { sectionId } = useParams();
   const [copiedId, setCopiedId] = useState(null);
+
+  const getActiveSectionId = (quiz) => currentSectionId || sectionId || quiz.section_id || null;
 
   const buildShareUrl = (quiz) => {
     if (!quiz.share_token) return "";
     const base = `${window.location.origin}/quiz/${quiz.share_token}`;
-    return quiz.section_id ? `${base}?section=${quiz.section_id}` : base;
+    const secId = getActiveSectionId(quiz);
+    return secId ? `${base}?section=${secId}` : base;
   };
 
   const copyLink = (quiz) => {
     if (!quiz.share_token) {
-      alert(
+      notify.warning(
         "This quiz doesn't have a share link yet. Please publish the quiz first.",
       );
       return;
@@ -34,11 +39,12 @@ export const QuizzesList = ({
       .writeText(url)
       .then(() => {
         setCopiedId(quiz.id);
+        notify.success("Share link copied to clipboard!");
         setTimeout(() => setCopiedId(null), 2000);
       })
       .catch((err) => {
         console.error("Failed to copy link:", err);
-        alert("Failed to copy link to clipboard");
+        notify.error("Failed to copy link to clipboard");
       });
   };
 
@@ -54,12 +60,16 @@ export const QuizzesList = ({
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Quizzes</h2>
       {quizzes.length === 0 ? (
-        <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
-          <div className="text-6xl mb-4">📝</div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+        <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-navy/5 flex items-center justify-center text-brand-navy">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-brand-navy mb-2">
             No Quizzes Yet
           </h3>
-          <p className="text-gray-500">
+          <p className="text-gray-500 text-sm">
             Go to the Quizzes page to create and assign quizzes to this subject.
           </p>
         </div>
@@ -76,17 +86,22 @@ export const QuizzesList = ({
               >
                 {/* Card Header — compact with title inside */}
                 <div
-                  className={`px-5 py-4 relative ${
+                  className={`px-5 py-4 ${
                     quiz.is_published
                       ? "bg-gradient-to-r from-brand-navy to-brand-indigo"
                       : "bg-gradient-to-r from-yellow-400 to-yellow-500"
                   }`}
                 >
-                  {/* Status badges — top right */}
-                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  {/* Title */}
+                  <h3 className="font-bold text-lg text-white leading-snug line-clamp-2 mb-2">
+                    {quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                  </h3>
+
+                  {/* Status badges row — below title, wraps gracefully */}
+                  <div className="flex items-center flex-wrap gap-1.5">
                     {quiz.source_section_name && (
                       <span
-                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700"
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 max-w-[180px] truncate"
                         title={`Shared from ${quiz.source_section_name}`}
                       >
                         From {quiz.source_section_name}
@@ -112,11 +127,8 @@ export const QuizzesList = ({
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-lg text-white pr-24 leading-snug line-clamp-2">
-                    {quiz.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
-                  </h3>
                   {quiz.description && (
-                    <p className="text-white/70 text-xs mt-1 line-clamp-1">
+                    <p className="text-white/70 text-xs mt-1.5 line-clamp-1">
                       {quiz.description}
                     </p>
                   )}
@@ -230,7 +242,9 @@ export const QuizzesList = ({
                     <button
                       onClick={() =>
                         navigate(
-                          `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                          location.pathname.startsWith("/admin-dashboard")
+                            ? `/admin-dashboard/create-quiz/${quiz.id}`
+                            : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                         )
                       }
                       className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
@@ -239,13 +253,17 @@ export const QuizzesList = ({
                     </button>
                     {quiz.is_published && (
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          const secId = getActiveSectionId(quiz);
+                          const basePath = location.pathname.startsWith("/admin-dashboard")
+                            ? "/admin-dashboard/quiz-results"
+                            : "/instructor-dashboard/quiz-results";
                           navigate(
-                            quiz.section_id
-                              ? `/instructor-dashboard/quiz-results/${quiz.id}?section=${quiz.section_id}`
-                              : `/instructor-dashboard/quiz-results/${quiz.id}`,
-                          )
-                        }
+                            secId
+                              ? `${basePath}/${quiz.id}?section=${secId}`
+                              : `${basePath}/${quiz.id}`,
+                          );
+                        }}
                         className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
                       >
                         Results

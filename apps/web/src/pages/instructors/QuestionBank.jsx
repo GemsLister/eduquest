@@ -5,6 +5,7 @@ import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
+import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -29,10 +30,11 @@ export const QuestionBank = () => {
   const [showQuizDropdown, setShowQuizDropdown] = useState(false);
   const [importProcessing, setImportProcessing] = useState(false);
 
-  // Subject and Quiz filter state
+  // Subject, Quiz, and GAD filter state
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [selectedQuizIdFilter, setSelectedQuizIdFilter] = useState(null);
   const [ownershipFilter, setOwnershipFilter] = useState("all");
+  const [gadFilter, setGadFilter] = useState("all");
   const [subjects, setSubjects] = useState([]);
   const [quizzesFromSubject, setQuizzesFromSubject] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
@@ -84,7 +86,7 @@ export const QuestionBank = () => {
   useEffect(() => {
     setCurrentPage(1);
     setBulkSelected(new Set());
-  }, [activeTab, searchTerm, sortBy, selectedSubjectId, selectedQuizIdFilter, ownershipFilter]);
+  }, [activeTab, searchTerm, sortBy, selectedSubjectId, selectedQuizIdFilter, ownershipFilter, gadFilter]);
 
   // Fetch subjects on mount
   useEffect(() => {
@@ -211,6 +213,14 @@ export const QuestionBank = () => {
     fetchQuizzes();
   }, [selectedSubjectId]);
 
+  // Helper function to check if question matches GAD criteria
+  const isQuestionGad = (q) => {
+    if (!q) return false;
+    if (q.is_gad === true) return true;
+    const auto = analyzeGADQuestion(q.text || "", q.options || []);
+    return Boolean(auto.isGad);
+  };
+
   // Filter questions
   const filterQuestions = (questions) => {
     let filteredList = questions;
@@ -238,7 +248,14 @@ export const QuestionBank = () => {
       });
     }
 
-    // Handle quiz dropdown selection (Subject → Quiz filter)
+    // Apply GAD Filter
+    if (gadFilter === "gad_only") {
+      filteredList = filteredList.filter((q) => isQuestionGad(q));
+    } else if (gadFilter === "non_gad") {
+      filteredList = filteredList.filter((q) => !isQuestionGad(q));
+    }
+
+    // Handle quiz dropdown selection (Subject to Quiz filter)
     if (selectedQuizIdFilter) {
       const selectedQuizObj = quizzesFromSubject.find((q) => String(q.id) === String(selectedQuizIdFilter));
       const targetQuizTitle = selectedQuizObj?.title?.trim().toLowerCase();
@@ -889,8 +906,8 @@ export const QuestionBank = () => {
   if (sortBy !== "newest") {
     const sortLabels = {
       oldest: "Oldest First",
-      "points-high": "Points: High→Low",
-      "points-low": "Points: Low→High",
+      "points-high": "Points: High to Low",
+      "points-low": "Points: Low to High",
       quiz: "By Quiz",
     };
     activeFilters.push({
@@ -1132,46 +1149,57 @@ export const QuestionBank = () => {
           <button
             type="button"
             onClick={() => setOwnershipFilter("all")}
-            className={`px-4 py-2 rounded-full text-xs font-black transition-all border ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
               ownershipFilter === "all"
                 ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            📚 All Questions
+            All Questions
           </button>
           <button
             type="button"
             onClick={() => setOwnershipFilter("my_private")}
-            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
               ownershipFilter === "my_private"
-                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                : "bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100"
+                ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            🔒 Private Questions
+            Private Questions
           </button>
           <button
             type="button"
             onClick={() => setOwnershipFilter("mine")}
-            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
               ownershipFilter === "mine"
-                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                : "bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100"
+                ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            🌐 Public Questions
+            Public Questions
           </button>
           <button
             type="button"
             onClick={() => setOwnershipFilter("others_public")}
-            className={`px-4 py-2 rounded-full text-xs font-black transition-all border flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
               ownershipFilter === "others_public"
-                ? "bg-sky-600 text-white border-sky-600 shadow-xs"
-                : "bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100"
+                ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            👥 Shared Questions
+            Shared Questions
+          </button>
+          <button
+            type="button"
+            onClick={() => setGadFilter(gadFilter === "gad_only" ? "all" : "gad_only")}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+              gadFilter === "gad_only"
+                ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <span>GAD Questions</span>
           </button>
         </div>
 
@@ -1189,7 +1217,7 @@ export const QuestionBank = () => {
           <option value="">
             {subjectsLoading
               ? "Loading subjects..."
-              : "📚 -- Select Subject --"}
+              : "-- Select Subject --"}
           </option>
           {subjects.length === 0 && !subjectsLoading && (
             <option disabled>No subjects found</option>
@@ -1208,7 +1236,7 @@ export const QuestionBank = () => {
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
             className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
           >
-            <option value="">📝 -- Select Quiz --</option>
+            <option value="">-- Select Quiz --</option>
             {quizzesFromSubject.length === 0 ? (
               <option disabled>No quizzes in this subject</option>
             ) : (
@@ -1275,8 +1303,8 @@ export const QuestionBank = () => {
                 {[
                   { value: "newest", label: "Newest First" },
                   { value: "oldest", label: "Oldest First" },
-                  { value: "points-high", label: "Points: High → Low" },
-                  { value: "points-low", label: "Points: Low → High" },
+                  { value: "points-high", label: "Points: High to Low" },
+                  { value: "points-low", label: "Points: Low to High" },
                   { value: "quiz", label: "By Quiz Name" },
                 ].map((opt) => (
                   <button
@@ -1562,15 +1590,33 @@ export const QuestionBank = () => {
                   <div className="flex-1 p-4">
                     {/* Top metadata row */}
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="text-xs text-gray-400 font-medium">
-                        📝 {question.quizzes?.title || "Draft Quiz"}
+                      <span className="text-xs text-gray-500 font-medium">
+                        {question.quizzes?.title || "Draft Quiz"}
                       </span>
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
                       </span>
+                      {isQuestionGad(question) && (
+                        <span
+                          className="px-2 py-0.5 border rounded text-[10px] font-bold bg-brand-navy/5 text-brand-navy border-brand-navy/20 flex items-center gap-1"
+                          title={analyzeGADQuestion(question.text || "", question.options || []).matchReason || "Gender and Development (GAD) / Gender-Fair Question"}
+                        >
+                          GAD
+                        </span>
+                      )}
+                      {question.ai_generated && (
+                        <span className="px-2 py-0.5 border rounded text-[10px] font-bold bg-brand-navy/5 text-brand-navy border-brand-navy/20">
+                          AI Generated
+                        </span>
+                      )}
+                      {question.ai_revised && (
+                        <span className="px-2 py-0.5 border rounded text-[10px] font-bold bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20">
+                          AI Revised
+                        </span>
+                      )}
                       {question.creator_name && (
-                        <span className="px-2 py-0.5 border rounded text-[10px] font-extrabold bg-purple-100 text-purple-950 border-purple-300">
-                          👤 Owner: ({question.creator_name || "Instructor"})
+                        <span className="px-2 py-0.5 border rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                          Owner: {question.creator_name}
                         </span>
                       )}
                     </div>
@@ -2016,3 +2062,4 @@ export const QuestionBank = () => {
     </div>
   );
 };
+

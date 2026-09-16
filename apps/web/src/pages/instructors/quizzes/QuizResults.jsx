@@ -32,47 +32,96 @@ export const QuizResults = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
-      // Get the instructor's sections to filter results
-      let instructorSectionIds = [];
-      if (user) {
-        const { data: sectionsData } = await supabase
-          .from("sections")
+      // Find all related quiz versions (parent root or child revisions)
+      const relatedQuizIds = [quizId];
+      if (quizData.parent_quiz_id) {
+        relatedQuizIds.push(quizData.parent_quiz_id);
+      }
+      try {
+        const { data: siblingRevs } = await supabase
+          .from("quizzes")
           .select("id")
-          .eq("instructor_id", user.id);
-        
-        if (sectionsData) {
-          instructorSectionIds = sectionsData.map(s => s.id);
+          .or(`parent_quiz_id.eq.${quizData.parent_quiz_id || quizId},id.eq.${quizData.parent_quiz_id || quizId}`);
+        if (siblingRevs) {
+          siblingRevs.forEach((r) => {
+            if (!relatedQuizIds.includes(r.id)) relatedQuizIds.push(r.id);
+          });
         }
+      } catch (e) {
+        console.warn("Could not fetch related quiz versions:", e);
       }
 
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
-        .eq("quiz_id", quizId)
+        .in("quiz_id", relatedQuizIds)
         .order("completed_at", { ascending: false, nullsFirst: false });
 
-      // Filter by instructor's sections to prevent cross-instructor result sharing
-      if (instructorSectionIds.length > 0) {
-        attemptsQuery = attemptsQuery.in("section_id", instructorSectionIds);
-      }
-
-      // Additionally filter by specific section if provided
+      // Filter by specific section if the instructor selected a section filter
       if (sectionId) {
-        attemptsQuery = attemptsQuery.eq("section_id", sectionId);
+        attemptsQuery = attemptsQuery.or(`section_id.eq.${sectionId},section_id.is.null`);
       }
 
       const { data: attemptsData, error: attemptsError } = await attemptsQuery;
       if (attemptsError) throw attemptsError;
       setAttempts(attemptsData || []);
 
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("questions")
-        .select("id, text")
-        .eq("quiz_id", quizId)
-        .order("created_at", { ascending: true });
+      // Auto-assign any legacy null section_id attempts to this section so they stay partitioned
+      if (sectionId && attemptsData && attemptsData.some((a) => !a.section_id)) {
+        const nullIds = attemptsData.filter((a) => !a.section_id).map((a) => a.id);
+        if (nullIds.length > 0) {
+          try {
+            await supabase
+              .from("quiz_attempts")
+              .update({ section_id: sectionId })
+              .in("id", nullIds);
+          } catch (e) {
+            console.warn("Could not backfill attempt section_id:", e);
+          }
+        }
+      }
 
-      if (questionsError) throw questionsError;
-      setQuestions(questionsData || []);
+      // Load questions for the specific current quiz (do not merge duplicate revision questions)
+      let finalQuestions = [];
+      try {
+        const { data: juncQs } = await supabase
+          .from("quiz_questions")
+          .select("questions(id, text, created_at), order_index")
+          .eq("quiz_id", quizId)
+          .order("order_index", { ascending: true });
+
+        if (juncQs && juncQs.length > 0) {
+          finalQuestions = juncQs.map((j) => j.questions).filter(Boolean);
+        }
+      } catch (e) {
+        console.warn("Could not query quiz_questions:", e);
+      }
+
+      if (finalQuestions.length === 0) {
+        const { data: directQs } = await supabase
+          .from("questions")
+          .select("id, text, created_at")
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true });
+
+        if (directQs && directQs.length > 0) {
+          finalQuestions = directQs;
+        }
+      }
+
+      if (finalQuestions.length === 0 && quizData.parent_quiz_id) {
+        const { data: parentQs } = await supabase
+          .from("questions")
+          .select("id, text, created_at")
+          .eq("quiz_id", quizData.parent_quiz_id)
+          .order("created_at", { ascending: true });
+
+        if (parentQs && parentQs.length > 0) {
+          finalQuestions = parentQs;
+        }
+      }
+
+      setQuestions(finalQuestions);
 
       const completedIds = (attemptsData || [])
         .filter((a) => a.status === "completed")
@@ -187,7 +236,7 @@ export const QuizResults = () => {
         </button>
         <div>
           <h1 className="text-3xl font-bold text-brand-navy mb-2">
-            Quiz Results: {quiz?.title}
+            Quiz Results: {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Quiz"}
           </h1>
           <p className="text-gray-600">
             {attempts.length} {attempts.length === 1 ? "attempt" : "attempts"}{" "}
@@ -320,16 +369,23 @@ export const QuizResults = () => {
                             {getStudentEmail(attempt)}
                           </div>
                         </td>
-                        {questions.map((q) => {
+                        {questions.map((q, qIdx) => {
                           const perQuestion = timeByAttemptQuestion[attempt.id];
-                          const hasEntry =
-                            perQuestion && q.id in perQuestion;
-                          const seconds = hasEntry
-                            ? perQuestion[q.id]
-                            : undefined;
+                          let seconds = undefined;
+                          if (perQuestion) {
+                            if (q.id in perQuestion) {
+                              seconds = perQuestion[q.id];
+                            } else {
+                              const entryValues = Object.values(perQuestion);
+                              if (entryValues[qIdx] !== undefined) {
+                                seconds = entryValues[qIdx];
+                              }
+                            }
+                          }
+                          const hasEntry = seconds !== undefined;
                           return (
                             <td
-                              key={q.id}
+                              key={q.id || qIdx}
                               className="px-3 py-3 text-center text-gray-700 whitespace-nowrap"
                             >
                               {hasEntry ? formatTimeSpent(seconds) : "—"}

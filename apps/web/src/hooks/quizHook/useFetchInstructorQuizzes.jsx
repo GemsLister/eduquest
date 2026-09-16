@@ -215,6 +215,32 @@ export const useFetchInstructorQuizzes = () => {
       const sectionQuizIdsSet = new Set(sectionQuizIds);
       const mySectionIdsSet = new Set(mySectionIds);
 
+      // Fetch all attempts for all quizzes & parent quizzes in one query
+      const allQuizIds = data.map((q) => q.id);
+      const parentQuizIds = data.map((q) => q.parent_quiz_id).filter(Boolean);
+      const lookupQuizIds = Array.from(new Set([...allQuizIds, ...parentQuizIds]));
+
+      let attemptsCountByQuiz = new Map();
+      if (lookupQuizIds.length > 0) {
+        try {
+          const { data: attemptsData } = await supabase
+            .from("quiz_attempts")
+            .select("id, quiz_id")
+            .in("quiz_id", lookupQuizIds);
+
+          if (attemptsData) {
+            attemptsData.forEach((a) => {
+              attemptsCountByQuiz.set(
+                a.quiz_id,
+                (attemptsCountByQuiz.get(a.quiz_id) || 0) + 1
+              );
+            });
+          }
+        } catch (attErr) {
+          console.warn("Could not query attempts:", attErr);
+        }
+      }
+
       const quizzesWithCounts = await Promise.all(
         data.map(async (quiz) => {
           let count = null;
@@ -289,9 +315,13 @@ export const useFetchInstructorQuizzes = () => {
             }
           }
 
+          const totalAttempts =
+            (attemptsCountByQuiz.get(quiz.id) || 0) +
+            (quiz.parent_quiz_id ? (attemptsCountByQuiz.get(quiz.parent_quiz_id) || 0) : 0);
+
           return {
             ...quiz,
-            attempts: quiz.quiz_attempts?.[0]?.count || 0,
+            attempts: totalAttempts,
             questions_count: resolvedQuestionsCount,
             admin_review_status: latestSubmission?.status || null,
             admin_review_feedback: latestSubmission?.admin_feedback || "",
@@ -314,7 +344,7 @@ export const useFetchInstructorQuizzes = () => {
         const isPublic = quiz.is_private === false;
 
         const isAccessible = isOwner || isSubmittedByMe || isAssignedToMySection || isPublic;
-        return isAccessible && (!quiz.hasNewerVersion || quiz.is_archived);
+        return isAccessible;
       });
 
       setQuizzes(visibleQuizzes);
@@ -374,7 +404,7 @@ export const useFetchInstructorQuizzes = () => {
     try {
       const { data: quiz, error: fetchError } = await supabase
         .from("quizzes")
-        .select("share_token")
+        .select("title, share_token")
         .eq("id", quizId)
         .single();
 
@@ -382,9 +412,15 @@ export const useFetchInstructorQuizzes = () => {
 
       const shareToken = quiz?.share_token || (await getUniqueShareToken());
 
+      const cleanTitle = (quiz?.title || "").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "");
+
       const { error } = await supabase
         .from("quizzes")
-        .update({ is_published: true, share_token: shareToken })
+        .update({
+          is_published: true,
+          share_token: shareToken,
+          ...(cleanTitle ? { title: cleanTitle } : {}),
+        })
         .eq("id", quizId);
 
       if (error) throw error;

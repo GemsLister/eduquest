@@ -225,8 +225,12 @@ export const CreateQuizFormButton = ({
                       className="mt-0.5 text-brand-navy focus:ring-brand-navy"
                     />
                     <div>
-                      <span className="block text-sm font-bold text-gray-800 flex items-center gap-1">
-                        🔒 Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
+                      <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
                       </span>
                       <span className="block text-xs text-gray-500 mt-0.5">
                         Only you can see this quiz and its questions.
@@ -251,8 +255,13 @@ export const CreateQuizFormButton = ({
                       className="mt-0.5 text-brand-navy focus:ring-brand-navy"
                     />
                     <div>
-                      <span className="block text-sm font-bold text-gray-800">
-                        🌐 Public
+                      <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="2" y1="12" x2="22" y2="12" />
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                        Public
                       </span>
                       <span className="block text-xs text-gray-500 mt-0.5">
                         Visible to other instructors; questions added to Question Bank.

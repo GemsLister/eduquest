@@ -199,42 +199,21 @@ export const useQuestionBank = () => {
         }
       }
 
-      // Fetch standalone questions (quiz_id IS NULL) from instructor's sections only
+      // Fetch standalone questions (quiz_id IS NULL)
       let standaloneQuestions = [];
-      if (sectionIds.length > 0) {
-        // Fetch standalone questions assigned to instructor's sections
-        const { data: standaloneQs, error: standaloneQError } = await supabase
-          .from("questions")
-          .select("*")
-          .is("quiz_id", null)
-          .in("section_id", sectionIds)
-          .order("created_at", { ascending: false });
-
-        if (!standaloneQError && standaloneQs) {
-          standaloneQuestions = standaloneQs.map((sq) => ({ ...sq, is_own: true }));
-        }
-      }
-
-      // Also fetch any questions directly created by current instructor (by instructor_id or created_by)
-      const { data: userCreatedQs, error: userQsError } = await supabase
+      const { data: standaloneQs, error: standaloneQError } = await supabase
         .from("questions")
         .select("*")
-        .or(`instructor_id.eq.${user.id},created_by.eq.${user.id}`)
+        .is("quiz_id", null)
         .order("created_at", { ascending: false });
 
-      if (!userQsError && userCreatedQs) {
-        const mappedUserQs = userCreatedQs.map((sq) => {
-          const quizMeta = sq.quiz_id ? accessibleQuizMap.get(String(sq.quiz_id)) || null : null;
-          const isQuizArchived = quizMeta?.is_archived === true;
-          const isQuestionArchived = sq.is_archived === true;
-          return {
-            ...sq,
-            quizzes: quizMeta,
-            is_own: true,
-            is_archived: isQuestionArchived || isQuizArchived,
-          };
-        });
-        standaloneQuestions = [...standaloneQuestions, ...mappedUserQs];
+      if (!standaloneQError && standaloneQs) {
+        standaloneQuestions = standaloneQs.map((sq) => ({
+          ...sq,
+          is_own: true,
+          is_private: true,
+          is_archived: Boolean(sq.is_archived),
+        }));
       }
 
       // Combine both types of questions
@@ -611,7 +590,13 @@ export const useQuestionBank = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+    window.addEventListener("question-bank-updated", fetchQuestions);
+    window.addEventListener("questions-updated", fetchQuestions);
+    return () => {
+      window.removeEventListener("question-bank-updated", fetchQuestions);
+      window.removeEventListener("questions-updated", fetchQuestions);
+    };
+  }, [user?.id]);
 
   return {
     fetchQuestions,

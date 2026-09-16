@@ -299,11 +299,17 @@ export const useFetchQuizzes = () => {
             countError = direct.error;
           }
 
-          const { count: aCount } = await supabase
+          const targetQuizIds = [quiz.id];
+          if (quiz.parent_quiz_id) targetQuizIds.push(quiz.parent_quiz_id);
+
+          const { data: attList } = await supabase
             .from("quiz_attempts")
-            .select("*", { count: "exact", head: true })
-            .eq("quiz_id", quiz.id)
-            .eq("section_id", sectionId);
+            .select("id, section_id")
+            .in("quiz_id", targetQuizIds);
+
+          const aCount = (attList || []).filter(
+            (a) => (sectionId ? a.section_id === sectionId : true)
+          ).length;
 
           let resolvedQuestionsCount = !countError ? qCount || 0 : 0;
 

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useQuestionBank } from "../hooks/questionHook/useQuestionBank.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { analyzeGADQuestion } from "../services/gadAnalysisService.js";
 
 /**
  * ImportQuestionBankModal
@@ -20,12 +21,20 @@ export const ImportQuestionBankModal = ({
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
-  const [privacyFilter, setPrivacyFilter] = useState("all"); // "all", "my_private", "my_public", "others_public"
+  const [privacyFilter, setPrivacyFilter] = useState("all"); // "all", "my_private", "my_public", "others_public", "gad_only"
 
   if (!isOpen) return null;
 
   const normalize = (str) => String(str || "").toLowerCase().trim();
   const normalizedSubjectNames = (currentSubjectNames || []).map(normalize).filter(Boolean);
+
+  // Helper function to check if question matches GAD criteria
+  const isQuestionGad = (q) => {
+    if (!q) return false;
+    if (q.is_gad === true) return true;
+    const auto = analyzeGADQuestion(q.text || "", q.options || []);
+    return Boolean(auto.isGad);
+  };
 
   // 1. Strict Subject Filter: Filter bank questions to ONLY those matching the current quiz's subject
   const subjectMatchedQuestions = activeQuestions.filter((q) => {
@@ -68,8 +77,9 @@ export const ImportQuestionBankModal = ({
   const myPrivateCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && isQuestionPrivate(q)).length;
   const myPublicCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && !isQuestionPrivate(q)).length;
   const sharedCount = subjectMatchedQuestions.filter(q => !isQuestionOwn(q)).length;
+  const gadCount = subjectMatchedQuestions.filter(q => isQuestionGad(q)).length;
 
-  // 2. Privacy & Ownership Filtering
+  // 2. Privacy & Ownership & GAD Filtering
   const privacyFilteredQuestions = subjectMatchedQuestions.filter((q) => {
     const isOwn = isQuestionOwn(q);
     const isPrivate = isQuestionPrivate(q);
@@ -82,6 +92,9 @@ export const ImportQuestionBankModal = ({
     }
     if (privacyFilter === "others_public") {
       return !isOwn;
+    }
+    if (privacyFilter === "gad_only") {
+      return isQuestionGad(q);
     }
     return true;
   });
@@ -150,13 +163,13 @@ export const ImportQuestionBankModal = ({
         {/* Header */}
         <div className="bg-brand-navy text-white p-5 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-brand-gold block mb-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-gold block mb-0.5">
               Question Bank Import
             </span>
-            <h3 className="text-lg font-black flex items-center gap-2 flex-wrap">
-              <span>📚 Select Question from Question Bank</span>
+            <h3 className="text-lg font-bold flex items-center gap-2 flex-wrap">
+              <span>Select Question from Question Bank</span>
               {targetQuestionNumber && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-gold text-brand-navy font-extrabold">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-gold text-brand-navy font-bold">
                   For Question #{targetQuestionNumber}
                 </span>
               )}
@@ -171,32 +184,32 @@ export const ImportQuestionBankModal = ({
         </div>
 
         {/* Subject Constraint Notice Bar */}
-        <div className="bg-indigo-50 border-b border-indigo-200 px-5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-900">
-            <span>🔒 Subject Restricted:</span>
-            <span className="px-2 py-0.5 bg-white border border-indigo-300 text-indigo-800 rounded-md shadow-2xs">
+        <div className="bg-brand-navy/5 border-b border-brand-navy/10 px-5 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-navy">
+            <span>Subject Restricted:</span>
+            <span className="px-2 py-0.5 bg-white border border-slate-300 text-brand-navy rounded-md shadow-2xs">
               {activeSubjectTitle}
             </span>
           </div>
-          <span className="text-[11px] font-semibold text-indigo-700">
+          <span className="text-[11px] font-medium text-brand-navy/70">
             Only showing questions from this subject
           </span>
         </div>
 
         {/* Privacy & Ownership Filter Buttons */}
         <div className="bg-slate-100/90 border-b border-slate-200 px-4 py-2.5 flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-black uppercase text-slate-500 tracking-wider mr-1">
+          <span className="text-xs font-bold uppercase text-slate-500 tracking-wider mr-1">
             Filter:
           </span>
           <button
             onClick={() => setPrivacyFilter("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               privacyFilter === "all"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <span>📚 All Questions</span>
+            <span>All Questions</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
               privacyFilter === "all" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
             }`}>
@@ -206,15 +219,15 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("my_private")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               privacyFilter === "my_private"
-                ? "bg-amber-500 text-white shadow-xs"
-                : "bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100"
+                ? "bg-brand-navy text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <span>🔒 Private Questions</span>
+            <span>Private Questions</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-              privacyFilter === "my_private" ? "bg-white/20 text-white font-black" : "bg-amber-200 text-amber-950 font-black"
+              privacyFilter === "my_private" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
             }`}>
               {myPrivateCount}
             </span>
@@ -222,15 +235,15 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("my_public")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               privacyFilter === "my_public"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-emerald-50 text-emerald-950 border border-emerald-300 hover:bg-emerald-100"
+                ? "bg-brand-navy text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <span>🌐 Public Questions</span>
+            <span>Public Questions</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-              privacyFilter === "my_public" ? "bg-white/20 text-white font-black" : "bg-emerald-200 text-emerald-950 font-black"
+              privacyFilter === "my_public" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
             }`}>
               {myPublicCount}
             </span>
@@ -238,17 +251,33 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("others_public")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
               privacyFilter === "others_public"
-                ? "bg-sky-600 text-white shadow-xs"
-                : "bg-sky-50 text-sky-950 border border-sky-300 hover:bg-sky-100"
+                ? "bg-brand-navy text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <span>👥 Shared Questions</span>
+            <span>Shared Questions</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-              privacyFilter === "others_public" ? "bg-white/20 text-white font-black" : "bg-sky-200 text-sky-950 font-black"
+              privacyFilter === "others_public" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
             }`}>
               {sharedCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setPrivacyFilter("gad_only")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              privacyFilter === "gad_only"
+                ? "bg-brand-navy text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <span>GAD Questions</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+              privacyFilter === "gad_only" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
+            }`}>
+              {gadCount}
             </span>
           </button>
         </div>
@@ -297,15 +326,23 @@ export const ImportQuestionBankModal = ({
             </div>
           ) : finalFilteredQuestions.length === 0 ? (
             <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 p-8">
-              <span className="text-3xl mb-2 block">📚</span>
+              <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
               <p className="text-sm font-bold text-slate-700">
                 {privacyFilter === "my_private"
                   ? "No Private Questions Found for this Subject"
+                  : privacyFilter === "gad_only"
+                  ? "No GAD Questions Found for this Subject"
                   : `No Questions Found for Subject "${activeSubjectTitle}"`}
               </p>
               <p className="text-xs text-slate-500 mt-1">
                 {privacyFilter === "my_private"
                   ? "You don't have any private questions created in this subject yet."
+                  : privacyFilter === "gad_only"
+                  ? "No questions matching GAD frameworks or gender-fair concepts were found in this subject."
                   : "Try clearing search filters or selecting another category above."}
               </p>
             </div>
@@ -319,7 +356,7 @@ export const ImportQuestionBankModal = ({
                   key={q.id || idx}
                   className={`bg-white border rounded-2xl p-4 shadow-xs transition-all space-y-3 ${
                     isOwn && isPrivate
-                      ? "border-amber-300 hover:border-amber-500 bg-amber-50/20"
+                      ? "border-brand-navy/30 hover:border-brand-navy bg-brand-navy/5"
                       : "border-slate-200 hover:border-brand-navy/50"
                   }`}
                 >
@@ -327,7 +364,7 @@ export const ImportQuestionBankModal = ({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         {/* Type badge */}
-                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-black uppercase text-slate-700">
+                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-bold uppercase text-slate-700">
                           {q.type === "mcq" ? "Multiple Choice" : q.type === "true_false" ? "True / False" : q.type}
                         </span>
 
@@ -338,38 +375,48 @@ export const ImportQuestionBankModal = ({
 
                         {/* Subject badge */}
                         {(q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name) && (
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
-                            📖 {q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name}
+                          <span className="px-2 py-0.5 bg-brand-navy/5 text-brand-navy border border-brand-navy/10 rounded-md text-[10px] font-medium">
+                            {q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name}
+                          </span>
+                        )}
+
+                        {/* GAD Badge */}
+                        {isQuestionGad(q) && (
+                          <span
+                            className="px-2.5 py-0.5 bg-brand-navy/10 text-brand-navy border border-brand-navy/20 rounded-md text-[10px] font-bold flex items-center gap-1"
+                            title={analyzeGADQuestion(q.text || "", q.options || []).matchReason || "Gender & Development (GAD) Question"}
+                          >
+                            GAD
                           </span>
                         )}
 
                         {/* Privacy & Ownership Badges */}
                         {isOwn && isPrivate && (
-                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-[10px] font-black flex items-center gap-1 shadow-2xs">
-                            🔒 My Private Question
+                          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded-md text-[10px] font-medium">
+                            Private Question
                           </span>
                         )}
                         {isOwn && !isPrivate && (
-                          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-md text-[10px] font-black flex items-center gap-1 shadow-2xs">
-                            🌐 My Public Question
+                          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded-md text-[10px] font-medium">
+                            Public Question
                           </span>
                         )}
                         {!isOwn && (
-                          <span className="px-2.5 py-0.5 bg-sky-100 text-sky-900 border border-sky-300 rounded-md text-[10px] font-black flex items-center gap-1 shadow-2xs">
-                            👥 Shared Question
+                          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded-md text-[10px] font-medium">
+                            Shared Question
                           </span>
                         )}
 
                         {/* Source Quiz Info */}
                         {q.quizzes?.title && (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md text-[10px] font-semibold italic">
-                            📝 Quiz: {q.quizzes.title}
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md text-[10px] font-medium italic">
+                            Quiz: {q.quizzes.title}
                           </span>
                         )}
 
                         {/* Owner Name Tag */}
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs bg-purple-100 text-purple-950 border border-purple-300">
-                          👤 Owner: ({q.creator_name || user?.user_metadata?.full_name || "Instructor"})
+                          Owner: ({q.creator_name || user?.user_metadata?.full_name || "Instructor"})
                         </span>
                       </div>
 
@@ -382,7 +429,7 @@ export const ImportQuestionBankModal = ({
                       onClick={() => handleChoose(q)}
                       className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0"
                     >
-                      <span>📥</span>
+                      
                       <span>Import This Question</span>
                     </button>
                   </div>
@@ -438,4 +485,6 @@ export const ImportQuestionBankModal = ({
     </div>
   );
 };
+
+
 
