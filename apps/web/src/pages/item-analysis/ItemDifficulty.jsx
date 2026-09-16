@@ -87,16 +87,56 @@ export const ItemDifficulty = () => {
 
       setLoadingQuizzes(true);
       try {
-        const { data: quizzesData, error: quizzesError } = await supabase
+        const { data: qsRows } = await supabase
+          .from("quiz_sections")
+          .select("quiz_id")
+          .eq("section_id", selectedSection);
+
+        const mappedQuizIds = (qsRows || []).map((r) => r.quiz_id).filter(Boolean);
+
+        const { data: directRows } = await supabase
           .from("quizzes")
-          .select("id, title, is_published, description, duration")
+          .select("id")
           .eq("section_id", selectedSection)
           .eq("is_published", true)
-          .eq("is_archived", false)
-          .order("created_at", { ascending: false });
+          .eq("is_archived", false);
 
-        if (quizzesError) throw quizzesError;
-        setQuizzes(quizzesData || []);
+        const allCandidateIds = Array.from(
+          new Set([...mappedQuizIds, ...(directRows || []).map((r) => r.id)])
+        );
+
+        let finalQuizzes = [];
+        if (allCandidateIds.length > 0) {
+          const { data: quizzesData, error: quizzesError } = await supabase
+            .from("quizzes")
+            .select("id, title, is_published, description, duration")
+            .in("id", allCandidateIds)
+            .eq("is_published", true)
+            .eq("is_archived", false)
+            .order("created_at", { ascending: false });
+
+          if (quizzesError) throw quizzesError;
+          finalQuizzes = (quizzesData || []).map((q) => ({
+            ...q,
+            title: q.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || q.title,
+          }));
+        }
+
+        if (finalQuizzes.length === 0 && user?.id) {
+          const { data: myQuizzes } = await supabase
+            .from("quizzes")
+            .select("id, title, is_published, description, duration")
+            .eq("instructor_id", user.id)
+            .eq("is_published", true)
+            .eq("is_archived", false);
+
+          finalQuizzes = (myQuizzes || []).map((q) => ({
+            ...q,
+            title: q.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || q.title,
+          }));
+        }
+
+        setQuizzes(finalQuizzes);
       } catch (err) {
         console.error("Error fetching quizzes:", err);
       } finally {
@@ -464,14 +504,14 @@ export const ItemDifficulty = () => {
 
       if (error) {
         setSaveError(error.message || "Failed to save analysis");
-        alert("Failed to save analysis: " + (error.message || "Unknown error"));
+        notify.error("Failed to save analysis: " + (error.message || "Unknown error"));
       } else {
         setAnalysisSaved(true);
-        alert("Analysis saved successfully!");
+        notify.success("Analysis saved successfully!");
       }
     } catch (err) {
       setSaveError(err.message);
-      alert("Failed to save analysis. Please check console for details.");
+      notify.error("Failed to save analysis. Please check console for details.");
     } finally {
       setSavingAnalysis(false);
     }

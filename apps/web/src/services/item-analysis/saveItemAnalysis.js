@@ -270,12 +270,36 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
     // Dispatch event to notify question list to refresh
     window.dispatchEvent(new Event("questions-updated"));
 
+    // Fetch quiz metadata for rich audit logging
+    let quizTitle = "Quiz Item Analysis";
+    let subjectName = null;
+    let sectionName = null;
+
+    try {
+      const { data: quizInfo } = await supabase
+        .from("quizzes")
+        .select("title, subjects(name, code), sections(name, code)")
+        .eq("id", quizId)
+        .single();
+
+      if (quizInfo) {
+        quizTitle = quizInfo.title || quizTitle;
+        subjectName = quizInfo.subjects?.name || (quizInfo.subjects?.code ? quizInfo.subjects.code : null);
+        sectionName = quizInfo.sections?.name || (quizInfo.sections?.code ? quizInfo.sections.code : null);
+      }
+    } catch (qErr) {
+      console.warn("Could not fetch quiz info for audit log:", qErr);
+    }
+
     // Log the audit event
     await logAudit({
       action: "ANALYSIS_SAVED",
       tableName: "item_analysis",
       recordId: quizId,
-      newValues: { quizId, count: results.length },
+      itemName: quizTitle,
+      subjectName,
+      sectionName,
+      newValues: { quizId, quizTitle, count: results.length },
     });
 
     return { data: results, error: null };

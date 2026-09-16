@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { exportItemRevisionPdf } from "../../../utils/exportItemRevisionPdf";
+import { notify } from "../../../utils/notify.jsx";
 
 /**
  * ItemRevisionComparisonModal
@@ -35,7 +36,7 @@ export const ItemRevisionComparisonModal = ({
       setShowExportModal(false);
     } catch (err) {
       console.error("PDF Export error:", err);
-      alert("Failed to export PDF report: " + err.message);
+      notify.error("Failed to export PDF report: " + err.message);
     } finally {
       setExporting(false);
     }

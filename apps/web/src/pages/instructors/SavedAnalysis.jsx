@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 
 export const SavedAnalysisPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +56,14 @@ export const SavedAnalysisPage = () => {
   }, []);
 
   const handleArchive = async (quizId, quizTitle) => {
-    if (window.confirm(`Are you sure you want to archive "${quizTitle}"?`)) {
+    const confirmed = await confirm({
+      title: "Archive Quiz",
+      message: `Are you sure you want to archive "${quizTitle}"?`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+    if (confirmed) {
       try {
         const { error } = await supabase
           .from("quizzes")

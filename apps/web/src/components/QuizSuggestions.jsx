@@ -1,11 +1,17 @@
 /**
  * Quiz Improvement Suggestions based on Bloom's Taxonomy
- * School TOS (Table of Specifications): 30% LOTS / 70% HOTS
+ * School TOS (Table of Specifications): 30% LOTS / 70% HOTS (Standard)
+ * Project-Based Assessment TOS: 20% LOTS / 80% HOTS (N2)
  */
 
-const TOS_LOTS_TARGET = 30;
-const TOS_HOTS_TARGET = 70;
-const TOLERANCE = 5; // ±5% tolerance before flagging
+import { useState } from "react";
+
+const TOS_MODES = {
+  standard: { lotsTarget: 30, hotsTarget: 70, label: "Standard TOS" },
+  project: { lotsTarget: 20, hotsTarget: 80, label: "Project-Based" },
+};
+
+const TOLERANCE = 5; // +-5% tolerance before flagging
 
 const BLOOM_ORDER = [
   "Remembering",
@@ -19,22 +25,98 @@ const BLOOM_ORDER = [
 const LOTS_LEVELS = ["Remembering", "Understanding", "Applying"];
 const HOTS_LEVELS = ["Analyzing", "Evaluating", "Creating"];
 
+// SVG Icons — uniform with system design
+const CheckCircleIcon = ({ className = "h-4 w-4" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const AlertIcon = ({ className = "h-4 w-4" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+    />
+  </svg>
+);
+
+const XCircleIcon = ({ className = "h-4 w-4" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const InfoIcon = ({ className = "h-4 w-4" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
 /**
- * Generates suggestions based on analysis summary
+ * Generates suggestions based on analysis summary and TOS mode
  */
-const generateSuggestions = (summary) => {
+const generateSuggestions = (summary, tosMode = "standard") => {
   if (!summary) return { suggestions: [], compliance: null };
 
-  const { lotsPercentage, hotsPercentage, totalQuestions, distribution, flaggedCount } =
-    summary;
+  const { lotsTarget, hotsTarget } = TOS_MODES[tosMode] || TOS_MODES.standard;
+
+  const {
+    lotsPercentage,
+    hotsPercentage,
+    totalQuestions,
+    distribution,
+    flaggedCount,
+  } = summary;
 
   const lotsPct = lotsPercentage || 0;
   const hotsPct = hotsPercentage || 0;
   const suggestions = [];
 
   // Determine TOS compliance
-  const lotsDeviation = TOS_LOTS_TARGET - lotsPct;
-  const hotsDeviation = TOS_HOTS_TARGET - hotsPct;
+  const lotsDeviation = lotsTarget - lotsPct;
+  const hotsDeviation = hotsTarget - hotsPct;
   const isCompliant =
     Math.abs(lotsDeviation) <= TOLERANCE &&
     Math.abs(hotsDeviation) <= TOLERANCE;
@@ -43,21 +125,21 @@ const generateSuggestions = (summary) => {
     isCompliant,
     lotsPct,
     hotsPct,
-    lotsTarget: TOS_LOTS_TARGET,
-    hotsTarget: TOS_HOTS_TARGET,
+    lotsTarget,
+    hotsTarget,
     lotsDeviation,
     hotsDeviation,
   };
 
-  // ── TOS Compliance Suggestions ──
-  if (lotsPct > TOS_LOTS_TARGET + TOLERANCE) {
+  // TOS Compliance Suggestions
+  if (lotsPct > lotsTarget + TOLERANCE) {
     const excessLots = Math.round(
-      ((lotsPct - TOS_LOTS_TARGET) / 100) * totalQuestions,
+      ((lotsPct - lotsTarget) / 100) * totalQuestions,
     );
     suggestions.push({
       type: "warning",
       title: "Too Many LOTS Questions",
-      message: `Your quiz has ${lotsPct}% LOTS questions, exceeding the ${TOS_LOTS_TARGET}% target. Consider converting approximately ${excessLots} lower-order question(s) to higher-order thinking questions.`,
+      message: `Your quiz has ${lotsPct}% LOTS questions, exceeding the ${lotsTarget}% target. Consider converting approximately ${excessLots} lower-order question(s) to higher-order thinking questions.`,
       actionItems: [
         "Replace some Remembering/Understanding questions with Analyzing or Evaluating questions",
         "Transform recall-based questions into application or analysis scenarios",
@@ -66,14 +148,14 @@ const generateSuggestions = (summary) => {
     });
   }
 
-  if (hotsPct < TOS_HOTS_TARGET - TOLERANCE) {
+  if (hotsPct < hotsTarget - TOLERANCE) {
     const neededHots = Math.round(
-      ((TOS_HOTS_TARGET - hotsPct) / 100) * totalQuestions,
+      ((hotsTarget - hotsPct) / 100) * totalQuestions,
     );
     suggestions.push({
       type: "warning",
       title: "Insufficient HOTS Questions",
-      message: `Your quiz has only ${hotsPct}% HOTS questions, below the ${TOS_HOTS_TARGET}% target. You need approximately ${neededHots} more higher-order thinking question(s).`,
+      message: `Your quiz has only ${hotsPct}% HOTS questions, below the ${hotsTarget}% target. You need approximately ${neededHots} more higher-order thinking question(s).`,
       actionItems: [
         "Add questions that ask students to analyze relationships or compare concepts",
         "Include questions requiring evaluation of arguments or justification of decisions",
@@ -82,11 +164,11 @@ const generateSuggestions = (summary) => {
     });
   }
 
-  if (lotsPct < TOS_LOTS_TARGET - TOLERANCE) {
+  if (lotsPct < lotsTarget - TOLERANCE) {
     suggestions.push({
       type: "info",
       title: "LOTS Below Target",
-      message: `Your quiz has only ${lotsPct}% LOTS questions, below the ${TOS_LOTS_TARGET}% target. While having more HOTS is generally positive, the TOS requires a balance for foundational knowledge assessment.`,
+      message: `Your quiz has only ${lotsPct}% LOTS questions, below the ${lotsTarget}% target. While having more HOTS is generally positive, the TOS requires a balance for foundational knowledge assessment.`,
       actionItems: [
         "Add some recall or definition-based questions to assess foundational knowledge",
         "Include comprehension questions that check basic understanding",
@@ -98,12 +180,12 @@ const generateSuggestions = (summary) => {
     suggestions.push({
       type: "success",
       title: "TOS Compliant",
-      message: `Your quiz meets the Table of Specifications requirement with ${lotsPct}% LOTS and ${hotsPct}% HOTS (target: ${TOS_LOTS_TARGET}/${TOS_HOTS_TARGET}).`,
+      message: `Your quiz meets the Table of Specifications requirement with ${lotsPct}% LOTS and ${hotsPct}% HOTS (target: ${lotsTarget}/${hotsTarget}).`,
       actionItems: [],
     });
   }
 
-  // ── Level Distribution Suggestions ──
+  // Level Distribution Suggestions
   if (distribution) {
     const missingLevels = BLOOM_ORDER.filter(
       (level) => !distribution[level] || distribution[level] === 0,
@@ -116,12 +198,18 @@ const generateSuggestions = (summary) => {
         message: `Your quiz doesn't cover: ${missingLevels.join(", ")}. A well-rounded assessment should ideally touch multiple cognitive levels.`,
         actionItems: missingLevels.map((level) => {
           const tips = {
-            Remembering: "Add questions that test recall of facts, definitions, or key terms",
-            Understanding: "Add questions that ask students to explain, summarize, or paraphrase concepts",
-            Applying: "Add questions that require students to use knowledge in new situations or solve practical problems",
-            Analyzing: "Add questions that ask students to compare, contrast, categorize, or identify patterns",
-            Evaluating: "Add questions that require students to judge, critique, or justify arguments",
-            Creating: "Add questions that ask students to design, propose, or construct original solutions",
+            Remembering:
+              "Add questions that test recall of facts, definitions, or key terms",
+            Understanding:
+              "Add questions that ask students to explain, summarize, or paraphrase concepts",
+            Applying:
+              "Add questions that require students to use knowledge in new situations or solve practical problems",
+            Analyzing:
+              "Add questions that ask students to compare, contrast, categorize, or identify patterns",
+            Evaluating:
+              "Add questions that require students to judge, critique, or justify arguments",
+            Creating:
+              "Add questions that ask students to design, propose, or construct original solutions",
           };
           return `${level}: ${tips[level]}`;
         }),
@@ -151,7 +239,7 @@ const generateSuggestions = (summary) => {
     }
   }
 
-  // ── Flagged Questions ──
+  // Flagged Questions
   if (flaggedCount > 0) {
     suggestions.push({
       type: "info",
@@ -165,7 +253,7 @@ const generateSuggestions = (summary) => {
     });
   }
 
-  // ── Question Count ──
+  // Question Count
   if (totalQuestions < 10) {
     suggestions.push({
       type: "info",
@@ -173,7 +261,7 @@ const generateSuggestions = (summary) => {
       message: `Your quiz has only ${totalQuestions} questions. With a small pool, it's harder to achieve the ideal LOTS/HOTS distribution.`,
       actionItems: [
         "Consider adding more questions for a more reliable assessment",
-        `Aim for at least ${Math.ceil(10 * (TOS_HOTS_TARGET / 100))} HOTS and ${Math.ceil(10 * (TOS_LOTS_TARGET / 100))} LOTS questions minimum`,
+        `Aim for at least ${Math.ceil(10 * (hotsTarget / 100))} HOTS and ${Math.ceil(10 * (lotsTarget / 100))} LOTS questions minimum`,
       ],
     });
   }
@@ -190,18 +278,22 @@ const ComplianceGauge = ({ compliance }) => {
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg border bg-white shadow-sm">
       <div
-        className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black shrink-0 ${
+        className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2 ${
           compliance.isCompliant
-            ? "bg-green-100 text-green-600 border-2 border-green-300"
-            : "bg-red-100 text-red-600 border-2 border-red-300"
+            ? "bg-brand-navy/5 border-brand-navy/20"
+            : "bg-gray-100 border-gray-300"
         }`}
       >
-        {compliance.isCompliant ? "✓" : "!"}
+        {compliance.isCompliant ? (
+          <CheckCircleIcon className="h-5 w-5 text-brand-navy" />
+        ) : (
+          <XCircleIcon className="h-5 w-5 text-gray-500" />
+        )}
       </div>
       <div className="flex-1">
         <p
           className={`font-bold text-sm ${
-            compliance.isCompliant ? "text-green-700" : "text-red-700"
+            compliance.isCompliant ? "text-brand-navy" : "text-gray-700"
           }`}
         >
           {compliance.isCompliant ? "TOS Compliant" : "TOS Non-Compliant"}
@@ -213,8 +305,8 @@ const ComplianceGauge = ({ compliance }) => {
           <span
             className={`text-xs font-semibold ${
               Math.abs(compliance.lotsDeviation) <= TOLERANCE
-                ? "text-green-600"
-                : "text-red-600"
+                ? "text-brand-navy"
+                : "text-gray-600"
             }`}
           >
             LOTS: {compliance.lotsPct}%{" "}
@@ -224,8 +316,8 @@ const ComplianceGauge = ({ compliance }) => {
           <span
             className={`text-xs font-semibold ${
               Math.abs(compliance.hotsDeviation) <= TOLERANCE
-                ? "text-green-600"
-                : "text-red-600"
+                ? "text-brand-navy"
+                : "text-gray-600"
             }`}
           >
             HOTS: {compliance.hotsPct}%{" "}
@@ -240,57 +332,99 @@ const ComplianceGauge = ({ compliance }) => {
 
 /**
  * QuizSuggestions Component
- * Renders AI-powered improvement suggestions based on Bloom's analysis
+ * Renders AI-powered improvement suggestions based on Bloom's analysis.
+ * Supports Standard TOS (70% HOTS / 30% LOTS) and Project-Based TOS (80% HOTS / 20% LOTS).
  */
 export const QuizSuggestions = ({ summary }) => {
-  const { suggestions, compliance } = generateSuggestions(summary);
+  const [tosMode, setTosMode] = useState("standard");
+  const { suggestions, compliance } = generateSuggestions(summary, tosMode);
+  const currentMode = TOS_MODES[tosMode];
 
-  if (suggestions.length === 0) return null;
+  if (!summary) return null;
 
+  // Uniform type styles using only brand + gray palette
   const typeStyles = {
     success: {
-      bg: "bg-green-50",
-      border: "border-green-200",
-      icon: "✅",
-      titleColor: "text-green-800",
-      textColor: "text-green-700",
-      bulletColor: "text-green-500",
+      bg: "bg-brand-navy/5",
+      border: "border-brand-navy/20",
+      IconComponent: CheckCircleIcon,
+      iconClass: "text-brand-navy",
+      titleColor: "text-brand-navy",
+      textColor: "text-brand-navy/80",
+      bulletColor: "text-brand-navy/50",
     },
     warning: {
-      bg: "bg-amber-50",
-      border: "border-amber-200",
-      icon: "⚠️",
-      titleColor: "text-amber-800",
-      textColor: "text-amber-700",
-      bulletColor: "text-amber-500",
+      bg: "bg-gray-50",
+      border: "border-gray-300",
+      IconComponent: AlertIcon,
+      iconClass: "text-gray-600",
+      titleColor: "text-gray-800",
+      textColor: "text-gray-700",
+      bulletColor: "text-gray-400",
     },
     error: {
-      bg: "bg-red-50",
-      border: "border-red-200",
-      icon: "❌",
-      titleColor: "text-red-800",
-      textColor: "text-red-700",
-      bulletColor: "text-red-500",
+      bg: "bg-gray-50",
+      border: "border-gray-300",
+      IconComponent: XCircleIcon,
+      iconClass: "text-gray-600",
+      titleColor: "text-gray-800",
+      textColor: "text-gray-700",
+      bulletColor: "text-gray-400",
     },
     info: {
-      bg: "bg-blue-50",
-      border: "border-blue-200",
-      icon: "💡",
-      titleColor: "text-blue-800",
-      textColor: "text-blue-700",
-      bulletColor: "text-blue-500",
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      IconComponent: InfoIcon,
+      iconClass: "text-brand-navy/60",
+      titleColor: "text-brand-navy",
+      textColor: "text-brand-navy/70",
+      bulletColor: "text-brand-navy/40",
     },
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      {/* Header with TOS Mode Toggle (N2) */}
+      <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-lg font-bold text-gray-800">
           Quiz Improvement Suggestions
         </h3>
-        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
-          TOS: {TOS_LOTS_TARGET}/{TOS_HOTS_TARGET}
+
+        {/* TOS Mode Selector */}
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200">
+          <button
+            onClick={() => setTosMode("standard")}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+              tosMode === "standard"
+                ? "bg-brand-navy text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            title="Standard TOS: 70% HOTS / 30% LOTS"
+          >
+            Standard (70/30)
+          </button>
+          <button
+            onClick={() => setTosMode("project")}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+              tosMode === "project"
+                ? "bg-brand-navy text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            title="Project-Based Assessment TOS: 80% HOTS / 20% LOTS"
+          >
+            Project-Based (80/20)
+          </button>
+        </div>
+
+        <span className="px-2 py-0.5 bg-brand-navy/10 text-brand-navy text-xs font-bold rounded-full border border-brand-navy/10">
+          TOS: {currentMode.lotsTarget}/{currentMode.hotsTarget}
         </span>
+
+        {tosMode === "project" && (
+          <span className="text-[11px] text-brand-navy font-medium bg-brand-gold/20 px-2 py-0.5 rounded-full border border-brand-gold/30">
+            Project-Based Assessment Mode
+          </span>
+        )}
       </div>
 
       {/* TOS Compliance Gauge */}
@@ -300,13 +434,16 @@ export const QuizSuggestions = ({ summary }) => {
       <div className="space-y-3">
         {suggestions.map((suggestion, idx) => {
           const style = typeStyles[suggestion.type] || typeStyles.info;
+          const { IconComponent } = style;
           return (
             <div
               key={idx}
               className={`p-4 rounded-lg border ${style.bg} ${style.border}`}
             >
               <div className="flex items-start gap-2">
-                <span className="text-lg shrink-0">{style.icon}</span>
+                <span className="shrink-0 mt-0.5">
+                  <IconComponent className={`h-4 w-4 ${style.iconClass}`} />
+                </span>
                 <div className="flex-1">
                   <p className={`font-semibold text-sm ${style.titleColor}`}>
                     {suggestion.title}
@@ -322,7 +459,7 @@ export const QuizSuggestions = ({ summary }) => {
                           className={`text-xs ${style.textColor} flex items-start gap-1.5`}
                         >
                           <span className={`${style.bulletColor} mt-0.5`}>
-                            ▸
+                            &rsaquo;
                           </span>
                           <span>{item}</span>
                         </li>

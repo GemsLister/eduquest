@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
 import { RevisionHistoryModal } from './RevisionHistoryModal';
+import { notify } from '../../../utils/notify.jsx';
 
 export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) => {
   const { generateSuggestion, updateQuestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
@@ -25,6 +26,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
           options: ['', '', '', ''], // Start with 4 empty options
           correctAnswer: 0 
         });
+        setIsManualEdit(true); // Open directly in edit mode for rejected items
       } else {
         const text = questionData.revised_content?.text || questionData.text || '';
         const options = [...(questionData.revised_options || questionData.options || ['', ''])];
@@ -41,9 +43,8 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
         }
 
         setFormData({ text, options, correctAnswer: correctIdx });
+        setIsManualEdit(false);
       }
-      
-      setIsManualEdit(false);
       
       // Default comparison to the original/previous state (only for non-rejected items)
       if (questionData.autoFlag !== 'reject') {
@@ -61,13 +62,15 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   const handleAIGenerate = async () => {
     const result = await generateSuggestion(questionData);
     if (result) {
+      const correctIdx = typeof result.correct_answer === 'string'
+        ? (result.options?.indexOf(result.correct_answer) !== -1 ? result.options.indexOf(result.correct_answer) : 0)
+        : (result.correct_answer ?? 0);
+
       // Immediately populate the form with AI result
       setFormData({
-        text: result.text,
-        options: result.options,
-        correctAnswer: typeof result.correct_answer === 'string' 
-          ? result.options.indexOf(result.correct_answer) 
-          : result.correct_answer
+        text: result.text || '',
+        options: Array.isArray(result.options) ? result.options : ['', '', '', ''],
+        correctAnswer: correctIdx
       });
       // Switch to manual edit view so they see the changes in the form
       setIsManualEdit(true);
@@ -75,28 +78,27 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   };
 
   const handleSaveDraft = async () => {
-    if (!formData.text.trim()) return alert("Question text is required");
-    if (formData.options.some(opt => !opt?.trim())) return alert("All options must be filled");
+    if (!formData.text.trim()) return notify.warning("Question text is required");
+    if (formData.options.some(opt => !opt?.trim())) return notify.warning("All options must be filled");
 
     try {
-      // FINAL SAVE (Badge will disappear)
-      await updateQuestion(questionId, formData.text, formData.options, formData.correctAnswer);
-      alert('Question updated and finalized successfully!');
+      // Save revised question to Question Bank without overwriting live published quiz questions
+      await saveRevision(questionId, formData.text, formData.options, formData.correctAnswer);
+      notify.success('Revised question saved to Question Bank with AI Revised tag!');
       onClose();
       window.dispatchEvent(new Event("questions-updated"));
     } catch (err) {
-      alert('Error finalizing revision: ' + err.message);
+      notify.error('Error saving revision: ' + err.message);
     }
   };
 
   const handleJustSaveDraft = async () => {
     try {
-      // JUST DRAFT (Badge will stay)
       await saveRevision(questionId, formData.text, formData.options, formData.correctAnswer);
-      alert('Draft saved successfully!');
+      notify.success('Revised question saved to Question Bank!');
       window.dispatchEvent(new Event("questions-updated"));
     } catch (err) {
-      alert('Error saving draft: ' + err.message);
+      notify.error('Error saving draft: ' + err.message);
     }
   };
 
