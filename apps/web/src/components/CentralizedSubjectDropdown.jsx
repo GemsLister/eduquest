@@ -17,6 +17,8 @@ export const CentralizedSubjectDropdown = ({
 
   useEffect(() => {
     fetchSubjects();
+    window.addEventListener("subjects-changed", fetchSubjects);
+    return () => window.removeEventListener("subjects-changed", fetchSubjects);
   }, [filterByGradeLevel]);
 
   const fetchSubjects = async () => {
@@ -24,24 +26,48 @@ export const CentralizedSubjectDropdown = ({
       setLoading(true);
       setError("");
 
-      const { data, error: rpcError } = await supabase.rpc("get_approved_subjects");
+      let loadedSubjects = [];
 
-      if (rpcError) {
-        // If the function doesn't exist yet (migration not run), show helpful message
-        if (rpcError.message.includes('function') && rpcError.message.includes('does not exist')) {
-          console.warn("get_approved_subjects function not available - migration may not be run yet");
-          setError("Subject management feature requires database migration. Please contact administrator.");
-          setSubjects([]);
-          return;
+      // 1. Try RPC
+      try {
+        const { data, error: rpcError } = await supabase.rpc("get_approved_subjects");
+        if (!rpcError && data) {
+          loadedSubjects = data;
         }
-        throw rpcError;
+      } catch (rpcErr) {}
+
+      // 2. Direct table fallback if RPC returns empty or fails
+      if (loadedSubjects.length === 0) {
+        try {
+          const { data: subData } = await supabase
+            .from("subjects")
+            .select("*")
+            .eq("is_archived", false)
+            .order("name", { ascending: true });
+
+          if (subData) {
+            loadedSubjects = subData;
+          }
+        } catch (e) {}
       }
 
-      let filteredSubjects = data || [];
-      
+      // Filter out any pending or rejected subject requests
+      let filteredSubjects = (loadedSubjects || []).filter((s) => {
+        const desc = s.description || "";
+        const isPending =
+          desc.includes("[REQUEST:PENDING") ||
+          (s.status || "").toLowerCase() === "pending";
+        const isRejected =
+          desc.includes("[REQUEST:REJECTED") ||
+          (s.status || "").toLowerCase() === "rejected";
+        return !isPending && !isRejected;
+      });
+
       // Filter by grade level if specified
       if (filterByGradeLevel) {
-        filteredSubjects = filteredSubjects.filter(s => s.grade_level === filterByGradeLevel);
+        filteredSubjects = filteredSubjects.filter(
+          (s) => s.grade_level === filterByGradeLevel,
+        );
       }
 
       setSubjects(filteredSubjects);
@@ -135,37 +161,44 @@ export const CentralizedSubjectDropdown = ({
 
   return (
     <div className={`w-full ${className}`}>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        Select Subject
+      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+        Curriculum Subject <span className="text-rose-500">*</span>
       </label>
-      <select
-        value={selectedSubjectId || ""}
-        onChange={(e) => handleSubjectSelect(e.target.value || null)}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
-      >
-        <option value="">-- Select a Subject --</option>
-        
-        {subjects.length === 0 && (
-          <option value="" disabled>
-            No approved subjects available
-          </option>
-        )}
-        
-        {subjects.map((subject) => (
-          <option key={subject.id} value={subject.id}>
-            {subject.name}
-            {subject.code && ` (${subject.code})`}
-            {` - ${getGradeLabel(subject.grade_level)}`}
-            {subject.is_assigned && " ✓"}
-          </option>
-        ))}
-        
-        {showRequestOption && (
-          <option value="request_new" className="font-semibold text-brand-gold-dark">
-            + Request New Subject
-          </option>
-        )}
-      </select>
+      <div className="relative">
+        <select
+          value={selectedSubjectId || ""}
+          onChange={(e) => handleSubjectSelect(e.target.value || null)}
+          className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm font-medium text-slate-800 transition-all appearance-none cursor-pointer"
+        >
+          <option value="">-- Select a Curriculum Subject --</option>
+          
+          {subjects.length === 0 && (
+            <option value="" disabled>
+              No approved curriculum subjects available
+            </option>
+          )}
+          
+          {subjects.map((subject) => (
+            <option key={subject.id} value={subject.id}>
+              {subject.name}
+              {subject.code ? ` (${subject.code})` : ""}
+              {` — ${getGradeLabel(subject.grade_level)}`}
+              {subject.is_assigned ? " (Assigned)" : ""}
+            </option>
+          ))}
+          
+          {showRequestOption && (
+            <option value="request_new" className="font-bold text-brand-indigo">
+              + Request New Subject
+            </option>
+          )}
+        </select>
+        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
 
       {showRequestForm && (
         <SubjectRequestForm

@@ -31,8 +31,6 @@ export const useCreateSection = (onSectionCreated, userId) => {
       }
 
       if (!userId) {
-        console.log(userId);
-
         setError("You must be logged in to create a subject");
         return;
       }

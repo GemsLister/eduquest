@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { subjectService } from "../services/subjectService";
+import { notify } from "../utils/notify.jsx";
+import { useConfirm } from "./ui/ConfirmModal.jsx";
 
 export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
+  const confirm = useConfirm();
   const [allSubjects, setAllSubjects] = useState([]);
   const [instructorSubjects, setInstructorSubjects] = useState([]);
   const [instructorSections, setInstructorSections] = useState([]);
@@ -48,7 +51,7 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
 
   const handleAssignSubject = async () => {
     if (!selectedSubject) {
-      alert("Please select a subject");
+      notify.warning("Please select a subject");
       return;
     }
 
@@ -69,10 +72,10 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
       setSelectedGradeLevel(null);
       setSelectedSections([]);
       if (onAssignmentComplete) onAssignmentComplete();
-      alert("Subject assigned successfully!");
+      notify.success("Subject assigned successfully!");
     } catch (error) {
       console.error("Error assigning subject:", error);
-      alert("Failed to assign subject: " + error.message);
+      notify.error("Failed to assign subject: " + error.message);
     } finally {
       setIsAssigning(false);
     }
@@ -80,7 +83,7 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
 
   const handleCreateSubject = async () => {
     if (!newSubject.name.trim()) {
-      alert("Subject name is required");
+      notify.warning("Subject name is required");
       return;
     }
 
@@ -98,26 +101,33 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
       await loadData();
       setNewSubject({ name: "", code: "", description: "", grade_level: "1st" });
       setShowCreateForm(false);
-      alert("Subject created successfully!");
+      notify.success("Subject created successfully!");
     } catch (error) {
       console.error("Error creating subject:", error);
-      alert("Failed to create subject: " + error.message);
+      notify.error("Failed to create subject: " + error.message);
     } finally {
       setIsCreating(false);
     }
   };
 
   const handleRemoveAssignment = async (instructorSubjectId) => {
-    if (!confirm("Remove this subject assignment?")) return;
+    const confirmed = await confirm({
+      title: "Remove Subject Assignment",
+      message: "Are you sure you want to remove this subject assignment?",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+    if (!confirmed) return;
 
     try {
       await subjectService.removeInstructorSubject(instructorSubjectId);
       await loadData();
       if (onAssignmentComplete) onAssignmentComplete();
-      alert("Assignment removed successfully!");
+      notify.success("Assignment removed successfully!");
     } catch (error) {
       console.error("Error removing assignment:", error);
-      alert("Failed to remove assignment: " + error.message);
+      notify.error("Failed to remove assignment: " + error.message);
     }
   };
 
@@ -126,9 +136,10 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
       await subjectService.removeSectionFromInstructorSubject(instructorSubjectId, sectionId);
       await loadData();
       if (onAssignmentComplete) onAssignmentComplete();
+      notify.success("Section removed successfully!");
     } catch (error) {
       console.error("Error removing section:", error);
-      alert("Failed to remove section: " + error.message);
+      notify.error("Failed to remove section: " + error.message);
     }
   };
 

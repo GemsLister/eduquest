@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+
 const cardThemes = [
   {
     gradient: "from-brand-navy to-brand-indigo",
@@ -29,120 +29,160 @@ export const ClassInfo = ({
   quizzes = [],
   onEdit,
   onArchive,
+  onDelete,
+  onAddSection,
+  themeIndex = 0,
 }) => {
-  const [showMenu, setShowMenu] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const theme = cardThemes[sectionName?.charCodeAt(0) % cardThemes.length];
+  const theme = cardThemes[themeIndex % cardThemes.length];
 
-  // Compute stats from quizzes
   const totalQuizzes = quizzes.length;
   const openQuizzes = quizzes.filter((q) => q.is_open !== false).length;
   const totalAttempts = quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0);
-  const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       {/* Card Header */}
-      <div
-        className={`relative h-24 bg-gradient-to-br ${theme.gradient} flex items-end p-4`}
-      >
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3C/g%3E%3C/svg%3E\")",
-          }}
-        />
+      <div className={`bg-gradient-to-r ${theme.gradient} p-4 text-white`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0 pr-2">
+            <h3 className="font-bold text-lg leading-snug truncate">
+              {sectionName}
+            </h3>
+            <p className="text-white/70 text-xs mt-0.5 truncate">{subject}</p>
+          </div>
 
-        {/* 3-dot menu */}
-        <div className="absolute top-2 right-2 z-[2]">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-white"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {/* Action menu */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors"
+              aria-label="Section options"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 5v.01M12 12v.01M12 19v.01"
-              />
-            </svg>
-          </button>
-          {showMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowMenu(false)}
-              />
-              <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 w-36">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onEdit?.();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Edit Subject
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    onArchive?.();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                    />
-                  </svg>
-                  Archive
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
 
-        <div className="relative z-[1]">
-          <h1 className="text-white font-bold text-lg leading-tight drop-shadow line-clamp-2">
-            {sectionName}
-          </h1>
-          <p className="text-white/70 text-xs mt-0.5">{subject}</p>
+            {dropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setDropdownOpen(false)}
+                />
+                <div className="absolute right-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 text-gray-700 text-xs">
+                  {onAddSection && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onAddSection();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-brand-navy font-semibold"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Add Section
+                    </button>
+                  )}
+                  {onEdit && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onEdit();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3.5 w-3.5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      Edit Section
+                    </button>
+                  )}
+                  {onArchive && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onArchive();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-amber-600"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3.5 w-3.5 text-amber-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                        />
+                      </svg>
+                      Archive Section
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onDelete();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-50 flex items-center gap-2 text-red-600"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3.5 w-3.5 text-red-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      Delete Section
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -175,7 +215,8 @@ export const ClassInfo = ({
         {/* Action */}
         <button
           onClick={() => {
-            navigate(`/instructor-dashboard/section/${sectionId}`);
+            const isAdminPath = location.pathname.startsWith("/admin-dashboard");
+            navigate(isAdminPath ? `/admin-dashboard/section/${sectionId}` : `/instructor-dashboard/section/${sectionId}`);
           }}
           className={`mt-auto w-full py-2.5 rounded-lg font-bold text-sm transition-colors cursor-pointer ${theme.button}`}
         >

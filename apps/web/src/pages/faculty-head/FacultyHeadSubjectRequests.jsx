@@ -12,6 +12,8 @@ export const FacultyHeadSubjectRequests = () => {
   const [filter, setFilter] = useState("all"); // all, pending, approved, rejected
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   
   // Direct subject creation form
   const [newSubject, setNewSubject] = useState({
@@ -26,28 +28,72 @@ export const FacultyHeadSubjectRequests = () => {
 
   useEffect(() => {
     fetchRequests();
+    window.addEventListener("subject-requests-changed", fetchRequests);
+    window.addEventListener("pending-subject-requests-changed", fetchRequests);
+    return () => {
+      window.removeEventListener("subject-requests-changed", fetchRequests);
+      window.removeEventListener("pending-subject-requests-changed", fetchRequests);
+    };
+  }, [user, filter]);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [filter]);
 
   const fetchRequests = async () => {
+    if (!user?.id) return;
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.rpc("get_all_subject_requests");
+      let list = [];
 
-      if (error) {
-        // If the function doesn't exist yet (migration not run), show helpful message
-        if (error.message.includes('function') && error.message.includes('does not exist')) {
-          console.warn("get_all_subject_requests function not available - migration may not be run yet");
-          setRequests([]);
-          return;
+      // Fetch from notifications table for current Department Head
+      try {
+        const { data: notifs, error: notifErr } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .ilike("title", "Subject Request:%")
+          .order("created_at", { ascending: false });
+
+        if (!notifErr && notifs) {
+          notifs.forEach((n) => {
+            let parsed = {};
+            try {
+              parsed = JSON.parse(n.message);
+            } catch (e) {
+              parsed = {
+                subject_name: n.title.replace("Subject Request:", "").trim(),
+                description: n.message,
+                request_status: "pending",
+              };
+            }
+
+            list.push({
+              notification_id: n.id,
+              id: parsed.id || n.id,
+              subject_name: parsed.subject_name || n.title.replace("Subject Request:", "").trim(),
+              subject_code: parsed.subject_code || null,
+              grade_level: parsed.grade_level || "1st",
+              description: parsed.description || "",
+              requested_by: parsed.requested_by,
+              requester_name: parsed.requester_name || "Faculty Member",
+              requested_by_email: parsed.requester_email || null,
+              request_status: (parsed.request_status || "pending").toLowerCase(),
+              rejection_reason: parsed.rejection_reason || null,
+              created_at: parsed.created_at || n.created_at,
+              reviewed_at: parsed.reviewed_at || null,
+            });
+          });
         }
-        throw error;
+      } catch (e) {
+        console.warn("Could not query notifications:", e);
       }
 
-      let filteredData = data || [];
-      
+      let filteredData = list;
       if (filter !== "all") {
-        filteredData = filteredData.filter(r => r.request_status === filter);
+        filteredData = filteredData.filter((r) => r.request_status === filter);
       }
 
       setRequests(filteredData);
@@ -62,21 +108,81 @@ export const FacultyHeadSubjectRequests = () => {
   const handleApprove = async (requestId) => {
     setProcessingId(requestId);
     try {
-      const { data, error } = await supabase.rpc("approve_subject_request", {
-        p_request_id: requestId,
-      });
+      const targetReq = requests.find((r) => r.id === requestId);
+      if (!targetReq) throw new Error("Request not found");
 
-      if (error) throw error;
+      // 1. Insert into subjects table as an official curriculum subject
+      const { data: newSubData, error: insertSubErr } = await supabase
+        .from("subjects")
+        .insert([
+          {
+            instructor_id: user.id,
+            name: targetReq.subject_name,
+            code: targetReq.subject_code || null,
+            description: targetReq.description || null,
+            is_archived: false,
+          },
+        ])
+        .select();
 
-      if (data.success) {
-        notify.success("Subject request approved and created successfully!");
-        fetchRequests();
-      } else {
-        notify.error(data.error || "Failed to approve request");
+      if (insertSubErr) throw insertSubErr;
+
+      // 2. Assign to requesting instructor in instructor_subjects
+      if (newSubData?.[0]?.id && targetReq.requested_by) {
+        try {
+          await supabase.from("instructor_subjects").insert([
+            {
+              instructor_id: targetReq.requested_by,
+              subject_id: newSubData[0].id,
+            },
+          ]);
+        } catch (assignErr) {
+          console.warn("Instructor assignment notice:", assignErr);
+        }
       }
+
+      // 3. Update Department Head's notification to approved
+      const updatedPayload = {
+        ...targetReq,
+        request_status: "approved",
+        reviewed_at: new Date().toISOString(),
+      };
+
+      if (targetReq.notification_id) {
+        await supabase
+          .from("notifications")
+          .update({
+            message: JSON.stringify(updatedPayload),
+            is_read: true,
+          })
+          .eq("id", targetReq.notification_id);
+      }
+
+      // 4. Send success notification to the requesting instructor
+      if (targetReq.requested_by) {
+        await supabase.from("notifications").insert([
+          {
+            user_id: targetReq.requested_by,
+            title: `Subject Request Approved: ${targetReq.subject_name}`,
+            message: JSON.stringify({
+              ...updatedPayload,
+              request_status: "approved",
+            }),
+            type: "success",
+            link: "/instructor-dashboard",
+            is_read: false,
+          },
+        ]);
+      }
+
+      notify.success("Subject request approved and published to curriculum successfully!");
+      window.dispatchEvent(new CustomEvent("subject-requests-changed"));
+      window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
+      window.dispatchEvent(new CustomEvent("subjects-changed"));
+      fetchRequests();
     } catch (err) {
       console.error("Error approving request:", err);
-      notify.error("Failed to approve request");
+      notify.error(err.message || "Failed to approve request");
     } finally {
       setProcessingId(null);
     }
@@ -90,22 +196,52 @@ export const FacultyHeadSubjectRequests = () => {
 
     setProcessingId(requestId);
     try {
-      const { data, error } = await supabase.rpc("approve_subject_request", {
-        p_request_id: requestId,
-        p_rejection_reason: reason.trim(),
-      });
+      const targetReq = requests.find((r) => r.id === requestId);
+      if (!targetReq) throw new Error("Request not found");
 
-      if (error) throw error;
+      const updatedPayload = {
+        ...targetReq,
+        request_status: "rejected",
+        rejection_reason: reason.trim(),
+        reviewed_at: new Date().toISOString(),
+      };
 
-      if (data.success) {
-        notify.success("Subject request rejected");
-        fetchRequests();
-      } else {
-        notify.error(data.error || "Failed to reject request");
+      // 1. Update Department Head's notification
+      if (targetReq.notification_id) {
+        await supabase
+          .from("notifications")
+          .update({
+            message: JSON.stringify(updatedPayload),
+            is_read: true,
+          })
+          .eq("id", targetReq.notification_id);
       }
+
+      // 2. Send rejection notification to the requesting instructor
+      if (targetReq.requested_by) {
+        await supabase.from("notifications").insert([
+          {
+            user_id: targetReq.requested_by,
+            title: `Subject Request Rejected: ${targetReq.subject_name}`,
+            message: JSON.stringify({
+              ...updatedPayload,
+              request_status: "rejected",
+              rejection_reason: reason.trim(),
+            }),
+            type: "error",
+            link: "/instructor-dashboard",
+            is_read: false,
+          },
+        ]);
+      }
+
+      notify.success("Subject request rejected");
+      window.dispatchEvent(new CustomEvent("subject-requests-changed"));
+      window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
+      fetchRequests();
     } catch (err) {
       console.error("Error rejecting request:", err);
-      notify.error("Failed to reject request");
+      notify.error(err.message || "Failed to reject request");
     } finally {
       setProcessingId(null);
     }
@@ -116,35 +252,36 @@ export const FacultyHeadSubjectRequests = () => {
     setCreatingSubject(true);
 
     try {
-      if (!newSubject.subject_name.trim()) {
+      const subjectNameTrimmed = newSubject.subject_name.trim();
+      if (!subjectNameTrimmed) {
         notify.error("Subject name is required");
         return;
       }
 
-      const { data, error } = await supabase.rpc("create_subject_direct", {
-        p_subject_name: newSubject.subject_name.trim(),
-        p_subject_code: newSubject.subject_code.trim() || null,
-        p_grade_level: newSubject.grade_level,
-        p_description: newSubject.description.trim() || null,
+      const { error: insertErr } = await supabase.from("subjects").insert([
+        {
+          instructor_id: user.id,
+          name: subjectNameTrimmed,
+          code: newSubject.subject_code.trim() || null,
+          description: newSubject.description.trim() || null,
+          is_archived: false,
+        },
+      ]);
+
+      if (insertErr) throw insertErr;
+
+      notify.success("Subject created and published to curriculum successfully!");
+      window.dispatchEvent(new CustomEvent("subjects-changed"));
+      setNewSubject({
+        subject_name: "",
+        subject_code: "",
+        grade_level: "1st",
+        description: "",
       });
-
-      if (error) throw error;
-
-      if (data.success) {
-        notify.success("Subject created successfully!");
-        setNewSubject({
-          subject_name: "",
-          subject_code: "",
-          grade_level: "1st",
-          description: "",
-        });
-        setShowCreateForm(false);
-      } else {
-        notify.error(data.error || "Failed to create subject");
-      }
+      setShowCreateForm(false);
     } catch (err) {
       console.error("Error creating subject:", err);
-      notify.error("Failed to create subject");
+      notify.error(err.message || "Failed to create subject");
     } finally {
       setCreatingSubject(false);
     }
@@ -343,7 +480,9 @@ export const FacultyHeadSubjectRequests = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {requests.map((request) => (
+            {requests
+              .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+              .map((request) => (
               <div key={request.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -406,6 +545,58 @@ export const FacultyHeadSubjectRequests = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Controls Bar */}
+        {requests.length > 0 && Math.ceil(requests.length / PAGE_SIZE) > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 text-xs font-semibold text-gray-600 bg-white">
+            <span>
+              Showing <strong>{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
+              <strong>{Math.min(currentPage * PAGE_SIZE, requests.length)}</strong> of{" "}
+              <strong>{requests.length}</strong> subject requests
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.ceil(requests.length / PAGE_SIZE) }, (_, i) => i + 1).map((page) => {
+                const totalPages = Math.ceil(requests.length / PAGE_SIZE);
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                        currentPage === page
+                          ? "bg-brand-navy text-white shadow-xs"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-1 text-gray-400">...</span>;
+                }
+                return null;
+              })}
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(requests.length / PAGE_SIZE), prev + 1))}
+                disabled={currentPage === Math.ceil(requests.length / PAGE_SIZE)}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { subjectService } from "../services/subjectService";
+import { notify } from "../utils/notify.jsx";
+import { useConfirm } from "./ui/ConfirmModal.jsx";
 
 export const InstructorSubjectAssignmentManager = () => {
+  const confirm = useConfirm();
   const [allSubjects, setAllSubjects] = useState([]);
   const [allInstructors, setAllInstructors] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -41,7 +44,7 @@ export const InstructorSubjectAssignmentManager = () => {
 
   const handleAssignInstructor = async () => {
     if (!selectedSubject || !selectedInstructor) {
-      alert("Please select both a subject and an instructor");
+      notify.warning("Please select both a subject and an instructor");
       return;
     }
 
@@ -57,25 +60,32 @@ export const InstructorSubjectAssignmentManager = () => {
       await loadData();
       setSelectedSubject(null);
       setSelectedInstructor(null);
-      alert("Instructor assigned to subject successfully!");
+      notify.success("Instructor assigned to subject successfully!");
     } catch (error) {
       console.error("Error assigning instructor:", error);
-      alert("Failed to assign instructor: " + error.message);
+      notify.error("Failed to assign instructor: " + error.message);
     } finally {
       setIsAssigning(false);
     }
   };
 
   const handleRemoveAssignment = async (assignmentId) => {
-    if (!confirm("Remove this instructor from the subject?")) return;
+    const confirmed = await confirm({
+      title: "Remove Instructor Assignment",
+      message: "Are you sure you want to remove this instructor from the subject?",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+    if (!confirmed) return;
 
     try {
       await subjectService.removeInstructorSubject(assignmentId);
       await loadData();
-      alert("Assignment removed successfully!");
+      notify.success("Assignment removed successfully!");
     } catch (error) {
       console.error("Error removing assignment:", error);
-      alert("Failed to remove assignment: " + error.message);
+      notify.error("Failed to remove assignment: " + error.message);
     }
   };
 
@@ -258,8 +268,11 @@ export const InstructorSubjectAssignmentManager = () => {
                             onChange={(e) => {
                               if (e.target.value) {
                                 subjectService.assignSubjectToInstructor(subject.id, e.target.value)
-                                  .then(() => loadData())
-                                  .catch(err => alert("Failed to assign: " + err.message));
+                                  .then(() => {
+                                    notify.success("Instructor added to subject!");
+                                    loadData();
+                                  })
+                                  .catch(err => notify.error("Failed to assign: " + err.message));
                                 e.target.value = "";
                               }
                             }}

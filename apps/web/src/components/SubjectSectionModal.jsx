@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { notify } from "../utils/notify.jsx";
 
@@ -13,6 +13,7 @@ export const SubjectSectionModal = ({
   onSectionCreated,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -66,7 +67,7 @@ export const SubjectSectionModal = ({
           {
             instructor_id: userId,
             name: fullSectionName,
-            description: null,
+            description: trimmedName,
             subject_id: subjectIdToUse,
             exam_code: examCode(),
           },
@@ -122,9 +123,23 @@ export const SubjectSectionModal = ({
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo p-6 text-white shrink-0 relative">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold p-1 rounded-lg hover:bg-white/10 transition-colors"
+            aria-label="Close modal"
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
-            ×
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
           <div className="flex items-center gap-3 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-brand-gold text-brand-navy uppercase tracking-wider">
@@ -223,29 +238,39 @@ export const SubjectSectionModal = ({
                   0
                 );
 
-                // Extract clean display section name (e.g., "BSIT 3A")
+                // Extract clean display section code (e.g., "T350", "BSIT 3A")
                 let displayName = sec.name || "";
                 if (displayName.includes("-")) {
                   const parts = displayName.split("-");
                   displayName = parts[parts.length - 1].trim();
                 }
 
+                const sectionCode = sec.description || sec.section_code || displayName;
+
                 return (
                   <div
                     key={sec.id}
                     onClick={() => {
                       onClose();
-                      navigate(`/instructor-dashboard/section/${sec.id}`);
+                      const isAdminPath = location.pathname.startsWith("/admin-dashboard");
+                      navigate(isAdminPath ? `/admin-dashboard/section/${sec.id}` : `/instructor-dashboard/section/${sec.id}`);
                     }}
                     className="bg-white border border-gray-200 hover:border-brand-gold/60 rounded-xl p-4 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between group"
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-base font-black text-brand-navy group-hover:text-brand-indigo transition-colors">
-                          {displayName}
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-navy/5 text-brand-navy rounded-full">
-                          Section
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <span className="text-base font-black text-brand-navy group-hover:text-brand-indigo transition-colors block">
+                            {sectionCode}
+                          </span>
+                          {sec.name && (
+                            <p className="text-xs text-gray-500 font-medium">
+                              {sec.name}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 bg-brand-gold/20 text-brand-navy border border-brand-gold/30 rounded-full">
+                          {sectionCode}
                         </span>
                       </div>
                       {sec.exam_code && (
@@ -274,8 +299,11 @@ export const SubjectSectionModal = ({
                         </p>
                       </div>
                       <div className="flex items-center justify-end">
-                        <span className="text-xs font-bold text-brand-gold group-hover:translate-x-0.5 transition-transform">
-                          Open →
+                        <span className="text-xs font-bold text-brand-navy group-hover:text-brand-gold flex items-center gap-1 transition-colors">
+                          <span>Open</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
                         </span>
                       </div>
                     </div>
