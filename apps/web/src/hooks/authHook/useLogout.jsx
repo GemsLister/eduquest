@@ -10,7 +10,7 @@ export const useLogout = () => {
       if (error) throw error;
       navigate("/");
     } catch (error) {
-      console.log(error);
+      console.error("Logout error:", error);
     }
   };
 

@@ -28,13 +28,22 @@ export const ProtectedRoute = ({ children }) => {
           .select("*")
           .eq("id", user.id)
           .maybeSingle();
-        setIsAdmin(!!profile?.is_admin);
-        setIsFacultyHead(!!profile?.is_faculty_head);
-        // Treat null (column not yet added) as approved to avoid locking out existing users
-        setIsApproved(profile?.is_approved !== false);
-        setIsDisabled(profile?.is_disabled === true);
 
-        if (profile?.is_disabled === true) {
+        // No profile row = account was never registered by Senior Faculty.
+        // Redirect to login with an error but do NOT sign out — signing out
+        // would also kill any other tab's session (e.g. a student taking a
+        // quiz in another tab).
+        if (!profile) {
+          window.location.href = "/?error=not_registered";
+          return;
+        }
+
+        setIsAdmin(!!profile.is_admin);
+        setIsFacultyHead(!!profile.is_faculty_head);
+        setIsApproved(profile.is_approved !== false);
+        setIsDisabled(profile.is_disabled === true);
+
+        if (profile.is_disabled === true) {
           await supabase.auth.signOut();
         }
       } catch (error) {
@@ -91,7 +100,7 @@ export const ProtectedRoute = ({ children }) => {
     return <Navigate to="/faculty-head-dashboard" replace />;
   }
 
-  if (!profileLoading && !isApproved) {
+  if (!profileLoading && isApproved === false) {
     return (
       <div className="flex items-center justify-center h-screen flex-1 bg-gray-50">
         <div className="bg-white rounded-xl shadow-lg p-10 max-w-md w-full text-center">

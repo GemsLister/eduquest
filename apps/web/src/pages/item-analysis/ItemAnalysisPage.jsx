@@ -3,12 +3,12 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
-import { createQuizVersion } from "../../services/item-analysis/createQuizVersion";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
 import { ItemAnalysisResults } from "../../components/container/item-analysis/ItemAnalysisResults";
 import { ItemAnalysisTable } from "../../components/container/item-analysis/ItemAnalysisTable";
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 import { useDiscrimination } from "../../hooks/analysisHook/useDiscrimination";
+import { notify } from "../../utils/notify.jsx";
 
 export const ItemAnalysisPage = () => {
   const { user } = useAuth();
@@ -35,6 +35,8 @@ export const ItemAnalysisPage = () => {
   const [cohortOptions, setCohortOptions] = useState([]);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [testStats, setTestStats] = useState(null);
+  const [allTakersList, setAllTakersList] = useState([]);
   const { handleDiscrimination } = useDiscrimination();
 
   // --- 0. Helper: Find Searched Student Info ---
@@ -91,19 +93,72 @@ export const ItemAnalysisPage = () => {
   // --- 2. Fetch Quizzes ---
   useEffect(() => {
     const fetchQuizzes = async () => {
-      if (!selectedSection) return;
+      if (!selectedSection) {
+        setQuizzes([]);
+        return;
+      }
       setLoadingQuizzes(true);
-      const { data } = await supabase
-        .from("quizzes")
-        .select("id, title")
-        .eq("section_id", selectedSection)
-        .eq("is_published", true)
-        .eq("is_archived", false);
-      setQuizzes(data || []);
-      setLoadingQuizzes(false);
+      try {
+        // 1. Get quizzes linked via quiz_sections junction table
+        const { data: qsRows } = await supabase
+          .from("quiz_sections")
+          .select("quiz_id")
+          .eq("section_id", selectedSection);
+
+        const mappedQuizIds = (qsRows || []).map((r) => r.quiz_id).filter(Boolean);
+
+        // 2. Also get quizzes linked directly via quizzes.section_id
+        const { data: directRows } = await supabase
+          .from("quizzes")
+          .select("id")
+          .eq("section_id", selectedSection)
+          .eq("is_published", true)
+          .eq("is_archived", false);
+
+        const allCandidateIds = Array.from(
+          new Set([...mappedQuizIds, ...(directRows || []).map((r) => r.id)])
+        );
+
+        let finalQuizzes = [];
+        if (allCandidateIds.length > 0) {
+          const { data: qData } = await supabase
+            .from("quizzes")
+            .select("id, title, is_published, is_archived")
+            .in("id", allCandidateIds)
+            .eq("is_published", true)
+            .eq("is_archived", false);
+
+          finalQuizzes = (qData || []).map((q) => ({
+            ...q,
+            title: q.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || q.title,
+          }));
+        }
+
+        // 3. Fallback: if no section mapping found, fetch instructor's published quizzes
+        if (finalQuizzes.length === 0 && user?.id) {
+          const { data: myQuizzes } = await supabase
+            .from("quizzes")
+            .select("id, title, is_published, is_archived")
+            .eq("instructor_id", user.id)
+            .eq("is_published", true)
+            .eq("is_archived", false);
+
+          finalQuizzes = (myQuizzes || []).map((q) => ({
+            ...q,
+            title: q.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || q.title,
+          }));
+        }
+
+        setQuizzes(finalQuizzes);
+      } catch (err) {
+        console.error("Error fetching quizzes for item analysis:", err);
+        setQuizzes([]);
+      } finally {
+        setLoadingQuizzes(false);
+      }
     };
     fetchQuizzes();
-  }, [selectedSection]);
+  }, [selectedSection, user?.id]);
 
   // --- 3. Trigger Analysis ---
   useEffect(() => {
@@ -151,38 +206,12 @@ export const ItemAnalysisPage = () => {
       );
       if (error) throw error;
 
-      // Check if there are any revisions (either pending revisions or revision history)
-      const revisedQuestions = analysis.filter(
-        (item) =>
-          item.revised_content ||
-          item.revised_options ||
-          item.revised_correct_answer ||
-          (item.revision_history && item.revision_history.length > 0),
-      );
-
-      // If there are revisions, automatically create a new quiz version
-      if (revisedQuestions.length > 0) {
-        const { quizId: newQuizId, error: versionError } =
-          await createQuizVersion(selectedQuiz, revisedQuestions);
-
-        if (versionError) {
-          console.warn("Could not auto-create quiz version:", versionError);
-          alert(
-            `Analysis saved! However, automatic quiz version creation failed: ${versionError}. You can manually create a new version if needed.`,
-          );
-        } else {
-          setAnalysisSaved(true);
-          alert(
-            `Analysis saved successfully!\n\nA new quiz version has been automatically created with your revisions. You can find it in your quiz library.`,
-          );
-        }
-      } else {
-        setAnalysisSaved(true);
-        alert("Analysis saved successfully!");
-      }
+      setAnalysisSaved(true);
+      notify.success("Analysis saved successfully!");
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
+      notify.error("Failed to save analysis: " + err.message);
     } finally {
       setSavingAnalysis(false);
     }
@@ -202,24 +231,50 @@ export const ItemAnalysisPage = () => {
     return isNaN(num) ? answer.toUpperCase() : String.fromCharCode(65 + num);
   };
 
-  // --- 5. Fetch and Analyze Logic ---
   const fetchAndAnalyze = async (quizId) => {
     setLoading(true);
     try {
+      // 0. Fetch Quiz Info to get parent_quiz_id
+      const { data: qInfo } = await supabase
+        .from("quizzes")
+        .select("id, parent_quiz_id")
+        .eq("id", quizId)
+        .maybeSingle();
+
+      const relatedQuizIds = [quizId];
+      if (qInfo?.parent_quiz_id) relatedQuizIds.push(qInfo.parent_quiz_id);
+
       // 1. Fetch Quiz Data (Questions)
-      const { data: questions, error: qError } = await supabase
+      let questions = [];
+      const { data: directQs, error: qError } = await supabase
         .from("questions")
         .select(
-          "id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, created_at",
+          "id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, is_gad, ai_revised, created_at",
         )
         .eq("quiz_id", quizId)
         .order("created_at", { ascending: true });
-      if (qError) throw qError;
+
+      if (directQs && directQs.length > 0) {
+        questions = directQs;
+      } else if (qInfo?.parent_quiz_id) {
+        const { data: parentQs } = await supabase
+          .from("questions")
+          .select(
+            "id, text, type, options, correct_answer, points, revised_content, revised_options, original_text, original_options, original_correct_answer, revision_history, is_gad, ai_revised, created_at",
+          )
+          .eq("quiz_id", qInfo.parent_quiz_id)
+          .order("created_at", { ascending: true });
+        if (parentQs) questions = parentQs;
+      }
 
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
-        .eq("quiz_id", quizId);
+        .in("quiz_id", relatedQuizIds);
+
+      if (selectedSection) {
+        attemptsQuery = attemptsQuery.or(`section_id.eq.${selectedSection},section_id.is.null`);
+      }
 
       // Apply cohort filtering
       if (selectedCohortFilter !== "all" && selectedSection) {
@@ -227,7 +282,7 @@ export const ItemAnalysisPage = () => {
         const { data: allAttempts } = await supabase
           .from("quiz_attempts")
           .select("*")
-          .eq("quiz_id", quizId);
+          .in("quiz_id", relatedQuizIds);
 
         if (!allAttempts || allAttempts.length === 0) {
           setAnalysis([]);
@@ -462,6 +517,74 @@ export const ItemAnalysisPage = () => {
         };
       });
 
+      // --- 8. TEST-LEVEL PSYCHOMETRICS & RELIABILITY (F2 & F1) ---
+      const takerScores = (attempts || []).map((a) => a.score || 0);
+      const sampleSize = takerScores.length;
+      const questionCount = questions.length;
+
+      let meanScore = 0;
+      let variance = 0;
+      let stdDev = 0;
+      let kr20 = 0;
+      let sem = 0;
+      let semMean = 0;
+
+      if (sampleSize > 0) {
+        meanScore = takerScores.reduce((sum, s) => sum + s, 0) / sampleSize;
+        if (sampleSize > 1) {
+          variance =
+            takerScores.reduce(
+              (sum, s) => sum + Math.pow(s - meanScore, 2),
+              0,
+            ) /
+            (sampleSize - 1);
+        } else {
+          variance = 0;
+        }
+        stdDev = Math.sqrt(variance);
+
+        // Sum of item pass*fail variances (p_i * q_i)
+        const sumPq = questions.reduce((sum, q) => {
+          const qResps = responses?.filter((r) => r.question_id === q.id) || [];
+          const cCount = qResps.filter((r) => r.is_correct).length;
+          const p = qResps.length > 0 ? cCount / qResps.length : 0;
+          return sum + p * (1 - p);
+        }, 0);
+
+        // KR-20 Internal Consistency Reliability
+        if (questionCount > 1 && variance > 0) {
+          const rawKr20 =
+            (questionCount / (questionCount - 1)) * (1 - sumPq / variance);
+          kr20 = Math.max(0, Math.min(1, rawKr20));
+        }
+
+        // Standard Error of Measurement
+        sem = stdDev * Math.sqrt(Math.max(0, 1 - kr20));
+        semMean = sampleSize > 1 ? stdDev / Math.sqrt(sampleSize) : 0;
+      }
+
+      setTestStats({
+        sampleSize,
+        questionCount,
+        meanScore: meanScore.toFixed(2),
+        stdDev: stdDev.toFixed(2),
+        kr20Reliability: kr20.toFixed(2),
+        sem: sem.toFixed(2),
+        semMean: semMean.toFixed(2),
+        isSmallSample: sampleSize > 0 && sampleSize < 10,
+      });
+
+      setAllTakersList(
+        (attempts || []).map((att) => ({
+          id: att.id,
+          name:
+            att.guest_name ||
+            att.student_name ||
+            (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous"),
+          score: att.score || 0,
+        })),
+      );
+
       setAnalysis(results);
     } catch (err) {
       console.error("Analysis Error:", err);
@@ -469,6 +592,7 @@ export const ItemAnalysisPage = () => {
       setLoading(false);
     }
   };
+
 
   if (loadingSections)
     return (
@@ -509,6 +633,9 @@ export const ItemAnalysisPage = () => {
           savingAnalysis={savingAnalysis}
           analysisSaved={analysisSaved}
           selectedCohortFilter={selectedCohortFilter}
+          testStats={testStats}
+          allTakers={allTakersList}
+          totalAttempts={testStats?.sampleSize || 0}
         />
 
         {(() => {

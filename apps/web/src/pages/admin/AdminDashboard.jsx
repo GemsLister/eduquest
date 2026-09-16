@@ -266,24 +266,28 @@ export const AdminDashboard = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          Welcome back, {adminName}
+          {adminName}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Manage instructor accounts and system settings here.
+          Review and approve instructor quiz submissions.
         </p>
       </div>
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
-            <div className="text-3xl">👥</div>
+            <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
             <div>
               <p className="text-sm text-gray-500 font-medium">
                 Total Instructors
               </p>
               <p className="text-3xl font-black text-brand-navy">
-                {loading ? "—" : instructors.length}
+                {loading ? "-" : instructors.length}
               </p>
             </div>
           </div>
@@ -292,13 +296,17 @@ export const AdminDashboard = () => {
             href="/admin-dashboard/quiz-reviews"
             className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-brand-gold/30 hover:shadow-md transition-all cursor-pointer"
           >
-            <div className="text-3xl">🧠</div>
+            <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
             <div>
               <p className="text-sm text-gray-500 font-medium">
                 Pending Reviews
               </p>
               <p className="text-3xl font-black text-brand-navy">
-                {reviewsLoading ? "—" : pendingReviews}
+                {reviewsLoading ? "-" : pendingReviews}
               </p>
             </div>
             {pendingReviews > 0 && (
@@ -311,11 +319,15 @@ export const AdminDashboard = () => {
           </a>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
-            <div className="text-3xl">✅</div>
+            <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
             <div>
               <p className="text-sm text-gray-500 font-medium">Approved</p>
-              <p className="text-3xl font-black text-green-600">
-                {bloomsLoading ? "—" : bloomsStats?.approved || 0}
+              <p className="text-3xl font-black text-brand-navy">
+                {bloomsLoading ? "-" : bloomsStats?.approved || 0}
               </p>
             </div>
           </div>
@@ -509,10 +521,10 @@ export const AdminDashboard = () => {
               className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-green-600"
+                    className="h-5 w-5 text-brand-navy"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"

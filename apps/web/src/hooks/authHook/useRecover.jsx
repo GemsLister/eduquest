@@ -4,22 +4,55 @@ import { notify } from "../../utils/notify.jsx";
 export const useRecover = () => {
   const handleRecover = async (userData) => {
     try {
+      const email = String(userData?.email || "").trim();
+      if (!email) {
+        notify.error("Please enter your email");
+        return;
+      }
+
       if (
-        userData.email.endsWith(
-          import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION,
+        email.endsWith(
+          import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION || "@student.buksu.edu.ph",
         )
       ) {
+        const resetOptions = {
+          redirectTo: import.meta.env.VITE_CHANGE_PASSWORD_URL,
+        };
+
+        if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+          resetOptions.captchaToken = userData.captchaToken;
+        }
+
         const { data, error } = await supabase.auth.resetPasswordForEmail(
-          userData.email,
-          {
-            redirectTo: import.meta.env.VITE_CHANGE_PASSWORD_URL,
-          },
+          email,
+          resetOptions,
         );
+
+        if (error) {
+          const errorMessage = String(error.message || "").toLowerCase();
+          const isCaptchaError =
+            errorMessage.includes("captcha") ||
+            errorMessage.includes("challenge") ||
+            errorMessage.includes("turnstile") ||
+            errorMessage.includes("token");
+
+          if (isCaptchaError) {
+            notify.error(
+              "Captcha verification failed or expired. Please complete captcha again.",
+            );
+            userData.onCaptchaReset?.();
+            return;
+          }
+          throw error;
+        }
+
         notify.success("Reset password link sent to your account");
-        console.log(data.message);
-      } else notify.error("Invalid Email");
+      } else {
+        notify.error("Invalid Email format for instructor account");
+      }
     } catch (error) {
-      notify.error("Email not found");
+      userData.onCaptchaReset?.();
+      notify.error(error.message || "Email not found");
     }
   };
   return { handleRecover };

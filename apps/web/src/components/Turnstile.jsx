@@ -1,49 +1,75 @@
 import { useEffect, useRef, useCallback } from "react";
 
-const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+const DEFAULT_SITE_KEY =
+  import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAACus2J8DKC1y7hnS";
 
-export const Turnstile = ({ onToken }) => {
+export const Turnstile = ({
+  siteKey = DEFAULT_SITE_KEY,
+  action = "login",
+  theme = "light",
+  size = "flexible",
+  onToken,
+  onExpire,
+  onError,
+}) => {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
 
   const handleToken = useCallback(
     (token) => {
-      onToken(token);
+      onToken?.(token);
     },
     [onToken],
   );
 
+  const handleExpire = useCallback(() => {
+    onToken?.(null);
+    onExpire?.();
+  }, [onToken, onExpire]);
+
+  const handleError = useCallback(
+    (code) => {
+      console.warn("Turnstile widget error:", code);
+      onToken?.(null);
+      onError?.(code);
+    },
+    [onToken, onError],
+  );
+
   useEffect(() => {
-    // If no site key, just call onToken with a dummy token immediately for dev
-    if (!SITE_KEY) {
-      onToken("dummy-token-for-dev");
+    if (!siteKey) {
+      onToken?.("dummy-token-for-dev");
       return;
     }
 
     let intervalId = null;
+    let isMounted = true;
 
     const renderWidget = () => {
-      if (!containerRef.current || !window.turnstile) return;
-      // Clear previous widget if any
+      if (!isMounted || !containerRef.current || !window.turnstile) return;
+
       if (widgetIdRef.current !== null) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          // Widget already removed
-        }
+        } catch {}
         widgetIdRef.current = null;
       }
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
-        sitekey: SITE_KEY,
-        callback: handleToken,
-        "expired-callback": () => onToken(null),
-        "error-callback": () => onToken(null),
-        theme: "light",
-        size: "flexible",
-      });
+
+      try {
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          action: action,
+          callback: handleToken,
+          "expired-callback": handleExpire,
+          "error-callback": handleError,
+          theme: theme,
+          size: size,
+        });
+      } catch (err) {
+        console.error("Turnstile render error:", err);
+      }
     };
 
-    // Turnstile script may not be loaded yet
     if (window.turnstile) {
       renderWidget();
     } else {
@@ -57,17 +83,33 @@ export const Turnstile = ({ onToken }) => {
     }
 
     return () => {
+      isMounted = false;
       if (intervalId) clearInterval(intervalId);
       if (widgetIdRef.current !== null && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          // Widget already removed
-        }
+        } catch {}
         widgetIdRef.current = null;
       }
     };
-  }, [handleToken, onToken]);
+  }, [
+    siteKey,
+    action,
+    theme,
+    size,
+    handleToken,
+    handleExpire,
+    handleError,
+    onToken,
+  ]);
 
-  return SITE_KEY ? <div ref={containerRef} className="mt-4" /> : null;
+  return siteKey ? (
+    <div
+      ref={containerRef}
+      className="cf-turnstile mt-4 flex justify-center"
+      data-sitekey={siteKey}
+      data-action={action}
+    />
+  ) : null;
 };
+

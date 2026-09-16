@@ -67,31 +67,13 @@ export const ItemAnalysisTable = ({
                           <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
                           
                           {item.revision_history && item.revision_history.length > 0 && (
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
-                              📜 Has Revisions
-                            </span>
-                            <span className="text-[10px] text-slate-400 italic font-normal">({item.revision_history.length} version{item.revision_history.length !== 1 ? 's' : ''})</span>
-                          </div>
-                        )}
-                        
-                        {item.revised_content && (
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider animate-pulse border border-amber-200 shadow-sm">
-                              📝 Revision Pending
-                            </span>
-                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see changes)</span>
-                          </div>
-                        )}
-
-                        {item.previous_text && !item.revised_content && (
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
-                              ✓ Item Revised
-                            </span>
-                            <span className="text-[10px] text-slate-400 italic font-normal">(Click to see history)</span>
-                          </div>
-                        )}
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
+                                📜 Has Revisions ({item.revision_history.length})
+                              </span>
+                              <span className="text-[10px] text-slate-400 italic font-normal">Saved to Question Bank</span>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="p-2">

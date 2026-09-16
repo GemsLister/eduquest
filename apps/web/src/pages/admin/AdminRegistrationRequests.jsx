@@ -13,17 +13,21 @@ export const AdminRegistrationRequests = () => {
   } = useRegistrationRequests();
 
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 9;
 
   useEffect(() => {
     if (error) notify.error(error);
   }, [error]);
 
   const handleApprove = async (userId) => {
-    await approveRequest(userId);
+    const result = await approveRequest(userId);
+    if (result?.success) notify.success("Instructor approved successfully!");
   };
 
   const handleReject = async (userId) => {
-    await rejectRequest(userId);
+    const result = await rejectRequest(userId);
+    if (result?.success) notify.success("Registration request rejected.");
   };
 
   const handleApproveAll = async () => {
@@ -204,21 +208,39 @@ export const AdminRegistrationRequests = () => {
 
             {/* Request Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {requests.map((req) => {
-                const isActioning = actionLoading === req.id;
+              {requests
+                .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+                .map((req) => {
+                const isApproving =
+                  actionLoading?.id === req.id &&
+                  actionLoading?.action === "approve";
+                const isRejecting =
+                  actionLoading?.id === req.id &&
+                  actionLoading?.action === "reject";
+                const isActioning = isApproving || isRejecting;
                 return (
                   <div
                     key={req.id}
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-all"
+                    className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
                   >
-                    {/* Top: Avatar + Info */}
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="w-11 h-11 rounded-full bg-brand-navy flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {/* Top row: Avatar + Name + Status */}
+                    <div className="flex items-start gap-3.5 mb-4">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-navy to-brand-indigo flex items-center justify-center text-white font-bold text-sm shrink-0">
                         {getInitials(req)}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-800 text-sm truncate">
-                          {req.username || "No username"}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-sm truncate">
+                            {req.first_name || req.last_name
+                              ? `${req.first_name || ""} ${req.last_name || ""}`.trim()
+                              : req.username || "New User"}
+                          </h3>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                            Pending
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">
+                          @{req.username || "—"}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <svg
@@ -268,7 +290,7 @@ export const AdminRegistrationRequests = () => {
                         disabled={isActioning}
                         className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isActioning ? (
+                        {isApproving ? (
                           <>
                             <svg
                               className="animate-spin h-3.5 w-3.5"
@@ -315,15 +337,93 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleReject(req.id)}
                         disabled={isActioning}
-                        className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
-                        Reject
+                        {isRejecting ? (
+                          <>
+                            <svg
+                              className="animate-spin h-3.5 w-3.5"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                            Rejecting...
+                          </>
+                        ) : (
+                          "Reject"
+                        )}
                       </button>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Pagination Controls Bar */}
+            {requests.length > 0 && Math.ceil(requests.length / PAGE_SIZE) > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 bg-white">
+                <span>
+                  Showing <strong>{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
+                  <strong>{Math.min(currentPage * PAGE_SIZE, requests.length)}</strong> of{" "}
+                  <strong>{requests.length}</strong> registration requests
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.ceil(requests.length / PAGE_SIZE) }, (_, i) => i + 1).map((page) => {
+                    const totalPages = Math.ceil(requests.length / PAGE_SIZE);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                            currentPage === page
+                              ? "bg-brand-navy text-white shadow-xs"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-1 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(requests.length / PAGE_SIZE), prev + 1))}
+                    disabled={currentPage === Math.ceil(requests.length / PAGE_SIZE)}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

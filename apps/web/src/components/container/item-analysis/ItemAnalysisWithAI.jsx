@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import ItemAnalysisTable from './ItemAnalysisTable';
 import EditChoiceModal from './EditChoiceModal';
 import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
+import { notify } from '../../../utils/notify.jsx';
 
 export const ItemAnalysisWithAI = ({ analysis, expandedQuestion, toggleDetails }) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const { generateSuggestion, updateQuestion, loading, suggestion, error } = useGeminiSuggest();
+  const { generateSuggestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
 
   const handleFlagClick = (item) => {
     if (item.autoFlag === 'revise') {
@@ -24,11 +25,11 @@ export const ItemAnalysisWithAI = ({ analysis, expandedQuestion, toggleDetails }
   const onAIApply = async () => {
     try {
       const parsed = JSON.parse(suggestion);
-      await updateQuestion(selectedQuestion.question_id, parsed.text, parsed.options, parsed.correct_answer);
-      alert('Question updated with AI suggestion!');
+      await saveRevision(selectedQuestion.question_id, parsed.text, parsed.options, parsed.correct_answer);
+      notify.success('Revised question saved to Question Bank with AI Revised tag!');
       setEditModalOpen(false);
     } catch (err) {
-      alert('Error applying suggestion: ' + err.message);
+      notify.error('Error applying suggestion: ' + err.message);
     }
   };
 

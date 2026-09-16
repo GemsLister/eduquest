@@ -16,28 +16,28 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
       title: "Quiz Created",
       description: "Initial draft & question configuration",
       isDone: true,
-      activeColor: "bg-blue-600 text-white",
+      activeColor: "bg-brand-navy text-white",
     },
     {
       key: "analysis",
       title: "Item Analysis Saved",
       description: "Difficulty & Bloom's classification calculated",
       isDone: Boolean(submission.analysis_results),
-      activeColor: "bg-purple-600 text-white",
+      activeColor: "bg-brand-navy text-white",
     },
     {
       key: "submitted",
       title: "Submitted for Review",
       description: "Forwarded to Department Head",
       isDone: ["pending", "faculty_head_review", "faculty_head_approved", "approved"].includes(currentStatus),
-      activeColor: "bg-amber-600 text-white",
+      activeColor: "bg-brand-navy text-white",
     },
     {
       key: "department_head_review",
       title: "Department Head Review",
       description: "Evaluation by Department Head",
       isDone: ["faculty_head_approved", "approved", "revision_requested"].includes(currentStatus),
-      activeColor: currentStatus === "revision_requested" ? "bg-orange-600 text-white" : "bg-indigo-600 text-white",
+      activeColor: currentStatus === "revision_requested" ? "bg-orange-600 text-white" : "bg-brand-navy text-white",
     },
     {
       key: "approved",
@@ -60,28 +60,22 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 space-y-6">
-      <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <div>
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 10 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Exam Status & Progress Tracker
-          </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Real-time status tracking and workflow history for this examination
-          </p>
+          <h3 className="text-sm font-bold text-gray-800">Exam Lifecycle & Process Audit Trail</h3>
+          <p className="text-xs text-gray-500">Real-time status tracking and reviewer checkpoint timeline</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-          currentStatus === "faculty_head_approved" || currentStatus === "approved"
+        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+          currentStatus === "approved" || currentStatus === "faculty_head_approved"
             ? "bg-green-100 text-green-700"
             : currentStatus === "revision_requested"
             ? "bg-orange-100 text-orange-700"
-            : "bg-amber-100 text-amber-700"
+            : "bg-brand-navy/10 text-brand-navy"
         }`}>
-          {currentStatus === "faculty_head_approved" || currentStatus === "approved"
-            ? "Fully Approved"
+          {currentStatus === "approved" || currentStatus === "faculty_head_approved"
+            ? "Approved"
             : currentStatus === "revision_requested"
             ? "Revision Requested"
             : "Under Review"}
@@ -95,7 +89,13 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-all ${
               m.isDone ? m.activeColor : "bg-gray-200 text-gray-500"
             }`}>
-              {m.isDone ? "✓" : idx + 1}
+              {m.isDone ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                idx + 1
+              )}
             </div>
             <div>
               <div className="text-xs font-bold text-gray-800">{m.title}</div>
@@ -114,7 +114,7 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
           <div className="space-y-3">
             {historyLogs.map((log, idx) => (
               <div key={log.id || idx} className="flex items-start gap-3 text-xs bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                <div className="w-2 h-2 rounded-full bg-brand-navy mt-1.5 shrink-0" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between font-semibold text-gray-800">
                     <span>{log.action || log.event || "Status Change"}</span>

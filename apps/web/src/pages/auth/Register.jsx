@@ -12,7 +12,13 @@ export const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+
   const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null);
+    setCaptchaResetKey((prev) => prev + 1);
+  }, []);
 
   const inputs = [
     {
@@ -40,7 +46,14 @@ export const Register = () => {
       onChange: (e) => setConfirmPassword(e.target.value),
     },
   ];
-  const userData = { username, email, password, confirmPassword, captchaToken };
+  const userData = {
+    username,
+    email,
+    password,
+    confirmPassword,
+    captchaToken,
+    onCaptchaReset: resetCaptcha,
+  };
 
   const passwordRules = [
     { label: "At least 8 characters", test: (p) => p && p.length >= 8 },
@@ -67,8 +80,8 @@ export const Register = () => {
     );
 
   return (
-    <div className="flex items-center justify-center h-screen flex-1 bg-brand-navy p-[clamp(100px,20dvw,180px)]">
-      <form className="p-[clamp(30px,2dvw,80px)] bg-full-white rounded-[15px] shadow-2xl border-t-4 border-brand-gold">
+    <div className="flex items-center justify-center min-h-screen flex-1 bg-brand-navy py-8 px-4">
+      <form className="p-[clamp(30px,2dvw,80px)] bg-full-white rounded-[15px] shadow-2xl border-t-4 border-brand-gold my-auto">
         <fieldset className="flex flex-col w-[clamp(330px,30dvw,400px)]">
           {/* Logo */}
           <div className="flex flex-col mb-5 gap-15">
@@ -161,7 +174,11 @@ export const Register = () => {
               </div>
             ))}
           </div>
-          <Turnstile onToken={handleCaptcha} />
+          <Turnstile
+            key={captchaResetKey}
+            action="register"
+            onToken={handleCaptcha}
+          />
         </fieldset>
         <AuthButton name="Register" user={userData} />
         <p className="text-center text-[clamp(10px,3dvw,14px)] text-elephant my-4 flex items-center justify-center gap-1">

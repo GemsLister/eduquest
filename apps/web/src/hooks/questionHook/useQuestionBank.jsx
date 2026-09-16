@@ -212,7 +212,8 @@ export const useQuestionBank = () => {
         standaloneQuestions = standaloneQs.map((sq) => ({
           ...sq,
           is_own: true,
-          is_archived: sq.is_archived === true,
+          is_private: true,
+          is_archived: Boolean(sq.is_archived),
         }));
       }
 
@@ -609,7 +610,13 @@ export const useQuestionBank = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+    window.addEventListener("question-bank-updated", fetchQuestions);
+    window.addEventListener("questions-updated", fetchQuestions);
+    return () => {
+      window.removeEventListener("question-bank-updated", fetchQuestions);
+      window.removeEventListener("questions-updated", fetchQuestions);
+    };
+  }, [user?.id]);
 
   return {
     fetchQuestions,

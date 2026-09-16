@@ -3,7 +3,6 @@ import { supabase } from "../../supabaseClient";
 export const useGoogleLogin = () => {
   const handleGoogleLogin = async (e) => {
     e.preventDefault();
-    sessionStorage.setItem("skipGateLoaderOnce", "1");
 
     const redirectUrl =
       import.meta.env.VITE_INSTRUCTOR_DASHBOARD_URL ||

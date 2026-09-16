@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
+import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
 
@@ -150,11 +151,25 @@ export const FacultyHeadApprovalDetail = () => {
 
       if (error) throw error;
 
-      // Update quiz to published/approved so questions enter Question Bank
+      // Update quiz to published/approved so questions enter Question Bank, and clean revision suffix
       if (submission?.quiz_id) {
+        const { data: currentQuiz } = await supabase
+          .from("quizzes")
+          .select("title")
+          .eq("id", submission.quiz_id)
+          .single();
+
+        const cleanTitle = (currentQuiz?.title || submission.quizzes?.title || "").replace(
+          /\s*\(Revised(?:\s+\d+)?\)\s*$/,
+          ""
+        );
+
         await supabase
           .from("quizzes")
-          .update({ is_published: true })
+          .update({
+            is_published: true,
+            ...(cleanTitle ? { title: cleanTitle } : {}),
+          })
           .eq("id", submission.quiz_id);
       }
 
@@ -167,6 +182,8 @@ export const FacultyHeadApprovalDetail = () => {
         type: "success",
         link: `/instructor-dashboard/my-submissions`,
       });
+
+      window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
 
       // Log workflow history status change
       if (submission.quiz_id) {
@@ -189,7 +206,6 @@ export const FacultyHeadApprovalDetail = () => {
           status: "faculty_head_approved",
         },
       });
-
       notify.success("Quiz approved successfully!");
       navigate("/faculty-head-dashboard/quiz-approvals");
     } catch (err) {
@@ -509,8 +525,8 @@ export const FacultyHeadApprovalDetail = () => {
           </div>
 
           {results?.summary?.flaggedCount > 0 && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm flex items-center gap-2">
-              <span className="text-xl">⚠️</span>
+            <div className="mt-4 p-3 bg-brand-navy/5 border border-brand-navy/20 rounded-lg text-brand-navy text-sm flex items-center gap-2">
+              
               <span>
                 <strong>{results.summary.flaggedCount}</strong> question(s) have
                 low confidence and may need manual review.
@@ -572,9 +588,50 @@ export const FacultyHeadApprovalDetail = () => {
                         >
                           {item.bloomsLevel}
                         </span>
+                        {(() => {
+                          const gadEval = analyzeGADQuestion(item.questionText || "", options);
+                          return (
+                            <>
+                              {gadEval.hasGenderBias && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-bold bg-brand-navy/10 text-brand-navy border border-brand-navy/20 flex items-center gap-1"
+                                  title={`Gender-biased word: "${gadEval.biasMatches[0]?.matchedText}" -> Suggested: "${gadEval.biasMatches[0]?.neutral}" (CSC/PCW Standard)`}
+                                >
+                                  Gender Bias: <strong className="underline">{gadEval.biasMatches[0]?.matchedText}</strong> to <strong>{gadEval.biasMatches[0]?.neutral}</strong>
+                                </span>
+                              )}
+                              {gadEval.isGadThematic && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-bold bg-brand-navy/10 text-brand-navy border border-brand-navy/20 flex items-center gap-1"
+                                  title="Contains Gender and Development (GAD) theme"
+                                >
+                                  GAD Theme
+                                </span>
+                              )}
+                              {!gadEval.hasGenderBias && !gadEval.isGadThematic && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
+                                  title="Uses Gender-Fair Language"
+                                >
+                                  Gender-Fair
+                                </span>
+                              )}
+                              {questionMeta?.ai_generated && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-brand-navy/10 text-brand-navy border border-brand-navy/20">
+                                  AI Generated
+                                </span>
+                              )}
+                              {questionMeta?.ai_revised && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20">
+                                  AI Revised
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                         {item.needsReview && (
                           <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
-                            ⚠️ Low Confidence
+                            Low Confidence
                           </span>
                         )}
                       </div>
@@ -661,7 +718,7 @@ export const FacultyHeadApprovalDetail = () => {
             <button
               onClick={handleApprove}
               disabled={actionLoading}
-              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
+              className="px-8 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
             >
               {actionLoading ? (
                 <>
@@ -745,7 +802,7 @@ export const FacultyHeadApprovalDetail = () => {
         {/* After approval - show approved banner */}
         {submission.status === "faculty_head_approved" && (
           <div className="p-6 bg-green-50 border border-green-200 rounded-xl text-center">
-            <div className="text-4xl mb-3">✅</div>
+            
             <h3 className="text-lg font-bold text-green-800 mb-2">
               This quiz has been approved
             </h3>
@@ -758,3 +815,5 @@ export const FacultyHeadApprovalDetail = () => {
     </>
   );
 };
+
+

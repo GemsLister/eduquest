@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
@@ -16,6 +16,13 @@ const ITEMS_PER_PAGE = 5;
 export const MySubmissions = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isSeniorFaculty = location.pathname.startsWith("/admin-dashboard");
+  const initialTab = isSeniorFaculty ? "my_submissions" : (searchParams.get("tab") === "peer_reviews" ? "peer_reviews" : "my_submissions");
+  const [mainTab, setMainTab] = useState(initialTab);
+
+  // My Submissions state
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -24,9 +31,186 @@ export const MySubmissions = () => {
   const [instructorName, setInstructorName] = useState(null);
   const [creatingRevisionFor, setCreatingRevisionFor] = useState(null);
 
+  // Assigned Peer Reviews state
+  const [peerReviews, setPeerReviews] = useState([]);
+  const [peerLoading, setPeerLoading] = useState(false);
+  const [peerFilter, setPeerFilter] = useState("all");
+  const [peerSearch, setPeerSearch] = useState("");
+  const [peerPage, setPeerPage] = useState(1);
+  const PEER_PAGE_SIZE = 8;
+
   useEffect(() => {
     loadSubmissions();
-  }, [filter]);
+    if (!isSeniorFaculty && user?.id) loadPeerReviews();
+  }, [filter, user?.id, isSeniorFaculty]);
+
+  useEffect(() => {
+    if (isSeniorFaculty) {
+      setMainTab("my_submissions");
+      return;
+    }
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "peer_reviews" && mainTab !== "peer_reviews") {
+      setMainTab("peer_reviews");
+    } else if (tabParam !== "peer_reviews" && mainTab === "peer_reviews" && !tabParam) {
+      setMainTab("my_submissions");
+    }
+  }, [searchParams, isSeniorFaculty]);
+
+  const handleTabChange = (tab) => {
+    setMainTab(tab);
+    setSearchParams(tab === "peer_reviews" ? { tab: "peer_reviews" } : {});
+  };
+
+  const loadPeerReviews = async () => {
+    if (!user?.id) return;
+    setPeerLoading(true);
+    try {
+      let peerData = [];
+
+      // Strategy 1: Direct assigned_reviewer_id column query
+      const { data: colData, error: colErr } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("*, quizzes(*)")
+        .eq("assigned_reviewer_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!colErr && Array.isArray(colData) && colData.length > 0) {
+        peerData = colData;
+      } else {
+        // Strategy 2: Fallback query matching assigned_reviewer_id column or analysis_results JSONB
+        const { data: allAccessible, error: allErr } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("*, quizzes(*)")
+          .order("created_at", { ascending: false });
+
+        if (!allErr && Array.isArray(allAccessible)) {
+          peerData = allAccessible.filter(
+            (s) =>
+              (s.assigned_reviewer_id === user.id ||
+                s.analysis_results?.assigned_reviewer_id === user.id) &&
+              s.instructor_id !== user.id,
+          );
+        }
+      }
+
+      if (peerData.length > 0) {
+        const instructorIds = [
+          ...new Set(peerData.map((s) => s.instructor_id).filter(Boolean)),
+        ];
+        let profileMap = {};
+        if (instructorIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, email, username")
+            .in("id", instructorIds);
+
+          profiles?.forEach((p) => {
+            profileMap[p.id] = p;
+          });
+        }
+
+        const quizIds = [
+          ...new Set(peerData.map((s) => s.quiz_id).filter(Boolean)),
+        ];
+        let quizMap = new Map();
+        if (quizIds.length > 0) {
+          try {
+            const { data: quizRows } = await supabase
+              .from("quizzes")
+              .select("id, parent_quiz_id, title, description, is_published, version_number");
+
+            quizRows?.forEach((q) => {
+              quizMap.set(q.id, q);
+            });
+          } catch (e) {
+            console.warn("Could not query quizzes directly:", e);
+          }
+        }
+
+        const findRootId = (quizId) => {
+          if (!quizId) return null;
+          let curr = quizId;
+          let visited = new Set();
+          while (curr && !visited.has(curr)) {
+            visited.add(curr);
+            const q = quizMap.get(curr);
+            if (q && q.parent_quiz_id) {
+              curr = q.parent_quiz_id;
+            } else {
+              break;
+            }
+          }
+          return curr;
+        };
+
+        const enrichedData = peerData.map((s) => {
+          const joinedQuiz = s.quizzes || quizMap.get(s.quiz_id) || null;
+          const quizTitle =
+            joinedQuiz?.title ||
+            s.analysis_results?.quiz_title ||
+            s.analysis_results?.title ||
+            s.analysis_results?.summary?.quizTitle ||
+            "Quiz";
+          return {
+            ...s,
+            quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
+            profiles: profileMap[s.instructor_id] || null,
+          };
+        });
+
+        // Deduplicate chains: keep only the latest submission per quiz chain for the peer reviewer
+        const getCleanTitle = (s) => {
+          const rawTitle =
+            s.quizzes?.title ||
+            s.analysis_results?.quiz_title ||
+            s.analysis_results?.title ||
+            s.analysis_results?.summary?.quizTitle ||
+            "";
+          return rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
+        };
+
+        const getChainKey = (s) => {
+          const baseTitle = getCleanTitle(s);
+          const instructor = s.instructor_id || s.quizzes?.instructor_id || "unknown";
+          if (baseTitle) return `title_${instructor}_${baseTitle}`;
+
+          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+          if (rootQuizId) return `quiz_${rootQuizId}`;
+
+          return `sub_${s.id}`;
+        };
+
+        const chains = new Map();
+        for (const sub of enrichedData) {
+          const key = getChainKey(sub);
+          if (!chains.has(key)) chains.set(key, []);
+          chains.get(key).push(sub);
+        }
+
+        const latestPeerReviews = [];
+        for (const chainSubs of chains.values()) {
+          const sorted = [...chainSubs].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          latestPeerReviews.push(sorted[0]);
+        }
+
+        latestPeerReviews.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        setPeerReviews(latestPeerReviews);
+      } else {
+        setPeerReviews([]);
+      }
+    } catch (err) {
+      console.error("Error loading assigned peer reviews:", err);
+      setPeerReviews([]);
+    } finally {
+      setPeerLoading(false);
+    }
+  };
 
   const loadSubmissions = async () => {
     if (!user) return;
@@ -53,17 +237,68 @@ export const MySubmissions = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
+      const quizIds = [...new Set((data || []).map((s) => s.quiz_id).filter(Boolean))];
+      let quizMap = new Map();
+      if (quizIds.length > 0) {
+        try {
+          const { data: qData } = await supabase
+            .from("quizzes")
+            .select("id, parent_quiz_id, title, version_number");
+          qData?.forEach((q) => quizMap.set(q.id, q));
+        } catch (e) {
+          console.warn("Could not query quizzes in loadSubmissions:", e);
+        }
+      }
+
+      const findRootId = (quizId) => {
+        if (!quizId) return null;
+        let curr = quizId;
+        let visited = new Set();
+        while (curr && !visited.has(curr)) {
+          visited.add(curr);
+          const q = quizMap.get(curr);
+          if (q && q.parent_quiz_id) {
+            curr = q.parent_quiz_id;
+          } else {
+            break;
+          }
+        }
+        return curr;
+      };
+
+      const enrichedData = (data || []).map((s) => {
+        const joinedQuiz = s.quizzes || quizMap.get(s.quiz_id) || null;
+        const quizTitle =
+          joinedQuiz?.title ||
+          s.analysis_results?.quiz_title ||
+          s.analysis_results?.title ||
+          s.analysis_results?.summary?.quizTitle ||
+          "Quiz";
+        return {
+          ...s,
+          quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
+        };
+      });
+
       // Group submissions by quiz chain (rootId), compute displayVersion
       // per submission (chronological rank within the chain), then keep
-      // both the original and the latest submission per chain so the
-      // Original badge remains visible alongside the current revision.
-      const rootIdOf = (s) => s.quizzes?.parent_quiz_id || s.quiz_id;
+      // the latest submission representing the active state of the quiz.
+      const getChainKey = (s) => {
+        const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+        if (rootQuizId) return `quiz_${rootQuizId}`;
+
+        const rawTitle = s.quizzes?.title || "";
+        const baseTitle = rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
+        if (baseTitle && s.instructor_id) return `title_${s.instructor_id}_${baseTitle}`;
+
+        return `sub_${s.id}`;
+      };
+
       const chains = new Map();
-      for (const sub of data || []) {
-        if (!sub.quiz_id) continue;
-        const rootId = rootIdOf(sub);
-        if (!chains.has(rootId)) chains.set(rootId, []);
-        chains.get(rootId).push(sub);
+      for (const sub of enrichedData) {
+        const key = getChainKey(sub);
+        if (!chains.has(key)) chains.set(key, []);
+        chains.get(key).push(sub);
       }
 
       const latestByQuiz = [];
@@ -77,10 +312,8 @@ export const MySubmissions = () => {
           s.displayVersion = idx + 1;
           s.chainLength = sortedAsc.length;
         });
-        const original = sortedAsc[0];
-        const latest = sortedAsc[sortedAsc.length - 1];
-        latestByQuiz.push(original);
-        if (latest !== original) latestByQuiz.push(latest);
+        // Keep the latest submission of each chain
+        latestByQuiz.push(sortedAsc[sortedAsc.length - 1]);
       }
 
       latestByQuiz.sort(
@@ -99,10 +332,38 @@ export const MySubmissions = () => {
         return sub.status === filter;
       });
 
+      // Fetch reviewer profile map for all submissions
+      const reviewerIds = [
+        ...new Set(
+          filtered
+            .map(
+              (s) =>
+                s.assigned_reviewer_id ||
+                s.analysis_results?.assigned_reviewer_id,
+            )
+            .filter(Boolean),
+        ),
+      ];
+      let reviewerMap = {};
+      if (reviewerIds.length > 0) {
+        const { data: revProfiles } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, username, email, is_admin")
+          .in("id", reviewerIds);
+        revProfiles?.forEach((p) => {
+          reviewerMap[p.id] = p;
+        });
+      }
+
       // Fetch section data and check for newer versions for each submission
       const enriched = await Promise.all(
         filtered.map(async (sub) => {
-          if (!sub.quiz_id) return sub;
+          const revId =
+            sub.assigned_reviewer_id ||
+            sub.analysis_results?.assigned_reviewer_id;
+          const reviewerProfile = revId ? reviewerMap[revId] : null;
+
+          if (!sub.quiz_id) return { ...sub, reviewerProfile };
           const { data: qs } = await supabase
             .from("quiz_sections")
             .select("section_id, sections(name, subject_code)")
@@ -125,7 +386,12 @@ export const MySubmissions = () => {
             hasNewerVersion = newer && newer.length > 0;
           }
 
-          return { ...sub, section: qs?.sections || null, hasNewerVersion };
+          return {
+            ...sub,
+            section: qs?.sections || null,
+            hasNewerVersion,
+            reviewerProfile,
+          };
         }),
       );
 
@@ -139,14 +405,14 @@ export const MySubmissions = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
-      approved: "bg-green-100 text-green-700 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
-      faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      approved: "bg-green-100 text-green-800 border-green-300",
+      revision_requested: "bg-orange-100 text-orange-800 border-orange-300",
+      faculty_head_review: "bg-blue-100 text-blue-800 border-blue-300",
+      faculty_head_approved: "bg-green-100 text-green-800 border-green-300",
     };
     const labels = {
-      pending: "Pending Review",
+      pending: "Pending Peer Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
       faculty_head_review: "Awaiting Department Head",
@@ -154,9 +420,9 @@ export const MySubmissions = () => {
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status]}`}
+        className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status] || "bg-gray-100 text-gray-700"}`}
       >
-        {labels[status]}
+        {labels[status] || status}
       </span>
     );
   };
@@ -303,52 +569,155 @@ export const MySubmissions = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedSubmissions = submissions.slice(startIndex, endIndex);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter]);
+  const getPeerStatusBadge = (status) => {
+    const styles = {
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      approved: "bg-green-100 text-green-800 border-green-300",
+      revision_requested: "bg-orange-100 text-orange-800 border-orange-300",
+      faculty_head_review: "bg-blue-100 text-blue-800 border-blue-300",
+      faculty_head_approved: "bg-green-100 text-green-800 border-green-300",
+    };
+    const labels = {
+      pending: "Pending Review",
+      approved: "Approved",
+      revision_requested: "Revision Requested",
+      faculty_head_review: "At Dept. Head",
+      faculty_head_approved: "Final Approved",
+    };
+    return (
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${styles[status] || "bg-gray-100 text-gray-700"}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
 
-  useEffect(() => {
-    if (totalPages === 0 && currentPage !== 1) {
-      setCurrentPage(1);
-    } else if (totalPages > 0 && currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  const getInstructorDisplayName = (profiles) => {
+    if (!profiles) return "Instructor";
+    return `${profiles.first_name || ""} ${profiles.last_name || ""}`.trim() ||
+      profiles.username || profiles.email || "Instructor";
+  };
+
+  const peerCounts = useMemo(() => {
+    const c = { all: 0, pending: 0, approved: 0, revision_requested: 0, faculty_head_review: 0 };
+    peerReviews.forEach((s) => {
+      c.all++;
+      if (s.status === "pending") c.pending++;
+      else if (s.status === "revision_requested") c.revision_requested++;
+      else if (s.status === "faculty_head_review") c.faculty_head_review++;
+      else if (s.status === "approved" || s.status === "faculty_head_approved") c.approved++;
+    });
+    return c;
+  }, [peerReviews]);
+
+  const pendingPeerCount = peerCounts.pending;
+
+  const filteredPeerReviews = useMemo(() => {
+    return peerReviews.filter((s) => {
+      if (peerFilter !== "all") {
+        if (peerFilter === "pending" && s.status !== "pending") return false;
+        if (peerFilter === "approved" && !["approved", "faculty_head_approved"].includes(s.status)) return false;
+        if (peerFilter === "revision_requested" && s.status !== "revision_requested") return false;
+        if (peerFilter === "faculty_head_review" && s.status !== "faculty_head_review") return false;
+      }
+      if (peerSearch.trim()) {
+        const q = peerSearch.toLowerCase();
+        const title = (s.quizzes?.title || "").toLowerCase();
+        const instructor = `${s.profiles?.first_name || ""} ${s.profiles?.last_name || ""} ${s.profiles?.email || ""}`.toLowerCase();
+        return title.includes(q) || instructor.includes(q);
+      }
+      return true;
+    });
+  }, [peerReviews, peerFilter, peerSearch]);
+
+  const totalPeerPages = Math.ceil(filteredPeerReviews.length / PEER_PAGE_SIZE);
+  const paginatedPeerReviews = filteredPeerReviews.slice(
+    (peerPage - 1) * PEER_PAGE_SIZE,
+    peerPage * PEER_PAGE_SIZE,
+  );
 
   return (
     <>
-      {/* Hero Banner */}
-      <div className="bg-brand-navy px-6 py-8">
-        <h1 className="text-2xl md:text-3xl font-black text-white">
-          Quiz Analysis Submissions
-        </h1>
-        <p className="text-white/60 text-sm mt-1">
-          Track the status of your forwarded quiz analysis
-        </p>
+      {/* Hero Banner with Main Tabs */}
+      <div className={`bg-brand-navy px-6 pt-8 ${isSeniorFaculty ? "pb-6" : "pb-0"}`}>
+        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${isSeniorFaculty ? "" : "pb-4"}`}>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-white">
+              {isSeniorFaculty ? "My Quiz Submissions" : "Quiz Submissions & Peer Reviews"}
+            </h1>
+            <p className="text-white/60 text-sm mt-1">
+              {isSeniorFaculty
+                ? "Track the approval status, feedback, and revision history of your submitted quiz analyses"
+                : "Track your submitted quiz analyses and review quizzes assigned by peer faculty"}
+            </p>
+          </div>
+        </div>
+
+        {/* Main Tabs (Shown for Instructors only; Senior Faculty manages reviews via Exam Reviews) */}
+        {!isSeniorFaculty && (
+          <div className="flex gap-2 border-b border-white/15">
+            <button
+              type="button"
+              onClick={() => handleTabChange("my_submissions")}
+              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer ${
+                mainTab === "my_submissions"
+                  ? "border-brand-gold text-brand-gold bg-white/10 rounded-t-lg"
+                  : "border-transparent text-white/60 hover:text-white hover:bg-white/5 rounded-t-lg"
+              }`}
+            >
+              <span>My Submissions</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-white/10 text-white">
+                {submissions.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabChange("peer_reviews")}
+              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer ${
+                mainTab === "peer_reviews"
+                  ? "border-brand-gold text-brand-gold bg-white/10 rounded-t-lg"
+                  : "border-transparent text-white/60 hover:text-white hover:bg-white/5 rounded-t-lg"
+              }`}
+            >
+              <span>Assigned Peer Reviews</span>
+              {pendingPeerCount > 0 ? (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-400 text-brand-navy shadow-xs">
+                  {pendingPeerCount} pending
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-white/10 text-white">
+                  {peerReviews.length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
-        {/* Filter Tabs */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-          {[
-            { key: "all", label: "All" },
-            { key: "pending", label: "Pending" },
-            { key: "approved", label: "Approved" },
-            { key: "revision_requested", label: "Needs Revision" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
-              className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm ${
-                filter === tab.key
-                  ? "bg-brand-navy text-white"
-                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {mainTab === "my_submissions" ? (
+          <>
+            {/* Filter Tabs */}
+            <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+              {[
+                { key: "all", label: "All" },
+                { key: "pending", label: "Pending" },
+                { key: "approved", label: "Approved" },
+                { key: "revision_requested", label: "Needs Revision" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm cursor-pointer ${
+                    filter === tab.key
+                      ? "bg-brand-navy text-white"
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
         {/* Submissions List */}
         {loading ? (
@@ -410,6 +779,17 @@ export const MySubmissions = () => {
                     </h3>
                     {getStatusBadge(submission.status)}
                   </div>
+
+                  {/* Assigned Reviewer Info */}
+                  {submission.reviewerProfile && (
+                    <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg w-fit">
+                      <span className="text-gray-500 font-medium">Assigned Reviewer:</span>
+                      <span className="font-bold text-brand-navy">
+                        {`${submission.reviewerProfile.first_name || ""} ${submission.reviewerProfile.last_name || ""}`.trim() || submission.reviewerProfile.username || submission.reviewerProfile.email}
+                        {submission.reviewerProfile.is_admin ? " (Senior Faculty)" : ""}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Quick Stats */}
                   {submission.analysis_results?.summary && (
@@ -531,15 +911,20 @@ export const MySubmissions = () => {
                             expandedId === submission.id ? null : submission.id,
                           )
                         }
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                        className="text-xs font-semibold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1"
                       >
-                        <span
-                          className={`transition-transform duration-200 inline-block ${
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`h-3.5 w-3.5 transition-transform duration-200 ${
                             expandedId === submission.id ? "rotate-90" : ""
                           }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
                         >
-                          ▶
-                        </span>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
                         {expandedId === submission.id
                           ? "Hide Charts"
                           : "View Charts"}
@@ -997,8 +1382,11 @@ export const MySubmissions = () => {
                                 const newQuiz = await createRevisionCopy(
                                   submission.quiz_id,
                                 );
+                                const targetPath = location.pathname.startsWith("/admin-dashboard")
+                                  ? `/admin-dashboard/create-quiz/${newQuiz.id}`
+                                  : `/instructor-dashboard/instructor-quiz/${newQuiz.id}`;
                                 navigate(
-                                  `/instructor-dashboard/instructor-quiz/${newQuiz.id}`,
+                                  targetPath,
                                   {
                                     state: {
                                       revisionOfSubmissionId: submission.id,
@@ -1077,7 +1465,219 @@ export const MySubmissions = () => {
             )}
           </div>
         )}
+          </>
+        ) : (
+          /* ─── Assigned Peer Reviews Tab Content ─── */
+          <div className="space-y-6">
+            {/* Search and Filters Bar */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs flex flex-col md:flex-row gap-4 justify-between items-center">
+              {/* Search */}
+              <div className="relative w-full md:w-80">
+                <svg
+                  className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search quiz title or instructor..."
+                  value={peerSearch}
+                  onChange={(e) => {
+                    setPeerSearch(e.target.value);
+                    setPeerPage(1);
+                  }}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                />
+              </div>
+
+              {/* Status Filter Pills */}
+              <div className="flex gap-2 flex-wrap w-full md:w-auto overflow-x-auto pb-1">
+                {[
+                  { key: "all", label: `All (${peerCounts.all})` },
+                  { key: "pending", label: `Pending (${peerCounts.pending})` },
+                  { key: "revision_requested", label: `Needs Revision (${peerCounts.revision_requested})` },
+                  { key: "faculty_head_review", label: `At Dept. Head (${peerCounts.faculty_head_review})` },
+                  { key: "approved", label: `Approved (${peerCounts.approved})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setPeerFilter(tab.key);
+                      setPeerPage(1);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                      peerFilter === tab.key
+                        ? "bg-brand-navy text-white shadow-2xs"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Peer Reviews Table / List */}
+            {peerLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+              </div>
+            ) : filteredPeerReviews.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-2xs">
+                <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-8 w-8 text-brand-navy/40"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 mb-1">
+                  No Assigned Peer Reviews
+                </h3>
+                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                  {peerSearch || peerFilter !== "all"
+                    ? "No review requests match your current filters."
+                    : "When other instructors select you to peer-review their quiz submissions, they will appear here."}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/80 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th className="px-5 py-3.5">Quiz / Exam</th>
+                        <th className="px-5 py-3.5">Submitter Faculty</th>
+                        <th className="px-5 py-3.5">Date Received</th>
+                        <th className="px-5 py-3.5">Status</th>
+                        <th className="px-5 py-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-sm">
+                      {paginatedPeerReviews.map((sub) => {
+                        const submitter = getInstructorDisplayName(sub.profiles);
+                        const isPending = sub.status === "pending";
+
+                        return (
+                          <tr
+                            key={sub.id}
+                            className="hover:bg-brand-navy/5 transition-colors"
+                          >
+                            <td className="px-5 py-4">
+                              <div className="font-bold text-brand-navy">
+                                {sub.quizzes?.title || sub.analysis_results?.quiz_title || sub.analysis_results?.title || sub.analysis_results?.summary?.quizTitle || "Quiz"}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                {sub.quizzes?.version_number > 1 && (
+                                  <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">
+                                    v{sub.quizzes.version_number} Revision
+                                  </span>
+                                )}
+                                <span>
+                                  {sub.analysis_results?.summary?.totalQuestions || 0} questions
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-brand-navy text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                  {submitter.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-800 text-xs">
+                                    {submitter}
+                                  </p>
+                                  {sub.profiles?.email && (
+                                    <p className="text-[11px] text-gray-400">
+                                      {sub.profiles.email}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-4 text-xs text-gray-500">
+                              {formatDate(sub.created_at)}
+                            </td>
+
+                            <td className="px-5 py-4">
+                              {getPeerStatusBadge(sub.status)}
+                            </td>
+
+                            <td className="px-5 py-4 text-right">
+                              <button
+                                onClick={() => {
+                                  const targetPath = location.pathname.startsWith("/admin-dashboard")
+                                    ? `/admin-dashboard/quiz-reviews/${sub.id}`
+                                    : `/instructor-dashboard/peer-reviews/${sub.id}`;
+                                  navigate(targetPath);
+                                }}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                                  isPending
+                                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy shadow-xs"
+                                    : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
+                                }`}
+                              >
+                                {isPending ? "Review Quiz" : "View Review"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Peer Reviews Pagination */}
+                {totalPeerPages > 1 && (
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+                    <div>
+                      Page {peerPage} of {totalPeerPages}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPeerPage((p) => Math.max(1, p - 1))}
+                        disabled={peerPage === 1}
+                        className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        onClick={() =>
+                          setPeerPage((p) => Math.min(totalPeerPages, p + 1))
+                        }
+                        disabled={peerPage === totalPeerPages}
+                        className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
 };
+

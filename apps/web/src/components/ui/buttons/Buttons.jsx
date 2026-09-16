@@ -31,64 +31,57 @@ export const AuthButton = ({ name, user }) => {
   const { handleRecover } = AuthHooks.useRecover();
   const { handleChangePassword } = AuthHooks.useChangePassword();
   const { handleLogin } = AuthHooks.useLogin();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleClick = async (e) => {
     e.preventDefault();
-    switch (name) {
-      case "Login":
-        try {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      switch (name) {
+        case "Login":
           if (!user.email || !user.password) {
             notify.error("Fill out the form");
-            return;
+          } else {
+            await handleLogin(user);
           }
-          await handleLogin(user);
-        } catch (error) {
-          console.error(error);
-        }
-        break;
+          break;
 
-      case "Register":
-        try {
+        case "Register":
           if (
             !user.username ||
             !user.password ||
             !user.email ||
             !user.confirmPassword
-          )
+          ) {
             notify.error("Fill out the form");
-          else if (user.password !== user.confirmPassword)
+          } else if (user.password !== user.confirmPassword) {
             notify.error("Passwords do not match");
-          else {
-            const result = handleRegister(user);
-            if (!result && result.success) console.error(error);
+          } else {
+            await handleRegister(user);
           }
-        } catch (error) {
-          console.error(error);
-        }
-        break;
+          break;
 
-      case "Continue":
-        try {
-          if (!user.email) notify.error(error.message || "Fill out the form");
-          else {
-            handleRecover(user);
-            console.log(`continue ${user.email}`);
+        case "Continue":
+          if (!user.email) {
+            notify.error("Fill out the form");
+          } else {
+            await handleRecover(user);
           }
-        } catch (error) {
-          console.error(error);
-        }
-        break;
+          break;
 
-      case "Change Password":
-        try {
-          if (!user.password)
-            notify.error(error.message || "Fill out the form");
-          handleChangePassword(user);
-          console.log(`change password ${user.password}`);
-        } catch (error) {
-          console.error(error);
-        }
-        break;
+        case "Change Password":
+          if (!user.password) {
+            notify.error("Fill out the form");
+          } else {
+            await handleChangePassword(user);
+          }
+          break;
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -96,9 +89,20 @@ export const AuthButton = ({ name, user }) => {
     <button
       type="submit"
       onClick={handleClick}
-      className="bg-brand-gold hover:bg-brand-gold-dark mt-7 text-brand-navy font-semibold p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full transition-colors"
+      disabled={isLoading}
+      className="bg-brand-gold hover:bg-brand-gold-dark mt-7 text-brand-navy font-semibold p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      {name}
+      {isLoading ? (
+        <span className="flex items-center justify-center gap-2">
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          {name === "Login" ? "Signing in..." : name === "Register" ? "Registering..." : name === "Continue" ? "Sending..." : "Saving..."}
+        </span>
+      ) : (
+        name
+      )}
     </button>
   );
 };

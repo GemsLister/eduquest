@@ -120,17 +120,24 @@ export const useFetchSectionQuiz = () => {
           }
         }
 
-        // Re-count attempts per section (filter by section_id)
+        // Re-count attempts per section (handling revision chains & unsectioned attempts)
         for (const sectionId of Object.keys(grouped)) {
           const quizzesInSection = grouped[sectionId];
           const updatedQuizzes = await Promise.all(
             quizzesInSection.map(async (quiz) => {
-              const { count } = await supabase
+              const targetQuizIds = [quiz.id];
+              if (quiz.parent_quiz_id) targetQuizIds.push(quiz.parent_quiz_id);
+
+              const { data: attList } = await supabase
                 .from("quiz_attempts")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.id)
-                .eq("section_id", sectionId);
-              return { ...quiz, attempts: count || 0 };
+                .select("id, section_id")
+                .in("quiz_id", targetQuizIds);
+
+              const sectionAttempts = (attList || []).filter(
+                (a) => a.section_id === sectionId
+              ).length;
+
+              return { ...quiz, attempts: sectionAttempts || 0 };
             }),
           );
           grouped[sectionId] = updatedQuizzes;

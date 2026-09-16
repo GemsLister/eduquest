@@ -12,10 +12,17 @@ export const FacultyHeadQuizApprovals = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("faculty_head_review");
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     loadSubmissions();
   }, []);
+
+  // Reset pagination on search or tab change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter]);
 
   const loadSubmissions = async () => {
     setLoading(true);
@@ -29,7 +36,7 @@ export const FacultyHeadQuizApprovals = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const instructorIds = [...new Set(data.map((s) => s.instructor_id))];
+        const instructorIds = [...new Set(data.map((s) => s.instructor_id).filter(Boolean))];
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, email, username")
@@ -40,28 +47,65 @@ export const FacultyHeadQuizApprovals = () => {
           profileMap[p.id] = p;
         });
 
-        // Filter out superseded submissions (older versions that have been resubmitted)
-        const supersededIds = new Set();
-        // Check previous_submission_id chain within these results
-        data.forEach((s) => {
-          if (s.previous_submission_id) {
-            supersededIds.add(s.previous_submission_id);
-          }
-        });
-
-        // Also check across ALL submissions to find any that supersede these
-        const currentIds = data.map((s) => s.id);
-        if (currentIds.length > 0) {
-          const { data: newerSubs } = await supabase
-            .from("quiz_analysis_submissions")
-            .select("previous_submission_id")
-            .in("previous_submission_id", currentIds);
-          (newerSubs || []).forEach((s) => {
-            supersededIds.add(s.previous_submission_id);
-          });
+        // Fetch all quizzes involved to build a recursive rootId resolver
+        const quizIds = [...new Set(data.map((s) => s.quiz_id).filter(Boolean))];
+        let quizMap = new Map();
+        if (quizIds.length > 0) {
+          const { data: qData } = await supabase
+            .from("quizzes")
+            .select("id, parent_quiz_id, title, version_number");
+          qData?.forEach((q) => quizMap.set(q.id, q));
         }
 
-        const visibleData = data.filter((s) => !supersededIds.has(s.id));
+        const findRootId = (quizId) => {
+          if (!quizId) return null;
+          let curr = quizId;
+          let visited = new Set();
+          while (curr && !visited.has(curr)) {
+            visited.add(curr);
+            const q = quizMap.get(curr);
+            if (q && q.parent_quiz_id) {
+              curr = q.parent_quiz_id;
+            } else {
+              break;
+            }
+          }
+          return curr;
+        };
+
+        const getChainKey = (s) => {
+          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+          if (rootQuizId) return `quiz_${rootQuizId}`;
+
+          const rawTitle = s.quizzes?.title || "";
+          const baseTitle = rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
+          if (baseTitle && s.instructor_id) return `title_${s.instructor_id}_${baseTitle}`;
+
+          return `sub_${s.id}`;
+        };
+
+        const chains = new Map();
+        for (const s of data) {
+          const key = getChainKey(s);
+          if (!chains.has(key)) chains.set(key, []);
+          chains.get(key).push(s);
+        }
+
+        const visibleData = [];
+        for (const chainSubs of chains.values()) {
+          const sortedAsc = [...chainSubs].sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
+          );
+          visibleData.push(sortedAsc[sortedAsc.length - 1]);
+        }
+
+        visibleData.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
+        );
 
         // Fetch section data for each submission
         const enriched = await Promise.all(
@@ -444,73 +488,53 @@ export const FacultyHeadQuizApprovals = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((submission) => {
-              const summary = submission.analysis_results?.summary;
-              const lotsPct = summary?.lotsPercentage || 0;
-              const hotsPct = summary?.hotsPercentage || 0;
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {paginated.map((submission) => {
+                const summary = submission.analysis_results?.summary;
+                const lotsPct = summary?.lotsPercentage || 0;
+                const hotsPct = summary?.hotsPercentage || 0;
 
-              return (
-                <div
-                  key={submission.id}
-                  onClick={() =>
-                    navigate(
-                      `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
-                    )
-                  }
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${getAvatarColor(
-                        submission.instructor_id,
-                      )}`}
-                    >
-                      {getInitials(submission)}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
-                          {(
-                            submission.quizzes?.title || "Untitled Quiz"
-                          ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
-                        </h3>
-                        {getStatusBadge(submission.status)}
+                return (
+                  <div
+                    key={submission.id}
+                    onClick={() =>
+                      navigate(
+                        `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
+                      )
+                    }
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${getAvatarColor(
+                          submission.instructor_id,
+                        )}`}
+                      >
+                        {getInitials(submission)}
                       </div>
 
-                      <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
-                        <span>
-                          by{" "}
-                          <span className="font-semibold text-gray-600">
-                            {getInstructorName(submission)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
+                            {(
+                              submission.quizzes?.title || "Untitled Quiz"
+                            ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                          </h3>
+                          {getStatusBadge(submission.status)}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+                          <span>
+                            by{" "}
+                            <span className="font-semibold text-gray-600">
+                              {getInstructorName(submission)}
+                            </span>
                           </span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          {timeAgo(submission.created_at)}
-                        </span>
-                      </div>
-
-                      {summary && (
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="flex items-center gap-1 px-2.5 py-1 bg-brand-navy/10 rounded-lg text-xs font-semibold text-brand-navy">
+                          <span className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3.5 w-3.5"
+                              className="h-3 w-3"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -519,51 +543,148 @@ export const FacultyHeadQuizApprovals = () => {
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                               />
                             </svg>
-                            {summary.totalQuestions} questions
+                            {timeAgo(submission.created_at)}
                           </span>
+                        </div>
 
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-2 w-24 rounded-full overflow-hidden bg-gray-100">
-                              {lotsPct > 0 && (
-                                <div
-                                  className="bg-emerald-500 transition-all"
-                                  style={{ width: `${lotsPct}%` }}
+                        {summary && (
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="flex items-center gap-1 px-2.5 py-1 bg-brand-navy/10 rounded-lg text-xs font-semibold text-brand-navy">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
-                              )}
-                              {hotsPct > 0 && (
-                                <div
-                                  className="bg-amber-500 transition-all"
-                                  style={{ width: `${hotsPct}%` }}
-                                />
-                              )}
+                              </svg>
+                              {summary.totalQuestions} questions
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-2 w-24 rounded-full overflow-hidden bg-gray-100">
+                                {lotsPct > 0 && (
+                                  <div
+                                    className="bg-emerald-500 transition-all"
+                                    style={{ width: `${lotsPct}%` }}
+                                  />
+                                )}
+                                {hotsPct > 0 && (
+                                  <div
+                                    className="bg-amber-500 transition-all"
+                                    style={{ width: `${hotsPct}%` }}
+                                  />
+                                )}
+                              </div>
+                              <span className="text-[11px] text-gray-400 font-medium">
+                                <span className="text-emerald-600 font-semibold">
+                                  {lotsPct}%
+                                </span>
+                                {" / "}
+                                <span className="text-amber-600 font-semibold">
+                                  {hotsPct}%
+                                </span>
+                              </span>
                             </div>
-                            <span className="text-[11px] text-gray-400 font-medium">
-                              <span className="text-emerald-600 font-semibold">
-                                {lotsPct}%
+
+                            {summary.flaggedCount > 0 && (
+                              <span className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded-lg text-xs font-semibold text-red-600">
+                                {summary.flaggedCount} flagged
                               </span>
-                              {" / "}
-                              <span className="text-amber-600 font-semibold">
-                                {hotsPct}%
-                              </span>
-                            </span>
+                            )}
                           </div>
+                        )}
 
-                          {summary.flaggedCount > 0 && (
-                            <span className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded-lg text-xs font-semibold text-red-600">
-                              {summary.flaggedCount} flagged
-                            </span>
-                          )}
-                        </div>
-                      )}
+                        {submission.admin_feedback && (
+                          <div className="mt-3 flex items-start gap-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                              />
+                            </svg>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
+                                Senior Faculty Feedback
+                              </p>
+                              <p className="text-xs text-blue-700 line-clamp-2">
+                                {submission.admin_feedback}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
-                      {submission.admin_feedback && (
-                        <div className="mt-3 flex items-start gap-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                      <div className="shrink-0 flex items-center self-center gap-2">
+                        {submission.status === "faculty_head_approved" && (
+                          <>
+                            <button
+                              onClick={(e) => handleExportPdf(e, submission)}
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                              title="Export TOS PDF"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              PDF
+                            </button>
+                            <button
+                              onClick={(e) =>
+                                handleExportQuizPaper(e, submission)
+                              }
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                              title="Export Quiz Paper"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              Quiz Paper
+                            </button>
+                          </>
+                        )}
+                        <div className="w-9 h-9 rounded-lg bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-navy transition-colors">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5"
+                            className="h-4 w-4 text-brand-navy group-hover:text-white transition-colors"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -572,94 +693,71 @@ export const FacultyHeadQuizApprovals = () => {
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                              d="M9 5l7 7-7 7"
                             />
                           </svg>
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
-                              Senior Faculty Feedback
-                            </p>
-                            <p className="text-xs text-blue-700 line-clamp-2">
-                              {submission.admin_feedback}
-                            </p>
-                          </div>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="shrink-0 flex items-center self-center gap-2">
-                      {submission.status === "faculty_head_approved" && (
-                        <>
-                          <button
-                            onClick={(e) => handleExportPdf(e, submission)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                            title="Export TOS PDF"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            PDF
-                          </button>
-                          <button
-                            onClick={(e) =>
-                              handleExportQuizPaper(e, submission)
-                            }
-                            className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                            title="Export Quiz Paper"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            Quiz Paper
-                          </button>
-                        </>
-                      )}
-                      <div className="w-9 h-9 rounded-lg bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-navy transition-colors">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 text-brand-navy group-hover:text-white transition-colors"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
                       </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls Bar */}
+            {filtered.length > 0 && totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 text-xs font-semibold text-gray-600 bg-white p-4 rounded-xl shadow-xs">
+                <span>
+                  Showing <strong>{startIndex + 1}</strong>–
+                  <strong>{Math.min(startIndex + PAGE_SIZE, filtered.length)}</strong> of{" "}
+                  <strong>{filtered.length}</strong> submissions
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                            currentPage === page
+                              ? "bg-brand-navy text-white shadow-xs"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-1 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Next
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         )}
       </div>
     </>
   );
 };
+

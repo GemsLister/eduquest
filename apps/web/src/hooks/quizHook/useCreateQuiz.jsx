@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export const useCreateQuiz = ({ user } = {}) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [quizFormData, setQuizFormData] = useState({
     title: "",
     description: "",
@@ -45,7 +46,7 @@ export const useCreateQuiz = ({ user } = {}) => {
       }
 
       if (!user?.id) {
-        alert("You must be logged in to create a quiz");
+        notify.error("You must be logged in to create a quiz");
         return;
       }
 
@@ -110,7 +111,10 @@ export const useCreateQuiz = ({ user } = {}) => {
       setShowQuizForm(false);
 
       notify.success(`Quiz "${data.title}" created successfully!`);
-      navigate(`/instructor-dashboard/instructor-quiz/${data.id}`);
+      const targetPath = location.pathname.startsWith("/admin-dashboard")
+        ? `/admin-dashboard/create-quiz/${data.id}`
+        : `/instructor-dashboard/instructor-quiz/${data.id}`;
+      navigate(targetPath);
     } catch (error) {
       console.error("Full error object:", error);
 

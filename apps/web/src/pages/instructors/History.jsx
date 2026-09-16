@@ -88,11 +88,11 @@ export const History = () => {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-black text-brand-navy mb-1 flex items-center gap-2">
-          <span>📜</span> System Activity & Audit Trail
+        <h1 className="text-2xl md:text-3xl font-extrabold text-brand-navy tracking-tight mb-1">
+          Activity History & Audit Trail
         </h1>
-        <p className="text-slate-500 text-sm">
-          Comprehensive, append-only history log tracking WHO did WHAT, WHICH ITEM was affected, WHEN, PREVIOUS/NEW STATE, and REASON.
+        <p className="text-slate-500 text-sm font-medium">
+          Comprehensive history log tracking system actions, examination revisions, review status transitions, and reasons.
         </p>
       </div>
 
@@ -101,23 +101,29 @@ export const History = () => {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveTab("system-activity")}
-            className={`px-5 py-3 font-extrabold text-xs tracking-wider uppercase transition-colors border-b-2 ${
+            className={`flex items-center gap-2 px-5 py-3 font-bold text-xs tracking-wider uppercase transition-all border-b-2 ${
               activeTab === "system-activity"
-                ? "text-brand-navy border-brand-navy bg-slate-50 rounded-t-xl"
-                : "text-slate-500 border-transparent hover:text-slate-800"
+                ? "text-brand-navy border-brand-navy bg-slate-50/80 rounded-t-xl"
+                : "text-slate-500 border-transparent hover:text-slate-800 hover:border-slate-300"
             }`}
           >
-            ⏱️ System Activity Audit Trail
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>System Activity Audit Trail</span>
           </button>
           <button
             onClick={() => setActiveTab("quiz-history")}
-            className={`px-5 py-3 font-extrabold text-xs tracking-wider uppercase transition-colors border-b-2 ${
+            className={`flex items-center gap-2 px-5 py-3 font-bold text-xs tracking-wider uppercase transition-all border-b-2 ${
               activeTab === "quiz-history"
-                ? "text-brand-navy border-brand-navy bg-slate-50 rounded-t-xl"
-                : "text-slate-500 border-transparent hover:text-slate-800"
+                ? "text-brand-navy border-brand-navy bg-slate-50/80 rounded-t-xl"
+                : "text-slate-500 border-transparent hover:text-slate-800 hover:border-slate-300"
             }`}
           >
-            📋 Examination History by Quiz
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span>Examination History by Quiz</span>
           </button>
         </div>
       </div>
@@ -183,8 +189,11 @@ export const History = () => {
                           <h3 className="font-bold text-base text-brand-navy">{quiz.title}</h3>
                           {getStatusBadge(quiz.status)}
                           {quiz.is_private && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              🔒 Private
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                              Private
                             </span>
                           )}
                         </div>
@@ -200,10 +209,11 @@ export const History = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-brand-indigo">
-                          {selectedQuiz?.id === quiz.id ? "Hide History ▲" : "View History ▼"}
-                        </span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-brand-navy bg-slate-100 px-3 py-1.5 rounded-xl group-hover:bg-slate-200 transition-colors">
+                        <span>{selectedQuiz?.id === quiz.id ? "Hide History" : "View History"}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-transform ${selectedQuiz?.id === quiz.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </div>
                     </div>
                   </div>

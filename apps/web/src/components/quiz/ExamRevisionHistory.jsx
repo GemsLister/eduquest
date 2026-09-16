@@ -71,18 +71,18 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
               key={rev.id || idx}
               className={`rounded-xl border p-5 transition-all ${
                 isCurrent
-                  ? "border-purple-300 bg-purple-50/30 shadow-sm ring-1 ring-purple-200"
+                  ? "border-brand-navy/30 bg-brand-navy/5 shadow-sm ring-1 ring-brand-navy/20"
                   : "border-gray-200 bg-white hover:border-gray-300"
               }`}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm font-black text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded">
+                    <span className="font-mono text-sm font-bold text-brand-navy bg-brand-navy/10 px-2.5 py-0.5 rounded">
                       {versionLabel}
                     </span>
                     {isCurrent && (
-                      <span className="text-[10px] font-bold tracking-wider text-purple-600 uppercase bg-purple-100/80 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold tracking-wider text-brand-navy uppercase bg-brand-navy/10 px-2 py-0.5 rounded-full">
                         Current Revision
                       </span>
                     )}
@@ -107,7 +107,7 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                   <div className="w-px h-8 bg-gray-200" />
                   <div>
                     <div className="text-gray-400 font-medium">HOTS Ratio</div>
-                    <div className="font-bold text-indigo-600 text-sm">
+                    <div className="font-bold text-brand-navy text-sm">
                       {analysisCount > 0 ? `${Math.round((hotsCount / analysisCount) * 100)}%` : "0%"}
                     </div>
                   </div>

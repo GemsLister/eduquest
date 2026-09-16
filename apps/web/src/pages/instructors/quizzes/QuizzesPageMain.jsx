@@ -308,12 +308,16 @@ export const QuizzesPageMain = () => {
             (() => {
               const empty = getEmptyState();
               return (
-                <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
-                  <div className="text-6xl mb-4">{empty.icon}</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-navy/5 flex items-center justify-center text-brand-navy">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-brand-navy mb-2">
                     {empty.title}
                   </h3>
-                  <p className="text-gray-500">{empty.message}</p>
+                  <p className="text-gray-500 max-w-md mx-auto text-sm">{empty.message}</p>
                 </div>
               );
             })()
@@ -338,9 +342,18 @@ export const QuizzesPageMain = () => {
                   >
                     {/* Card Header */}
                     <div
-                      className={`px-5 py-4 relative bg-gradient-to-r group-hover:opacity-95 transition-opacity ${getCardGradient(quiz)}`}
+                      className={`px-5 py-4 bg-gradient-to-r group-hover:opacity-95 transition-opacity ${getCardGradient(quiz)}`}
                     >
-                      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                      <h3
+                        className={`font-bold text-lg leading-snug line-clamp-2 mb-2 ${getCardTextColor(quiz)}`}
+                      >
+                        {quiz.title?.replace(
+                          /\s*\(Revised(?:\s+\d+)?\)\s*$/,
+                          "",
+                        )}
+                      </h3>
+
+                      <div className="flex items-center flex-wrap gap-1.5">
                         {/* Collaboration Badge */}
                         {quiz.owner_id && quiz.owner_id !== user?.id && (
                           <span
@@ -372,7 +385,7 @@ export const QuizzesPageMain = () => {
                               : "bg-emerald-800/80 text-emerald-100 border-emerald-600"
                           }`}
                         >
-                          {quiz.is_private !== false ? "🔒 Private" : "🌐 Public"}
+                          {quiz.is_private !== false ? "Private" : "Public"}
                         </span>
                         {/* Status Badge */}
                         <span
@@ -380,16 +393,7 @@ export const QuizzesPageMain = () => {
                         >
                           {state.label}
                         </span>
-                      </div>
-                      <h3
-                        className={`font-bold text-lg pr-20 leading-snug line-clamp-2 ${getCardTextColor(quiz)}`}
-                      >
-                        {quiz.title?.replace(
-                          /\s*\(Revised(?:\s+\d+)?\)\s*$/,
-                          "",
-                        )}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
+                        {/* Version Badge */}
                         {(quiz.version_number || 1) === 1 ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-white">
                             Original
@@ -399,14 +403,15 @@ export const QuizzesPageMain = () => {
                             v{quiz.version_number}
                           </span>
                         )}
-                        {quiz.description && (
-                          <p
-                            className={`text-xs line-clamp-1 ${getCardTextColor(quiz)} opacity-70`}
-                          >
-                            {quiz.description}
-                          </p>
-                        )}
                       </div>
+
+                      {quiz.description && (
+                        <p
+                          className={`text-xs line-clamp-1 mt-1.5 ${getCardTextColor(quiz)} opacity-70`}
+                        >
+                          {quiz.description}
+                        </p>
+                      )}
                     </div>
 
                     {/* Card Body */}
@@ -458,7 +463,9 @@ export const QuizzesPageMain = () => {
                             <button
                               onClick={() =>
                                 navigate(
-                                  `/instructor-dashboard/quiz-results/${quiz.id}`,
+                                  location.pathname.startsWith("/admin-dashboard")
+                                    ? `/admin-dashboard/quiz-results/${quiz.id}`
+                                    : `/instructor-dashboard/quiz-results/${quiz.id}`,
                                 )
                               }
                               className="flex-1 bg-brand-navy text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand-indigo transition-colors"
@@ -468,7 +475,9 @@ export const QuizzesPageMain = () => {
                             <button
                               onClick={() =>
                                 navigate(
-                                  `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                                  location.pathname.startsWith("/admin-dashboard")
+                                    ? `/admin-dashboard/create-quiz/${quiz.id}`
+                                    : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                                 )
                               }
                               className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
@@ -480,7 +489,9 @@ export const QuizzesPageMain = () => {
                           <button
                             onClick={() =>
                               navigate(
-                                `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                                location.pathname.startsWith("/admin-dashboard")
+                                  ? `/admin-dashboard/create-quiz/${quiz.id}`
+                                  : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                               )
                             }
                             className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
