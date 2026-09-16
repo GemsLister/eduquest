@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { notify } from "../../utils/notify.jsx";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 
 export const QuizVersions = () => {
   const { user: authUser } = useAuth();
+  const confirm = useConfirm();
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
   const [quizVersions, setQuizVersions] = useState([]);
@@ -106,15 +109,23 @@ export const QuizVersions = () => {
         }))
       );
 
-      alert("Quiz published successfully!");
+      notify.success("Quiz published successfully!");
     } catch (err) {
       console.error("Error publishing quiz:", err);
-      alert("Failed to publish quiz");
+      notify.error("Failed to publish quiz");
     }
   };
 
   const deleteVersion = async (quizId) => {
-    if (confirm("Are you sure you want to delete this quiz version?")) {
+    const confirmed = await confirm({
+      title: "Delete Quiz Version",
+      message: "Are you sure you want to delete this quiz version?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+
+    if (confirmed) {
       try {
         const { error } = await supabase
           .from("quizzes")
@@ -130,10 +141,10 @@ export const QuizVersions = () => {
           }))
         );
 
-        alert("Quiz version deleted successfully!");
+        notify.success("Quiz version deleted successfully!");
       } catch (err) {
         console.error("Error deleting quiz:", err);
-        alert("Failed to delete quiz version");
+        notify.error("Failed to delete quiz version");
       }
     }
   };

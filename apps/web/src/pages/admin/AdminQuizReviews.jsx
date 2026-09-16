@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 
@@ -27,7 +27,7 @@ export const AdminQuizReviews = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const instructorIds = [...new Set(data.map((s) => s.instructor_id))];
+        const instructorIds = [...new Set(data.map((s) => s.instructor_id).filter(Boolean))];
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, email, username")
@@ -38,24 +38,66 @@ export const AdminQuizReviews = () => {
           profileMap[p.id] = p;
         });
 
-        const enrichedData = data.map((s) => ({
-          ...s,
-          profiles: profileMap[s.instructor_id] || null,
-        }));
+        // Fetch all quizzes involved to build a recursive rootId resolver
+        const quizIds = [...new Set(data.map((s) => s.quiz_id).filter(Boolean))];
+        let quizMap = new Map();
+        if (quizIds.length > 0) {
+          const { data: qData } = await supabase
+            .from("quizzes")
+            .select("id, parent_quiz_id, title, version_number");
+          qData?.forEach((q) => quizMap.set(q.id, q));
+        }
 
-        // Group submissions by quiz chain (rootId). For each chain:
-        //   - compute displayVersion per submission based on chronological
-        //     rank within the chain (1 = original, 2 = first revision, ...)
-        //   - keep only the single latest submission per chain
-        const rootIdOf = (s) =>
-          s.quizzes?.parent_quiz_id || s.quiz_id;
+        const findRootId = (quizId) => {
+          if (!quizId) return null;
+          let curr = quizId;
+          let visited = new Set();
+          while (curr && !visited.has(curr)) {
+            visited.add(curr);
+            const q = quizMap.get(curr);
+            if (q && q.parent_quiz_id) {
+              curr = q.parent_quiz_id;
+            } else {
+              break;
+            }
+          }
+          return curr;
+        };
+
+        const enrichedData = data.map((s) => {
+          const joinedQuiz = s.quizzes || quizMap.get(s.quiz_id) || null;
+          const quizTitle =
+            joinedQuiz?.title ||
+            s.analysis_results?.quiz_title ||
+            s.analysis_results?.title ||
+            s.analysis_results?.summary?.quizTitle ||
+            "Quiz";
+          return {
+            ...s,
+            quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
+            profiles: profileMap[s.instructor_id] || null,
+          };
+        });
+
+        // Group submissions by quiz chain key:
+        // 1. Recursive root quiz id
+        // 2. Base title + instructor id (fallback to guarantee grouping)
+        const getChainKey = (s) => {
+          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+          if (rootQuizId) return `quiz_${rootQuizId}`;
+          
+          const rawTitle = s.quizzes?.title || "";
+          const baseTitle = rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
+          if (baseTitle && s.instructor_id) return `title_${s.instructor_id}_${baseTitle}`;
+          
+          return `sub_${s.id}`;
+        };
 
         const chains = new Map();
         for (const s of enrichedData) {
-          const rootId = rootIdOf(s);
-          if (!rootId) continue;
-          if (!chains.has(rootId)) chains.set(rootId, []);
-          chains.get(rootId).push(s);
+          const key = getChainKey(s);
+          if (!chains.has(key)) chains.set(key, []);
+          chains.get(key).push(s);
         }
 
         const latestPerChain = [];
@@ -69,6 +111,7 @@ export const AdminQuizReviews = () => {
             s.displayVersion = idx + 1;
             s.chainLength = sortedAsc.length;
           });
+          // Keep only the newest submission in the chain
           latestPerChain.push(sortedAsc[sortedAsc.length - 1]);
         }
 
@@ -269,7 +312,7 @@ export const AdminQuizReviews = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-          Quiz Analysis Reviews
+          Exam Analysis Reviews
           {counts.pending > 0 && (
             <span className="flex items-center gap-2 px-3 py-1 bg-yellow-400/20 rounded-full">
               <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
@@ -720,3 +763,4 @@ export const AdminQuizReviews = () => {
     </>
   );
 };
+

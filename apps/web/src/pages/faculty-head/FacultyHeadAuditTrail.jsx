@@ -8,10 +8,17 @@ export const FacultyHeadAuditTrail = () => {
   const [filterTable, setFilterTable] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'timeline'
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchAuditLogs();
   }, [filterAction, filterTable]);
+
+  // Reset pagination when search, filter, or viewMode changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterAction, filterTable, viewMode]);
 
   const fetchAuditLogs = async () => {
     try {
@@ -130,6 +137,10 @@ export const FacultyHeadAuditTrail = () => {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedLogs = filteredLogs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -241,7 +252,7 @@ export const FacultyHeadAuditTrail = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredLogs.map((log) => (
+                    {paginatedLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="p-4 text-gray-600 font-mono text-xs whitespace-nowrap">
                           {formatDate(log.created_at)}
@@ -313,7 +324,7 @@ export const FacultyHeadAuditTrail = () => {
             ) : (
               /* Timeline View */
               <div className="space-y-6 relative border-l-2 border-indigo-100 ml-4 pl-6 py-2">
-                {filteredLogs.map((log) => (
+                {paginatedLogs.map((log) => (
                   <div key={log.id} className="relative group">
                     <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-indigo-600 border-4 border-white shadow" />
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all space-y-2">
@@ -351,6 +362,57 @@ export const FacultyHeadAuditTrail = () => {
                     No timeline logs match your filters.
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Pagination Controls Bar */}
+            {filteredLogs.length > 0 && totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 text-xs font-semibold text-gray-600 bg-white">
+                <span>
+                  Showing <strong>{startIndex + 1}</strong>–
+                  <strong>{Math.min(startIndex + ITEMS_PER_PAGE, filteredLogs.length)}</strong> of{" "}
+                  <strong>{filteredLogs.length}</strong> audit records
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                            currentPage === page
+                              ? "bg-brand-navy text-white shadow-xs"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-1 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

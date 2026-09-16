@@ -9,18 +9,19 @@ import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 
 /**
- * F7: Quick-fill revision suggestion templates for per-question feedback.
+ * Revision suggestion templates for F7.
+ * Available as quick-fill options in the per-question feedback area.
  */
 const REVISION_TEMPLATES = [
   { label: "Rephrase for clarity", text: "Please rephrase this question for better clarity and precision." },
-  { label: "Raise cognitive level", text: "Consider revising to a higher Bloom's level (e.g., Analyzing/Evaluating) for better HOTS alignment." },
-  { label: "Lower cognitive level", text: "This question may be too complex. Consider simplifying to align with LOTS objectives." },
-  { label: "Review answer options", text: "The answer choices need revision — some distractors are too obvious or the correct answer is ambiguous." },
-  { label: "Add more context", text: "This question lacks sufficient context. Add a scenario or more specific details." },
-  { label: "Fix grammatical errors", text: "This question has grammatical or spelling errors. Please proofread and correct." },
+  { label: "Raise cognitive level", text: "Consider revising this question to a higher Bloom's level (e.g., from Remembering to Analyzing/Evaluating) for better HOTS alignment." },
+  { label: "Lower cognitive level", text: "This question may be too complex for the target audience. Consider simplifying to align with LOTS objectives." },
+  { label: "Review answer options", text: "The answer choices need revision — some distractors are too obvious or the correct answer is ambiguous. Please review all options." },
+  { label: "Add more context", text: "This question lacks sufficient context. Add a scenario or more specific details so students can answer accurately." },
+  { label: "Fix grammatical errors", text: "This question has grammatical or spelling errors. Please proofread and correct before submission." },
 ];
 
-export const AdminQuizReviewDetail = () => {
+export const PeerReviewDetail = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { submissionId } = useParams();
@@ -35,8 +36,9 @@ export const AdminQuizReviewDetail = () => {
   const [questionMetaById, setQuestionMetaById] = useState({});
   const [questionMetaByText, setQuestionMetaByText] = useState({});
   const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
-  const [previousSnapshots, setPreviousSnapshots] = useState([]); // F8: snapshots from previous submission's analysis_results
-  const [openTemplateFor, setOpenTemplateFor] = useState(null); // F7: which question has template popover open
+  const [previousSnapshots, setPreviousSnapshots] = useState([]);
+  // F7: Track which question has the template popover open
+  const [openTemplateFor, setOpenTemplateFor] = useState(null);
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -59,14 +61,15 @@ export const AdminQuizReviewDetail = () => {
 
       if (error) throw error;
 
-      // Fetch instructor profile separately
       if (data) {
+        // Fetch submitting instructor profile
         const { data: profile } = await supabase
           .from("profiles")
           .select("first_name, last_name, email, username")
           .eq("id", data.instructor_id)
           .single();
 
+        // Fetch live question metadata
         const { data: questionRows } = await supabase
           .from("questions")
           .select("id, text, type, options, correct_answer")
@@ -74,46 +77,29 @@ export const AdminQuizReviewDetail = () => {
           .order("created_at", { ascending: true });
 
         const metaMapById = (questionRows || []).reduce((acc, q) => {
-          acc[String(q.id)] = {
-            type: q.type,
-            text: q.text,
-            options: q.options || [],
-            correctAnswer: q.correct_answer,
-          };
+          acc[String(q.id)] = { type: q.type, text: q.text, options: q.options || [], correctAnswer: q.correct_answer };
           return acc;
         }, {});
 
         const metaMapByText = (questionRows || []).reduce((acc, q) => {
           const key = normalizeQuestionText(q.text);
-          if (!key) return acc;
-          if (!acc[key]) {
-            acc[key] = {
-              type: q.type,
-              text: q.text,
-              options: q.options || [],
-              correctAnswer: q.correct_answer,
-            };
+          if (key && !acc[key]) {
+            acc[key] = { type: q.type, text: q.text, options: q.options || [], correctAnswer: q.correct_answer };
           }
           return acc;
         }, {});
 
         setQuestionMetaById(metaMapById);
         setQuestionMetaByText(metaMapByText);
-        setQuestionMetaByIndex(
-          (questionRows || []).map((q) => ({
-            type: q.type,
-            text: q.text,
-            options: q.options || [],
-            correctAnswer: q.correct_answer,
-          })),
-        );
+        setQuestionMetaByIndex((questionRows || []).map((q) => ({
+          type: q.type, text: q.text, options: q.options || [], correctAnswer: q.correct_answer,
+        })));
 
         setSubmission({ ...data, profiles: profile });
         setFeedback(data.admin_feedback || "");
         setQuestionFeedback(data.question_feedback || {});
 
-        // Build the submission chain for this quiz: all submissions for
-        // quizzes that share this chain's rootId, ordered by created_at asc.
+        // Build submission chain for version banners
         const rootId = data.quizzes?.parent_quiz_id || data.quiz_id;
         if (rootId) {
           const { data: chainQuizzes } = await supabase
@@ -128,21 +114,20 @@ export const AdminQuizReviewDetail = () => {
               .select("id, quiz_id, created_at, analysis_results")
               .in("quiz_id", chainQuizIds)
               .order("created_at", { ascending: true });
+
             const builtChain = chainSubs || [];
             setChain(builtChain.map(({ id, quiz_id, created_at }) => ({ id, quiz_id, created_at })));
 
-            // F8: Use questionSnapshots from the previous submission (immutable snapshot taken at submit time)
             const currentIdx = builtChain.findIndex((s) => s.id === submissionId);
             if (currentIdx > 0) {
               const prevSub = builtChain[currentIdx - 1];
-              const snapshots = prevSub?.analysis_results?.questionSnapshots || [];
-              setPreviousSnapshots(snapshots);
+              setPreviousSnapshots(prevSub?.analysis_results?.questionSnapshots || []);
             }
           }
         }
       }
     } catch (err) {
-      console.error("Error loading submission:", err);
+      console.error("Error loading peer review submission:", err);
       notify.error("Failed to load submission");
     } finally {
       setLoading(false);
@@ -163,13 +148,11 @@ export const AdminQuizReviewDetail = () => {
 
     setActionLoading(true);
     try {
-      // When admin approves, forward to department head for final approval
-      const actualStatus =
-        status === "approved" ? "faculty_head_review" : status;
+      // When peer reviewer approves, forward to department head
+      const actualStatus = status === "approved" ? "faculty_head_review" : status;
 
-      // Filter out empty question feedback entries
       const filteredQuestionFeedback = Object.fromEntries(
-        Object.entries(questionFeedback).filter(([, v]) => v.trim()),
+        Object.entries(questionFeedback).filter(([, v]) => v.trim())
       );
 
       const { error } = await supabase
@@ -177,10 +160,7 @@ export const AdminQuizReviewDetail = () => {
         .update({
           status: actualStatus,
           admin_feedback: feedback || null,
-          question_feedback:
-            Object.keys(filteredQuestionFeedback).length > 0
-              ? filteredQuestionFeedback
-              : null,
+          question_feedback: Object.keys(filteredQuestionFeedback).length > 0 ? filteredQuestionFeedback : null,
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
         })
@@ -191,40 +171,39 @@ export const AdminQuizReviewDetail = () => {
       const quizTitle = submission.quizzes?.title || "your quiz";
       const targetQuizId = submission.quiz_id;
 
-      // Log quiz status change and structured audit entry
       if (targetQuizId) {
         try {
           await supabase.rpc("log_quiz_status_change", {
             p_quiz_id: targetQuizId,
             p_new_status: status === "approved" ? "forwarded_to_head" : "rejected",
-            p_reason: feedback || (status === "approved" ? "Forwarded to Department Head for final approval" : "Revision requested by Senior Faculty"),
+            p_reason: feedback || (status === "approved" ? "Forwarded to Department Head by Peer Reviewer" : "Revision requested by Peer Reviewer"),
           });
 
           await logAudit({
-            action: status === "approved" ? "FORWARDED_TO_HEAD" : "REVISION_REQUESTED",
+            action: status === "approved" ? "PEER_REVIEW_FORWARDED_TO_HEAD" : "PEER_REVIEW_REVISION_REQUESTED",
             tableName: "quizzes",
             recordId: targetQuizId,
             itemName: quizTitle,
             previousStatus: "submitted_for_review",
             newStatus: status === "approved" ? "forwarded_to_head" : "revision_requested",
-            reason: feedback || (status === "approved" ? "Forwarded to Department Head for final approval" : "Revision requested by Senior Faculty"),
-            userRole: "senior_faculty",
+            reason: feedback || (status === "approved" ? "Forwarded to Department Head by Peer Reviewer" : "Revision requested by Peer Reviewer"),
+            userRole: "peer_reviewer",
           });
         } catch (lErr) {
-          console.warn("Could not log Senior Faculty action history:", lErr);
+          console.warn("Could not log peer review action:", lErr);
         }
       }
 
-      // Send notification to instructor
+      // Notify the instructor
       const notificationMap = {
         approved: {
-          title: "Quiz Analysis Reviewed by Senior Faculty",
-          message: `Your quiz analysis for "${quizTitle}" has been reviewed by the Senior Faculty and forwarded to the Department Head for final approval.`,
+          title: "Quiz Analysis Peer-Reviewed",
+          message: `Your quiz analysis for "${quizTitle}" has been peer-reviewed and forwarded to the Department Head for final approval.`,
           type: "info",
         },
         revision_requested: {
-          title: "Revision Requested",
-          message: `The Senior Faculty has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
+          title: "Revision Requested by Peer Reviewer",
+          message: `Your peer reviewer has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
           type: "warning",
         },
       };
@@ -240,15 +219,37 @@ export const AdminQuizReviewDetail = () => {
         });
       }
 
-      window.dispatchEvent(new Event("pending-quiz-reviews-changed"));
+      // If approved/forwarded, also notify Department Heads for final approval
+      if (status === "approved") {
+        try {
+          const { data: deptHeads } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("is_faculty_head", true);
 
-      const messages = {
-        approved: "Quiz forwarded to Department Head for approval!",
-        revision_requested: "Revision request sent to instructor.",
-      };
+          if (deptHeads && deptHeads.length > 0) {
+            const headNotifs = deptHeads.map((h) => ({
+              user_id: h.id,
+              title: "New Exam Awaiting Final Approval",
+              message: `Quiz "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
+              type: "info",
+              link: `/faculty-head/quiz-approvals`,
+            }));
+            await supabase.from("notifications").insert(headNotifs);
+          }
+        } catch (nErr) {
+          console.warn("Could not notify department heads:", nErr);
+        }
+      }
 
-      notify.success(messages[status]);
-      navigate("/admin-dashboard/quiz-reviews");
+      window.dispatchEvent(new Event("pending-peer-reviews-changed"));
+
+      notify.success(
+        status === "approved"
+          ? "Quiz forwarded to Department Head for final approval!"
+          : "Revision request sent to instructor."
+      );
+      navigate("/instructor-dashboard/my-submissions?tab=peer_reviews");
     } catch (err) {
       console.error("Error updating submission:", err);
       notify.error("Failed to update submission");
@@ -258,6 +259,7 @@ export const AdminQuizReviewDetail = () => {
     }
   };
 
+  // --- Helpers ---
   const getLevelColor = (level) => {
     const colors = {
       Remembering: "bg-blue-100 text-blue-700 border-blue-300",
@@ -270,11 +272,8 @@ export const AdminQuizReviewDetail = () => {
     return colors[level] || "bg-gray-100 text-gray-700 border-gray-300";
   };
 
-  const getThinkingOrderStyle = (order) => {
-    return order === "HOTS"
-      ? "bg-amber-500 text-white"
-      : "bg-emerald-500 text-white";
-  };
+  const getThinkingOrderStyle = (order) =>
+    order === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white";
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -288,13 +287,11 @@ export const AdminQuizReviewDetail = () => {
       pending: "Pending Review",
       approved: "Approved",
       revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Department Head",
-      faculty_head_approved: "Department Head Approved",
+      faculty_head_review: "Awaiting Dept. Head",
+      faculty_head_approved: "Dept. Head Approved",
     };
     return (
-      <span
-        className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status]}`}
-      >
+      <span className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status]}`}>
         {labels[status]}
       </span>
     );
@@ -305,7 +302,7 @@ export const AdminQuizReviewDetail = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-gray-600 font-semibold">Loading...</p>
+          <p className="mt-4 text-gray-600 font-semibold">Loading review...</p>
         </div>
       </div>
     );
@@ -316,10 +313,7 @@ export const AdminQuizReviewDetail = () => {
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <p className="text-red-600">Submission not found.</p>
-          <button
-            onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg"
-          >
+          <button onClick={() => navigate("/instructor-dashboard/peer-reviews")} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg">
             Go Back
           </button>
         </div>
@@ -328,31 +322,30 @@ export const AdminQuizReviewDetail = () => {
   }
 
   const results = submission.analysis_results;
-  const snapshotById = (results?.questionSnapshots || []).reduce(
-    (acc, item) => {
-      acc[String(item.questionId)] = item;
-      return acc;
-    },
-    {},
-  );
-  const snapshotByText = (results?.questionSnapshots || []).reduce(
-    (acc, item) => {
-      const key = normalizeQuestionText(item.questionText);
-      if (key && !acc[key]) acc[key] = item;
-      return acc;
-    },
-    {},
-  );
+  const snapshotById = (results?.questionSnapshots || []).reduce((acc, item) => {
+    acc[String(item.questionId)] = item;
+    return acc;
+  }, {});
+  const snapshotByText = (results?.questionSnapshots || []).reduce((acc, item) => {
+    const key = normalizeQuestionText(item.questionText);
+    if (key && !acc[key]) acc[key] = item;
+    return acc;
+  }, {});
+
+  const getInstructorName = (profiles) => {
+    if (!profiles) return "Unknown";
+    return `${profiles.first_name || ""} ${profiles.last_name || ""}`.trim() || profiles.username || profiles.email || "Unknown";
+  };
 
   return (
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
-          onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+          onClick={() => navigate("/instructor-dashboard/peer-reviews")}
           className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
         >
-          Back to Reviews
+          ← Back to Peer Reviews
         </button>
         <div className="flex items-center gap-4">
           <div>
@@ -365,13 +358,8 @@ export const AdminQuizReviewDetail = () => {
               )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Submitted by{" "}
-              {submission.profiles
-                ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
-                  submission.profiles.username ||
-                  submission.profiles.email ||
-                  "Unknown"
-                : "Unknown"}
+              Submitted by {getInstructorName(submission.profiles)}
+              "Peer Review"
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
@@ -381,157 +369,100 @@ export const AdminQuizReviewDetail = () => {
       </div>
 
       <div className="p-6">
-        {/* Version / Resubmission Banner */}
+        {/* Version Banner */}
         {(() => {
           const currentIdx = chain.findIndex((s) => s.id === submission.id);
           const displayVersion = currentIdx >= 0 ? currentIdx + 1 : 1;
           const chainLength = chain.length;
-          const previousInChain =
-            currentIdx > 0 ? chain[currentIdx - 1] : null;
-          const latestInChain =
-            chainLength > 0 ? chain[chainLength - 1] : null;
-          const isLatest =
-            !latestInChain || latestInChain.id === submission.id;
+          const previousInChain = currentIdx > 0 ? chain[currentIdx - 1] : null;
+          const latestInChain = chainLength > 0 ? chain[chainLength - 1] : null;
+          const isLatest = !latestInChain || latestInChain.id === submission.id;
 
           if (displayVersion === 1 && chainLength > 1) {
             return (
               <div className="mb-6 p-4 bg-brand-navy/5 border border-brand-navy/20 rounded-xl flex items-center gap-3">
                 
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-emerald-900">
-                    Original Submission
-                  </p>
-                  <p className="text-xs text-emerald-900/70">
-                    This is the original version of this quiz. Newer revisions
-                    exist.
-                  </p>
+                  <p className="text-sm font-semibold text-emerald-900">Original Submission</p>
+                  <p className="text-xs text-emerald-900/70">This is the original version. Newer revisions exist.</p>
                 </div>
                 <button
-                  onClick={() =>
-                    navigate(
-                      `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
-                    )
-                  }
-                  className="px-3 py-1.5 bg-emerald-700/10 hover:bg-emerald-700/20 text-emerald-900 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                  onClick={() => navigate(`/instructor-dashboard/peer-reviews/${latestInChain.id}`)}
+                  className="px-3 py-1.5 bg-emerald-700/10 hover:bg-emerald-700/20 text-emerald-900 text-xs font-semibold rounded-lg"
                 >
-                  View Latest Version
+                  View Latest
                 </button>
               </div>
             );
           }
-
           if (displayVersion > 1) {
             return (
               <div className="mb-6 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-xl flex items-center gap-3">
                 
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-brand-navy">
-                    Revised Submission (Version {displayVersion})
-                  </p>
-                  <p className="text-xs text-brand-navy/70">
-                    The instructor revised this quiz based on previous feedback
-                    and resubmitted for review.
-                  </p>
+                  <p className="text-sm font-semibold text-brand-navy">Revised Submission (Version {displayVersion})</p>
+                  <p className="text-xs text-brand-navy/70">The instructor revised based on previous feedback and resubmitted.</p>
                 </div>
                 {previousInChain && (
                   <button
-                    onClick={() =>
-                      navigate(
-                        `/admin-dashboard/quiz-reviews/${previousInChain.id}`,
-                      )
-                    }
-                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    onClick={() => navigate(`/instructor-dashboard/peer-reviews/${previousInChain.id}`)}
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg"
                   >
-                    View Previous Version
+                    View Previous
                   </button>
                 )}
                 {!isLatest && latestInChain && (
                   <button
-                    onClick={() =>
-                      navigate(
-                        `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
-                      )
-                    }
-                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    onClick={() => navigate(`/instructor-dashboard/peer-reviews/${latestInChain.id}`)}
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg"
                   >
-                    View Latest Version
+                    View Latest
                   </button>
                 )}
               </div>
             );
           }
-
           return null;
         })()}
 
         {/* Instructor Message */}
         {submission.instructor_message && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm font-semibold text-blue-700 mb-1">
-              Instructor's Note:
-            </p>
+            <p className="text-sm font-semibold text-blue-700 mb-1">Instructor's Note:</p>
             <p className="text-blue-800">{submission.instructor_message}</p>
           </div>
         )}
 
-        {/* Summary Section */}
+        {/* Summary */}
         <div className="mb-8 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            Analysis Summary
-          </h3>
-
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Analysis Summary</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-              <p className="text-3xl font-bold text-gray-800">
-                {results?.summary?.totalQuestions || 0}
-              </p>
+              <p className="text-3xl font-bold text-gray-800">{results?.summary?.totalQuestions || 0}</p>
               <p className="text-sm text-gray-500">Total Questions</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-              <p className="text-3xl font-bold text-emerald-600">
-                {results?.summary?.lotsCount || 0}
-              </p>
-              <p className="text-sm text-gray-500">
-                LOTS ({results?.summary?.lotsPercentage || 0}%)
-              </p>
+              <p className="text-3xl font-bold text-emerald-600">{results?.summary?.lotsCount || 0}</p>
+              <p className="text-sm text-gray-500">LOTS ({results?.summary?.lotsPercentage || 0}%)</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-              <p className="text-3xl font-bold text-amber-600">
-                {results?.summary?.hotsCount || 0}
-              </p>
-              <p className="text-sm text-gray-500">
-                HOTS ({results?.summary?.hotsPercentage || 0}%)
-              </p>
+              <p className="text-3xl font-bold text-amber-600">{results?.summary?.hotsCount || 0}</p>
+              <p className="text-sm text-gray-500">HOTS ({results?.summary?.hotsPercentage || 0}%)</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow-sm text-center">
-              <p className="text-3xl font-bold text-red-600">
-                {results?.summary?.flaggedCount || 0}
-              </p>
+              <p className="text-3xl font-bold text-red-600">{results?.summary?.flaggedCount || 0}</p>
               <p className="text-sm text-gray-500">Needs Review</p>
             </div>
           </div>
 
-          {/* Distribution */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
-            <p className="text-sm font-semibold text-gray-600 mb-3">
-              Bloom's Level Distribution
-            </p>
+            <p className="text-sm font-semibold text-gray-600 mb-3">Bloom's Level Distribution</p>
             <div className="flex flex-wrap gap-2">
               {results?.summary?.distribution &&
-                [
-                  "Remembering",
-                  "Understanding",
-                  "Applying",
-                  "Analyzing",
-                  "Evaluating",
-                  "Creating",
-                ].map((level) => {
+                ["Remembering", "Understanding", "Applying", "Analyzing", "Evaluating", "Creating"].map((level) => {
                   const count = results.summary.distribution[level] ?? 0;
                   return (
-                    <div
-                      key={level}
-                      className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}
-                    >
+                    <div key={level} className={`px-3 py-2 rounded-lg border ${getLevelColor(level)} flex items-center gap-2`}>
                       <span className="font-semibold">{level}:</span>
                       <span className="font-bold">{count}</span>
                     </div>
@@ -543,37 +474,30 @@ export const AdminQuizReviewDetail = () => {
           {results?.summary?.flaggedCount > 0 && (
             <div className="mt-4 p-3 bg-brand-navy/5 border border-brand-navy/20 rounded-lg text-brand-navy text-sm flex items-center gap-2">
               
-              <span>
-                <strong>{results.summary.flaggedCount}</strong> question(s) have
-                low confidence and may need manual review.
-              </span>
+              <span><strong>{results.summary.flaggedCount}</strong> question(s) have low confidence and may need manual review.</span>
             </div>
           )}
         </div>
 
-        {/* Bloom's Visualization Charts */}
+        {/* Charts */}
         <div className="mb-8">
           <BloomsVisualizationPanel summary={results?.summary} />
         </div>
 
-        {/* Quiz Improvement Suggestions */}
+        {/* Suggestions */}
         <div className="mb-8">
           <QuizSuggestions summary={results?.summary} />
         </div>
 
-        {/* Question Analysis */}
+        {/* Question Analysis with Side-by-Side Comparison + F7 Revision Templates */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <div>
               <h3 className="text-lg font-bold text-gray-800">
-                {previousSnapshots.length > 0
-                  ? "Question Analysis & Revision Comparison"
-                  : "Question Analysis"}
+                {previousSnapshots.length > 0 ? "Question Analysis & Revision Comparison" : "Question Analysis"}
               </h3>
               {previousSnapshots.length > 0 && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Direct side-by-side comparison of each question with the previous version
-                </p>
+                <p className="text-xs text-gray-500 mt-0.5">Side-by-side comparison with the previous version</p>
               )}
             </div>
             {previousSnapshots.length > 0 && (
@@ -595,10 +519,7 @@ export const AdminQuizReviewDetail = () => {
             {(() => {
               const hasPrevious = previousSnapshots.length > 0;
               const maxLen = hasPrevious
-                ? Math.max(
-                    previousSnapshots.length,
-                    (results?.analysis || []).length,
-                  )
+                ? Math.max(previousSnapshots.length, (results?.analysis || []).length)
                 : (results?.analysis || []).length;
 
               return Array.from({ length: maxLen }).map((_, idx) => {
@@ -609,37 +530,24 @@ export const AdminQuizReviewDetail = () => {
                   ? snapshotById[String(item.questionId)] ||
                     snapshotByText[normalizeQuestionText(item.questionText)] ||
                     questionMetaById[String(item.questionId)] ||
-                    questionMetaByText[
-                      normalizeQuestionText(item.questionText)
-                    ] ||
+                    questionMetaByText[normalizeQuestionText(item.questionText)] ||
                     questionMetaByIndex[idx] ||
                     null
                   : null;
 
-                const currOptions = Array.isArray(questionMeta?.options)
-                  ? questionMeta.options
-                  : [];
-
-                const prevOptions = Array.isArray(prevSnap?.options)
-                  ? prevSnap.options
-                  : [];
-
+                const currOptions = Array.isArray(questionMeta?.options) ? questionMeta.options : [];
+                const prevOptions = Array.isArray(prevSnap?.options) ? prevSnap.options : [];
                 const prevText = prevSnap?.questionText || "";
-                const currText =
-                  questionMeta?.text || item?.questionText || "";
+                const currText = questionMeta?.text || item?.questionText || "";
 
                 const isTextModified =
-                  prevText &&
-                  currText &&
-                  normalizeQuestionText(prevText) !==
-                    normalizeQuestionText(currText);
+                  prevText && currText &&
+                  normalizeQuestionText(prevText) !== normalizeQuestionText(currText);
 
                 const prevCorrect = prevSnap?.correctAnswer;
                 const currCorrect = questionMeta?.correctAnswer;
                 const isOptionsModified =
-                  hasPrevious &&
-                  prevSnap &&
-                  item &&
+                  hasPrevious && prevSnap && item &&
                   (prevOptions.length !== currOptions.length ||
                     prevOptions.some((opt, i) => opt !== currOptions[i]) ||
                     String(prevCorrect) !== String(currCorrect));
@@ -647,57 +555,31 @@ export const AdminQuizReviewDetail = () => {
                 const isModified = isTextModified || isOptionsModified;
                 const isNew = hasPrevious && !prevSnap && item;
                 const isRemoved = hasPrevious && prevSnap && !item;
-                const isUnchanged =
-                  hasPrevious && prevSnap && item && !isModified;
-
-                const questionIdKey = item
-                  ? item.questionId
-                  : `removed-${idx}`;
+                const isUnchanged = hasPrevious && prevSnap && item && !isModified;
+                const questionIdKey = item ? item.questionId : `removed-${idx}`;
 
                 return (
                   <div
                     key={questionIdKey}
                     className={`border-2 rounded-xl p-5 transition-colors ${
-                      isRemoved
-                        ? "border-red-300 bg-red-50/40"
-                        : item?.needsReview
-                          ? "border-yellow-400 bg-yellow-50/50"
-                          : isModified
-                            ? "border-amber-300 bg-white"
-                            : isNew
-                              ? "border-green-300 bg-white"
-                              : "border-gray-200 bg-white"
+                      isRemoved ? "border-red-300 bg-red-50/40"
+                        : item?.needsReview ? "border-yellow-400 bg-yellow-50/50"
+                        : isModified ? "border-amber-300 bg-white"
+                        : isNew ? "border-green-300 bg-white"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    {/* Header */}
+                    {/* Question Header */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100 mb-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-black text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">
-                          Q{idx + 1}
-                        </span>
+                        <span className="text-sm font-black text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">Q{idx + 1}</span>
 
                         {hasPrevious && (
                           <>
-                            {isRemoved && (
-                              <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                                Removed in Revision
-                              </span>
-                            )}
-                            {isNew && (
-                              <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                                New Question
-                              </span>
-                            )}
-                            {isModified && (
-                              <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                Modified
-                              </span>
-                            )}
-                            {isUnchanged && (
-                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">
-                                Unchanged
-                              </span>
-                            )}
+                            {isRemoved && <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200">Removed</span>}
+                            {isNew && <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700 border border-green-200">New</span>}
+                            {isModified && <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">Modified</span>}
+                            {isUnchanged && <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">Unchanged</span>}
                           </>
                         )}
 
@@ -705,14 +587,10 @@ export const AdminQuizReviewDetail = () => {
                           const gadEval = analyzeGADQuestion(currText || item?.questionText || "", currOptions);
                           return (
                             <>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}
-                              >
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${getThinkingOrderStyle(item.thinkingOrder)}`}>
                                 {item.thinkingOrder}
                               </span>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
-                              >
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}>
                                 {item.bloomsLevel}
                               </span>
                               {gadEval.hasGenderBias && (
@@ -761,18 +639,12 @@ export const AdminQuizReviewDetail = () => {
 
                       {item && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 font-medium">
-                            Confidence:
-                          </span>
-                          <span
-                            className={`text-sm font-black ${
-                              item.confidence >= 0.9
-                                ? "text-green-600"
-                                : item.confidence >= 0.75
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                            }`}
-                          >
+                          <span className="text-xs text-gray-500 font-medium">Confidence:</span>
+                          <span className={`text-sm font-black ${
+                            item.confidence >= 0.9 ? "text-green-600"
+                              : item.confidence >= 0.75 ? "text-yellow-600"
+                              : "text-red-600"
+                          }`}>
                             {(item.confidence * 100).toFixed(1)}%
                           </span>
                         </div>
@@ -781,68 +653,34 @@ export const AdminQuizReviewDetail = () => {
 
                     {/* Question Content */}
                     {hasPrevious ? (
-                      /* Side-by-Side Comparison for Revisions */
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Left: Previous Version */}
-                        <div
-                          className={`p-4 rounded-xl border ${
-                            isRemoved
-                              ? "bg-red-50 border-red-200"
-                              : isModified
-                                ? "bg-amber-50/50 border-amber-200"
-                                : "bg-gray-50/80 border-gray-200"
-                          }`}
-                        >
+                        {/* Left: Previous */}
+                        <div className={`p-4 rounded-xl border ${
+                          isRemoved ? "bg-red-50 border-red-200"
+                            : isModified ? "bg-amber-50/50 border-amber-200"
+                            : "bg-gray-50/80 border-gray-200"
+                        }`}>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                               Previous Version
-                            </span>
-                            {isRemoved && (
-                              <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
-                                Removed
-                              </span>
-                            )}
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Previous Version</span>
+                            {isRemoved && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Removed</span>}
                           </div>
                           {prevSnap ? (
                             <>
-                              <p
-                                className={`text-sm mb-3 ${
-                                  isModified || isRemoved
-                                    ? "line-through text-red-500/80 font-medium"
-                                    : "text-gray-800"
-                                }`}
-                              >
+                              <p className={`text-sm mb-3 ${isModified || isRemoved ? "line-through text-red-500/80 font-medium" : "text-gray-800"}`}>
                                 {prevSnap.questionText}
                               </p>
                               {prevOptions.length > 0 && (
                                 <div className="space-y-1.5">
                                   {prevOptions.map((opt, optIdx) => {
-                                    const letter = String.fromCharCode(
-                                      65 + optIdx,
-                                    );
-                                    const isCorrect =
-                                      String(opt) ===
-                                      String(prevSnap.correctAnswer);
+                                    const letter = String.fromCharCode(65 + optIdx);
+                                    const isCorrect = String(opt) === String(prevSnap.correctAnswer);
                                     return (
-                                      <div
-                                        key={optIdx}
-                                        className={`text-xs border rounded-lg px-3 py-2 flex items-center justify-between ${
-                                          isCorrect
-                                            ? "border-green-300 bg-green-50 text-green-800 font-semibold"
-                                            : "border-gray-200 bg-white text-gray-600"
-                                        }`}
-                                      >
+                                      <div key={optIdx} className={`text-xs border rounded-lg px-3 py-2 flex items-center justify-between ${isCorrect ? "border-green-300 bg-green-50 text-green-800 font-semibold" : "border-gray-200 bg-white text-gray-600"}`}>
                                         <div className="flex items-center gap-2">
-                                          <span className="font-bold shrink-0">
-                                            {letter}.
-                                          </span>
+                                          <span className="font-bold shrink-0">{letter}.</span>
                                           <span>{opt}</span>
                                         </div>
-                                        {isCorrect && (
-                                          <span className="text-[10px] text-green-700 font-bold shrink-0">
-                                            Correct
-                                          </span>
-                                        )}
+                                        {isCorrect && <span className="text-[10px] text-green-700 font-bold shrink-0">Correct</span>}
                                       </div>
                                     );
                                   })}
@@ -850,77 +688,38 @@ export const AdminQuizReviewDetail = () => {
                               )}
                             </>
                           ) : (
-                            <div className="py-6 text-center text-xs text-gray-400 italic">
-                              — Not in previous version (New question) —
-                            </div>
+                            <div className="py-6 text-center text-xs text-gray-400 italic">— Not in previous version (New question) —</div>
                           )}
                         </div>
 
-                        {/* Right: Current Revision */}
-                        <div
-                          className={`p-4 rounded-xl border ${
-                            isNew
-                              ? "bg-green-50/50 border-green-200"
-                              : isModified
-                                ? "bg-amber-50/30 border-amber-200"
-                                : "bg-white border-gray-200"
-                          }`}
-                        >
+                        {/* Right: Current */}
+                        <div className={`p-4 rounded-xl border ${
+                          isNew ? "bg-green-50/50 border-green-200"
+                            : isModified ? "bg-amber-50/30 border-amber-200"
+                            : "bg-white border-gray-200"
+                        }`}>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-brand-indigo uppercase tracking-wider flex items-center gap-1.5">
-                               Current Revision
-                            </span>
-                            {isNew && (
-                              <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
-                                New
-                              </span>
-                            )}
-                            {isModified && (
-                              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                                Updated
-                              </span>
-                            )}
+                            <span className="text-xs font-bold text-brand-indigo uppercase tracking-wider">Current Revision</span>
+                            {isNew && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">New</span>}
+                            {isModified && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Updated</span>}
                           </div>
                           {item ? (
                             <>
-                              <p
-                                className={`text-sm mb-3 ${
-                                  isModified
-                                    ? "font-semibold text-amber-900"
-                                    : "text-gray-800"
-                                }`}
-                              >
+                              <p className={`text-sm mb-3 ${isModified ? "font-semibold text-amber-900" : "text-gray-800"}`}>
                                 {currText || item.questionText}
                               </p>
                               {currOptions.length > 0 && (
                                 <div className="space-y-1.5">
                                   {currOptions.map((opt, optIdx) => {
-                                    const letter = String.fromCharCode(
-                                      65 + optIdx,
-                                    );
-                                    const isCorrect =
-                                      String(opt) ===
-                                      String(questionMeta?.correctAnswer);
+                                    const letter = String.fromCharCode(65 + optIdx);
+                                    const isCorrect = String(opt) === String(questionMeta?.correctAnswer);
                                     return (
-                                      <div
-                                        key={optIdx}
-                                        className={`text-xs border rounded-lg px-3 py-2 flex items-center justify-between ${
-                                          isCorrect
-                                            ? "border-green-400 bg-green-50 text-green-900 font-semibold"
-                                            : "border-gray-200 bg-white text-gray-700"
-                                        }`}
-                                      >
+                                      <div key={optIdx} className={`text-xs border rounded-lg px-3 py-2 flex items-center justify-between ${isCorrect ? "border-green-400 bg-green-50 text-green-900 font-semibold" : "border-gray-200 bg-white text-gray-700"}`}>
                                         <div className="flex items-center gap-2">
-                                          <span className="font-bold shrink-0">
-                                            {letter}.
-                                          </span>
+                                          <span className="font-bold shrink-0">{letter}.</span>
                                           <span>{opt}</span>
                                         </div>
-                                        {isCorrect && (
-                                          <span className="text-[10px] text-green-700 font-bold shrink-0">
-                                            Correct
-                                          </span>
-                                        )}
+                                        {isCorrect && <span className="text-[10px] text-green-700 font-bold shrink-0">Correct</span>}
                                       </div>
                                     );
                                   })}
@@ -928,45 +727,25 @@ export const AdminQuizReviewDetail = () => {
                               )}
                             </>
                           ) : (
-                            <div className="py-6 text-center text-xs text-red-400 italic">
-                              — Question was removed in this revision —
-                            </div>
+                            <div className="py-6 text-center text-xs text-red-400 italic">— Removed in this revision —</div>
                           )}
                         </div>
                       </div>
                     ) : (
-                      /* Standard Single Column View (Version 1 / Not a Revision) */
                       <div>
-                        <p className="text-gray-800 font-medium mb-3">
-                          {item.questionText}
-                        </p>
+                        <p className="text-gray-800 font-medium mb-3">{item?.questionText}</p>
                         {currOptions.length > 0 && (
                           <div className="space-y-2">
                             {currOptions.map((opt, optIdx) => {
                               const letter = String.fromCharCode(65 + optIdx);
-                              const isCorrect =
-                                String(opt) ===
-                                String(questionMeta?.correctAnswer);
+                              const isCorrect = String(opt) === String(questionMeta?.correctAnswer);
                               return (
-                                <div
-                                  key={`${item.questionId}-opt-${optIdx}`}
-                                  className={`text-sm border rounded-lg px-3.5 py-2.5 flex items-center justify-between ${
-                                    isCorrect
-                                      ? "border-green-300 bg-green-50 text-green-800 font-medium"
-                                      : "border-gray-200 bg-gray-50 text-gray-700"
-                                  }`}
-                                >
+                                <div key={optIdx} className={`text-sm border rounded-lg px-3.5 py-2.5 flex items-center justify-between ${isCorrect ? "border-green-300 bg-green-50 text-green-800 font-medium" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-gray-500 shrink-0">
-                                      {letter}.
-                                    </span>
+                                    <span className="font-semibold text-gray-500 shrink-0">{letter}.</span>
                                     <span>{opt}</span>
                                   </div>
-                                  {isCorrect && (
-                                    <span className="text-xs font-bold text-green-700 shrink-0">
-                                      Correct
-                                    </span>
-                                  )}
+                                  {isCorrect && <span className="text-xs font-bold text-green-700 shrink-0">Correct</span>}
                                 </div>
                               );
                             })}
@@ -975,13 +754,13 @@ export const AdminQuizReviewDetail = () => {
                       </div>
                     )}
 
-                    {/* Per-question feedback (Only if item exists) */}
+                    {/* F7 — Per-Question Feedback + Revision Suggestion Templates */}
                     {item && (
                       submission.status === "pending" ? (
                         <div className="mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs font-semibold text-gray-500">Feedback for Q{idx + 1}</label>
-                            {/* F7: Suggest Revision quick templates */}
+                            {/* F7: Suggest Revision button */}
                             <div className="relative">
                               <button
                                 onClick={() => setOpenTemplateFor(openTemplateFor === questionIdKey ? null : questionIdKey)}
@@ -996,7 +775,7 @@ export const AdminQuizReviewDetail = () => {
                                 <div className="absolute right-0 top-full mt-1 z-20 w-72 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                                   <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
                                     <p className="text-xs font-bold text-gray-600">Quick Revision Templates</p>
-                                    <p className="text-[10px] text-gray-400">Click to pre-fill the feedback field</p>
+                                    <p className="text-[10px] text-gray-400">Click a template to pre-fill the feedback field</p>
                                   </div>
                                   <ul className="py-1">
                                     {REVISION_TEMPLATES.map((template) => (
@@ -1024,12 +803,9 @@ export const AdminQuizReviewDetail = () => {
                           <textarea
                             value={questionFeedback[item.questionId] || ""}
                             onChange={(e) =>
-                              setQuestionFeedback((prev) => ({
-                                ...prev,
-                                [item.questionId]: e.target.value,
-                              }))
+                              setQuestionFeedback((prev) => ({ ...prev, [item.questionId]: e.target.value }))
                             }
-                            placeholder={`Add feedback or use a template for Q${idx + 1}...`}
+                            placeholder={`Add feedback or use a template above for Q${idx + 1}...`}
                             rows="2"
                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none bg-white"
                           />
@@ -1038,12 +814,8 @@ export const AdminQuizReviewDetail = () => {
                         questionFeedback[item.questionId] && (
                           <div className="mt-4 pt-3 border-t border-gray-200">
                             <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                              <p className="text-xs font-semibold text-orange-600 mb-1">
-                                Senior Faculty Feedback:
-                              </p>
-                              <p className="text-sm text-orange-800">
-                                {questionFeedback[item.questionId]}
-                              </p>
+                              <p className="text-xs font-semibold text-orange-600 mb-1">Peer Reviewer Feedback:</p>
+                              <p className="text-sm text-orange-800">{questionFeedback[item.questionId]}</p>
                             </div>
                           </div>
                         )
@@ -1056,34 +828,28 @@ export const AdminQuizReviewDetail = () => {
           </div>
         </div>
 
-        {/* Senior Faculty Feedback */}
+        {/* Overall Feedback */}
         {submission.status === "pending" && (
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Overall Feedback (optional if per-question feedback is provided)
+              Overall Feedback <span className="text-gray-400 font-normal">(optional if per-question feedback provided)</span>
             </label>
             <textarea
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder="Enter feedback for the instructor..."
+              placeholder="Enter overall feedback for the instructor..."
               rows="3"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
             />
           </div>
         )}
 
-        {/* Previous Feedback */}
         {submission.admin_feedback && submission.status !== "pending" && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-            <p className="text-sm font-semibold text-gray-600 mb-1">
-              Senior Faculty Feedback:
-            </p>
+            <p className="text-sm font-semibold text-gray-600 mb-1">Peer Reviewer Feedback:</p>
             <p className="text-gray-800">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
-              <p className="text-xs text-gray-400 mt-2">
-                Reviewed on{" "}
-                {new Date(submission.reviewed_at).toLocaleDateString()}
-              </p>
+              <p className="text-xs text-gray-400 mt-2">Reviewed on {new Date(submission.reviewed_at).toLocaleDateString()}</p>
             )}
           </div>
         )}
@@ -1113,12 +879,9 @@ export const AdminQuizReviewDetail = () => {
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              Revision Request Feedback
-            </h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Revision Request Feedback</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Please provide overall feedback or per-question feedback above to
-              help the instructor understand your decision.
+              Please provide overall feedback or per-question feedback to help the instructor understand what to revise.
             </p>
             <textarea
               value={feedback}
@@ -1149,5 +912,6 @@ export const AdminQuizReviewDetail = () => {
     </>
   );
 };
+
 
 
