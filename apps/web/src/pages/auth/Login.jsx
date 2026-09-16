@@ -167,7 +167,7 @@ export const Login = () => {
               </div>
             ))}
           </div>
-          <Turnstile key={captchaResetKey} onToken={handleCaptcha} />
+          <Turnstile key={captchaResetKey} action="login" onToken={handleCaptcha} />
         </fieldset>
 
         <AuthButton

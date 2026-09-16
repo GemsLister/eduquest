@@ -118,10 +118,25 @@ export const useRegister = () => {
       setTimeout(() => (window.location.href = "/"), 2000);
       return { success: true, data };
     } catch (error) {
+      const errorMessage = String(error.message || "").toLowerCase();
+      const isCaptchaError =
+        errorMessage.includes("captcha") ||
+        errorMessage.includes("challenge") ||
+        errorMessage.includes("turnstile") ||
+        errorMessage.includes("token");
+
+      if (isCaptchaError) {
+        notify.error(
+          "Captcha verification failed or expired. Please complete captcha again.",
+        );
+        userData.onCaptchaReset?.();
+        return { success: false, message: "Captcha verification failed" };
+      }
+
       // Handle orphan auth user from a previous Google Sign-In attempt.
       // signUp throws "User already registered" when the email exists in
       // auth.users but the person may have no profile row yet.
-      if (error.message?.toLowerCase().includes("already")) {
+      if (errorMessage.includes("already")) {
         const {
           data: { user: currentUser },
         } = await supabase.auth.getUser();
@@ -152,6 +167,7 @@ export const useRegister = () => {
         }
       }
 
+      userData.onCaptchaReset?.();
       notify.error(error.message || "Registration failed");
       return { success: false, message: error.message };
     }

@@ -1,11 +1,26 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import eduquestLogo from "../../assets/eduquest-logo-x.png";
 import { AuthButton } from "../../components/ui/buttons/Buttons.jsx";
+import { Turnstile } from "../../components/Turnstile.jsx";
 import { Link } from "react-router-dom";
 
 export const RecoverPassword = () => {
-  const [email, setEmail] = useState();
-  const userData = { email };
+  const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+
+  const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null);
+    setCaptchaResetKey((prev) => prev + 1);
+  }, []);
+
+  const userData = {
+    email,
+    captchaToken,
+    onCaptchaReset: resetCaptcha,
+  };
+
   return (
     <div className="flex items-center justify-center h-screen flex-1 bg-[url('/src/assets/bg.svg')] bg-cover bg-center p-[clamp(100px,20dvw,180px)]">
       <form className="p-[clamp(30px,2dvw,80px)] bg-full-white rounded-[15px] shadow-2xl">
@@ -35,6 +50,11 @@ export const RecoverPassword = () => {
               className="border-2 border-pale-silver p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
             />
           </div>
+          <Turnstile
+            key={captchaResetKey}
+            action="recover"
+            onToken={handleCaptcha}
+          />
         </fieldset>
         <div className="flex flex-col gap-3">
           <AuthButton name="Continue" user={userData} errorMessage="Email not found" />
