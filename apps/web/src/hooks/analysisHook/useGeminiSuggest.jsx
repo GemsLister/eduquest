@@ -85,7 +85,7 @@ export const useGeminiSuggest = () => {
         ? `Generate a completely NEW multiple choice question to replace a rejected question about: "${questionData.text || 'this subject'}".
 Output ONLY valid JSON object with NO markdown formatting:
 {"text": "new clear question?", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": 0}`
-        : `Improve this question for moderate difficulty (P-value between 0.25-0.75).`;
+        : `Improve this question for moderate difficulty (P-value between 0.25-0.75).
 Original question: "${questionData.text}"
 Type: ${questionData.type || 'multiple_choice'}
 Correct answer: ${questionData.correct_answer}
