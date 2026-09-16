@@ -52,9 +52,10 @@ export const QuestionBank = () => {
   const [newQuestion, setNewQuestion] = useState({
     text: "",
     type: "mcq",
-    options: ["", ""],
+    options: ["", "", "", ""],
     correctAnswer: 0,
     points: 1,
+    subjectId: "",
   });
 
   const formatSubjectLabel = (subject) => {
@@ -468,6 +469,11 @@ export const QuestionBank = () => {
 
   // Add to bank
   const handleAddToBank = async () => {
+    const targetSubjectId = newQuestion.subjectId || selectedSubjectId;
+    if (!targetSubjectId) {
+      notify.warning("Please select a subject for this question");
+      return;
+    }
     if (!newQuestion.text.trim()) {
       notify.warning("Question text is required");
       return;
@@ -479,7 +485,7 @@ export const QuestionBank = () => {
       notify.warning("All options must be filled");
       return;
     }
-    const result = await addToBank(newQuestion, null, selectedSubjectId);
+    const result = await addToBank(newQuestion, null, targetSubjectId);
     if (result.success) {
       notify.success("Question added to bank!");
       setNewQuestion({
@@ -488,6 +494,7 @@ export const QuestionBank = () => {
         options: ["", "", "", ""],
         correctAnswer: 0,
         points: 1,
+        subjectId: selectedSubjectId || "",
       });
       setShowAddForm(false);
     } else {
@@ -712,6 +719,10 @@ export const QuestionBank = () => {
 
   // ---------------- Import Functions ----------------
   const processImport = async (parsedQuestions, fileName = "") => {
+    if (!selectedSubjectId) {
+      notify.warning("Please select a subject from the filter dropdown before importing questions.");
+      return;
+    }
     if (!parsedQuestions || parsedQuestions.length === 0) {
       notify.warning("No questions found in file");
       return;
@@ -1007,7 +1018,17 @@ export const QuestionBank = () => {
             Export CSV
           </button>
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setNewQuestion({
+                text: "",
+                type: "mcq",
+                options: ["", "", "", ""],
+                correctAnswer: 0,
+                points: 1,
+                subjectId: selectedSubjectId || "",
+              });
+              setShowAddForm(true);
+            }}
             className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
           >
             + Add to Bank
@@ -1562,9 +1583,14 @@ export const QuestionBank = () => {
                   <div className="flex-1 p-4">
                     {/* Top metadata row */}
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="text-xs text-gray-400 font-medium">
-                        📝 {question.quizzes?.title || "Draft Quiz"}
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
+                        📖 {question.subject_name || question.subjects?.name || question.quizzes?.subjects?.name || "Unassigned Subject"}
                       </span>
+                      {question.quizzes?.title && (
+                        <span className="text-xs text-gray-500 italic">
+                          📝 Quiz: {question.quizzes.title}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
                       </span>
@@ -1900,6 +1926,32 @@ export const QuestionBank = () => {
             </div>
 
             <div className="p-6">
+              {/* Subject Selection (Required) */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Assign to Subject <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newQuestion.subjectId || ""}
+                  onChange={(e) =>
+                    setNewQuestion({ ...newQuestion, subjectId: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
+                >
+                  <option value="">-- Select Subject --</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {formatSubjectLabel(subject)}
+                    </option>
+                  ))}
+                </select>
+                {subjects.length === 0 && !subjectsLoading && (
+                  <p className="text-xs text-red-500 mt-1 font-medium">
+                    No subjects found. Please create a subject first before adding questions.
+                  </p>
+                )}
+              </div>
+
               {/* Question Text */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">

@@ -513,7 +513,7 @@ export const InstructorQuiz = () => {
       setUserId(user.id);
       const { data: mySections } = await supabase
         .from("sections")
-        .select("*")
+        .select("*, subjects(id, name, code)")
         .eq("instructor_id", user.id);
 
       const subjectIds = Array.from(
@@ -524,7 +524,7 @@ export const InstructorQuiz = () => {
       if (subjectIds.length > 0) {
         const { data: subjectSections } = await supabase
           .from("sections")
-          .select("*")
+          .select("*, subjects(id, name, code)")
           .in("subject_id", subjectIds)
           .eq("is_archived", false);
 
@@ -2344,7 +2344,7 @@ export const InstructorQuiz = () => {
         onSelectQuestion={handleImportFromBank}
         targetQuestionNumber={bankTargetIndex !== null ? bankTargetIndex + 1 : null}
         currentSubjectIds={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_id).filter(Boolean)}
-        currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_name || s.name || s.subject_code).filter(Boolean)}
+        currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).flatMap((s) => [s.subjects?.name, s.subjects?.code, s.subject_name, s.name, s.subject_code]).filter(Boolean)}
       />
     </div>
   );

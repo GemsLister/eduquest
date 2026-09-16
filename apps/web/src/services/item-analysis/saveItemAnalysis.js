@@ -10,8 +10,9 @@ const calculateAutoFlag = (difficultyStatus) => {
   switch (difficultyStatus) {
     case "Easy":
       return "approved";
+    case "Moderately Difficult":
     case "Moderate":
-      return "needs_revision";
+      return "approved";
     case "Difficult":
       return "needs_revision";
     default:
@@ -22,7 +23,7 @@ const calculateAutoFlag = (difficultyStatus) => {
 const normalizeDifficultyStatus = (status) => {
   const value = (status || "").toString().trim().toLowerCase();
   if (value === "easy") return "Easy";
-  if (value === "moderate") return "Moderate";
+  if (value === "moderate" || value === "moderately difficult") return "Moderately Difficult";
   if (value === "difficult") return "Difficult";
   return null;
 };
@@ -168,8 +169,10 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
             Easy: analysisResults.filter(
               (i) => (i.status || "").toLowerCase() === "easy",
             ).length,
-            Moderate: analysisResults.filter(
-              (i) => (i.status || "").toLowerCase() === "moderate",
+            "Moderately Difficult": analysisResults.filter(
+              (i) =>
+                (i.status || "").toLowerCase() === "moderate" ||
+                (i.status || "").toLowerCase() === "moderately difficult",
             ).length,
             Difficult: analysisResults.filter(
               (i) => (i.status || "").toLowerCase() === "difficult",

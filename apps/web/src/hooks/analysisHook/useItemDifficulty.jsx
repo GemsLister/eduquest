@@ -1,10 +1,8 @@
 export const useItemDifficulty = () => {
   const difficultyRules = [
-    { condition: (fi) => fi >= 0.81, result: { status: "VERY EASY", action: "reject" } },
-    { condition: (fi) => fi >= 0.61 && fi <= 0.80, result: { status: "EASY", action: "revise" } },
-    { condition: (fi) => fi >= 0.41 && fi <= 0.60, result: { status: "MODERATE", action: "retain" } },
-    { condition: (fi) => fi >= 0.21 && fi <= 0.40, result: { status: "DIFFICULT", action: "revise" } },
-    { condition: (fi) => fi >= 0 && fi <= 0.20, result: { status: "VERY DIFFICULT", action: "reject" } }
+    { condition: (fi) => fi > 0.70, result: { status: "EASY", action: "retain" } },
+    { condition: (fi) => fi >= 0.30 && fi <= 0.70, result: { status: "MODERATELY DIFFICULT", action: "retain" } },
+    { condition: (fi) => fi < 0.30, result: { status: "DIFFICULT", action: "revise" } }
   ];
 
   const handleItemDifficulty = (hasResponses, correct, total) => {

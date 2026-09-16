@@ -21,6 +21,7 @@ export const ImportQuestionBankModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [privacyFilter, setPrivacyFilter] = useState("all"); // "all", "my_private", "my_public", "others_public"
+  const [bypassSubjectFilter, setBypassSubjectFilter] = useState(false);
 
   if (!isOpen) return null;
 
@@ -28,29 +29,54 @@ export const ImportQuestionBankModal = ({
   const normalizedSubjectNames = (currentSubjectNames || []).map(normalize).filter(Boolean);
 
   // 1. Strict Subject Filter: Filter bank questions to ONLY those matching the current quiz's subject
-  const subjectMatchedQuestions = activeQuestions.filter((q) => {
-    // If no subject is assigned to current quiz yet, allow viewing user's bank questions
+  const rawSubjectMatchedQuestions = activeQuestions.filter((q) => {
+    if (bypassSubjectFilter) return true;
+
+    // If no subject is assigned to current quiz yet, allow viewing all active bank questions
     if ((!currentSubjectIds || currentSubjectIds.length === 0) && normalizedSubjectNames.length === 0) {
       return true;
     }
 
-    const qSubjectId = q.subject_id || q.quizzes?.subject_id || q.sections?.subject_id;
+    const qSubjectId = q.subject_id || q.quizzes?.subject_id || q.sections?.subject_id || q.subjects?.id;
     const qSubjectName = normalize(
-      q.subject_name || q.subjects?.name || q.quizzes?.subjects?.name || q.sections?.subject_name || q.quizzes?.subject_code
+      q.subject_name || q.subjects?.name || q.quizzes?.subjects?.name || q.sections?.subject_name
     );
+    const qSubjectCode = normalize(q.subjects?.code || q.quizzes?.subjects?.code || q.quizzes?.subject_code || q.sections?.subject_code);
 
     // Check ID match
     if (qSubjectId && currentSubjectIds.some(id => String(id) === String(qSubjectId))) {
       return true;
     }
 
-    // Check Name match
-    if (qSubjectName && normalizedSubjectNames.some((name) => qSubjectName.includes(name) || name.includes(qSubjectName))) {
-      return true;
+    // Check Name or Code match
+    if (normalizedSubjectNames.length > 0) {
+      const isMatch = normalizedSubjectNames.some((currentName) => {
+        if (!currentName) return false;
+
+        // Direct exact or inclusion match for subject name / code
+        if (qSubjectName && (currentName === qSubjectName || (qSubjectName.length >= 3 && currentName.includes(qSubjectName)) || (currentName.length >= 3 && qSubjectName.includes(currentName)))) return true;
+        if (qSubjectCode && (currentName === qSubjectCode || currentName.includes(qSubjectCode) || qSubjectCode.includes(currentName))) return true;
+
+        // Stop words list to prevent generic structural terms from matching across different subjects
+        const stopWords = new Set(["class", "section", "dept", "department", "course", "subject", "management", "intro", "1", "2", "3", "a", "b", "c", "d"]);
+        const currentTokens = currentName.split(/[\s\-_]+/).map(normalize).filter(t => t.length >= 2 && !stopWords.has(t));
+        const qTokens = (qSubjectName + " " + qSubjectCode).split(/[\s\-_]+/).map(normalize).filter(t => t.length >= 2 && !stopWords.has(t));
+
+        if (qTokens.length > 0 && currentTokens.length > 0) {
+          return currentTokens.some(ct => qTokens.some(qt => ct === qt || (ct.length >= 4 && qt.length >= 4 && (ct.includes(qt) || qt.includes(ct)))));
+        }
+
+        return false;
+      });
+
+      if (isMatch) return true;
     }
 
     return false;
   });
+
+  // Strict filtering results - no silent fallback to other subjects!
+  const subjectMatchedQuestions = rawSubjectMatchedQuestions;
 
   // Helper function to check if a question is owned by current instructor
   const isQuestionOwn = (q) => {
@@ -171,16 +197,31 @@ export const ImportQuestionBankModal = ({
         </div>
 
         {/* Subject Constraint Notice Bar */}
-        <div className="bg-indigo-50 border-b border-indigo-200 px-5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-900">
-            <span>🔒 Subject Restricted:</span>
-            <span className="px-2 py-0.5 bg-white border border-indigo-300 text-indigo-800 rounded-md shadow-2xs">
+        <div className={`border-b px-5 py-2.5 flex items-center justify-between transition-colors ${
+          bypassSubjectFilter ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-indigo-50 border-indigo-200 text-indigo-900"
+        }`}>
+          <div className="flex items-center gap-2 text-xs font-extrabold">
+            <span>{bypassSubjectFilter ? "🔓 Subject Filter Bypassed:" : "🔒 Subject Restricted:"}</span>
+            <span className={`px-2 py-0.5 bg-white border rounded-md shadow-2xs ${
+              bypassSubjectFilter ? "border-amber-300 text-amber-900" : "border-indigo-300 text-indigo-800"
+            }`}>
               {activeSubjectTitle}
             </span>
           </div>
-          <span className="text-[11px] font-semibold text-indigo-700">
-            Only showing questions from this subject
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-semibold ${bypassSubjectFilter ? "text-amber-800" : "text-indigo-700"}`}>
+              {bypassSubjectFilter ? "Showing questions from ALL subjects" : "Only showing questions from this subject"}
+            </span>
+            {bypassSubjectFilter && (
+              <button
+                type="button"
+                onClick={() => setBypassSubjectFilter(false)}
+                className="text-[11px] font-black underline text-amber-950 hover:text-amber-800 px-2 py-0.5 bg-amber-200/80 rounded border border-amber-300 transition-colors"
+              >
+                Re-enable Subject Filter
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Privacy & Ownership Filter Buttons */}
@@ -308,6 +349,18 @@ export const ImportQuestionBankModal = ({
                   ? "You don't have any private questions created in this subject yet."
                   : "Try clearing search filters or selecting another category above."}
               </p>
+              {activeQuestions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBypassSubjectFilter(true);
+                    setPrivacyFilter("all");
+                  }}
+                  className="mt-4 px-4 py-2 bg-brand-navy text-white text-xs font-bold rounded-xl shadow-xs hover:bg-brand-navy/90 transition-colors"
+                >
+                  Show All Bank Questions Across All Subjects ({activeQuestions.length})
+                </button>
+              )}
             </div>
           ) : (
             finalFilteredQuestions.map((q, idx) => {

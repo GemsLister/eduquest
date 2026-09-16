@@ -30,12 +30,12 @@ export const useFetchQuestion = () => {
         if (!qErr && qData) directQs = qData;
       }
 
-      // 3. Fetch questions created by user directly
+      // 3. Fetch standalone questions directly
       let createdQs = [];
       const { data: cData, error: cErr } = await supabase
         .from("questions")
         .select("*")
-        .or(`instructor_id.eq.${user.id},created_by.eq.${user.id}`)
+        .is("quiz_id", null)
         .order("created_at", { ascending: false });
       if (!cErr && cData) createdQs = cData;
 

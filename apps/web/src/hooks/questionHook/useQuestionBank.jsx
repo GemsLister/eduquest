@@ -92,7 +92,7 @@ export const useQuestionBank = () => {
       // 1. Fetch ALL of current user's quizzes (Private/Public, Draft/Published, Active/Archived)
       const { data: ownQuizzesData } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published")
+        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id")
         .eq("instructor_id", user.id);
 
       const ownQuizzes = ownQuizzesData || [];
@@ -100,7 +100,7 @@ export const useQuestionBank = () => {
       // 2. Fetch ALL PUBLIC published quizzes from other instructors across all subjects/classes
       const { data: publicQuizzes } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published")
+        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id")
         .neq("instructor_id", user.id)
         .or("is_archived.is.null,is_archived.eq.false")
         .eq("is_private", false)
@@ -117,14 +117,15 @@ export const useQuestionBank = () => {
         )
       );
 
-      // Get instructor's sections for standalone questions
+      // Get instructor's sections and referenced sections for standalone and quiz questions
       const { data: sectionsData } = await supabase
         .from("sections")
-        .select("id")
-        .eq("instructor_id", user.id)
+        .select("id, name, subject_id, subjects(id, name, code)")
         .or("is_archived.is.null,is_archived.eq.false");
 
-      const sectionIds = sectionsData?.map((s) => s.id) || [];
+      const sectionMap = new Map();
+      (sectionsData || []).forEach((s) => sectionMap.set(s.id, s));
+      const sectionIds = (sectionsData || []).map((s) => s.id);
 
       // Fetch questions from instructor's quizzes (including co-instructors)
       // Build in-memory quiz map from accessible quizzes
@@ -151,7 +152,7 @@ export const useQuestionBank = () => {
             return {
               ...q,
               quizzes: quizMeta,
-              is_own: quizMeta?.instructor_id === user.id || q.instructor_id === user.id || q.created_by === user.id,
+              is_own: quizMeta?.instructor_id === user.id || q.instructor_id === user.id,
               is_private: q.is_private === true || quizMeta?.is_private !== false,
               is_archived: isQuestionArchived || isQuizArchived,
             };
@@ -185,7 +186,7 @@ export const useQuestionBank = () => {
                       ...qRow,
                       quizzes: quizMeta,
                       quiz_id: qRow.quiz_id || jq.quiz_id,
-                      is_own: quizMeta?.instructor_id === user.id || qRow.instructor_id === user.id || qRow.created_by === user.id,
+                      is_own: quizMeta?.instructor_id === user.id || qRow.instructor_id === user.id,
                       is_private: qRow.is_private === true || quizMeta?.is_private !== false,
                       is_archived: isQuestionArchived || isQuizArchived,
                     });
@@ -199,42 +200,20 @@ export const useQuestionBank = () => {
         }
       }
 
-      // Fetch standalone questions (quiz_id IS NULL) from instructor's sections only
+      // Fetch standalone questions (quiz_id IS NULL)
       let standaloneQuestions = [];
-      if (sectionIds.length > 0) {
-        // Fetch standalone questions assigned to instructor's sections
-        const { data: standaloneQs, error: standaloneQError } = await supabase
-          .from("questions")
-          .select("*")
-          .is("quiz_id", null)
-          .in("section_id", sectionIds)
-          .order("created_at", { ascending: false });
-
-        if (!standaloneQError && standaloneQs) {
-          standaloneQuestions = standaloneQs.map((sq) => ({ ...sq, is_own: true }));
-        }
-      }
-
-      // Also fetch any questions directly created by current instructor (by instructor_id or created_by)
-      const { data: userCreatedQs, error: userQsError } = await supabase
+      const { data: standaloneQs, error: standaloneQError } = await supabase
         .from("questions")
         .select("*")
-        .or(`instructor_id.eq.${user.id},created_by.eq.${user.id}`)
+        .is("quiz_id", null)
         .order("created_at", { ascending: false });
 
-      if (!userQsError && userCreatedQs) {
-        const mappedUserQs = userCreatedQs.map((sq) => {
-          const quizMeta = sq.quiz_id ? accessibleQuizMap.get(String(sq.quiz_id)) || null : null;
-          const isQuizArchived = quizMeta?.is_archived === true;
-          const isQuestionArchived = sq.is_archived === true;
-          return {
-            ...sq,
-            quizzes: quizMeta,
-            is_own: true,
-            is_archived: isQuestionArchived || isQuizArchived,
-          };
-        });
-        standaloneQuestions = [...standaloneQuestions, ...mappedUserQs];
+      if (!standaloneQError && standaloneQs) {
+        standaloneQuestions = standaloneQs.map((sq) => ({
+          ...sq,
+          is_own: true,
+          is_archived: sq.is_archived === true,
+        }));
       }
 
       // Combine both types of questions
@@ -251,7 +230,7 @@ export const useQuestionBank = () => {
       const creatorIds = Array.from(
         new Set(
           allQuestions
-            .flatMap((q) => [q.quizzes?.instructor_id, q.instructor_id, q.created_by, user?.id])
+            .flatMap((q) => [q.quizzes?.instructor_id, q.instructor_id, user?.id])
             .filter(Boolean)
         )
       );
@@ -272,11 +251,14 @@ export const useQuestionBank = () => {
         }
       }
 
-      // Fetch subjects for referenced subject_ids in memory
+      // Fetch subjects for referenced subject_ids and section subject_ids in memory
       const subjectIds = Array.from(
         new Set(
           allQuestions
-            .flatMap((q) => [q.subject_id, q.quizzes?.subject_id])
+            .flatMap((q) => {
+              const secMeta = q.section_id ? sectionMap.get(q.section_id) : (q.quizzes?.section_id ? sectionMap.get(q.quizzes.section_id) : null);
+              return [q.subject_id, q.quizzes?.subject_id, secMeta?.subject_id];
+            })
             .filter(Boolean)
         )
       );
@@ -300,11 +282,25 @@ export const useQuestionBank = () => {
       }
 
       const questionsWithCreators = allQuestions.map((q) => {
-        const creatorId = q.quizzes?.instructor_id || q.instructor_id || q.created_by;
+        const creatorId = q.quizzes?.instructor_id || q.instructor_id;
         const creatorName = profileMap.get(creatorId) || profileMap.get(user?.id) || "Instructor";
-        const subjectObj = q.subject_id ? subjectMap.get(q.subject_id) : (q.quizzes?.subject_id ? subjectMap.get(q.quizzes.subject_id) : null);
+        const secMeta = q.section_id ? sectionMap.get(q.section_id) : (q.quizzes?.section_id ? sectionMap.get(q.quizzes.section_id) : null);
+        const secSubjectId = secMeta?.subject_id || null;
+        const secSubjectObj = secMeta?.subjects || (secSubjectId ? subjectMap.get(secSubjectId) : null);
+
+        const subjectObj = q.subject_id
+          ? subjectMap.get(q.subject_id)
+          : (q.quizzes?.subject_id ? subjectMap.get(q.quizzes.subject_id) : secSubjectObj);
+
+        const resolvedSubjectId = q.subject_id || q.quizzes?.subject_id || secSubjectId || subjectObj?.id || null;
+        const resolvedSubjectName = subjectObj?.name || q.subjects?.name || q.quizzes?.subjects?.name || secSubjectObj?.name || secMeta?.name || null;
+
         return {
           ...q,
+          sections: secMeta || q.sections,
+          section_id: q.section_id || q.quizzes?.section_id || null,
+          subject_id: resolvedSubjectId,
+          subject_name: resolvedSubjectName,
           subjects: subjectObj || q.subjects,
           creator_name: creatorName,
         };
@@ -494,6 +490,7 @@ export const useQuestionBank = () => {
         correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
+        instructor_id: user.id,
       };
 
       // Assign to section if provided (metadata only)
@@ -579,6 +576,7 @@ export const useQuestionBank = () => {
           correct_answer: String(correctAnswer ?? ""),
           points: q.points || 1,
           is_archived: false,
+          instructor_id: user.id,
           created_at: new Date(baseBulkTime + idx * 100).toISOString(),
         };
 

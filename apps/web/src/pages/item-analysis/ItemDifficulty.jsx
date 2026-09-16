@@ -151,14 +151,15 @@ export const ItemDifficulty = () => {
 
   // Simple flagging based on difficulty status only
   const calculateAutoFlag = (difficultyStatus) => {
-    // difficultyStatus can be: "Easy", "Moderate", "Difficult", "N/A"
+    // difficultyStatus can be: "Easy", "Moderately Difficult", "Moderate", "Difficult", "N/A"
     switch (difficultyStatus) {
       case "Easy":
         return "retain";
+      case "Moderately Difficult":
       case "Moderate":
-        return "needs_revision";
+        return "retain";
       case "Difficult":
-        return "discard";
+        return "needs_revision";
       default:
         return "pending";
     }
@@ -276,10 +277,10 @@ export const ItemDifficulty = () => {
           fi = -1;
         }
 
-        // Determine difficulty status
+        // Determine difficulty status using CTT approach (Less than .30: Difficult, .31 to Less than .70: Moderately Difficult, > 0.70: Easy)
         let level = "N/A";
-        if (fi >= 0.75) level = "Easy";
-        else if (fi >= 0.3) level = "Moderate";
+        if (fi > 0.70) level = "Easy";
+        else if (fi >= 0.30) level = "Moderately Difficult";
         else if (fi >= 0) level = "Difficult";
 
         // Calculate Discrimination Index
@@ -817,7 +818,7 @@ export const ItemDifficulty = () => {
                               className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                                 item.status === "Easy"
                                   ? "bg-green-100 text-green-700"
-                                  : item.status === "Moderate"
+                                  : item.status === "Moderately Difficult" || item.status === "Moderate"
                                     ? "bg-yellow-100 text-yellow-700"
                                     : item.status === "Difficult"
                                       ? "bg-red-100 text-red-700"

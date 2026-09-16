@@ -346,7 +346,7 @@ export const ItemAnalysisTable = ({
             </div>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 text-center leading-tight">
-            <strong>P</strong> = % correct answers (0.0–1.0)<br/>
+            <strong>Difficulty (P):</strong> &gt;0.70 Easy | 0.30–0.70 Moderately Difficult | &lt;0.30 Difficult<br/>
             <strong>Hi/Lo</strong> = top/bottom performer total scores
           </div>
         </div>

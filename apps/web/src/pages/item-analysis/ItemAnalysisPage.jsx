@@ -373,14 +373,14 @@ export const ItemAnalysisPage = () => {
         const difficulty = fi; // P-value (0-1)
         const discValue = discrimination; // D-value
 
-        // RETAIN: Difficulty 0.25-0.75 AND Discrimination >= 0.30
-        if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.3) {
+        // RETAIN: Difficulty 0.30-0.70 AND Discrimination >= 0.30
+        if (difficulty >= 0.30 && difficulty <= 0.70 && discValue >= 0.3) {
           autoFlag = "approved";
         }
-        // REVISE: (Difficulty outside 0.25-0.75 OR Discrimination 0.20-0.29) AND not meeting REJECT criteria
+        // REVISE: (Difficulty outside 0.30-0.70 OR Discrimination 0.20-0.29) AND not meeting REJECT criteria
         else if (
-          (difficulty < 0.25 ||
-            difficulty > 0.75 ||
+          (difficulty < 0.30 ||
+            difficulty > 0.70 ||
             (discValue >= 0.2 && discValue <= 0.29)) &&
           !(discValue < 0.19 || discValue < 0) &&
           !(difficulty === 0.0 || difficulty === 1.0)
@@ -397,8 +397,8 @@ export const ItemAnalysisPage = () => {
           autoFlag = "reject";
         }
 
-        // Note: Difficulty Index interpretation (for reference only)
-        // P: 0-0.25 = difficult, P: 0.26-0.75 = moderately difficult, P: 0.76+ = easy
+        // Note: Difficulty Index CTT classification:
+        // P < 0.30 = Difficult, P: 0.30-0.70 = Moderately Difficult, P > 0.70 = Easy
 
         // --- 7. ICC / Decile Performance Calculation ---
         const decilePerformance = Array.from({ length: 10 }, (_, i) => {
@@ -435,7 +435,7 @@ export const ItemAnalysisPage = () => {
           original_correct_answer: q.original_correct_answer,
           revision_history: q.revision_history || [],
           difficulty: total > 0 ? fi.toFixed(2) : "N/A",
-          status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
+          status: fi > 0.70 ? "EASY" : fi >= 0.30 ? "MODERATELY DIFFICULT" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
           discStatus: discStatus,
           autoFlag: autoFlag,

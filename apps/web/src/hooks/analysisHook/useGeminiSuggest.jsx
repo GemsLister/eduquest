@@ -25,7 +25,7 @@ export const useGeminiSuggest = () => {
       
       // Define the prompt
       const prompt = `
-Improve this question for moderate difficulty (P-value between 0.25-0.75).
+Improve this question for moderate difficulty (P-value between 0.30-0.70).
 Original question: "${questionData.text}"
 Type: ${questionData.type}
 Correct answer: ${questionData.correct_answer}
