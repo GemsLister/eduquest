@@ -32,3 +32,8 @@ __pycache__/
 # Supabase
 supabase/.branches/
 supabase/.temp/
+
+# AI Skills & Local Agents
+.agents/
+skills/
+.claude/
