@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
 import citlLogo from "../../assets/BUKSU_CITL.jpg";
 const navItems = [
@@ -18,30 +19,41 @@ const navItems = [
     end: true,
   },
   {
-    name: "Instructors",
-    path: "/admin-dashboard/instructors",
+    name: "Subjects",
+    path: "/admin-dashboard/subjects",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="12" y1="6" x2="12" y2="12" />
+        <line x1="9" y1="9" x2="15" y2="9" />
       </svg>
     ),
   },
   {
-    name: "Requests",
-    path: "/admin-dashboard/registration-requests",
+    name: "My Quizzes",
+    path: "/admin-dashboard/quizzes",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-        <path d="M9 14l2 2 4-4" />
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
     ),
   },
   {
-    name: "Quiz Reviews",
+    name: "My Submissions",
+    path: "/admin-dashboard/my-submissions",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="12" y1="18" x2="12" y2="12" />
+        <polyline points="9 15 12 12 15 15" />
+      </svg>
+    ),
+  },
+  {
+    name: "Exam Reviews",
     path: "/admin-dashboard/quiz-reviews",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,7 +66,30 @@ const navItems = [
     ),
   },
   {
-    name: "Create Instructor",
+    name: "Instructors",
+    path: "/admin-dashboard/instructors",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    name: "Reg. Requests",
+    path: "/admin-dashboard/registration-requests",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+        <path d="M9 14l2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    name: "Add Instructor",
     path: "/admin-dashboard/create-instructor",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -82,8 +117,10 @@ const navItems = [
 export const AdminSidebar = () => {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingQuizCount, setPendingQuizCount] = useState(0);
+  const [mySubmissionsNotifCount, setMySubmissionsNotifCount] = useState(0);
 
   useEffect(() => {
     const fetchPendingCount = async () => {
@@ -118,6 +155,30 @@ export const AdminSidebar = () => {
     return () =>
       window.removeEventListener("pending-quiz-reviews-changed", fetchPendingQuizCount);
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchMySubmissionsNotifs = async () => {
+      try {
+        const { count: revCount } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("instructor_id", user.id)
+          .eq("status", "revision_requested");
+        setMySubmissionsNotifCount(revCount || 0);
+      } catch (err) {
+        console.warn("Could not fetch my submissions notifs:", err);
+      }
+    };
+
+    fetchMySubmissionsNotifs();
+    window.addEventListener("submissions-changed", fetchMySubmissionsNotifs);
+    window.addEventListener("quiz-submissions-updated", fetchMySubmissionsNotifs);
+    return () => {
+      window.removeEventListener("submissions-changed", fetchMySubmissionsNotifs);
+      window.removeEventListener("quiz-submissions-updated", fetchMySubmissionsNotifs);
+    };
+  }, [user?.id]);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -167,14 +228,19 @@ export const AdminSidebar = () => {
               >
                 <span className="relative shrink-0 text-[18px]">
                   {nav.icon}
-                  {nav.name === "Requests" && pendingCount > 0 && (
+                  {nav.name === "Reg. Requests" && pendingCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
                       {pendingCount}
                     </span>
                   )}
-                  {nav.name === "Quiz Reviews" && pendingQuizCount > 0 && (
+                  {nav.name === "Exam Reviews" && pendingQuizCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
                       {pendingQuizCount}
+                    </span>
+                  )}
+                  {nav.name === "My Submissions" && mySubmissionsNotifCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full animate-pulse">
+                      {mySubmissionsNotifCount}
                     </span>
                   )}
                 </span>

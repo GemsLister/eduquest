@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
@@ -34,6 +35,7 @@ const cardThemes = [
 ];
 
 export const InstructorDashboard = () => {
+  const location = useLocation();
   const {
     user,
     sections = [],
@@ -275,6 +277,8 @@ export const InstructorDashboard = () => {
     );
   }
 
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
+
   return (
     <>
       {/* Hero Banner */}
@@ -282,7 +286,7 @@ export const InstructorDashboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-              Instructor Dashboard
+              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               Subjects
@@ -308,67 +312,12 @@ export const InstructorDashboard = () => {
         {/* Subject Requests Section */}
         <InstructorSubjectRequests />
 
-        {/* Search + Archive Toggle */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-sm">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search subjects..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20 bg-white"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-
         {/* Search and Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search subjects or sections..."
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold transition-all shadow-xs"
-            />
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+              className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -380,6 +329,34 @@ export const InstructorDashboard = () => {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search subjects or sections..."
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -388,7 +365,7 @@ export const InstructorDashboard = () => {
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
                 showArchived
                   ? "bg-brand-navy text-white border-brand-navy shadow-sm"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-2xs"
               }`}
             >
               <svg
@@ -405,13 +382,13 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              Archived
+              <span>Archived</span>
               {archivedSections.length > 0 && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                     showArchived
                       ? "bg-white/25 text-white"
-                      : "bg-gray-200 text-gray-600"
+                      : "bg-slate-100 text-slate-700"
                   }`}
                 >
                   {archivedSections.length}
@@ -419,14 +396,32 @@ export const InstructorDashboard = () => {
               )}
             </button>
           </div>
-          </div>
         </div>
 
         {/* Normalized Subject Cards */}
         {filteredSubjects.length === 0 && !showArchived ? (
           <ClassCard.EmptyClassSection
-            title={search.trim() ? "No Subjects Found" : "No Subjects Taught Yet"}
-            icon={search.trim() ? "🔍" : "📚"}
+            title={search.trim() ? "No Subjects Found" : "No Subjects Assigned Yet"}
+            description={
+              search.trim()
+                ? `No subjects or sections match "${search}". Try a different keyword.`
+                : "Add a subject from the curriculum to start managing your sections and quizzes."
+            }
+            icon={
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-8 h-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.75}
+              >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                <line x1="12" y1="6" x2="12" y2="12" />
+                <line x1="9" y1="9" x2="15" y2="9" />
+              </svg>
+            }
           />
         ) : (
           <>
@@ -488,11 +483,14 @@ export const InstructorDashboard = () => {
                           </p>
                           <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
                             {sub.sections.map((sec) => {
+                              const sectionCode = sec.description || sec.section_code || "";
                               let secDisplayName = sec.name || "";
                               if (secDisplayName.includes("-")) {
                                 const parts = secDisplayName.split("-");
                                 secDisplayName = parts[parts.length - 1].trim();
                               }
+                              const label = sectionCode || secDisplayName;
+
                               return (
                                 <span
                                   key={sec.id}
@@ -500,9 +498,13 @@ export const InstructorDashboard = () => {
                                     e.stopPropagation();
                                     setSelectedSubjectForModal(sub);
                                   }}
-                                  className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-700 hover:bg-brand-navy hover:text-white transition-colors cursor-pointer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors cursor-pointer border border-slate-200"
+                                  title={`Section: ${sectionCode || secDisplayName}`}
                                 >
-                                  {secDisplayName}
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                  </svg>
+                                  <span>{label}</span>
                                 </span>
                               );
                             })}
@@ -532,10 +534,12 @@ export const InstructorDashboard = () => {
                         {/* Action Button */}
                         <button
                           onClick={() => setSelectedSubjectForModal(sub)}
-                          className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${theme.button}`}
+                          className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${theme.button}`}
                         >
                           <span>View Sections ({sub.sections.length})</span>
-                          <span className="text-sm font-bold">→</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
                         </button>
                       </div>
                     </div>

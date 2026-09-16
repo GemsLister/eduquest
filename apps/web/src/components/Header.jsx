@@ -4,26 +4,48 @@ import { Link, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 
 const pageTitles = {
-  "/instructor-dashboard": "Subjects",
+  "/instructor-dashboard/section": "Subjects",
+  "/instructor-dashboard/subject": "Subjects",
   "/instructor-dashboard/quizzes": "Quizzes",
+  "/instructor-dashboard/instructor-quiz": "Quizzes",
+  "/instructor-dashboard/quiz-results": "Quiz Results",
   "/instructor-dashboard/question-bank": "Question Bank",
   "/instructor-dashboard/instructor-questions": "Questions",
   "/instructor-dashboard/item-difficulty-analysis": "Item Analysis",
   "/instructor-dashboard/quiz-versions": "Quiz Versions",
+  "/instructor-dashboard/saved-analysis": "Saved Analysis",
+  "/instructor-dashboard/peer-reviews": "Peer Reviews",
   "/instructor-dashboard/student-profiles": "Student Profiles",
   "/instructor-dashboard/my-submissions": "My Submissions",
+  "/instructor-dashboard/history": "History",
   "/instructor-dashboard/instructor-profile": "Profile",
+  "/instructor-dashboard": "Subjects",
+  "/admin-dashboard/subjects": "Subjects",
+  "/admin-dashboard/section": "Subjects",
+  "/admin-dashboard/subject": "Subjects",
+  "/admin-dashboard/quizzes": "Quizzes",
+  "/admin-dashboard/create-quiz": "Create Quiz",
+  "/admin-dashboard/my-submissions": "My Submissions",
+  "/admin-dashboard/quiz-reviews": "Exam Reviews",
+  "/admin-dashboard/instructors": "Instructors",
+  "/admin-dashboard/registration-requests": "Registration Requests",
+  "/admin-dashboard/create-instructor": "Add Instructor",
+  "/admin-dashboard/question-bank": "Question Bank",
+  "/admin-dashboard/quiz-results": "Quiz Results",
+  "/admin-dashboard": "Dashboard",
 };
 
 export const Header = () => {
   const userData = useUsername();
   const location = useLocation();
 
-  const pageTitle = Object.entries(pageTitles).find(
-    ([path]) =>
-      location.pathname.startsWith(path) &&
-      (path === "/instructor-dashboard" ? location.pathname === path : true),
-    )?.[1] ?? "Dashboard"
+  const matched = Object.entries(pageTitles).find(([path]) => {
+    if (path === "/instructor-dashboard" || path === "/admin-dashboard") {
+      return location.pathname === path || location.pathname === `${path}/`;
+    }
+    return location.pathname.startsWith(path);
+  });
+  const pageTitle = matched ? matched[1] : "Subjects";
   
 
   if (userData.loading)

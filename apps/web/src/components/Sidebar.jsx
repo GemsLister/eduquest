@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import citlLogo from "../assets/BUKSU_CITL.jpg";
 
 const navItems = [
@@ -86,6 +88,7 @@ const navItems = [
   {
     name: "My Submissions",
     path: "/instructor-dashboard/my-submissions",
+    hasBadge: true,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -132,6 +135,45 @@ const navItems = [
 export const Sidebar = () => {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const [submissionNotifCount, setSubmissionNotifCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchNotificationCount = async () => {
+      try {
+        // 1. Pending peer reviews assigned to this instructor
+        const { count: peerCount } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("assigned_reviewer_id", user.id)
+          .eq("status", "pending");
+
+        // 2. Submissions created by this instructor that have status 'revision_requested'
+        const { count: revCount } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("instructor_id", user.id)
+          .eq("status", "revision_requested");
+
+        setSubmissionNotifCount((peerCount || 0) + (revCount || 0));
+      } catch (err) {
+        console.warn("Could not fetch submission notification count:", err);
+      }
+    };
+
+    fetchNotificationCount();
+    window.addEventListener("pending-peer-reviews-changed", fetchNotificationCount);
+    window.addEventListener("pending-quiz-reviews-changed", fetchNotificationCount);
+    window.addEventListener("submissions-changed", fetchNotificationCount);
+    window.addEventListener("quiz-submissions-updated", fetchNotificationCount);
+    return () => {
+      window.removeEventListener("pending-peer-reviews-changed", fetchNotificationCount);
+      window.removeEventListener("pending-quiz-reviews-changed", fetchNotificationCount);
+      window.removeEventListener("submissions-changed", fetchNotificationCount);
+      window.removeEventListener("quiz-submissions-updated", fetchNotificationCount);
+    };
+  }, [user?.id]);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -178,8 +220,13 @@ export const Sidebar = () => {
                   }`
                 }
               >
-                <span className="shrink-0 flex items-center justify-center w-6 h-6 text-[22px]">
+                <span className="relative shrink-0 flex items-center justify-center w-6 h-6 text-[22px]">
                   {nav.icon}
+                  {nav.name === "My Submissions" && submissionNotifCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full animate-pulse">
+                      {submissionNotifCount}
+                    </span>
+                  )}
                 </span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
                   {nav.name}
