@@ -21,9 +21,19 @@ export const useLogin = () => {
         return;
       }
 
+      if (userData?.isCaptchaChecking) {
+        notify.warning("Security check is in progress. Please wait a moment.");
+        return;
+      }
+
+      if (!userData?.captchaToken) {
+        notify.error("Please complete the security check.");
+        return;
+      }
+
       const signInOptions = {};
       // Only include captchaToken if we have a real one (not dummy)
-      if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+      if (userData.captchaToken !== "dummy-token-for-dev") {
         signInOptions.captchaToken = userData.captchaToken;
       }
 

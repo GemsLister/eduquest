@@ -13,10 +13,23 @@ export const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [captchaStatus, setCaptchaStatus] = useState("checking");
 
-  const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
+  const handleCaptcha = useCallback((token) => {
+    setCaptchaToken(token);
+    if (token) setCaptchaStatus("verified");
+  }, []);
+
+  const handleCaptchaStatus = useCallback((status) => {
+    setCaptchaStatus(status);
+    if (status !== "verified") {
+      setCaptchaToken(null);
+    }
+  }, []);
+
   const resetCaptcha = useCallback(() => {
     setCaptchaToken(null);
+    setCaptchaStatus("checking");
     setCaptchaResetKey((prev) => prev + 1);
   }, []);
 
@@ -52,6 +65,8 @@ export const Register = () => {
     password,
     confirmPassword,
     captchaToken,
+    captchaStatus,
+    isCaptchaChecking: captchaStatus === "checking",
     onCaptchaReset: resetCaptcha,
   };
 
@@ -178,6 +193,7 @@ export const Register = () => {
             key={captchaResetKey}
             action="register"
             onToken={handleCaptcha}
+            onStatusChange={handleCaptchaStatus}
           />
         </fieldset>
         <AuthButton name="Register" user={userData} />

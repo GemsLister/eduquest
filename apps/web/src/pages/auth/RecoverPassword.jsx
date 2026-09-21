@@ -8,16 +8,31 @@ export const RecoverPassword = () => {
   const [email, setEmail] = useState("");
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [captchaStatus, setCaptchaStatus] = useState("checking");
 
-  const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
+  const handleCaptcha = useCallback((token) => {
+    setCaptchaToken(token);
+    if (token) setCaptchaStatus("verified");
+  }, []);
+
+  const handleCaptchaStatus = useCallback((status) => {
+    setCaptchaStatus(status);
+    if (status !== "verified") {
+      setCaptchaToken(null);
+    }
+  }, []);
+
   const resetCaptcha = useCallback(() => {
     setCaptchaToken(null);
+    setCaptchaStatus("checking");
     setCaptchaResetKey((prev) => prev + 1);
   }, []);
 
   const userData = {
     email,
     captchaToken,
+    captchaStatus,
+    isCaptchaChecking: captchaStatus === "checking",
     onCaptchaReset: resetCaptcha,
   };
 
@@ -54,6 +69,7 @@ export const RecoverPassword = () => {
             key={captchaResetKey}
             action="recover"
             onToken={handleCaptcha}
+            onStatusChange={handleCaptchaStatus}
           />
         </fieldset>
         <div className="flex flex-col gap-3">

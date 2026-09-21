@@ -11,6 +11,7 @@ export const Turnstile = ({
   onToken,
   onExpire,
   onError,
+  onStatusChange,
 }) => {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
@@ -18,29 +19,41 @@ export const Turnstile = ({
   const handleToken = useCallback(
     (token) => {
       onToken?.(token);
+      onStatusChange?.("verified");
     },
-    [onToken],
+    [onToken, onStatusChange],
   );
 
   const handleExpire = useCallback(() => {
     onToken?.(null);
     onExpire?.();
-  }, [onToken, onExpire]);
+    onStatusChange?.("expired");
+  }, [onToken, onExpire, onStatusChange]);
 
   const handleError = useCallback(
     (code) => {
       console.warn("Turnstile widget error:", code);
       onToken?.(null);
       onError?.(code);
+      onStatusChange?.("error");
     },
-    [onToken, onError],
+    [onToken, onError, onStatusChange],
   );
+
+  const handleTimeout = useCallback(() => {
+    onToken?.(null);
+    onExpire?.();
+    onStatusChange?.("expired");
+  }, [onToken, onExpire, onStatusChange]);
 
   useEffect(() => {
     if (!siteKey) {
       onToken?.("dummy-token-for-dev");
+      onStatusChange?.("verified");
       return;
     }
+
+    onStatusChange?.("checking");
 
     let intervalId = null;
     let isMounted = true;
@@ -56,17 +69,20 @@ export const Turnstile = ({
       }
 
       try {
+        onStatusChange?.("checking");
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
           action: action,
           callback: handleToken,
           "expired-callback": handleExpire,
           "error-callback": handleError,
+          "timeout-callback": handleTimeout,
           theme: theme,
           size: size,
         });
       } catch (err) {
         console.error("Turnstile render error:", err);
+        onStatusChange?.("error");
       }
     };
 
@@ -100,7 +116,9 @@ export const Turnstile = ({
     handleToken,
     handleExpire,
     handleError,
+    handleTimeout,
     onToken,
+    onStatusChange,
   ]);
 
   return siteKey ? (

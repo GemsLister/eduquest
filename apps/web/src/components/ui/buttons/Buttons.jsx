@@ -33,9 +33,25 @@ export const AuthButton = ({ name, user }) => {
   const { handleLogin } = AuthHooks.useLogin();
   const [isLoading, setIsLoading] = useState(false);
 
+  const requiresCaptcha =
+    name === "Login" || name === "Register" || name === "Continue";
+  const isCheckingCaptcha = Boolean(requiresCaptcha && user?.isCaptchaChecking);
+
   const handleClick = async (e) => {
     e.preventDefault();
     if (isLoading) return;
+
+    if (requiresCaptcha) {
+      if (user?.isCaptchaChecking) {
+        notify.warning("Security check is in progress. Please wait a moment.");
+        return;
+      }
+      if (!user?.captchaToken) {
+        notify.error("Please complete the security check.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       switch (name) {
@@ -89,7 +105,7 @@ export const AuthButton = ({ name, user }) => {
     <button
       type="submit"
       onClick={handleClick}
-      disabled={isLoading}
+      disabled={isLoading || isCheckingCaptcha}
       className="bg-brand-gold hover:bg-brand-gold-dark mt-7 text-brand-navy font-semibold p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)] w-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {isLoading ? (
@@ -99,6 +115,14 @@ export const AuthButton = ({ name, user }) => {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
           {name === "Login" ? "Signing in..." : name === "Register" ? "Registering..." : name === "Continue" ? "Sending..." : "Saving..."}
+        </span>
+      ) : isCheckingCaptcha ? (
+        <span className="flex items-center justify-center gap-2">
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          Verifying security...
         </span>
       ) : (
         name

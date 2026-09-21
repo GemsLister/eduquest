@@ -38,6 +38,16 @@ export const useRegister = () => {
         return { success: false, message: passwordError };
       }
 
+      if (userData?.isCaptchaChecking) {
+        notify.warning("Security check is in progress. Please wait a moment.");
+        return { success: false, message: "Security check is in progress" };
+      }
+
+      if (!userData?.captchaToken) {
+        notify.error("Please complete the security check.");
+        return { success: false, message: "Captcha token required" };
+      }
+
       const signUpOptions = {
         data: {
           username: userData.username.trim(),
@@ -46,7 +56,7 @@ export const useRegister = () => {
       };
 
       // Only include captchaToken if we have a real one (not dummy)
-      if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+      if (userData.captchaToken !== "dummy-token-for-dev") {
         signUpOptions.captchaToken = userData.captchaToken;
       }
 

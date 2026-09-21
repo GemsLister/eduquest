@@ -15,11 +15,21 @@ export const useRecover = () => {
           import.meta.env.VITE_INSTRUCTOR_ACCOUNT_EXTENSION || "@student.buksu.edu.ph",
         )
       ) {
+        if (userData?.isCaptchaChecking) {
+          notify.warning("Security check is in progress. Please wait a moment.");
+          return;
+        }
+
+        if (!userData?.captchaToken) {
+          notify.error("Please complete the security check.");
+          return;
+        }
+
         const resetOptions = {
           redirectTo: import.meta.env.VITE_CHANGE_PASSWORD_URL,
         };
 
-        if (userData.captchaToken && userData.captchaToken !== "dummy-token-for-dev") {
+        if (userData.captchaToken !== "dummy-token-for-dev") {
           resetOptions.captchaToken = userData.captchaToken;
         }
 

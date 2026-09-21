@@ -15,6 +15,7 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [captchaStatus, setCaptchaStatus] = useState("checking");
 
   useEffect(() => {
     if (searchParams.get("error") === "not_registered") {
@@ -25,15 +26,31 @@ export const Login = () => {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-  const handleCaptcha = useCallback((token) => setCaptchaToken(token), []);
+
+  const handleCaptcha = useCallback((token) => {
+    setCaptchaToken(token);
+    if (token) setCaptchaStatus("verified");
+  }, []);
+
+  const handleCaptchaStatus = useCallback((status) => {
+    setCaptchaStatus(status);
+    if (status !== "verified") {
+      setCaptchaToken(null);
+    }
+  }, []);
+
   const resetCaptcha = useCallback(() => {
     setCaptchaToken(null);
+    setCaptchaStatus("checking");
     setCaptchaResetKey((prev) => prev + 1);
   }, []);
+
   const userData = {
     email,
     password,
     captchaToken,
+    captchaStatus,
+    isCaptchaChecking: captchaStatus === "checking",
     onCaptchaReset: resetCaptcha,
   };
 
@@ -167,7 +184,12 @@ export const Login = () => {
               </div>
             ))}
           </div>
-          <Turnstile key={captchaResetKey} action="login" onToken={handleCaptcha} />
+          <Turnstile
+            key={captchaResetKey}
+            action="login"
+            onToken={handleCaptcha}
+            onStatusChange={handleCaptchaStatus}
+          />
         </fieldset>
 
         <AuthButton
