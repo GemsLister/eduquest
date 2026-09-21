@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 
@@ -220,27 +220,27 @@ export const AdminQuizReviews = () => {
 
   const getStatusBadge = (status) => {
     const config = {
-      pending: { bg: "bg-yellow-100 text-yellow-700", label: "Pending" },
-      approved: { bg: "bg-green-100 text-green-700", label: "Approved" },
+      pending: { bg: "bg-amber-50 text-amber-700 border border-amber-200", label: "Pending" },
+      approved: { bg: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Approved" },
       revision_requested: {
-        bg: "bg-orange-100 text-orange-700",
+        bg: "bg-rose-50 text-rose-700 border border-rose-200",
         label: "Revision",
       },
       faculty_head_review: {
-        bg: "bg-blue-100 text-blue-700",
+        bg: "bg-blue-50 text-blue-700 border border-blue-200",
         label: "Department Head",
       },
       faculty_head_approved: {
-        bg: "bg-green-100 text-green-700",
+        bg: "bg-emerald-50 text-emerald-700 border border-emerald-200",
         label: "DH Approved",
       },
     };
     const c = config[status] || {
-      bg: "bg-gray-100 text-gray-600",
+      bg: "bg-slate-100 text-slate-600 border border-slate-200",
       label: status,
     };
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${c.bg}`}>
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${c.bg}`}>
         {c.label}
       </span>
     );
@@ -270,7 +270,7 @@ export const AdminQuizReviews = () => {
   };
 
   const tabs = [
-    { key: "pending", label: "Pending", dotColor: "bg-yellow-400" },
+    { key: "pending", label: "Pending", dotColor: "bg-amber-400" },
     {
       key: "faculty_head_review",
       label: "Department Head",
@@ -279,10 +279,10 @@ export const AdminQuizReviews = () => {
     {
       key: "faculty_head_approved",
       label: "DH Approved",
-      dotColor: "bg-green-500",
+      dotColor: "bg-emerald-500",
     },
-    { key: "revision_requested", label: "Revision", dotColor: "bg-orange-500" },
-    { key: "all", label: "All", dotColor: "bg-gray-400" },
+    { key: "revision_requested", label: "Revision", dotColor: "bg-rose-500" },
+    { key: "all", label: "All", dotColor: "bg-slate-400" },
   ];
 
   const emptyMessages = {
@@ -308,15 +308,15 @@ export const AdminQuizReviews = () => {
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
+        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
           Exam Analysis Reviews
           {counts.pending > 0 && (
-            <span className="flex items-center gap-2 px-3 py-1 bg-yellow-400/20 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span className="text-sm font-bold text-yellow-300">
+            <span className="flex items-center gap-2 px-3 py-1 bg-amber-400/20 border border-amber-400/30 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-bold text-amber-300">
                 {counts.pending} pending
               </span>
             </span>
@@ -334,7 +334,7 @@ export const AdminQuizReviews = () => {
           <div className="relative flex-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -351,12 +351,12 @@ export const AdminQuizReviews = () => {
               placeholder="Search by quiz title or instructor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/40 focus:border-brand-gold shadow-2xs"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -377,24 +377,24 @@ export const AdminQuizReviews = () => {
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto">
+          <div className="flex bg-slate-100/80 rounded-2xl p-1 border border-slate-200/80 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   filter === tab.key
-                    ? "bg-white text-gray-800 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${tab.dotColor}`} />
                 {tab.label}
                 <span
-                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                     filter === tab.key
                       ? "bg-brand-navy text-white"
-                      : "bg-gray-200 text-gray-500"
+                      : "bg-slate-200 text-slate-600"
                   }`}
                 >
                   {counts[tab.key]}
@@ -413,7 +413,7 @@ export const AdminQuizReviews = () => {
             </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -457,7 +457,7 @@ export const AdminQuizReviews = () => {
                     onClick={() =>
                       navigate(`/admin-dashboard/quiz-reviews/${submission.id}`)
                     }
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
+                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md hover:border-brand-gold/40 transition-all p-5 cursor-pointer group"
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
@@ -716,17 +716,17 @@ export const AdminQuizReviews = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6">
-                <p className="text-sm text-gray-500">
-                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                  {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
-                  {filtered.length}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
+                <p className="text-xs text-slate-500">
+                  Showing <strong className="text-slate-900">{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
+                  <strong className="text-slate-900">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</strong> of{" "}
+                  <strong className="text-slate-900">{filtered.length}</strong> submissions
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
                   >
                     Prev
                   </button>
@@ -735,10 +735,10 @@ export const AdminQuizReviews = () => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`w-9 h-9 text-sm font-semibold rounded-lg transition-colors ${
+                        className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                           currentPage === page
-                            ? "bg-brand-gold text-white"
-                            : "border border-gray-200 hover:bg-gray-50 text-gray-600"
+                            ? "bg-brand-navy text-white shadow-xs"
+                            : "border border-slate-200 hover:bg-slate-50 text-slate-600"
                         }`}
                       >
                         {page}
@@ -750,7 +750,7 @@ export const AdminQuizReviews = () => {
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
                   >
                     Next
                   </button>

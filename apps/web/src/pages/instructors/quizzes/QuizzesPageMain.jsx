@@ -70,27 +70,11 @@ export const QuizzesPageMain = () => {
   }, [quizzes, filter, search]);
 
   const filterTabs = [
-    { key: "all", label: "All", activeClass: "bg-brand-navy text-white" },
-    {
-      key: "drafts",
-      label: "Drafts",
-      activeClass: "bg-brand-gold text-brand-navy",
-    },
-    {
-      key: "in_review",
-      label: "In Review",
-      activeClass: "bg-brand-navy text-white",
-    },
-    {
-      key: "published",
-      label: "Published",
-      activeClass: "bg-brand-indigo text-white",
-    },
-    {
-      key: "archived",
-      label: "Archived",
-      activeClass: "bg-gray-700 text-white",
-    },
+    { key: "all", label: "All" },
+    { key: "drafts", label: "Drafts" },
+    { key: "in_review", label: "In Review" },
+    { key: "published", label: "Published" },
+    { key: "archived", label: "Archived" },
   ];
 
   // ── Quiz state badge ──
@@ -98,12 +82,12 @@ export const QuizzesPageMain = () => {
     if (quiz.is_archived)
       return {
         label: "Archived",
-        bg: "bg-gray-100 text-gray-600 border-gray-300",
+        bg: "bg-slate-500/20 text-slate-200 border-slate-400/30",
       };
     if (quiz.is_published)
       return {
         label: "Published",
-        bg: "bg-brand-indigo/10 text-brand-indigo border-brand-indigo/30",
+        bg: "bg-emerald-500/20 text-emerald-200 border-emerald-400/30",
       };
     if (
       quiz.admin_review_status === "approved" ||
@@ -111,50 +95,44 @@ export const QuizzesPageMain = () => {
     )
       return {
         label: "Approved",
-        bg: "bg-green-100 text-green-700 border-green-300",
+        bg: "bg-emerald-500/20 text-emerald-200 border-emerald-400/30",
       };
     if (quiz.admin_review_status === "faculty_head_review")
       return {
         label: "Department Head Review",
-        bg: "bg-blue-100 text-blue-700 border-blue-300",
+        bg: "bg-blue-500/20 text-blue-200 border-blue-400/30",
       };
     if (quiz.admin_review_status === "revision_requested")
       return {
         label: "Revision",
-        bg: "bg-orange-100 text-orange-700 border-orange-300",
+        bg: "bg-rose-500/20 text-rose-200 border-rose-400/30",
       };
     if (quiz.admin_review_status === "pending")
       return {
         label: "Pending",
-        bg: "bg-yellow-100 text-yellow-700 border-yellow-300",
+        bg: "bg-amber-500/20 text-amber-200 border-amber-400/30",
       };
-    return { label: "Draft", bg: "bg-gray-100 text-gray-600 border-gray-300" };
+    return { label: "Draft", bg: "bg-white/20 text-white border-white/25" };
   };
 
   const getCardGradient = (quiz) => {
-    if (quiz.is_archived) return "from-gray-400 to-gray-500";
-    if (quiz.is_published) return "from-brand-navy to-brand-indigo";
+    if (quiz.is_archived) return "from-slate-700 to-slate-800";
+    if (quiz.is_published) return "from-brand-navy via-brand-navy to-brand-indigo";
     if (
       quiz.admin_review_status === "approved" ||
       quiz.admin_review_status === "faculty_head_approved"
     )
       return "from-brand-navy to-brand-indigo-dark";
     if (quiz.admin_review_status === "faculty_head_review")
-      return "from-blue-600 to-blue-700";
+      return "from-slate-800 via-brand-navy to-brand-indigo-dark";
     if (quiz.admin_review_status === "revision_requested")
-      return "from-amber-600 to-amber-700";
+      return "from-slate-800 to-slate-900";
     if (quiz.admin_review_status === "pending")
-      return "from-brand-gold to-brand-gold-dark";
-    return "from-brand-gold to-brand-gold-dark";
+      return "from-brand-navy to-slate-800";
+    return "from-brand-navy to-brand-indigo";
   };
 
-  const getCardTextColor = (quiz) => {
-    if (!quiz.is_archived && !quiz.is_published && !quiz.admin_review_status)
-      return "text-brand-navy";
-    if (quiz.admin_review_status === "pending" && !quiz.is_published)
-      return "text-brand-navy";
-    return "text-white";
-  };
+  const getCardTextColor = () => "text-white";
 
   // ── Empty state messages ──
   const getEmptyState = () => {
@@ -197,17 +175,22 @@ export const QuizzesPageMain = () => {
     }
   };
 
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
+
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-brand-navy px-6 py-8">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
+            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+              {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
+            </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              Quiz Management
+              My Quizzes
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Create, manage, and restore your quizzes
+              {quizzes?.length || 0} total {quizzes?.length === 1 ? "quiz" : "quizzes"} · Create, manage, and publish assessments
             </p>
           </div>
           <CreateQuizFormButton
@@ -224,10 +207,10 @@ export const QuizzesPageMain = () => {
         {/* Search + Filter Row */}
         <div className="mb-6 flex flex-col sm:flex-row gap-3">
           {/* Search Bar */}
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 max-w-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -244,12 +227,12 @@ export const QuizzesPageMain = () => {
               placeholder="Search quizzes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -275,19 +258,19 @@ export const QuizzesPageMain = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
                   filter === tab.key
-                    ? tab.activeClass
-                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                    ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
                 }`}
               >
                 {tab.label}
                 {counts[tab.key] > 0 && (
                   <span
-                    className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold ${
+                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                       filter === tab.key
                         ? "bg-white/25 text-white"
-                        : "bg-gray-200 text-gray-600"
+                        : "bg-slate-100 text-slate-700"
                     }`}
                   >
                     {counts[tab.key]}
@@ -308,8 +291,8 @@ export const QuizzesPageMain = () => {
             (() => {
               const empty = getEmptyState();
               return (
-                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-navy/5 flex items-center justify-center text-brand-navy">
+                <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-navy/5 flex items-center justify-center text-brand-navy">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -338,7 +321,7 @@ export const QuizzesPageMain = () => {
                 return (
                   <div
                     key={quiz.id}
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden group flex flex-col"
+                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all overflow-hidden group flex flex-col"
                   >
                     {/* Card Header */}
                     <div
@@ -357,7 +340,7 @@ export const QuizzesPageMain = () => {
                         {/* Collaboration Badge */}
                         {quiz.owner_id && quiz.owner_id !== user?.id && (
                           <span
-                            className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-300"
+                            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-300"
                             title={`Shared by ${quiz.owner_name || 'another instructor'}`}
                           >
                             <svg
@@ -379,9 +362,9 @@ export const QuizzesPageMain = () => {
                         )}
                         {/* Privacy Badge */}
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                             quiz.is_private !== false
-                              ? "bg-gray-800/80 text-gray-100 border-gray-600"
+                              ? "bg-slate-800/80 text-slate-200 border-slate-600"
                               : "bg-emerald-800/80 text-emerald-100 border-emerald-600"
                           }`}
                         >
@@ -395,11 +378,11 @@ export const QuizzesPageMain = () => {
                         </span>
                         {/* Version Badge */}
                         {(quiz.version_number || 1) === 1 ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-white">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/25">
                             Original
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/25">
                             v{quiz.version_number}
                           </span>
                         )}
@@ -417,7 +400,7 @@ export const QuizzesPageMain = () => {
                     {/* Card Body */}
                     <div className="p-4 flex-1 flex flex-col gap-3">
                       {/* Owner Row */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/80">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
@@ -429,7 +412,7 @@ export const QuizzesPageMain = () => {
 
                       {/* Senior Faculty Feedback Inline */}
                       {quiz.admin_review_status === "revision_requested" && (
-                        <div className="rounded-lg border px-3 py-2 text-xs border-orange-200 bg-orange-50 text-orange-700">
+                        <div className="rounded-xl border px-3 py-2 text-xs border-rose-200 bg-rose-50 text-rose-700">
                           <span className="font-bold">
                             Senior Faculty Feedback:{" "}
                           </span>
@@ -468,7 +451,7 @@ export const QuizzesPageMain = () => {
                                     : `/instructor-dashboard/quiz-results/${quiz.id}`,
                                 )
                               }
-                              className="flex-1 bg-brand-navy text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand-indigo transition-colors"
+                              className="flex-1 bg-brand-navy text-white py-2 rounded-xl text-xs font-bold hover:bg-brand-indigo transition-all shadow-xs"
                             >
                               Results
                             </button>
@@ -480,7 +463,7 @@ export const QuizzesPageMain = () => {
                                     : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                                 )
                               }
-                              className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                              className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all"
                             >
                               View
                             </button>
@@ -494,7 +477,7 @@ export const QuizzesPageMain = () => {
                                   : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                               )
                             }
-                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all"
                           >
                             {isApproved || isReviewLocked || isOutdatedVersion
                               ? "View"
@@ -506,7 +489,7 @@ export const QuizzesPageMain = () => {
                         {isApproved && (
                           <button
                             onClick={() => handlePublishQuiz(quiz.id)}
-                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
+                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
                           >
                             Publish
                           </button>
@@ -516,14 +499,14 @@ export const QuizzesPageMain = () => {
                         {quiz.is_archived ? (
                           <button
                             onClick={() => handleRestoreQuiz(quiz.id)}
-                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
+                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
                           >
                             Restore
                           </button>
                         ) : (
                           <button
                             onClick={() => handleArchiveQuiz(quiz.id)}
-                            className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors flex items-center gap-1"
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1"
                             title="Archive this quiz"
                           >
                             <svg

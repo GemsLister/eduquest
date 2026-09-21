@@ -79,7 +79,7 @@ export const AdminInstructors = () => {
     <>
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
+        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -98,7 +98,7 @@ export const AdminInstructors = () => {
           <div className="relative flex-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -115,12 +115,12 @@ export const AdminInstructors = () => {
               placeholder="Search by name, email, or username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -141,23 +141,23 @@ export const AdminInstructors = () => {
           </div>
 
           {/* Status Filter Tabs */}
-          <div className="flex bg-gray-100 rounded-xl p-1">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {filters.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setStatusFilter(f.key)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
                   statusFilter === f.key
-                    ? "bg-white text-gray-800 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
                 }`}
               >
                 {f.label}
                 <span
-                  className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                     statusFilter === f.key
-                      ? "bg-brand-gold text-brand-navy"
-                      : "bg-gray-200 text-gray-500"
+                      ? "bg-white/25 text-white"
+                      : "bg-slate-100 text-slate-700"
                   }`}
                 >
                   {f.count}
@@ -212,17 +212,17 @@ export const AdminInstructors = () => {
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6">
-            <p className="text-xs text-gray-400">
-              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
-              {filtered.length}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
+            <p className="text-xs text-slate-500">
+              Showing <strong className="text-slate-900">{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
+              <strong className="text-slate-900">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</strong> of{" "}
+              <strong className="text-slate-900">{filtered.length}</strong> instructors
             </p>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
               >
                 Prev
               </button>
@@ -231,10 +231,10 @@ export const AdminInstructors = () => {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                    className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                       page === currentPage
-                        ? "bg-brand-gold text-brand-navy"
-                        : "text-gray-500 hover:bg-gray-100"
+                        ? "bg-brand-navy text-white shadow-xs"
+                        : "border border-slate-200 hover:bg-slate-50 text-slate-600"
                     }`}
                   >
                     {page}
@@ -246,7 +246,7 @@ export const AdminInstructors = () => {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
               >
                 Next
               </button>

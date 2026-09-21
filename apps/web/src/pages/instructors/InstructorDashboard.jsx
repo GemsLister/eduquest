@@ -386,10 +386,10 @@ export const InstructorDashboard = () => {
   return (
     <>
       {/* Hero Banner */}
-      <div className="bg-brand-navy px-6 py-8">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
+            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
               {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">

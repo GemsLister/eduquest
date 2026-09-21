@@ -405,11 +405,11 @@ export const MySubmissions = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      approved: "bg-green-100 text-green-800 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-800 border-orange-300",
-      faculty_head_review: "bg-blue-100 text-blue-800 border-blue-300",
-      faculty_head_approved: "bg-green-100 text-green-800 border-green-300",
+      pending: "bg-amber-50 text-amber-700 border-amber-200",
+      approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      revision_requested: "bg-rose-50 text-rose-700 border-rose-200",
+      faculty_head_review: "bg-blue-50 text-blue-700 border-blue-200",
+      faculty_head_approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
     const labels = {
       pending: "Pending Peer Review",
@@ -420,7 +420,7 @@ export const MySubmissions = () => {
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status] || "bg-gray-100 text-gray-700"}`}
+        className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status] || "bg-slate-100 text-slate-700 border-slate-200"}`}
       >
         {labels[status] || status}
       </span>
@@ -635,14 +635,41 @@ export const MySubmissions = () => {
     peerPage * PEER_PAGE_SIZE,
   );
 
+  const submissionFilterCounts = useMemo(() => {
+    return {
+      all: submissions.length,
+      pending: submissions.filter((s) => s.status === "pending").length,
+      approved: submissions.filter(
+        (s) =>
+          s.status === "approved" || s.status === "faculty_head_approved",
+      ).length,
+      revision_requested: submissions.filter(
+        (s) => s.status === "revision_requested",
+      ).length,
+    };
+  }, [submissions]);
+
   return (
     <>
       {/* Hero Banner with Main Tabs */}
-      <div className={`bg-brand-navy px-6 pt-8 ${isSeniorFaculty ? "pb-6" : "pb-0"}`}>
-        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${isSeniorFaculty ? "" : "pb-4"}`}>
+      <div
+        className={`bg-gradient-to-r from-brand-navy to-brand-indigo px-6 pt-8 ${
+          isSeniorFaculty ? "pb-8" : "pb-0"
+        }`}
+      >
+        <div
+          className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+            isSeniorFaculty ? "" : "pb-4"
+          }`}
+        >
           <div>
+            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+              {isSeniorFaculty ? "Senior Faculty" : "Instructor Portal"}
+            </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              {isSeniorFaculty ? "My Quiz Submissions" : "Quiz Submissions & Peer Reviews"}
+              {isSeniorFaculty
+                ? "My Quiz Submissions"
+                : "Quiz Submissions & Peer Reviews"}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               {isSeniorFaculty
@@ -681,7 +708,7 @@ export const MySubmissions = () => {
             >
               <span>Assigned Peer Reviews</span>
               {pendingPeerCount > 0 ? (
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-400 text-brand-navy shadow-xs">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-brand-navy shadow-xs">
                   {pendingPeerCount} pending
                 </span>
               ) : (
@@ -708,13 +735,24 @@ export const MySubmissions = () => {
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
                     filter === tab.key
-                      ? "bg-brand-navy text-white"
-                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      ? "bg-brand-navy text-white border-brand-navy shadow-xs"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  {submissionFilterCounts[tab.key] > 0 && (
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                        filter === tab.key
+                          ? "bg-white/25 text-white"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {submissionFilterCounts[tab.key]}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -725,7 +763,7 @@ export const MySubmissions = () => {
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
           </div>
         ) : submissions.length === 0 ? (
-          <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -742,7 +780,7 @@ export const MySubmissions = () => {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
               No Submissions Found
             </h3>
             <p className="text-gray-500">
@@ -756,7 +794,7 @@ export const MySubmissions = () => {
             {paginatedSubmissions.map((submission) => (
               <div
                 key={submission.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6"
+                className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all p-6"
               >
                 <div className="flex flex-col gap-4">
                   {/* Title and Status */}
@@ -1419,19 +1457,19 @@ export const MySubmissions = () => {
             ))}
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6">
-                <p className="text-xs text-gray-400">
-                  Showing {startIndex + 1}–
-                  {Math.min(endIndex, submissions.length)} of{" "}
-                  {submissions.length}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
+                <p className="text-xs text-slate-500">
+                  Showing <strong className="text-slate-900">{startIndex + 1}</strong>–
+                  <strong className="text-slate-900">{Math.min(endIndex, submissions.length)}</strong> of{" "}
+                  <strong className="text-slate-900">{submissions.length}</strong> submissions
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() =>
                       setCurrentPage((page) => Math.max(1, page - 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
                   >
                     Prev
                   </button>
@@ -1442,10 +1480,10 @@ export const MySubmissions = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                      className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                         page === currentPage
-                          ? "bg-brand-gold text-brand-navy"
-                          : "text-gray-500 hover:bg-gray-100"
+                          ? "bg-brand-navy text-white shadow-xs"
+                          : "text-slate-600 hover:bg-slate-100 border border-slate-200"
                       }`}
                     >
                       {page}
@@ -1456,7 +1494,7 @@ export const MySubmissions = () => {
                       setCurrentPage((page) => Math.min(totalPages, page + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
                   >
                     Next
                   </button>
@@ -1648,15 +1686,15 @@ export const MySubmissions = () => {
 
                 {/* Peer Reviews Pagination */}
                 {totalPeerPages > 1 && (
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 text-xs text-slate-500">
                     <div>
-                      Page {peerPage} of {totalPeerPages}
+                      Page <strong className="text-slate-900">{peerPage}</strong> of <strong className="text-slate-900">{totalPeerPages}</strong>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setPeerPage((p) => Math.max(1, p - 1))}
                         disabled={peerPage === 1}
-                        className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
                       >
                         Prev
                       </button>
@@ -1665,7 +1703,7 @@ export const MySubmissions = () => {
                           setPeerPage((p) => Math.min(totalPeerPages, p + 1))
                         }
                         disabled={peerPage === totalPeerPages}
-                        className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
                       >
                         Next
                       </button>

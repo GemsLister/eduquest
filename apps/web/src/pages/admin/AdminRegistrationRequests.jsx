@@ -71,15 +71,15 @@ export const AdminRegistrationRequests = () => {
     <>
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
+        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
           Registration Requests
           {requests.length > 0 && (
-            <span className="flex items-center gap-2 px-3 py-1 bg-yellow-400/20 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span className="text-sm font-bold text-yellow-300">
+            <span className="flex items-center gap-2 px-3 py-1 bg-amber-400/20 border border-amber-400/30 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-bold text-amber-300">
                 {requests.length}
               </span>
             </span>
@@ -102,11 +102,11 @@ export const AdminRegistrationRequests = () => {
           </div>
         ) : requests.length === 0 ? (
           /* Empty State */
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
-            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-2xl flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
+            <div className="w-16 h-16 mx-auto mb-4 bg-emerald-50 rounded-2xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8 text-green-600"
+                className="h-8 w-8 text-emerald-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -119,10 +119,10 @@ export const AdminRegistrationRequests = () => {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-700 mb-2">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
               No Pending Requests
             </h3>
-            <p className="text-gray-400 text-sm max-w-sm mx-auto">
+            <p className="text-gray-500 text-sm max-w-sm mx-auto">
               All registration requests have been reviewed. New requests will
               appear here when instructors register for an account.
             </p>
@@ -131,7 +131,7 @@ export const AdminRegistrationRequests = () => {
           <>
             {/* Approve All Bar */}
             {requests.length > 1 && (
-              <div className="flex items-center justify-between bg-brand-gold/10 border border-brand-gold/20 rounded-xl px-5 py-3.5 mb-5">
+              <div className="flex items-center justify-between bg-brand-gold/10 border border-brand-gold/20 rounded-2xl px-5 py-3.5 mb-5 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -157,7 +157,7 @@ export const AdminRegistrationRequests = () => {
                 <button
                   onClick={handleApproveAll}
                   disabled={bulkLoading}
-                  className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {bulkLoading ? (
                     <>
@@ -221,7 +221,7 @@ export const AdminRegistrationRequests = () => {
                 return (
                   <div
                     key={req.id}
-                    className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                    className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     {/* Top row: Avatar + Name + Status */}
                     <div className="flex items-start gap-3.5 mb-4">
@@ -235,7 +235,7 @@ export const AdminRegistrationRequests = () => {
                               ? `${req.first_name || ""} ${req.last_name || ""}`.trim()
                               : req.username || "New User"}
                           </h3>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             Pending
                           </span>
                         </div>
@@ -288,7 +288,7 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleApprove(req.id)}
                         disabled={isActioning}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isApproving ? (
                           <>
@@ -337,7 +337,7 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleReject(req.id)}
                         disabled={isActioning}
-                        className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-xs hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                        className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl font-bold text-xs hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs"
                       >
                         {isRejecting ? (
                           <>
@@ -375,7 +375,7 @@ export const AdminRegistrationRequests = () => {
 
             {/* Pagination Controls Bar */}
             {requests.length > 0 && Math.ceil(requests.length / PAGE_SIZE) > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 bg-white">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-600 bg-white shadow-xs">
                 <span>
                   Showing <strong>{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
                   <strong>{Math.min(currentPage * PAGE_SIZE, requests.length)}</strong> of{" "}
@@ -385,7 +385,7 @@ export const AdminRegistrationRequests = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
                   >
                     Previous
                   </button>
@@ -400,24 +400,24 @@ export const AdminRegistrationRequests = () => {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                          className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
                             currentPage === page
                               ? "bg-brand-navy text-white shadow-xs"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                           }`}
                         >
                           {page}
                         </button>
                       );
                     } else if (page === currentPage - 2 || page === currentPage + 2) {
-                      return <span key={page} className="px-1 text-gray-400">...</span>;
+                      return <span key={page} className="px-1 text-slate-400">...</span>;
                     }
                     return null;
                   })}
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(requests.length / PAGE_SIZE), prev + 1))}
                     disabled={currentPage === Math.ceil(requests.length / PAGE_SIZE)}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
                   >
                     Next
                   </button>

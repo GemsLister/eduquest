@@ -158,7 +158,7 @@ export const InstructorTable = ({
           return (
             <div
               key={instructor.id}
-              className={`relative bg-white rounded-xl border shadow-sm transition-all hover:shadow-md ${
+              className={`relative bg-white rounded-2xl border shadow-xs transition-all hover:shadow-md ${
                 isDisabled
                   ? "border-amber-200 bg-amber-50/30"
                   : "border-gray-200"
@@ -167,7 +167,7 @@ export const InstructorTable = ({
               {/* Disabled overlay indicator */}
               {isDisabled && (
                 <div className="absolute top-3 left-3">
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                  <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-full uppercase tracking-wider">
                     Disabled
                   </span>
                 </div>
@@ -357,8 +357,8 @@ export const InstructorTable = ({
                     Joined {createdAt}
                   </span>
                   {!isDisabled && (
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-green-600">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       Active
                     </span>
                   )}
@@ -372,11 +372,11 @@ export const InstructorTable = ({
       {/* Change Password Modal */}
       {changePwdTarget && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-slate-200">
+            <div className="w-12 h-12 rounded-xl bg-brand-navy/10 flex items-center justify-center mb-4 text-brand-navy">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-blue-600"
+                className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -405,12 +405,12 @@ export const InstructorTable = ({
                 placeholder="New password (min. 6 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 pr-16 text-sm focus:outline-none focus:border-brand-gold"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold shadow-2xs"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors cursor-pointer"
               >
                 {showNewPassword ? "Hide" : "Show"}
               </button>
@@ -418,14 +418,14 @@ export const InstructorTable = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setChangePwdTarget(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-50 transition-all shadow-2xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleChangePwdSubmit}
                 disabled={pwdLoading}
-                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {pwdLoading ? "Saving..." : "Save Password"}
               </button>

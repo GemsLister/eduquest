@@ -226,11 +226,11 @@ export const AdminDashboard = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: "bg-yellow-100 text-yellow-700",
-      approved: "bg-green-100 text-green-700",
-      revision_requested: "bg-orange-100 text-orange-700",
-      faculty_head_review: "bg-blue-100 text-blue-700",
-      faculty_head_approved: "bg-green-100 text-green-700",
+      pending: "bg-amber-50 text-amber-700 border border-amber-200",
+      approved: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+      revision_requested: "bg-rose-50 text-rose-700 border border-rose-200",
+      faculty_head_review: "bg-blue-50 text-blue-700 border border-blue-200",
+      faculty_head_approved: "bg-emerald-50 text-emerald-700 border border-emerald-200",
     };
     const labels = {
       pending: "Pending",
@@ -241,7 +241,7 @@ export const AdminDashboard = () => {
     };
     return (
       <span
-        className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-gray-100 text-gray-600"}`}
+        className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-slate-100 text-slate-600 border border-slate-200"}`}
       >
         {labels[status] || status}
       </span>
@@ -262,7 +262,7 @@ export const AdminDashboard = () => {
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
+        <p className="text-brand-gold text-xs font-bold uppercase tracking-widest mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -276,7 +276,7 @@ export const AdminDashboard = () => {
       {/* Stats */}
       <div className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -294,7 +294,7 @@ export const AdminDashboard = () => {
 
           <a
             href="/admin-dashboard/quiz-reviews"
-            className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-brand-gold/30 hover:shadow-md transition-all cursor-pointer"
+            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4 hover:border-brand-gold/40 hover:shadow-md transition-all cursor-pointer"
           >
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -311,14 +311,14 @@ export const AdminDashboard = () => {
             </div>
             {pendingReviews > 0 && (
               <div className="ml-auto">
-                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold rounded-full">
                   Action Needed
                 </span>
               </div>
             )}
           </a>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -342,7 +342,7 @@ export const AdminDashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Review Stats */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
                 <h3 className="text-sm font-bold text-gray-700 mb-4">
                   Review Overview
                 </h3>
@@ -357,13 +357,13 @@ export const AdminDashboard = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Approval Rate</span>
-                    <span className="text-lg font-bold text-green-600">
+                    <span className="text-lg font-bold text-emerald-600">
                       {bloomsStats.approvalRate}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Revision Rate</span>
-                    <span className="text-lg font-bold text-orange-600">
+                    <span className="text-lg font-bold text-amber-600">
                       {bloomsStats.revisionRate}%
                     </span>
                   </div>
@@ -384,7 +384,7 @@ export const AdminDashboard = () => {
                     <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
                       {bloomsStats.approved > 0 && (
                         <div
-                          className="bg-green-500"
+                          className="bg-emerald-500"
                           style={{
                             width: `${(bloomsStats.approved / bloomsStats.total) * 100}%`,
                           }}
@@ -393,7 +393,7 @@ export const AdminDashboard = () => {
                       )}
                       {pendingReviews > 0 && (
                         <div
-                          className="bg-yellow-400"
+                          className="bg-amber-400"
                           style={{
                             width: `${(pendingReviews / bloomsStats.total) * 100}%`,
                           }}
@@ -402,7 +402,7 @@ export const AdminDashboard = () => {
                       )}
                       {bloomsStats.revisionRequested > 0 && (
                         <div
-                          className="bg-orange-500"
+                          className="bg-rose-500"
                           style={{
                             width: `${(bloomsStats.revisionRequested / bloomsStats.total) * 100}%`,
                           }}
@@ -410,17 +410,17 @@ export const AdminDashboard = () => {
                         />
                       )}
                     </div>
-                    <div className="flex gap-3 mt-2 text-[10px] text-gray-400">
+                    <div className="flex gap-3 mt-2 text-[10px] text-gray-400 font-medium">
                       <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         Approved
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                        <span className="w-2 h-2 rounded-full bg-amber-400" />
                         Pending
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
                         Revision
                       </span>
                     </div>
@@ -429,7 +429,7 @@ export const AdminDashboard = () => {
               </div>
 
               {/* LOTS vs HOTS */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
                 <h3 className="text-sm font-bold text-gray-700 mb-4">
                   Aggregate LOTS vs HOTS
                 </h3>
@@ -442,19 +442,19 @@ export const AdminDashboard = () => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className="bg-brand-navy/5 rounded-lg p-3">
+                  <div className="bg-brand-navy/5 rounded-xl p-3">
                     <p className="text-2xl font-black text-brand-navy">
                       {bloomsStats.totalLots}
                     </p>
-                    <p className="text-xs text-brand-navy font-medium">
+                    <p className="text-xs text-brand-navy font-bold">
                       LOTS Questions
                     </p>
                   </div>
-                  <div className="bg-amber-50 rounded-lg p-3">
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
                     <p className="text-2xl font-black text-amber-600">
                       {bloomsStats.totalHots}
                     </p>
-                    <p className="text-xs text-amber-500 font-medium">
+                    <p className="text-xs text-amber-600 font-bold">
                       HOTS Questions
                     </p>
                   </div>
@@ -462,7 +462,7 @@ export const AdminDashboard = () => {
               </div>
 
               {/* Distribution Chart */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
                 <h3 className="text-sm font-bold text-gray-700 mb-2">
                   Aggregate Bloom's Distribution
                 </h3>
@@ -483,10 +483,10 @@ export const AdminDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
               onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5 text-brand-navy"
@@ -503,7 +503,7 @@ export const AdminDashboard = () => {
                   </svg>
                 </div>
                 {pendingReviews > 0 && (
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold rounded-full">
                     {pendingReviews}
                   </span>
                 )}
@@ -518,10 +518,10 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/registration-requests")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5 text-brand-navy"
@@ -538,7 +538,7 @@ export const AdminDashboard = () => {
                   </svg>
                 </div>
                 {pendingRequests > 0 && (
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold rounded-full">
                     {pendingRequests}
                   </span>
                 )}
@@ -553,10 +553,10 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/instructors")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5 text-brand-navy"
@@ -583,10 +583,10 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/create-instructor")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-gold/15 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-brand-gold/15 flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5 text-brand-gold-dark"
@@ -620,7 +620,7 @@ export const AdminDashboard = () => {
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">
               TOS Compliance Overview
             </h2>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
               {tosCompliance && tosCompliance.total > 0 ? (
                 <>
                   {/* Donut-style visual */}
@@ -749,7 +749,7 @@ export const AdminDashboard = () => {
                 View All
               </button>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
               {recentLoading ? (
                 <div className="p-8 text-center text-sm text-gray-400">
                   Loading recent submissions...

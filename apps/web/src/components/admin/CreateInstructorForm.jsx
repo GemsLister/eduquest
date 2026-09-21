@@ -65,7 +65,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
   if (created) {
     return (
       <div className="max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
           <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
               <svg
@@ -91,27 +91,27 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
             </p>
           </div>
 
-          <div className="p-6 space-y-3">
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+          <div className="p-6 space-y-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5">
               {created.name && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Name</span>
-                  <span className="font-semibold text-gray-800">
+                  <span className="text-slate-500 font-medium">Name</span>
+                  <span className="font-bold text-slate-800">
                     {created.name}
                   </span>
                 </div>
               )}
               {created.username && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Username</span>
-                  <span className="font-semibold text-gray-800">
-                    {created.username}
+                  <span className="text-slate-500 font-medium">Username</span>
+                  <span className="font-bold text-slate-800 font-mono">
+                    @{created.username}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Email</span>
-                <span className="font-semibold text-gray-800">
+                <span className="text-slate-500 font-medium">Email</span>
+                <span className="font-bold text-slate-800">
                   {created.email}
                 </span>
               </div>
@@ -119,7 +119,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
 
             <button
               onClick={handleCreateAnother}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-gold text-brand-navy rounded-xl font-semibold hover:bg-brand-gold-dark transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-gold text-brand-navy rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -147,7 +147,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
     <div className="max-w-lg mx-auto">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+        className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden"
       >
         {/* Form Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
@@ -191,7 +191,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                     value={form.firstName}
                     onChange={handleChange}
                     placeholder="e.g. Juan"
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
                   />
                 </div>
               </div>
@@ -220,7 +220,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                     value={form.lastName}
                     onChange={handleChange}
                     placeholder="e.g. dela Cruz"
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
                   />
                 </div>
               </div>
@@ -253,7 +253,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   onChange={handleChange}
                   placeholder="e.g. jdelacruz"
                   autoComplete="off"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
                 />
               </div>
             </div>
@@ -296,7 +296,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   placeholder="instructor@school.edu.ph"
                   required
                   autoComplete="off"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
                 />
               </div>
             </div>
@@ -330,7 +330,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="w-full pl-10 pr-16 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                  className="w-full pl-10 pr-16 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
                 />
                 <button
                   type="button"
@@ -376,7 +376,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-gold text-brand-navy px-6 py-3 rounded-xl font-semibold hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-gold text-brand-navy px-6 py-3 rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

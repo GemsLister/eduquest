@@ -40,9 +40,9 @@ export const CreateQuizFormButton = ({
     <>
       <button
         onClick={() => setShowQuizForm(true)}
-        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors shadow-md"
+        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2.5 rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs active:scale-98 cursor-pointer"
       >
-        <span className="text-lg">+</span> Create Quiz
+        <span className="text-lg leading-none">+</span> Create Quiz
       </button>
 
       {showQuizForm && (

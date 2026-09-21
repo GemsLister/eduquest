@@ -219,10 +219,10 @@ export const AdminSidebar = () => {
                 end={nav.end}
                 onClick={nav.isLogout ? handleLogout : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                  `flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm transition-all duration-200 outline-none focus:outline-none ${
                     isActive && !nav.isLogout
-                      ? "bg-brand-gold/20 text-brand-gold shadow-inner"
-                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                      ? "bg-brand-gold/15 text-brand-gold border border-brand-gold/30 shadow-xs"
+                      : "text-white/70 hover:bg-white/10 hover:text-white border border-transparent"
                   }`
                 }
               >
