@@ -1,15 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
 import { useFetchSectionQuiz } from "../../hooks/quizHook/useFetchSectionQuiz.jsx";
 import { sectionService } from "../../services/sectionService.js";
+import { subjectService } from "../../services/subjectService.js";
 import { supabase } from "../../supabaseClient.js";
 import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
-import { InstructorSubjectRequests } from "../../components/InstructorSubjectRequests.jsx";
 import { SubjectSectionModal } from "../../components/SubjectSectionModal.jsx";
+import { SubjectRequestForm } from "../../components/SubjectRequestForm.jsx";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -56,7 +57,54 @@ export const InstructorDashboard = () => {
   const [editSaving, setEditSaving] = useState(false);
   const [selectedSubjectForModal, setSelectedSubjectForModal] = useState(null);
   const [addSectionSubject, setAddSectionSubject] = useState(null);
+  const [showSubjectRequestModal, setShowSubjectRequestModal] = useState(false);
+  const [curriculumSubjects, setCurriculumSubjects] = useState([]);
   const confirm = useConfirm();
+
+  // Load approved curriculum subjects and requested subjects for this instructor
+  const fetchCurriculumSubjects = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      // 1. Approved curriculum subjects
+      const res = await subjectService.getInstructorApprovedSubjects(user.id);
+      const approvedList = Array.isArray(res) ? res : res?.data || [];
+
+      // 2. User's requested subjects (auto add requested subject to subject cards)
+      const reqRes = await subjectService.getMySubjectRequests(user.id);
+      const reqList = Array.isArray(reqRes) ? reqRes : reqRes?.data || [];
+      const requestedFormatted = reqList
+        .filter((r) => r.request_status !== "rejected")
+        .map((r) => ({
+          id: r.id,
+          subject_id: r.id,
+          name: r.subject_name,
+          code: r.subject_code || "",
+          grade_level: r.grade_level || "",
+          description: r.description || "",
+        }));
+
+      setCurriculumSubjects([...approvedList, ...requestedFormatted]);
+    } catch (err) {
+      console.error("Error loading curriculum subjects:", err);
+      setCurriculumSubjects([]);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchCurriculumSubjects();
+  }, [fetchCurriculumSubjects]);
+
+  useEffect(() => {
+    const handleSubjectsChanged = () => {
+      fetchCurriculumSubjects();
+    };
+    window.addEventListener("subjects-changed", handleSubjectsChanged);
+    window.addEventListener("subject-requests-changed", handleSubjectsChanged);
+    return () => {
+      window.removeEventListener("subjects-changed", handleSubjectsChanged);
+      window.removeEventListener("subject-requests-changed", handleSubjectsChanged);
+    };
+  }, [fetchCurriculumSubjects]);
 
   // Fetch archived sections on mount so the badge count is always available
   useEffect(() => {
@@ -163,11 +211,61 @@ export const InstructorDashboard = () => {
     }
   };
 
-  // Group sections by Subject (Normalized View)
+  // Group sections by Subject (Normalized View with multi-key de-duplication)
   const groupedSubjects = useMemo(() => {
-    const map = new Map();
+    const list = [];
 
-    (sections || []).forEach((sec) => {
+    const findEntry = (id, name, code) => {
+      const normName = name ? name.toLowerCase().trim() : null;
+      const normCode = code ? code.toLowerCase().trim() : null;
+
+      for (const entry of list) {
+        if (id && (entry.id === id || entry.subject_id === id)) return entry;
+        if (normName && entry.name && entry.name.toLowerCase().trim() === normName) return entry;
+        if (normCode && entry.code && entry.code.toLowerCase().trim() === normCode) return entry;
+      }
+      return null;
+    };
+
+    // 1. Populate approved curriculum subjects and requested subjects
+    const subjectList = Array.isArray(curriculumSubjects)
+      ? curriculumSubjects
+      : Array.isArray(curriculumSubjects?.data)
+      ? curriculumSubjects.data
+      : [];
+
+    subjectList.forEach((sub) => {
+      if (!sub) return;
+      const subName = (sub.name || sub.subject_name || "").trim();
+      const subCode = (sub.code || sub.subject_code || "").trim();
+      if (!subName) return;
+
+      const existing = findEntry(sub.id, subName, subCode);
+      if (existing) {
+        if (!existing.id && sub.id) existing.id = sub.id;
+        if (!existing.subject_id && (sub.subject_id || sub.id)) {
+          existing.subject_id = sub.subject_id || sub.id;
+        }
+        if (!existing.code && subCode) existing.code = subCode;
+        if (!existing.description && sub.description) existing.description = sub.description;
+        if (!existing.grade_level && sub.grade_level) existing.grade_level = sub.grade_level;
+      } else {
+        list.push({
+          id: sub.id,
+          subject_id: sub.subject_id || sub.id,
+          name: subName,
+          code: subCode,
+          description: sub.description || "",
+          grade_level: sub.grade_level || "",
+          sections: [],
+        });
+      }
+    });
+
+    // 2. Merge assigned sections into corresponding subject groups
+    const secList = Array.isArray(sections) ? sections : [];
+    secList.forEach((sec) => {
+      if (!sec) return;
       const subjectObj = sec.subjects || {};
       let subName = subjectObj.name;
       let subCode = subjectObj.code || "";
@@ -182,29 +280,35 @@ export const InstructorDashboard = () => {
         }
       }
 
-      const key = (subjectObj.id || subName).toLowerCase().trim();
+      const secSubId = subjectObj.id || sec.subject_id;
+      const existing = findEntry(secSubId, subName, subCode);
 
-      if (!map.has(key)) {
-        map.set(key, {
-          id: subjectObj.id || sec.id,
-          subject_id: subjectObj.id || sec.subject_id,
-          name: subName,
-          code: subCode,
-          description: subDesc,
-          sections: [sec],
-        });
-      } else {
-        const existing = map.get(key);
+      if (existing) {
         if (!existing.sections.some((s) => s.id === sec.id)) {
           existing.sections.push(sec);
         }
+        if (!existing.id && secSubId) existing.id = secSubId;
+        if (!existing.subject_id && secSubId) existing.subject_id = secSubId;
         if (!existing.code && subCode) existing.code = subCode;
         if (!existing.description && subDesc) existing.description = subDesc;
+        if (!existing.grade_level && subjectObj.grade_level) {
+          existing.grade_level = subjectObj.grade_level;
+        }
+      } else {
+        list.push({
+          id: secSubId || sec.id,
+          subject_id: secSubId || sec.id,
+          name: subName,
+          code: subCode,
+          description: subDesc,
+          grade_level: subjectObj.grade_level || sec.grade_level || "",
+          sections: [sec],
+        });
       }
     });
 
-    return Array.from(map.values());
-  }, [sections]);
+    return list;
+  }, [curriculumSubjects, sections]);
 
   // Filter grouped subjects by search
   const filteredSubjects = useMemo(() => {
@@ -297,6 +401,16 @@ export const InstructorDashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowSubjectRequestModal(true)}
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold border border-white/20 transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-98"
+              title="Request a new curriculum subject from the Department Head"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Request Subject</span>
+            </button>
             <CreateSectionButton
               userId={user?.id}
               onSectionCreated={(newSec) => {
@@ -309,9 +423,6 @@ export const InstructorDashboard = () => {
 
       {/* Main Content Area */}
       <div className="p-6">
-        {/* Subject Requests Section */}
-        <InstructorSubjectRequests />
-
         {/* Search and Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
@@ -482,32 +593,38 @@ export const InstructorDashboard = () => {
                             Assigned Sections
                           </p>
                           <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
-                            {sub.sections.map((sec) => {
-                              const sectionCode = sec.description || sec.section_code || "";
-                              let secDisplayName = sec.name || "";
-                              if (secDisplayName.includes("-")) {
-                                const parts = secDisplayName.split("-");
-                                secDisplayName = parts[parts.length - 1].trim();
-                              }
-                              const label = sectionCode || secDisplayName;
+                            {sub.sections.length === 0 ? (
+                              <span className="text-xs text-slate-400 italic py-1">
+                                No sections assigned
+                              </span>
+                            ) : (
+                              sub.sections.map((sec) => {
+                                const sectionCode = sec.description || sec.section_code || "";
+                                let secDisplayName = sec.name || "";
+                                if (secDisplayName.includes("-")) {
+                                  const parts = secDisplayName.split("-");
+                                  secDisplayName = parts[parts.length - 1].trim();
+                                }
+                                const label = sectionCode || secDisplayName;
 
-                              return (
-                                <span
-                                  key={sec.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedSubjectForModal(sub);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors cursor-pointer border border-slate-200"
-                                  title={`Section: ${sectionCode || secDisplayName}`}
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                                  </svg>
-                                  <span>{label}</span>
-                                </span>
-                              );
-                            })}
+                                return (
+                                  <span
+                                    key={sec.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedSubjectForModal(sub);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors cursor-pointer border border-slate-200"
+                                    title={`Section: ${sectionCode || secDisplayName}`}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                    </svg>
+                                    <span>{label}</span>
+                                  </span>
+                                );
+                              })
+                            )}
                           </div>
                         </div>
 
@@ -733,6 +850,7 @@ export const InstructorDashboard = () => {
           onSectionCreated={(newSec) => {
             setSections((prev) => [newSec, ...prev]);
             setAddSectionSubject(null);
+            fetchCurriculumSubjects();
           }}
         />
       )}
@@ -785,6 +903,17 @@ export const InstructorDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showSubjectRequestModal && (
+        <SubjectRequestForm
+          isOpen={showSubjectRequestModal}
+          onClose={() => setShowSubjectRequestModal(false)}
+          onRequestSubmitted={() => {
+            window.dispatchEvent(new CustomEvent("subject-requests-changed"));
+            window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
+          }}
+        />
       )}
     </>
   );

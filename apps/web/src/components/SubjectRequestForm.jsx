@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { supabase } from "../supabaseClient";
+import { createPortal } from "react-dom";
+import { subjectService } from "../services/subjectService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { notify } from "../utils/notify.jsx";
 
@@ -26,7 +27,10 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setLoading(true);
     setError("");
 
@@ -48,10 +52,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
         user?.email?.split("@")[0] ||
         "Faculty Member";
 
-      const requestId = `req_${crypto.randomUUID()}`;
-
-      const requestPayload = {
-        id: requestId,
+      const result = await subjectService.submitSubjectRequest({
         subject_name: subjectNameTrimmed,
         subject_code: formData.subject_code?.trim() || null,
         grade_level: formData.grade_level || "1st",
@@ -59,64 +60,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
         requested_by: user?.id,
         requester_name: requesterName,
         requester_email: user?.email || null,
-        request_status: "pending",
-        created_at: new Date().toISOString(),
-      };
-
-      // 1. Fetch all Department Heads (is_faculty_head = true)
-      const { data: deptHeads } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("is_faculty_head", true);
-
-      const targetHeadIds = (deptHeads || []).map((dh) => dh.id);
-
-      // If no department head flagged, fallback to all admins or current user
-      if (targetHeadIds.length === 0) {
-        const { data: admins } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("is_admin", true);
-        if (admins) {
-          admins.forEach((a) => targetHeadIds.push(a.id));
-        }
-      }
-
-      const notificationsToInsert = [];
-
-      // Add notification for each Department Head
-      targetHeadIds.forEach((headId) => {
-        notificationsToInsert.push({
-          user_id: headId,
-          title: `Subject Request: ${subjectNameTrimmed}`,
-          message: JSON.stringify(requestPayload),
-          type: "info",
-          link: "/faculty-head-dashboard/subject-requests",
-          is_read: false,
-        });
       });
-
-      // Add a self-tracking notification for the requester
-      if (user?.id) {
-        notificationsToInsert.push({
-          user_id: user.id,
-          title: `My Subject Request: ${subjectNameTrimmed}`,
-          message: JSON.stringify(requestPayload),
-          type: "info",
-          link: "/faculty-head-dashboard/subject-requests",
-          is_read: false,
-        });
-      }
-
-      // Insert all notifications in one call
-      const { error: notifError } = await supabase
-        .from("notifications")
-        .insert(notificationsToInsert);
-
-      if (notifError) {
-        console.error("Notification insert error:", notifError);
-        throw notifError;
-      }
 
       notify.success("Subject request submitted to Department Head successfully!");
       window.dispatchEvent(new CustomEvent("subject-requests-changed"));
@@ -133,7 +77,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
       onClose();
 
       if (onRequestSubmitted) {
-        onRequestSubmitted({ success: true, id: requestId });
+        onRequestSubmitted({ success: true, id: result?.id });
       }
     } catch (err) {
       console.error("Error submitting subject request:", err);
@@ -144,15 +88,29 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSubmit(e);
+    }
+  };
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -188,9 +146,9 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
           </div>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
+        <div
           className="p-6 space-y-4 overflow-y-auto"
+          onKeyDown={handleKeyDown}
         >
           {error && (
             <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-semibold">
@@ -210,6 +168,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               placeholder="e.g., Database Management"
               className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm transition-all"
               disabled={loading}
+              autoFocus
             />
           </div>
 
@@ -236,12 +195,12 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               name="grade_level"
               value={formData.grade_level}
               onChange={handleInputChange}
-              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm font-medium text-slate-800 transition-all cursor-pointer"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm transition-all bg-white cursor-pointer"
               disabled={loading}
             >
-              {gradeLevels.map((level) => (
-                <option key={level} value={level}>
-                  {level} Year
+              {gradeLevels.map((lvl) => (
+                <option key={lvl} value={lvl}>
+                  {lvl} Year
                 </option>
               ))}
             </select>
@@ -249,14 +208,14 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Description / Coverage <span className="text-slate-400 font-normal">(Optional)</span>
+              Description / Rationale <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              placeholder="Brief overview of the subject coverage..."
-              rows="3"
+              rows={3}
+              placeholder="Brief overview of course topics or why this subject is needed..."
               className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm resize-none transition-all"
               disabled={loading}
             />
@@ -292,7 +251,8 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer flex items-center justify-center gap-2"
             >
@@ -306,8 +266,12 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };

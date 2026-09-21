@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { subjectService } from "../../services/subjectService.js";
 
 export const FacultyHeadDashboard = () => {
   const { user } = useAuth();
@@ -9,6 +10,7 @@ export const FacultyHeadDashboard = () => {
   const [name, setName] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [approvedCount, setApprovedCount] = useState(0);
+  const [pendingSubjectRequests, setPendingSubjectRequests] = useState(0);
   const [recentSubmissions, setRecentSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +39,17 @@ export const FacultyHeadDashboard = () => {
 
       setPendingApprovals(pending || 0);
       setApprovedCount(approved || 0);
+
+      // Count pending subject requests
+      try {
+        const { data: reqs } = await subjectService.getAllSubjectRequests();
+        const pendingReqs = (reqs || []).filter(
+          (r) => r.request_status === "pending"
+        ).length;
+        setPendingSubjectRequests(pendingReqs);
+      } catch (e) {
+        console.warn("Could not load subject requests count:", e);
+      }
 
       // Recent submissions for department head
       const { data } = await supabase
@@ -124,7 +137,7 @@ export const FacultyHeadDashboard = () => {
 
       <div className="p-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <a
             href="/faculty-head-dashboard/quiz-approvals"
             className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-brand-gold/30 hover:shadow-md transition-all cursor-pointer"
@@ -140,6 +153,26 @@ export const FacultyHeadDashboard = () => {
               <div className="ml-auto">
                 <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
                   Action Needed
+                </span>
+              </div>
+            )}
+          </a>
+
+          <a
+            href="/faculty-head-dashboard/subject-requests"
+            className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-4 hover:border-brand-gold/30 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="text-3xl">📚</div>
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Subject Requests</p>
+              <p className="text-3xl font-black text-brand-navy">
+                {loading ? "—" : pendingSubjectRequests}
+              </p>
+            </div>
+            {pendingSubjectRequests > 0 && (
+              <div className="ml-auto">
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
+                  Pending Review
                 </span>
               </div>
             )}
@@ -164,7 +197,7 @@ export const FacultyHeadDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
@@ -183,6 +216,30 @@ export const FacultyHeadDashboard = () => {
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
                 Approve quizzes forwarded by Senior Faculty
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/faculty-head-dashboard/subject-requests")}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:border-brand-gold/30 hover:shadow-md transition-all text-left group cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-brand-gold/15 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                {pendingSubjectRequests > 0 && (
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
+                    {pendingSubjectRequests}
+                  </span>
+                )}
+              </div>
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
+                Subject Requests
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Review and approve subject proposals from instructors
               </p>
             </button>
           </div>

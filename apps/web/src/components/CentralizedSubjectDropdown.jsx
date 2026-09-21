@@ -119,8 +119,10 @@ export const CentralizedSubjectDropdown = ({
   };
 
   const handleRequestSubmitted = (result) => {
-    // Refresh subjects list in case the request was approved (unlikely but possible)
+    // Refresh subjects list and notify dashboard listeners
     fetchSubjects();
+    window.dispatchEvent(new CustomEvent("subject-requests-changed"));
+    window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
   };
 
   const getGradeLabel = (gradeLevel) => {
