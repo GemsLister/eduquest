@@ -40,7 +40,7 @@ export const ItemAnalysisTable = ({
   };
 
   return (
-    <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-slate-300 flex flex-col lg:flex-row gap-6 p-4 lg:p-6">
+    <div className="bg-white shadow-xs rounded-2xl overflow-hidden border border-slate-200 flex flex-col lg:flex-row gap-6 p-4 lg:p-6">
       <div className="lg:flex-1 min-w-0 order-2 lg:order-1">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -98,63 +98,50 @@ export const ItemAnalysisTable = ({
                         {item.discStatus}
                       </div>
                       {item.highestScore !== undefined && (
-                        <div className="text-xs text-gray-500 mt-1 font-mono text-[11px]">
-                          H{item.highestScore} L{item.lowestScore}
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          Hi: {item.highestScore} | Lo: {item.lowestScore}
                         </div>
                       )}
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
-                      <span 
-                        className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all transform ${
-                          item.autoFlag === "approved" 
-                            ? "bg-green-500 opacity-80 cursor-default" 
-                            : item.autoFlag === "reject"
-                            ? "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
-                            : item.autoFlag === "revise"
-                            ? "bg-orange-500 hover:bg-orange-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
-                            : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
-                        }`}
-                        onClick={() => (item.autoFlag === 'revise' || item.autoFlag === 'reject') && onFlagClick(item)}
-                        title={
-                          item.autoFlag === 'revise' 
-                            ? "Click to edit revision" 
-                            : item.autoFlag === 'reject'
-                            ? "Click to replace with new question"
-                            : "Good item (no revision needed)"
-                        }
-                      >
-                        {item.autoFlag === 'approved' ? 'RETAIN' : item.autoFlag?.toUpperCase()}
-                      </span>
+                      {item.autoFlag === 'retain' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                          Retain
+                        </span>
+                      ) : item.autoFlag === 'revise' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Revise
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          Reject
+                        </span>
+                      )}
                     </td>
 
-                    <td className="p-3">
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          onClick={() => toggleDetails(item.question_id)}
-                          className="w-full text-indigo-600 font-bold text-xs uppercase hover:underline px-3 py-1 rounded hover:bg-indigo-50 transition-colors text-center block"
-                        >
-                          {expandedQuestion === item.question_id ? "Hide" : "View"}
-                        </button>
-
-                        {(item.autoFlag === 'revise' || item.autoFlag === 'reject' || item.status === 'Revise' || item.status === 'Reject' || (item.revision_history && item.revision_history.length > 0)) && (
-                          <button
-                            onClick={() => {
-                              setSelectedComparisonItem(item);
-                              setSelectedComparisonIndex(startIndex + index);
-                            }}
-                            className="w-full text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors text-center flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
-                            title="View full side-by-side revision history comparison"
-                          >
-                            <span>📜 History</span>
-                          </button>
-                        )}
-                      </div>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => toggleDetails(item.question_id)}
+                        className={`p-2 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
+                          expandedQuestion === item.question_id
+                            ? 'bg-brand-navy text-white border-brand-navy shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                        title="Inspect breakdown"
+                      >
+                        {expandedQuestion === item.question_id ? 'Hide' : 'Inspect'}
+                      </button>
                     </td>
                   </tr>
+
+                  {/* Expanded detail accordion */}
                   {expandedQuestion === item.question_id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan="5" className="p-0 border-t border-b border-indigo-100">
-                        <div className="p-6">
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={5} className="p-4 border-t border-slate-200">
+                        <div className="space-y-4">
                           <DetailedItemAnalysis
                             item={item}
                             index={startIndex + index}
@@ -163,12 +150,8 @@ export const ItemAnalysisTable = ({
                               setSelectedComparisonIndex(idxToCompare);
                             }}
                           />
-                          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="max-h-[600px] overflow-y-auto">
-                              <DistractorAnalysis item={item} />
-                            </div>
-                            <TakersDetailTable item={item} searchTerm={studentSearchTerm} />
-                          </div>
+                          <DistractorAnalysis item={item} />
+                          <TakersDetailTable item={item} searchTerm={studentSearchTerm} />
                         </div>
                       </td>
                     </tr>
@@ -181,86 +164,66 @@ export const ItemAnalysisTable = ({
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
-            <div className="flex items-center justify-between flex-1">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(endIndex, analysis.length)}</span> of{' '}
-                  <span className="font-medium">{analysis.length}</span> results
-                </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-200 text-xs font-semibold text-slate-600">
+            <div>
+              Showing {startIndex + 1} to {Math.min(endIndex, analysis.length)} of {analysis.length} items
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    page === 1 || 
+                    page === totalPages || 
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
+                          currentPage === page
+                            ? 'bg-brand-navy text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (
+                    page === currentPage - 2 || 
+                    page === currentPage + 2
+                  ) {
+                    return (
+                      <span key={page} className="px-1 text-slate-400">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
               </div>
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                    currentPage === 1
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                
-                {/* Page Numbers */}
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    // Show first page, last page, current page, and pages around current
-                    if (
-                      page === 1 || 
-                      page === totalPages || 
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    ) {
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => handlePageChange(page)}
-                          className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                            currentPage === page
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    } else if (
-                      page === currentPage - 2 || 
-                      page === currentPage + 2
-                    ) {
-                      return (
-                        <span key={page} className="relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium text-gray-400">
-                          ...
-                        </span>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-                
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                    currentPage === totalPages
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
+              
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
       </div>
       <div className="lg:w-72 lg:flex-shrink-0 lg:sticky lg:top-4 lg:max-h-[80vh] lg:overflow-y-auto order-1 lg:order-2">
-        <div className="bg-gradient-to-b from-slate-50 to-white rounded-xl p-5 border-2 border-dashed border-slate-200 shadow-md">
+        <div className="bg-slate-50/70 rounded-2xl p-5 border border-slate-200 shadow-xs">
           <h4 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide text-center border-b border-slate-200 pb-2">
             📊 Legend
           </h4>

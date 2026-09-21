@@ -128,9 +128,9 @@ export const StudentProfiles = () => {
 
   // Get color based on score percentage
   const getPercentileColor = (percentile) => {
-    if (percentile >= 80) return "text-green-700 bg-green-100";
-    if (percentile >= 60) return "text-orange-700 bg-orange-100";
-    return "text-red-700 bg-red-100";
+    if (percentile >= 80) return "text-emerald-700 bg-emerald-50 border border-emerald-200";
+    if (percentile >= 60) return "text-amber-700 bg-amber-50 border border-amber-200";
+    return "text-rose-700 bg-rose-50 border border-rose-200";
   };
 
   // State for subject results
@@ -762,249 +762,255 @@ export const StudentProfiles = () => {
   }, [filteredResults]);
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white">
-      {/* Header */}
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
-        <div className="p-6 bg-brand-navy text-white">
+    <div className="flex-1 overflow-auto bg-authentic-white min-h-screen">
+      {/* Signature Top Hero Banner */}
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 shadow-xs border-b border-white/10 mb-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wider">
-              Student Profiles & Item Analysis
+            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+              INSTRUCTOR DASHBOARD
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+              Student Profiles
             </h1>
-            <p className="opacity-80 text-sm">
-              View student performance and item analysis results
+            <p className="text-slate-300 text-sm mt-1">
+              Comprehensive student performance across quizzes, scores, and class distribution
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Selection Controls */}
-        <div className="p-6">
+      <div className="max-w-7xl mx-auto px-6 pb-8 space-y-6">
+        {/* Selection & Filter Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
           {/* Subject Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
               Select Subject
             </label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => {
-                setSelectedSubject(e.target.value);
-                setSelectedQuiz("");
-              }}
-              className="w-[40%] px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            >
-              <option value="">-- Select a Subject --</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {formatSubjectLabel(subject)}
-                </option>
-              ))}
-            </select>
+            <div className="w-full sm:w-96">
+              <select
+                value={selectedSubject}
+                onChange={(e) => {
+                  setSelectedSubject(e.target.value);
+                  setSelectedQuiz("");
+                }}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white text-slate-800 shadow-2xs font-semibold text-sm transition-all"
+              >
+                <option value="">-- Select a Subject --</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {formatSubjectLabel(subject)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Search and Filter Section */}
           {selectedSubject && (
-            <div className="space-y-4">
-              {/* Search Bar */}
-              <div className="flex items-center gap-4">
-                <div className="flex w-[40%]">
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                {/* Search Bar */}
+                <div className="relative w-full sm:w-80">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <svg
+                      className="h-4 w-4 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
                   <input
                     type="text"
                     value={studentSearch}
                     onChange={(e) => setStudentSearch(e.target.value)}
                     placeholder="Search by student name..."
-                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white text-slate-800 shadow-2xs text-sm transition-all placeholder:text-slate-400"
                   />
-                  <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
                 </div>
 
-                {/* Action Button */}
-                <button className="px-4 py-2 bg-brand-gold text-brand-navy rounded-full hover:bg-blue-700 transition-colors font-medium">
-                  Manage Students
-                </button>
-              </div>
-
-              {/* Filter Buttons */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600 mr-2">
-                  Filter:
-                </span>
-                <button
-                  onClick={() => setPerformanceFilter("all")}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    performanceFilter === "all"
-                      ? "text-gray-700 bg-gray-100"
-                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setPerformanceFilter("strong")}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    performanceFilter === "strong"
-                      ? "text-gray-700 bg-gray-100"
-                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  Strong (80%+)
-                </button>
-                <button
-                  onClick={() => setPerformanceFilter("average")}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    performanceFilter === "average"
-                      ? "text-gray-700 bg-gray-100"
-                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  Average (60-79%)
-                </button>
-                <button
-                  onClick={() => setPerformanceFilter("weak")}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    performanceFilter === "weak"
-                      ? "text-gray-700 bg-gray-100"
-                      : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  Weak (&lt;60%)
-                </button>
+                {/* Filter Badges / Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1.5">
+                    Filter:
+                  </span>
+                  <button
+                    onClick={() => setPerformanceFilter("all")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      performanceFilter === "all"
+                        ? "bg-brand-navy text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setPerformanceFilter("strong")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      performanceFilter === "strong"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/80"
+                    }`}
+                  >
+                    Strong (80%+)
+                  </button>
+                  <button
+                    onClick={() => setPerformanceFilter("average")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      performanceFilter === "average"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100/80"
+                    }`}
+                  >
+                    Average (60–79%)
+                  </button>
+                  <button
+                    onClick={() => setPerformanceFilter("weak")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      performanceFilter === "weak"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100/80"
+                    }`}
+                  >
+                    Weak (&lt;60%)
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">
-          <p className="font-semibold">Error</p>
-          <p>{error}</p>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div className="px-6 pb-6">
-          <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-600">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
-            <p className="mt-2">Loading data...</p>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 shadow-xs flex items-center gap-3">
+            <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="font-bold text-sm">Error</p>
+              <p className="text-xs">{error}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center text-slate-600">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+            <p className="mt-3 text-sm font-medium text-slate-500">Loading student records...</p>
+          </div>
+        )}
 
-      {/* Student Profiles Table */}
-      {!loading && selectedSubject && subjectResults.length > 0 && (
-        <div className="px-6 pb-6">
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-6 bg-gray-50 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">
-                {formatSubjectLabel(
-                  subjects.find((s) => s.id === selectedSubject),
-                )}{" "}
-                - Student Profiles
-              </h2>
+        {/* Student Profiles Table & Summary */}
+        {!loading && selectedSubject && subjectResults.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-6 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-brand-navy">
+                  {formatSubjectLabel(subjects.find((s) => s.id === selectedSubject))} — Student Performance Matrix
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Overview of scores per assessment and weighted class performance
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                <span>{filteredResults.length} {filteredResults.length === 1 ? 'Student' : 'Students'}</span>
+              </div>
             </div>
 
-            <div className="flex">
-              {/* Summary Section */}
-              <div className="w-64 p-6 bg-gray-50 border-r border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Summary
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
-                    <span className="text-green-800 font-semibold">Strong</span>
-                    <span className="text-2xl font-bold text-green-600">
-                      {summary.strong}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-orange-100 rounded-lg">
-                    <span className="text-orange-800 font-semibold">
-                      Average
-                    </span>
-                    <span className="text-2xl font-bold text-orange-600">
-                      {summary.average}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-red-100 rounded-lg">
-                    <span className="text-red-800 font-semibold">Weak</span>
-                    <span className="text-2xl font-bold text-red-600">
-                      {summary.weak}
-                    </span>
+            <div className="flex flex-col lg:flex-row">
+              {/* Summary Section Sidebar */}
+              <div className="w-full lg:w-72 p-6 bg-slate-50/50 lg:border-r border-b lg:border-b-0 border-slate-200 flex flex-col gap-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Performance Summary
+                  </h3>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span className="text-emerald-800 font-bold text-xs">Strong (80%+)</span>
+                      </div>
+                      <span className="text-xl font-black text-emerald-700">{summary.strong}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200/80 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <span className="text-amber-800 font-bold text-xs">Average (60–79%)</span>
+                      </div>
+                      <span className="text-xl font-black text-amber-700">{summary.average}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-rose-50 border border-rose-200/80 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                        <span className="text-rose-800 font-bold text-xs">Weak (&lt;60%)</span>
+                      </div>
+                      <span className="text-xl font-black text-rose-700">{summary.weak}</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Legend */}
-                <div className="mt-6 p-3 bg-white rounded-lg border border-gray-200">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                    Performance Legend
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    Score Tiers
                   </h4>
-                  <div className="space-y-1 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                      <span className="text-gray-600">Strong: 80% - 100%</span>
+                      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></div>
+                      <span className="text-slate-600 font-medium">Strong: 80% – 100%</span>
                     </div>
                     <div className="flex items-center">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                      <span className="text-gray-600">Average: 60% - 79%</span>
+                      <div className="w-2.5 h-2.5 bg-amber-500 rounded-full mr-2"></div>
+                      <span className="text-slate-600 font-medium">Average: 60% – 79%</span>
                     </div>
                     <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                      <span className="text-gray-600">Weak: 0% - 59%</span>
+                      <div className="w-2.5 h-2.5 bg-rose-500 rounded-full mr-2"></div>
+                      <span className="text-slate-600 font-medium">Weak: 0% – 59%</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Results Table */}
-              <div className="flex-1 p-6">
+              <div className="flex-1 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full">
+                  <table className="min-w-full divide-y divide-slate-200">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-48">
+                      <tr className="bg-slate-50/80">
+                        <th className="text-left py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 min-w-[200px]">
                           Student Name
                         </th>
-                        {/* <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
-                          Section
-                        </th> */}
                         {subjectQuizzes.map((quiz) => (
                           <th
                             key={quiz.id}
-                            className="text-center py-3 px-4 text-sm font-semibold text-gray-700 min-w-[80px]"
+                            className="text-center py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 min-w-[120px]"
                           >
                             {quiz.title}
                           </th>
                         ))}
-                        <th className="text-center py-4 px-4 text-sm font-bold text-brand-navy min-w-[140px] bg-gray-100/50">
+                        <th className="text-center py-3.5 px-4 text-xs font-extrabold uppercase tracking-wider text-brand-navy min-w-[150px] bg-slate-100/70">
                           Overall Average
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-slate-100 bg-white">
                       {paginatedResults.map((student) => (
                         <tr
                           key={student.id}
-                          className="hover:bg-gray-50/50 transition-colors"
+                          className="hover:bg-slate-50/60 transition-colors"
                         >
-                          <td className="py-6 px-4 text-sm font-bold text-gray-800">
+                          <td className="py-4 px-4 text-sm font-bold text-slate-800">
                             {student.student_name}
                           </td>
-                          {/* <td className="py-6 px-4 text-xs text-gray-500 max-w-[200px] leading-relaxed">
-                            {student.section}
-                          </td> */}
                           {subjectQuizzes.map((quiz) => {
                             const quizResult = student.quizzes?.[quiz.id];
                             const percentage = quizResult?.percentage || 0;
@@ -1015,35 +1021,35 @@ export const StudentProfiles = () => {
                             return (
                               <td
                                 key={quiz.id}
-                                className="py-6 px-4 text-center"
+                                className="py-4 px-4 text-center"
                               >
                                 {hasAttempt ? (
                                   <div
-                                    className={`inline-flex flex-col items-center justify-center px-4 py-2 rounded-lg text-sm font-bold w-32 shadow-sm ${getPercentileColor(percentage)}`}
+                                    className={`inline-flex flex-col items-center justify-center px-3 py-1.5 rounded-xl text-xs font-bold w-28 shadow-2xs ${getPercentileColor(percentage)}`}
                                   >
-                                    <div className="text-base font-bold">
+                                    <div className="text-sm font-extrabold">
                                       {score}/{totalItems}
                                     </div>
-                                    <div className="text-[10px] opacity-80">
+                                    <div className="text-[10px] opacity-80 font-semibold">
                                       {percentage}%
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="text-gray-300 text-xs italic">
+                                  <span className="text-slate-300 text-xs italic font-medium">
                                     No attempt
-                                  </div>
+                                  </span>
                                 )}
                               </td>
                             );
                           })}
-                          <td className="py-6 px-4 text-center bg-gray-50/30">
+                          <td className="py-4 px-4 text-center bg-slate-50/40">
                             <div
-                              className={`inline-flex flex-col items-center justify-center px-4 py-2 rounded-lg text-sm font-black w-40 shadow-sm ${getPercentileColor(student.percentageScore)}`}
+                              className={`inline-flex flex-col items-center justify-center px-3.5 py-1.5 rounded-xl text-xs font-black w-32 shadow-2xs ${getPercentileColor(student.percentageScore)}`}
                             >
-                              <div className="text-lg font-bold">
+                              <div className="text-sm font-extrabold">
                                 {student.totalScore}/{student.totalItems}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-[10px] font-bold opacity-90">
                                 {student.percentageScore}%
                               </div>
                             </div>
@@ -1058,126 +1064,103 @@ export const StudentProfiles = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-700">
-                    Showing {(currentPage - 1) * studentsPerPage + 1} to{" "}
-                    {Math.min(
-                      currentPage * studentsPerPage,
-                      filteredResults.length,
-                    )}{" "}
-                    of {filteredResults.length} students
+              <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-xs font-semibold text-slate-600">
+                    Showing <strong className="text-slate-800">{(currentPage - 1) * studentsPerPage + 1}</strong> to{" "}
+                    <strong className="text-slate-800">{Math.min(currentPage * studentsPerPage, filteredResults.length)}</strong> of{" "}
+                    <strong className="text-slate-800">{filteredResults.length}</strong> students
                   </div>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-1.5">
                     <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(prev - 1, 1))
-                      }
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                        currentPage === 1
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-200"
-                      }`}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all"
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 19l-7-7 7-7"
-                        />
-                      </svg>
+                      Previous
                     </button>
 
-                    {/* Page Numbers */}
                     <div className="flex items-center space-x-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => {
-                          // Show first page, last page, current page, and pages around current
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                                  currentPage === page
-                                    ? "bg-gray-800 text-white"
-                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-200"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          } else if (
-                            page === currentPage - 2 ||
-                            page === currentPage + 2
-                          ) {
-                            return (
-                              <span
-                                key={page}
-                                className="relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium text-gray-400"
-                              >
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        },
-                      )}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-8 h-8 text-xs font-bold rounded-xl transition-all ${
+                                currentPage === page
+                                  ? "bg-brand-navy text-white shadow-xs"
+                                  : "text-slate-600 hover:bg-slate-200/70"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span
+                              key={page}
+                              className="w-6 text-center text-xs font-bold text-slate-400"
+                            >
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
                     </div>
 
                     <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                      }
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                        currentPage === totalPages
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-200"
-                      }`}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all"
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
+                      Next
                     </button>
                   </div>
                 </div>
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Empty State */}
-      {!loading && !selectedSubject && !selectedQuiz && (
-        <div className="px-6 pb-6">
-          <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-600">
-            Select a subject to view student performance data or a quiz to view
-            item analysis
+        {/* Empty State when no subject selected */}
+        {!loading && !selectedSubject && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-brand-navy/5 text-brand-navy flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-brand-navy mb-1">Select a Subject</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Please choose a subject from the dropdown above to view student profiles and performance statistics.
+            </p>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Empty State when subject selected but no results */}
+        {!loading && selectedSubject && subjectResults.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-brand-navy mb-1">No Student Records Found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              There are no student attempts or quiz records available for the selected subject yet.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

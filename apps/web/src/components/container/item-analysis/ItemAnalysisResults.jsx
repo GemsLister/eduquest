@@ -98,7 +98,7 @@ export const ItemAnalysisResults = ({
     <div className="space-y-4">
       {/* Small Sample Size Warning Banner (F1 - Sampling Guard) */}
       {selectedQuiz && isSmallSample && (
-        <div className="bg-brand-navy/5 border border-brand-navy/20 rounded-xl p-4">
+        <div className="bg-brand-navy/5 border border-brand-navy/20 rounded-2xl p-5 shadow-xs">
           <div className="flex items-start gap-3">
             <div className="shrink-0 mt-0.5">
               <AlertIcon className="h-4 w-4 text-brand-navy" />
@@ -106,7 +106,7 @@ export const ItemAnalysisResults = ({
             <div className="flex-1">
               <h4 className="text-sm font-bold text-brand-navy flex items-center gap-2 flex-wrap">
                 <span>Small Sample Size Warning (N = {sampleSize})</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-navy text-white uppercase">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-navy text-white uppercase">
                   Statistical Caution
                 </span>
               </h4>
@@ -129,7 +129,7 @@ export const ItemAnalysisResults = ({
 
       {/* Psychometrics & Test Reliability Overview (F2 - SEM & Internal Consistency) */}
       {selectedQuiz && testStats && sampleSize > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <ChartIcon className="h-4 w-4 text-brand-navy" />
@@ -291,7 +291,7 @@ export const ItemAnalysisResults = ({
 
       {/* Psychometric Reference & Evaluation Criteria (F3 - Anchor Concepts) */}
       {selectedQuiz && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl shadow-xs p-5">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-bold text-brand-navy flex items-center gap-1.5">
               <ChartIcon className="h-4 w-4" />
@@ -358,21 +358,21 @@ export const ItemAnalysisResults = ({
 
       {/* Analysis Results Table & Actions */}
       {selectedQuiz && (
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mb-6">
           {/* Action Bar */}
-          <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="p-5 bg-slate-50/70 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-700">
+              <h3 className="text-base font-bold text-slate-800">
                 Analysis Results
                 {analysis?.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
+                  <span className="ml-2 text-xs font-normal text-slate-500">
                     ({analysis.length} questions)
                   </span>
                 )}
               </h3>
               {selectedCohortFilter !== "all" && (
                 <div className="mt-1">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-navy/10 text-brand-navy border border-brand-navy/20">
                     Filter: {getCohortFilterLabel(selectedCohortFilter)}
                   </span>
                 </div>
@@ -388,12 +388,12 @@ export const ItemAnalysisResults = ({
               <button
                 onClick={handleSaveAnalysis}
                 disabled={savingAnalysis || !analysis || analysis.length === 0}
-                className={`px-6 py-2 rounded-full font-semibold text-white transition-colors ${
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs ${
                   savingAnalysis || !analysis || analysis.length === 0
-                    ? "bg-gray-400 cursor-not-allowed"
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                     : analysisSaved
                     ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
-                    : "bg-brand-navy hover:bg-brand-indigo"
+                    : "bg-brand-navy hover:bg-brand-indigo text-white"
                 }`}
               >
                 {savingAnalysis

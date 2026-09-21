@@ -953,194 +953,192 @@ export const QuestionBank = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+    <div className="flex-1 overflow-auto bg-authentic-white">
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+          Instructor Dashboard
+        </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-white">
+              Question Bank
+            </h1>
+            <p className="text-white/60 text-sm mt-1">
+              {quizId
+                ? "Select questions to import to your quiz"
+                : "Archive and manage your questions for reuse"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2.5 items-center">
+            <label
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+              style={{ display: importProcessing ? "none" : "inline-flex" }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {importProcessing ? "Importing..." : "Import"}
+              <input
+                type="file"
+                accept=".json,.csv"
+                onChange={handleImportFile}
+                className="hidden"
+                disabled={importProcessing}
               />
-            </svg>
-            Back
-          </button>
-          <h1 className="text-3xl font-bold text-brand-navy mb-2">
-            Question Bank
-          </h1>
-          <p className="text-gray-600">
-            {quizId
-              ? "Select questions to import to your quiz"
-              : "Archive and manage your questions for reuse"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <label
-            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-            style={{ display: importProcessing ? "none" : "inline-flex", alignItems: "center", gap: "0.5rem" }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            {importProcessing ? "Importing..." : "Import"}
-            <input
-              type="file"
-              accept=".json,.csv"
-              onChange={handleImportFile}
-              className="hidden"
+            </label>
+            <button
+              onClick={handleExportJSON}
               disabled={importProcessing}
-            />
-          </label>
-          <button
-            onClick={handleExportJSON}
-            disabled={importProcessing}
-            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export JSON
-          </button>
-          <button
-            onClick={handleExportCSV}
-            disabled={importProcessing}
-            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export CSV
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
-          >
-            + Add to Bank
-          </button>
-        </div>
-      </div>
-
-      {/* 1. Stats Summary Bar */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-brand-navy/10 flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-brand-navy"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-brand-navy">{totalCount}</p>
-            <p className="text-xs text-gray-500 font-medium">Total Questions</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export JSON
+            </button>
+            <button
+              onClick={handleExportCSV}
+              disabled={importProcessing}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-brand-navy">
-              {activeQuestions.length}
-            </p>
-            <p className="text-xs text-gray-500 font-medium">Active</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-yellow-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-brand-gold text-brand-navy px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs flex items-center gap-1.5"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-brand-navy">
-              {archivedQuestions.length}
-            </p>
-            <p className="text-xs text-gray-500 font-medium">Archived</p>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add to Bank
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
-        <button
-          onClick={() => setActiveTab("active")}
-          className={`px-6 py-3 font-semibold ${
-            activeTab === "active"
-              ? "text-brand-gold border-b-2 border-brand-gold"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Active Questions ({activeQuestions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("archived")}
-          className={`px-6 py-3 font-semibold ${
-            activeTab === "archived"
-              ? "text-brand-gold border-b-2 border-brand-gold"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Archived ({archivedQuestions.length})
-        </button>
-        {quizId && (
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* 1. Stats Summary Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-brand-navy"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-brand-navy">{totalCount}</p>
+              <p className="text-xs text-gray-500 font-medium">Total Questions</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-emerald-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-brand-navy">
+                {activeQuestions.length}
+              </p>
+              <p className="text-xs text-gray-500 font-medium">Active</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-amber-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-brand-navy">
+                {archivedQuestions.length}
+              </p>
+              <p className="text-xs text-gray-500 font-medium">Archived</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-slate-100/80 rounded-2xl p-1 border border-slate-200/80 overflow-x-auto mb-6 max-w-fit">
           <button
-            onClick={() => setActiveTab("import")}
-            className={`px-6 py-3 font-semibold ${
-              activeTab === "import"
-                ? "text-brand-gold border-b-2 border-brand-gold"
-                : "text-gray-500 hover:text-gray-700"
+            onClick={() => setActiveTab("active")}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+              activeTab === "active"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            Import to Quiz ({selectedQuestions.length} selected)
+            <span>Active Questions</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "active" ? "bg-brand-navy text-white" : "bg-slate-200 text-slate-600"}`}>
+              {activeQuestions.length}
+            </span>
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => setActiveTab("archived")}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+              activeTab === "archived"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span>Archived</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "archived" ? "bg-brand-navy text-white" : "bg-slate-200 text-slate-600"}`}>
+              {archivedQuestions.length}
+            </span>
+          </button>
+          {quizId && (
+            <button
+              onClick={() => setActiveTab("import")}
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === "import"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Import to Quiz</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "import" ? "bg-brand-navy text-white" : "bg-slate-200 text-slate-600"}`}>
+                {selectedQuestions.length}
+              </span>
+            </button>
+          )}
+        </div>
 
       {/* Subject + Quiz + Ownership Filters */}
       <div className="flex flex-wrap gap-4 mb-4 items-center">
@@ -1211,7 +1209,7 @@ export const QuestionBank = () => {
             setSelectedSubjectId(subjectId);
             setSelectedQuizIdFilter(null);
           }}
-          className="px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[200px]"
+          className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs min-w-[200px] bg-white text-slate-800"
           disabled={subjectsLoading}
         >
           <option value="">
@@ -1234,7 +1232,7 @@ export const QuestionBank = () => {
           <select
             value={selectedQuizIdFilter || ""}
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
+            className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs min-w-[220px] bg-white text-slate-800"
           >
             <option value="">-- Select Quiz --</option>
             {quizzesFromSubject.length === 0 ? (
@@ -1253,7 +1251,7 @@ export const QuestionBank = () => {
         <div className="flex-1 relative">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+            className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -1267,7 +1265,7 @@ export const QuestionBank = () => {
             placeholder="Search questions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
+            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800"
           />
         </div>
 
@@ -1275,11 +1273,11 @@ export const QuestionBank = () => {
         <div className="relative">
           <button
             onClick={() => setShowSortDropdown(!showSortDropdown)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-full text-sm font-semibold text-gray-600 hover:border-brand-gold transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-brand-gold transition-all shadow-2xs"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
+              className="h-4 w-4 text-slate-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -1299,7 +1297,7 @@ export const QuestionBank = () => {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowSortDropdown(false)}
               />
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-lg z-20 py-1 overflow-hidden">
                 {[
                   { value: "newest", label: "Newest First" },
                   { value: "oldest", label: "Oldest First" },
@@ -1313,10 +1311,10 @@ export const QuestionBank = () => {
                       setSortBy(opt.value);
                       setShowSortDropdown(false);
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-brand-gold/10 transition-colors ${
+                    className={`w-full text-left px-4 py-2 text-xs font-semibold hover:bg-brand-gold/10 transition-colors ${
                       sortBy === opt.value
-                        ? "text-brand-gold font-semibold bg-brand-gold/5"
-                        : "text-gray-700"
+                        ? "text-brand-navy font-bold bg-brand-gold/10"
+                        : "text-slate-700"
                     }`}
                   >
                     {opt.label}
@@ -1374,7 +1372,7 @@ export const QuestionBank = () => {
 
       {/* 4. Bulk Actions Toolbar */}
       {activeTab !== "import" && bulkSelected.size > 0 && (
-        <div className="mb-4 p-3 bg-brand-navy/5 border border-brand-navy/10 rounded-lg flex justify-between items-center">
+        <div className="mb-4 p-3.5 bg-brand-navy/5 border border-brand-navy/10 rounded-2xl flex justify-between items-center shadow-2xs">
           <div className="flex items-center gap-3">
             <label className="flex items-center cursor-pointer">
               <input
@@ -1383,7 +1381,7 @@ export const QuestionBank = () => {
                 onChange={handleBulkSelectAllToggle}
                 className="mr-2 h-4 w-4 rounded"
               />
-              <span className="text-brand-navy font-semibold text-sm">
+              <span className="text-brand-navy font-bold text-sm">
                 {bulkSelected.size} selected
               </span>
             </label>
@@ -1392,7 +1390,7 @@ export const QuestionBank = () => {
             {activeTab === "active" && (
               <button
                 onClick={handleBulkArchive}
-                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-all shadow-xs"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1415,7 +1413,7 @@ export const QuestionBank = () => {
               <>
                 <button
                   onClick={handleBulkRestore}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-xs"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1435,7 +1433,7 @@ export const QuestionBank = () => {
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all shadow-xs"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1461,7 +1459,7 @@ export const QuestionBank = () => {
 
       {/* Import Action Bar */}
       {activeTab === "import" && quizId && (
-        <div className="mb-4 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-lg flex justify-between items-center gap-4">
+        <div className="mb-4 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex justify-between items-center gap-4 shadow-2xs">
           <div className="flex items-center gap-4">
             <label className="flex items-center cursor-pointer">
               <input
@@ -1470,7 +1468,7 @@ export const QuestionBank = () => {
                 onChange={handleSelectAllToggle}
                 className="mr-2 h-5 w-5 rounded"
               />
-              <span className="text-brand-navy font-semibold text-sm">
+              <span className="text-brand-navy font-bold text-sm">
                 Select All ({allFiltered.length})
               </span>
             </label>
@@ -1481,7 +1479,7 @@ export const QuestionBank = () => {
           <button
             onClick={handleImportToQuiz}
             disabled={importing || selectedQuestions.length === 0}
-            className="bg-brand-gold text-brand-navy px-6 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-brand-gold text-brand-navy px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing
               ? "Importing..."
@@ -1493,7 +1491,7 @@ export const QuestionBank = () => {
       {/* Questions List */}
       {allFiltered.length === 0 ? (
         /* 2. Empty State SVG */
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-xs">
           <div className="mx-auto w-20 h-20 bg-brand-navy/5 rounded-full flex items-center justify-center mb-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1510,7 +1508,7 @@ export const QuestionBank = () => {
               />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-brand-navy mb-1">
+          <h3 className="text-lg font-bold text-brand-navy mb-1">
             {searchTerm ? "No questions match your search" : "No questions yet"}
           </h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto">
@@ -1526,7 +1524,7 @@ export const QuestionBank = () => {
           {/* Bulk select all checkbox (non-import tabs) */}
           {activeTab !== "import" && (
             <div className="flex items-center px-2 py-1">
-              <label className="flex items-center cursor-pointer text-sm text-gray-500">
+              <label className="flex items-center cursor-pointer text-xs font-semibold text-gray-500">
                 <input
                   type="checkbox"
                   checked={bulkSelectAll}
@@ -1553,12 +1551,12 @@ export const QuestionBank = () => {
                     ? () => toggleQuestionSelection(question)
                     : undefined
                 }
-                className={`group transition-all bg-white rounded-xl overflow-hidden ${
+                className={`group transition-all bg-white rounded-2xl overflow-hidden ${
                   activeTab === "import" ? "cursor-pointer " : ""
                 }${
                   activeTab === "import" && isImportSelected
                     ? "border-2 border-brand-gold shadow-md ring-2 ring-brand-gold/20"
-                    : "border border-gray-200 hover:border-brand-gold/40 hover:shadow-sm"
+                    : "border border-gray-200 hover:border-brand-gold/40 shadow-xs hover:shadow-md"
                 }`}
               >
                 {/* 3. Left border accent */}
@@ -1851,69 +1849,55 @@ export const QuestionBank = () => {
 
       {/* 6. Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-500">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-            {Math.min(currentPage * ITEMS_PER_PAGE, allFiltered.length)} of{" "}
-            {allFiltered.length} questions
-          </p>
-          <div className="flex items-center gap-1">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-600 bg-white shadow-xs">
+          <span>
+            Showing <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong>–
+            <strong>{Math.min(currentPage * ITEMS_PER_PAGE, allFiltered.length)}</strong> of{" "}
+            <strong>{allFiltered.length}</strong> questions
+          </span>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              Previous
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-lg text-sm font-semibold transition-colors ${
-                  currentPage === page
-                    ? "bg-brand-navy text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+              if (
+                page === 1 ||
+                page === totalPages ||
+                (page >= currentPage - 1 && page <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
+                      currentPage === page
+                        ? "bg-brand-navy text-white shadow-xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              } else if (page === currentPage - 2 || page === currentPage + 2) {
+                return <span key={page} className="px-1 text-slate-400">...</span>;
+              }
+              return null;
+            })}
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              Next
             </button>
           </div>
         </div>
       )}
+      </div>
 
       {/* Add Question Modal */}
       {showAddForm && (

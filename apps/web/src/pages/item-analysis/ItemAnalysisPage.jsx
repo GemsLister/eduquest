@@ -607,8 +607,8 @@ export const ItemAnalysisPage = () => {
     );
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex-1 overflow-auto bg-authentic-white min-h-screen p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <ItemAnalysisHeader
           sections={sections}
           quizzes={quizzes}
