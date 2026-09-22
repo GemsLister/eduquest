@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
+import { parseCSV } from "../../utils/csvParser.js";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -181,26 +182,10 @@ export const InstructorQuiz = () => {
           }
           parsedItems = json;
         } else {
-          const lines = content.split(/\r?\n/).filter((l) => l.trim() !== "");
-          if (lines.length < 2) {
-            notify.error("CSV file must have a header row and at least one question row.");
+          parsedItems = parseCSV(content);
+          if (parsedItems.length === 0) {
+            notify.error("CSV file must have a header row and at least one valid question row.");
             return;
-          }
-          const headers = parseCSVLine(lines[0]).map((h) =>
-            h.toLowerCase().trim().replace(/^"|"$/g, "")
-          );
-
-          for (let i = 1; i < lines.length; i++) {
-            const cols = parseCSVLine(lines[i]);
-            const rowObj = {};
-            headers.forEach((h, idx) => {
-              let val = cols[idx] ?? "";
-              if (val.startsWith('"') && val.endsWith('"')) {
-                val = val.slice(1, -1).replace(/""/g, '"');
-              }
-              rowObj[h] = val;
-            });
-            parsedItems.push(rowObj);
           }
         }
 
@@ -292,7 +277,11 @@ export const InstructorQuiz = () => {
         }
 
         setQuestions((prev) => {
-          const updated = [...prev, ...newQuestions];
+          // Clean up any empty draft placeholder questions if present
+          const existingNonEmpty = prev.filter(
+            (q) => (q.text && q.text.trim() !== "") || (q.options && q.options.some((o) => o && o.trim() !== ""))
+          );
+          const updated = [...existingNonEmpty, ...newQuestions];
           const newTotalPages = Math.ceil(updated.length / QUESTIONS_PER_PAGE);
           setCurrentPage(newTotalPages);
           return updated;
