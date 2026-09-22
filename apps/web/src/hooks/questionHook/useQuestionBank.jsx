@@ -152,7 +152,7 @@ export const useQuestionBank = () => {
             return {
               ...q,
               quizzes: quizMeta,
-              is_own: quizMeta?.instructor_id === user.id || q.instructor_id === user.id,
+              is_own: quizMeta?.instructor_id === user.id,
               is_private: q.is_private === true || quizMeta?.is_private !== false,
               is_archived: isQuestionArchived || isQuizArchived,
             };
@@ -186,7 +186,7 @@ export const useQuestionBank = () => {
                       ...qRow,
                       quizzes: quizMeta,
                       quiz_id: qRow.quiz_id || jq.quiz_id,
-                      is_own: quizMeta?.instructor_id === user.id || qRow.instructor_id === user.id,
+                      is_own: quizMeta?.instructor_id === user.id,
                       is_private: qRow.is_private === true || quizMeta?.is_private !== false,
                       is_archived: isQuestionArchived || isQuizArchived,
                     });
@@ -491,7 +491,6 @@ export const useQuestionBank = () => {
         correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
-        instructor_id: user.id,
       };
 
       // Assign to section if provided (metadata only)
@@ -515,7 +514,18 @@ export const useQuestionBank = () => {
         }
       }
 
-      const { error: questionError } = await supabase.from("questions").insert(questionPayload);
+      let { error: questionError } = await supabase.from("questions").insert(questionPayload);
+
+      if (
+        questionError &&
+        (questionError.message?.includes("instructor_id") ||
+          questionError.code === "42703" ||
+          questionError.code === "PGRST204")
+      ) {
+        delete questionPayload.instructor_id;
+        const retry = await supabase.from("questions").insert(questionPayload);
+        questionError = retry.error;
+      }
 
       if (questionError) throw questionError;
 
@@ -577,7 +587,6 @@ export const useQuestionBank = () => {
           correct_answer: String(correctAnswer ?? ""),
           points: q.points || 1,
           is_archived: false,
-          instructor_id: user.id,
           created_at: new Date(baseBulkTime + idx * 100).toISOString(),
         };
 
@@ -594,9 +603,24 @@ export const useQuestionBank = () => {
         return questionRow;
       });
 
-      const { error: questionError } = await supabase
+      let { error: questionError } = await supabase
         .from("questions")
         .insert(questionRows);
+
+      if (
+        questionError &&
+        (questionError.message?.includes("instructor_id") ||
+          questionError.code === "42703" ||
+          questionError.code === "PGRST204")
+      ) {
+        const cleanRows = questionRows.map((r) => {
+          const copy = { ...r };
+          delete copy.instructor_id;
+          return copy;
+        });
+        const retry = await supabase.from("questions").insert(cleanRows);
+        questionError = retry.error;
+      }
 
       if (questionError) throw questionError;
 
