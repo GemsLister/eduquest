@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
+import { parseCSV } from "../../utils/csvParser.js";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -748,8 +749,8 @@ export const QuestionBank = () => {
     try {
       const preparedQuestions = [];
       for (const rawQ of parsedQuestions) {
-        const text = rawQ.text || rawQ.question || rawQ.Question || rawQ.question_text;
-        if (!text) continue;
+        const text = rawQ.text || rawQ.question || rawQ.Question || rawQ.question_text || rawQ["question text"];
+        if (!text || String(text).trim() === "") continue;
 
         const type = (rawQ.type || rawQ.Type || "mcq").toString().toLowerCase();
         const points = parseInt(rawQ.points || rawQ.Points || rawQ.weight || 1) || 1;
@@ -827,15 +828,10 @@ export const QuestionBank = () => {
             parsed = parsed.questions || parsed.data || parsed.items || [parsed];
           }
         } else if (file.name.toLowerCase().endsWith(".csv")) {
-          const lines = content.split(/\r?\n/).filter(l => l.trim() !== "");
-          if (lines.length < 2) { notify.warning("CSV file needs header + at least one row"); return; }
-          const headers = parseCSVLine(lines[0]);
-          parsed = [];
-          for (let i = 1; i < lines.length; i++) {
-            const cols = parseCSVLine(lines[i]);
-            const obj = {};
-            headers.forEach((h, idx) => { obj[h.trim()] = cols[idx] ?? ""; });
-            parsed.push(obj);
+          parsed = parseCSV(content);
+          if (parsed.length === 0) {
+            notify.warning("CSV file must have a header row and at least one question row");
+            return;
           }
         } else {
           notify.warning("Only .json and .csv files are supported");
