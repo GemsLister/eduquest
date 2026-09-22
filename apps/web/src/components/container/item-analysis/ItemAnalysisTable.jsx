@@ -59,13 +59,13 @@ export const ItemAnalysisTable = ({
                   <tr className="hover:bg-gray-50 transition-colors h-14">
                     <td className="p-3 text-sm font-medium" title={item.text}>
                       {item.autoFlag === 'revise' || item.revised_content || item.previous_text || item.revision_history?.length > 0 ? (
-                        <div 
+                        <div
                           className="group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
                           title="Item has revision history"
                         >
                           <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{startIndex + index + 1}:</span>
                           <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
-                          
+
                           {item.revision_history && item.revision_history.length > 0 && (
                             <div className="mt-1 flex items-center gap-1.5">
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
@@ -104,23 +104,22 @@ export const ItemAnalysisTable = ({
                       )}
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
-                      <span 
-                        className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all transform ${
-                          item.autoFlag === "approved" 
-                            ? "bg-green-500 opacity-80 cursor-default" 
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all transform ${item.autoFlag === "approved"
+                            ? "bg-green-500 opacity-80 cursor-default"
                             : item.autoFlag === "reject"
-                            ? "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
-                            : item.autoFlag === "revise"
-                            ? "bg-orange-500 hover:bg-orange-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
-                            : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
-                        }`}
+                              ? "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
+                              : item.autoFlag === "revise"
+                                ? "bg-orange-500 hover:bg-orange-600 cursor-pointer hover:shadow-lg hover:scale-105 active:scale-95"
+                                : "bg-red-500 hover:bg-red-600 cursor-pointer hover:shadow-md"
+                          }`}
                         onClick={() => (item.autoFlag === 'revise' || item.autoFlag === 'reject') && onFlagClick(item)}
                         title={
-                          item.autoFlag === 'revise' 
-                            ? "Click to edit revision" 
+                          item.autoFlag === 'revise'
+                            ? "Click to edit revision"
                             : item.autoFlag === 'reject'
-                            ? "Click to replace with new question"
-                            : "Good item (no revision needed)"
+                              ? "Click to replace with new question"
+                              : "Good item (no revision needed)"
                         }
                       >
                         {item.autoFlag === 'approved' ? 'RETAIN' : item.autoFlag?.toUpperCase()}
@@ -194,41 +193,39 @@ export const ItemAnalysisTable = ({
                 <button
                   onClick={handlePreviousPage}
                   disabled={currentPage === 1}
-                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                    currentPage === 1
+                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${currentPage === 1
                       ? 'text-gray-300 cursor-not-allowed'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                
+
                 {/* Page Numbers */}
                 <div className="flex items-center space-x-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                     // Show first page, last page, current page, and pages around current
                     if (
-                      page === 1 || 
-                      page === totalPages || 
+                      page === 1 ||
+                      page === totalPages ||
                       (page >= currentPage - 1 && page <= currentPage + 1)
                     ) {
                       return (
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                            currentPage === page
+                          className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${currentPage === page
                               ? 'bg-gray-800 text-white'
                               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                          }`}
+                            }`}
                         >
                           {page}
                         </button>
                       );
                     } else if (
-                      page === currentPage - 2 || 
+                      page === currentPage - 2 ||
                       page === currentPage + 2
                     ) {
                       return (
@@ -240,15 +237,14 @@ export const ItemAnalysisTable = ({
                     return null;
                   })}
                 </div>
-                
+
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${
-                    currentPage === totalPages
+                  className={`relative inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors ${currentPage === totalPages
                       ? 'text-gray-300 cursor-not-allowed'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -297,7 +293,7 @@ export const ItemAnalysisTable = ({
               <span className="block w-full h-7 bg-amber-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">POOR</span>
               <div className="text-xs text-slate-700 text-center">Discrimination below 0.20</div>
             </div>
-            
+
             <div className="pt-2 border-t border-slate-200 mt-2">
               {/* <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider border border-amber-200 shadow-sm">
@@ -328,7 +324,7 @@ export const ItemAnalysisTable = ({
             </div>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 text-center leading-tight">
-            <strong>Difficulty (P):</strong> &gt;0.70 Easy | 0.30–0.70 Moderately Difficult | &lt;0.30 Difficult<br/>
+            <strong>Difficulty (P):</strong> &gt;0.70 Easy | 0.30–0.70 Moderately Difficult | &lt;0.30 Difficult<br />
             <strong>Hi/Lo</strong> = top/bottom performer total scores
           </div>
         </div>
