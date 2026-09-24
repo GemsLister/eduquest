@@ -7,6 +7,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
+import { ReuseQuestionModal } from "../../components/ReuseQuestionModal.jsx";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -31,6 +32,18 @@ export const QuestionBank = () => {
   const [showQuizDropdown, setShowQuizDropdown] = useState(false);
   const [importProcessing, setImportProcessing] = useState(false);
 
+  // Reuse Modal State
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [questionsToReuse, setQuestionsToReuse] = useState([]);
+
+  // Import Config Modal State
+  const [showImportConfigModal, setShowImportConfigModal] = useState(false);
+  const [pendingImportQuestions, setPendingImportQuestions] = useState([]);
+  const [pendingImportFileName, setPendingImportFileName] = useState("");
+  const [importTargetSubjectId, setImportTargetSubjectId] = useState("");
+  const [importTargetQuizId, setImportTargetQuizId] = useState("");
+  const [importIsPrivate, setImportIsPrivate] = useState(true);
+
   // Subject, Quiz, and GAD filter state
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [selectedQuizIdFilter, setSelectedQuizIdFilter] = useState(null);
@@ -38,6 +51,7 @@ export const QuestionBank = () => {
   const [gadFilter, setGadFilter] = useState("all");
   const [subjects, setSubjects] = useState([]);
   const [quizzesFromSubject, setQuizzesFromSubject] = useState([]);
+  const [allInstructorQuizzes, setAllInstructorQuizzes] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
 
   const {
@@ -52,14 +66,14 @@ export const QuestionBank = () => {
     fetchQuestions,
   } = useQuestionBank();
 
-  const [newQuestion, setNewQuestion] = useState({
-    text: "",
-    type: "mcq",
-    options: ["", "", "", ""],
-    correctAnswer: 0,
-    points: 1,
-    subjectId: "",
-  });
+  const [addFormStep, setAddFormStep] = useState(1); // 1: Select Count, 2: Question Builder
+  const [questionCountInput, setQuestionCountInput] = useState(1);
+  const [batchSubjectId, setBatchSubjectId] = useState("");
+  const [batchQuizId, setBatchQuizId] = useState("");
+  const [batchIsPrivate, setBatchIsPrivate] = useState(true);
+  const [questionsBatch, setQuestionsBatch] = useState([]);
+  const [activeBatchIndex, setActiveBatchIndex] = useState(0);
+  const [addingBatchProcessing, setAddingBatchProcessing] = useState(false);
 
   const formatSubjectLabel = (subject) => {
     if (!subject) return "";
@@ -127,93 +141,77 @@ export const QuestionBank = () => {
     }
   }, [searchParams]);
 
-  // Fetch quizzes when subject changes
+  // Fetch all quizzes owned by current instructor and public subject quizzes
   useEffect(() => {
-    if (!selectedSubjectId) {
-      setQuizzesFromSubject([]);
-      setSelectedQuizIdFilter(null);
-      return;
-    }
+    if (!user) return;
 
-    const fetchQuizzes = async () => {
+    const fetchAllQuizzes = async () => {
       try {
-        // Fetch quizzes directly assigned to this subject
-        const { data: subjectQuizzes, error: subjectError } = await supabase
+        // 1. Fetch ALL quizzes created by current instructor
+        const { data: ownQuizzes, error: ownErr } = await supabase
           .from("quizzes")
-          .select("id, title, is_archived, is_published, is_private, instructor_id")
-          .eq("subject_id", selectedSubjectId)
-          .or("is_archived.is.null,is_archived.eq.false");
+          .select("id, title, is_archived, is_published, is_private, instructor_id, subject_id, section_id")
+          .eq("instructor_id", user.id)
+          .order("title", { ascending: true });
 
-        if (subjectError) throw subjectError;
+        if (ownErr) throw ownErr;
 
-        const uniqueQuizzes = [];
-        const seen = new Set();
+        const uniqueMap = new Map();
+        (ownQuizzes || []).forEach((q) => {
+          if (q.is_archived !== true) uniqueMap.set(q.id, q);
+        });
 
-        // Add subject quizzes
-        subjectQuizzes?.forEach((q) => {
-          const isOwner = q.instructor_id === user?.id;
-          const isPublic = q.is_private === false;
-          const isNotArchived = !q.is_archived;
-          if ((isOwner || isPublic) && isNotArchived && !seen.has(q.id)) {
-            seen.add(q.id);
-            uniqueQuizzes.push(q);
+        // 2. Also fetch public quizzes from co-instructors
+        const { data: publicQuizzes } = await supabase
+          .from("quizzes")
+          .select("id, title, is_archived, is_published, is_private, instructor_id, subject_id, section_id")
+          .neq("instructor_id", user.id)
+          .eq("is_private", false)
+          .order("title", { ascending: true });
+
+        (publicQuizzes || []).forEach((q) => {
+          if (q.is_archived !== true && !uniqueMap.has(q.id)) uniqueMap.set(q.id, q);
+        });
+
+        // 3. Resolve section-to-subject mappings for quizzes assigned via sections
+        const { data: junctionRows } = await supabase
+          .from("quiz_sections")
+          .select("quiz_id, section_id, sections(subject_id)");
+
+        const quizSubjectMap = new Map();
+        (junctionRows || []).forEach((j) => {
+          if (j.quiz_id && j.sections?.subject_id) {
+            quizSubjectMap.set(String(j.quiz_id), String(j.sections.subject_id));
           }
         });
 
-        // Also fetch quizzes from sections that belong to this subject
-        const { data: sectionsData } = await supabase
-          .from("sections")
-          .select("id")
-          .eq("subject_id", selectedSubjectId)
-          .or("is_archived.is.null,is_archived.eq.false");
+        const resolvedQuizzes = Array.from(uniqueMap.values()).map((q) => {
+          const resolvedSubjId = q.subject_id || quizSubjectMap.get(String(q.id)) || null;
+          return {
+            ...q,
+            subject_id: resolvedSubjId,
+          };
+        });
 
-        if (sectionsData && sectionsData.length > 0) {
-          const sectionIds = sectionsData.map(s => s.id);
+        setAllInstructorQuizzes(resolvedQuizzes);
 
-          // Fetch quizzes from quiz_sections junction
-          const { data: junctionQuizzes } = await supabase
-            .from("quiz_sections")
-            .select("quiz_id, quizzes(id, title, is_archived, is_published, is_private, instructor_id)")
-            .in("section_id", sectionIds);
-
-          junctionQuizzes?.forEach((jq) => {
-            if (jq.quizzes) {
-              const isOwner = jq.quizzes.instructor_id === user?.id;
-              const isPublic = jq.quizzes.is_private === false;
-              const isNotArchived = !jq.quizzes.is_archived;
-              if ((isOwner || isPublic) && isNotArchived && !seen.has(jq.quizzes.id)) {
-                seen.add(jq.quizzes.id);
-                uniqueQuizzes.push(jq.quizzes);
-              }
-            }
-          });
-
-          // Fetch direct quiz assignments to sections (backward compatibility)
-          const { data: directQuizzes } = await supabase
-            .from("quizzes")
-            .select("id, title, is_private, instructor_id, is_archived")
-            .in("section_id", sectionIds)
-            .or("is_archived.is.null,is_archived.eq.false");
-
-          directQuizzes?.forEach((dq) => {
-            const isOwner = dq.instructor_id === user?.id;
-            const isPublic = dq.is_private === false;
-            if ((isOwner || isPublic) && !seen.has(dq.id)) {
-              seen.add(dq.id);
-              uniqueQuizzes.push(dq);
-            }
-          });
+        // Filter for current selectedSubjectId if specified
+        if (selectedSubjectId) {
+          const subjStr = String(selectedSubjectId);
+          const filtered = resolvedQuizzes.filter((q) => !q.subject_id || String(q.subject_id) === subjStr);
+          setQuizzesFromSubject(filtered);
+        } else {
+          setQuizzesFromSubject(resolvedQuizzes);
         }
-
-        setQuizzesFromSubject(uniqueQuizzes);
       } catch (err) {
-        console.error("Error fetching quizzes:", err);
+        console.error("Error fetching instructor quizzes:", err);
+        setAllInstructorQuizzes([]);
         setQuizzesFromSubject([]);
       }
     };
 
-    fetchQuizzes();
-  }, [selectedSubjectId]);
+    fetchAllQuizzes();
+  }, [user, selectedSubjectId]);
 
   // Helper function to check if question matches GAD criteria
   const isQuestionGad = (q) => {
@@ -223,31 +221,37 @@ export const QuestionBank = () => {
     return Boolean(auto.isGad);
   };
 
+  // Helper to check if a question is owned by current instructor
+  const isQuestionOwn = (q) => {
+    if (!user) return false;
+    if (q.is_own === true) return true;
+    if (q.quizzes?.instructor_id === user.id) return true;
+    if (q.instructor_id === user.id) return true;
+    return false;
+  };
+
+  // Helper to check if a question is Private
+  const isQuestionPrivate = (q) => {
+    if (q.is_private === false || q.blooms_level === "public") return false;
+    if (q.is_private === true || q.blooms_level === "private") return true;
+    if (q.quizzes && q.quizzes.is_private === false) return false;
+    return false;
+  };
+
   // Filter questions
   const filterQuestions = (questions) => {
     let filteredList = questions;
 
     // Apply Ownership & Privacy Filter
-    if (ownershipFilter === "mine") {
-      // Show questions created by current instructor (both Private and Public)
-      filteredList = filteredList.filter((q) => {
-        const isOwnQuiz = q.quizzes?.instructor_id === user?.id;
-        return q.is_own || isOwnQuiz;
-      });
-    } else if (ownershipFilter === "my_private") {
-      // Show questions created by current instructor in Private quizzes
-      filteredList = filteredList.filter((q) => {
-        const isOwnQuiz = q.quizzes?.instructor_id === user?.id || q.is_own;
-        const isPrivate = q.is_private !== false && q.quizzes?.is_private !== false;
-        return isOwnQuiz && isPrivate;
-      });
+    if (ownershipFilter === "my_private") {
+      // Show Private questions owned by current instructor
+      filteredList = filteredList.filter((q) => isQuestionOwn(q) && isQuestionPrivate(q));
+    } else if (ownershipFilter === "my_public" || ownershipFilter === "mine") {
+      // Show Public questions owned by current instructor
+      filteredList = filteredList.filter((q) => isQuestionOwn(q) && !isQuestionPrivate(q));
     } else if (ownershipFilter === "others_public") {
-      // Show public questions created by other instructors
-      filteredList = filteredList.filter((q) => {
-        const isOtherQuiz = q.quizzes && q.quizzes.instructor_id !== user?.id;
-        const isPublic = q.quizzes?.is_private === false;
-        return isOtherQuiz && isPublic;
-      });
+      // Show Public questions shared by other instructors
+      filteredList = filteredList.filter((q) => !isQuestionOwn(q));
     }
 
     // Apply GAD Filter
@@ -485,38 +489,220 @@ export const QuestionBank = () => {
     });
   };
 
-  // Add to bank
-  const handleAddToBank = async () => {
-    const targetSubjectId = newQuestion.subjectId || selectedSubjectId;
-    if (!targetSubjectId) {
-      notify.warning("Please select a subject for this question");
+  // Open Reuse Modal with validation
+  const handleOpenReuseModal = (questions) => {
+    const targetList = Array.isArray(questions) ? questions : [questions];
+    if (targetList.length === 0) {
+      notify.warning("No questions selected to reuse.");
       return;
     }
-    if (!newQuestion.text.trim()) {
-      notify.warning("Question text is required");
+
+    // Validate subject consistency across selected questions if multiple
+    const subjectIds = new Set(
+      targetList.map(
+        (q) => q.subject_id || q.quizzes?.subject_id || q.subjects?.id || q.sections?.subject_id
+      ).filter(Boolean)
+    );
+
+    if (subjectIds.size > 1) {
+      notify.warning(
+        "All selected questions must belong to the same subject to be reused together. Please filter by subject first."
+      );
       return;
     }
-    if (
-      newQuestion.type === "mcq" &&
-      newQuestion.options.some((o) => !o.trim())
-    ) {
-      notify.warning("All options must be filled");
-      return;
-    }
-    const result = await addToBank(newQuestion, null, targetSubjectId);
-    if (result.success) {
-      notify.success("Question added to bank!");
-      setNewQuestion({
+
+    setQuestionsToReuse(targetList);
+    setShowReuseModal(true);
+  };
+
+  // Open Add Question Form with Step 1 (Question Count Selector)
+  const handleOpenAddForm = () => {
+    setQuestionCountInput(1);
+    setAddFormStep(1);
+    setBatchSubjectId(selectedSubjectId || (subjects.length > 0 ? subjects[0].id : ""));
+    setBatchQuizId(selectedQuizIdFilter || "");
+    setBatchIsPrivate(true);
+    setQuestionsBatch([
+      {
         text: "",
         type: "mcq",
         options: ["", "", "", ""],
         correctAnswer: 0,
         points: 1,
-        subjectId: selectedSubjectId || "",
+      },
+    ]);
+    setActiveBatchIndex(0);
+    setShowAddForm(true);
+  };
+
+  const handleProceedToQuestionBuilder = () => {
+    const count = parseInt(questionCountInput) || 1;
+    const finalCount = Math.max(1, Math.min(50, count));
+
+    setQuestionsBatch((prev) => {
+      const newArr = [];
+      for (let i = 0; i < finalCount; i++) {
+        if (prev[i]) {
+          newArr.push(prev[i]);
+        } else {
+          newArr.push({
+            text: "",
+            type: "mcq",
+            options: ["", "", "", ""],
+            correctAnswer: 0,
+            points: 1,
+          });
+        }
+      }
+      return newArr;
+    });
+
+    setActiveBatchIndex(0);
+    setAddFormStep(2);
+  };
+
+  const handleAddQuestionToBatch = () => {
+    setQuestionsBatch((prev) => [
+      ...prev,
+      {
+        text: "",
+        type: "mcq",
+        options: ["", "", "", ""],
+        correctAnswer: 0,
+        points: 1,
+      },
+    ]);
+    setActiveBatchIndex(questionsBatch.length);
+  };
+
+  const handleRemoveQuestionFromBatch = (indexToRemove) => {
+    if (questionsBatch.length <= 1) {
+      notify.warning("At least one question is required.");
+      return;
+    }
+    setQuestionsBatch((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    setActiveBatchIndex((prev) => Math.max(0, Math.min(prev, questionsBatch.length - 2)));
+  };
+
+  const handleUpdateBatchQuestion = (index, field, value) => {
+    setQuestionsBatch((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleUpdateBatchOption = (qIdx, optIdx, val) => {
+    setQuestionsBatch((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIdx) return q;
+        const newOpts = [...q.options];
+        newOpts[optIdx] = val;
+        return { ...q, options: newOpts };
+      })
+    );
+  };
+
+  const handleAddOptionToBatchQuestion = (qIdx) => {
+    setQuestionsBatch((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIdx) return q;
+        return { ...q, options: [...q.options, ""] };
+      })
+    );
+  };
+
+  const handleRemoveOptionFromBatchQuestion = (qIdx, optIdx) => {
+    setQuestionsBatch((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIdx) return q;
+        if (q.options.length <= 2) {
+          notify.warning("Minimum 2 options required");
+          return q;
+        }
+        const newOpts = q.options.filter((_, i) => i !== optIdx);
+        const newCorrect = q.correctAnswer >= newOpts.length ? 0 : q.correctAnswer;
+        return { ...q, options: newOpts, correctAnswer: newCorrect };
+      })
+    );
+  };
+
+  const handleSaveBatchToBank = async () => {
+    if (!batchSubjectId) {
+      notify.warning("Please select a subject to assign questions to.");
+      return;
+    }
+
+    for (let i = 0; i < questionsBatch.length; i++) {
+      const q = questionsBatch[i];
+      if (!q.text || !q.text.trim()) {
+        setActiveBatchIndex(i);
+        notify.warning(`Question #${i + 1} text is required.`);
+        return;
+      }
+      if (q.type === "mcq" && (q.options || []).some((o) => !o.trim())) {
+        setActiveBatchIndex(i);
+        notify.warning(`All options for Question #${i + 1} must be filled out.`);
+        return;
+      }
+    }
+
+    setAddingBatchProcessing(true);
+    try {
+      const preparedArray = questionsBatch.map((q) => {
+        const correctAnswer =
+          q.type === "mcq"
+            ? q.options[q.correctAnswer] || q.correctAnswer
+            : q.correctAnswer;
+
+        return {
+          text: q.text.trim(),
+          type: q.type || "mcq",
+          options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
+          correct_answer: correctAnswer,
+          points: q.points || 1,
+          is_private: batchIsPrivate,
+        };
       });
-      setShowAddForm(false);
-    } else {
-      notify.error("Error: " + result.error);
+
+      const res = await addBulkToBank(
+        preparedArray,
+        null,
+        null,
+        batchSubjectId,
+        batchIsPrivate,
+        batchQuizId || null
+      );
+
+      if (res.success) {
+        const targetQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(batchQuizId));
+        const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
+        notify.success(
+          `Successfully created ${preparedArray.length} ${
+            batchIsPrivate ? "Private" : "Public"
+          } question(s)${quizMsg}!`
+        );
+
+        setShowAddForm(false);
+
+        // Auto-focus filters
+        setSelectedSubjectId(batchSubjectId);
+        if (batchQuizId) {
+          setSelectedQuizIdFilter(batchQuizId);
+        } else {
+          setSelectedQuizIdFilter(null);
+        }
+        setSearchTerm("");
+        setOwnershipFilter(batchIsPrivate ? "my_private" : "my_public");
+        setActiveTab("active");
+
+        await fetchQuestions();
+      } else {
+        notify.error("Error creating questions: " + res.error);
+      }
+    } catch (err) {
+      console.error("Error creating questions:", err);
+      notify.error("Failed to create questions: " + err.message);
+    } finally {
+      setAddingBatchProcessing(false);
     }
   };
 
@@ -658,8 +844,6 @@ export const QuestionBank = () => {
         options: q.options,
         correct_answer: q.correct_answer,
         points: q.points || 1,
-        difficulty: q.difficulty || null,
-        blooms_level: q.blooms_level || null,
         creator_name: q.creator_name || null,
         subject_name: q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name || null,
       })),
@@ -693,8 +877,6 @@ export const QuestionBank = () => {
       "option_4",
       "option_5",
       "option_6",
-      "difficulty",
-      "blooms_level",
       "creator_name",
       "subject_name",
     ];
@@ -710,19 +892,21 @@ export const QuestionBank = () => {
           : q.correct_answer;
       const subjectName =
         q.quizzes?.subjects?.name || q.subjects?.name || q.subject_name || "";
+
+      const optCols = Array(6).fill('""');
+      opts.forEach((o, i) => {
+        if (i < 6) optCols[i] = `"${(o || "").replace(/"/g, '""')}"`;
+      });
+
       return [
         `"${(q.text || "").replace(/"/g, '""')}"`,
         q.type || "mcq",
         q.points || 1,
         correctLetter,
-        ...(opts.length > 0
-          ? opts.map((o) => `"${(o || "").replace(/"/g, '""')}"`)
-          : Array(6).fill('""')),
-        q.difficulty || "",
-        q.blooms_level || "",
+        ...optCols,
         `"${(q.creator_name || "").replace(/"/g, '""')}"`,
         `"${(subjectName || "").replace(/"/g, '""')}"`,
-      ].slice(0, headers.length);
+      ];
     });
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -737,15 +921,10 @@ export const QuestionBank = () => {
 
   // ---------------- Import Functions ----------------
   const processImport = async (parsedQuestions, fileName = "") => {
-    if (!selectedSubjectId) {
-      notify.warning("Please select a subject from the filter dropdown before importing questions.");
-      return;
-    }
     if (!parsedQuestions || parsedQuestions.length === 0) {
       notify.warning("No questions found in file");
       return;
     }
-    setImportProcessing(true);
     try {
       const preparedQuestions = [];
       for (const rawQ of parsedQuestions) {
@@ -760,7 +939,6 @@ export const QuestionBank = () => {
         if (Array.isArray(rawQ.options)) options = rawQ.options.filter(o => o !== null && o !== undefined && o !== "");
         else if (Array.isArray(rawQ.Options)) options = rawQ.Options.filter(o => o !== null && o !== undefined && o !== "");
         else {
-          // Try numbered columns: option_1, option_2, A, B, C, D
           for (let i = 1; i <= 6; i++) {
             const opt = rawQ[`option_${i}`] || rawQ[`Option ${i}`] || rawQ[`Option${i}`] || rawQ[String.fromCharCode(64 + i)];
             if (opt !== null && opt !== undefined && String(opt).trim() !== "") options.push(String(opt).trim());
@@ -771,7 +949,6 @@ export const QuestionBank = () => {
         // Determine correct answer
         let correctAnswer = rawQ.correct_answer ?? rawQ.correct ?? rawQ.CorrectAnswer ?? rawQ.answer ?? 0;
         if (typeof correctAnswer === "string") {
-          // If it's a letter like "A"
           if (/^[A-F]$/i.test(correctAnswer.trim())) {
             const idx = correctAnswer.toUpperCase().charCodeAt(0) - 65;
             correctAnswer = options[idx] || idx;
@@ -789,8 +966,6 @@ export const QuestionBank = () => {
           options,
           correct_answer: typeof correctAnswer === "string" ? correctAnswer : (options[correctAnswer] || correctAnswer),
           points,
-          difficulty: rawQ.difficulty || rawQ.Difficulty || null,
-          blooms_level: rawQ.blooms_level || rawQ.BloomsLevel || null,
         });
       }
 
@@ -799,15 +974,61 @@ export const QuestionBank = () => {
         return;
       }
 
-      const res = await addBulkToBank(preparedQuestions, null, null, selectedSubjectId);
+      setPendingImportQuestions(preparedQuestions);
+      setPendingImportFileName(fileName);
+      setImportTargetSubjectId(selectedSubjectId || (subjects.length > 0 ? subjects[0].id : ""));
+      setImportTargetQuizId(selectedQuizIdFilter || "");
+      setImportIsPrivate(true);
+      setShowImportConfigModal(true);
+    } catch (err) {
+      console.error("Import parsing error:", err);
+      notify.error("Error processing file: " + err.message);
+    }
+  };
+
+  const handleExecuteImport = async () => {
+    if (!importTargetSubjectId) {
+      notify.warning("Please select a subject to assign imported questions to.");
+      return;
+    }
+    setImportProcessing(true);
+    try {
+      const res = await addBulkToBank(
+        pendingImportQuestions,
+        null,
+        null,
+        importTargetSubjectId,
+        importIsPrivate,
+        importTargetQuizId || null
+      );
       if (res.success) {
-        notify.success(`Successfully imported ${preparedQuestions.length} question(s) to question bank!`);
+        const targetQuizObj = quizzesFromSubject.find(q => String(q.id) === String(importTargetQuizId));
+        const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
+        notify.success(
+          `Successfully imported ${pendingImportQuestions.length} ${
+            importIsPrivate ? "Private" : "Public"
+          } question(s)${quizMsg}!`
+        );
+        setShowImportConfigModal(false);
+        setPendingImportQuestions([]);
+
+        // Automatically focus subject filter, quiz filter, reset search filter, set privacy filter to show imported questions immediately
+        setSelectedSubjectId(importTargetSubjectId);
+        if (importTargetQuizId) {
+          setSelectedQuizIdFilter(importTargetQuizId);
+        } else {
+          setSelectedQuizIdFilter(null);
+        }
+        setSearchTerm("");
+        setOwnershipFilter(importIsPrivate ? "my_private" : "my_public");
+        setActiveTab("active");
+
         await fetchQuestions();
       } else {
         notify.error("Error importing questions: " + res.error);
       }
     } catch (err) {
-      console.error("Import error:", err);
+      console.error("Import execution error:", err);
       notify.error("Error importing questions: " + err.message);
     } finally {
       setImportProcessing(false);
@@ -1031,18 +1252,8 @@ export const QuestionBank = () => {
             Export CSV
           </button>
           <button
-            onClick={() => {
-              setNewQuestion({
-                text: "",
-                type: "mcq",
-                options: ["", "", "", ""],
-                correctAnswer: 0,
-                points: 1,
-                subjectId: selectedSubjectId || "",
-              });
-              setShowAddForm(true);
-            }}
-            className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+            onClick={handleOpenAddForm}
+            className="bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors shadow-xs"
           >
             + Add to Bank
           </button>
@@ -1177,35 +1388,35 @@ export const QuestionBank = () => {
           <button
             type="button"
             onClick={() => setOwnershipFilter("my_private")}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
               ownershipFilter === "my_private"
                 ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Private Questions
+            <span>🔒 Private Questions</span>
           </button>
           <button
             type="button"
-            onClick={() => setOwnershipFilter("mine")}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
-              ownershipFilter === "mine"
+            onClick={() => setOwnershipFilter("my_public")}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+              ownershipFilter === "my_public" || ownershipFilter === "mine"
                 ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Public Questions
+            <span>🌐 Public Questions</span>
           </button>
           <button
             type="button"
             onClick={() => setOwnershipFilter("others_public")}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
               ownershipFilter === "others_public"
                 ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Shared Questions
+            <span>🤝 Shared Questions</span>
           </button>
           <button
             type="button"
@@ -1246,25 +1457,32 @@ export const QuestionBank = () => {
           ))}
         </select>
 
-        {/* Quiz Dropdown (only show if subject selected) */}
-        {selectedSubjectId && (
-          <select
-            value={selectedQuizIdFilter || ""}
-            onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[250px]"
-          >
-            <option value="">-- Select Quiz --</option>
-            {quizzesFromSubject.length === 0 ? (
-              <option disabled>No quizzes in this subject</option>
-            ) : (
-              quizzesFromSubject.map((quiz) => (
-                <option key={quiz.id} value={quiz.id}>
-                  {quiz.title}
-                </option>
-              ))
-            )}
-          </select>
-        )}
+        {/* Quiz Dropdown */}
+        <select
+          value={selectedQuizIdFilter || ""}
+          onChange={(e) => {
+            const quizIdVal = e.target.value || null;
+            setSelectedQuizIdFilter(quizIdVal);
+            if (quizIdVal) {
+              const selectedQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(quizIdVal));
+              if (selectedQuizObj?.subject_id && !selectedSubjectId) {
+                setSelectedSubjectId(selectedQuizObj.subject_id);
+              }
+            }
+          }}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 min-w-[220px]"
+        >
+          <option value="">-- Select Quiz --</option>
+          {(selectedSubjectId ? quizzesFromSubject : allInstructorQuizzes).length === 0 ? (
+            <option disabled>No quizzes found</option>
+          ) : (
+            (selectedSubjectId ? quizzesFromSubject : allInstructorQuizzes).map((quiz) => (
+              <option key={quiz.id} value={quiz.id}>
+                {quiz.title}
+              </option>
+            ))
+          )}
+        </select>
 
         {/* Search bar */}
         <div className="flex-1 relative">
@@ -1406,6 +1624,29 @@ export const QuestionBank = () => {
             </label>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const selectedList = allFiltered.filter((q) => bulkSelected.has(q.id));
+                handleOpenReuseModal(selectedList);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg text-sm font-bold hover:bg-brand-gold-dark transition-colors shadow-2xs"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Reuse Selected ({bulkSelected.size})
+            </button>
             {activeTab === "active" && (
               <button
                 onClick={handleBulkArchive}
@@ -1610,6 +1851,33 @@ export const QuestionBank = () => {
                       <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
                         📖 {question.subject_name || question.subjects?.name || question.quizzes?.subjects?.name || "Unassigned Subject"}
                       </span>
+                      {activeTab !== "import" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReuseModal(question);
+                          }}
+                          className="ml-auto px-3 py-1 bg-brand-gold text-brand-navy hover:bg-brand-gold-dark text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          title="Reuse this question in a quiz"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          <span>Reuse</span>
+                        </button>
+                      )}
                       {question.quizzes?.title && (
                         <span className="text-xs text-gray-500 italic">
                           📝 Quiz: {question.quizzes.title}
@@ -1634,6 +1902,22 @@ export const QuestionBank = () => {
                       {question.ai_revised && (
                         <span className="px-2 py-0.5 border rounded text-[10px] font-bold bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20">
                           AI Revised
+                        </span>
+                      )}
+                      {/* Privacy & Ownership Badge */}
+                      {isQuestionOwn(question) ? (
+                        isQuestionPrivate(question) ? (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                            🔒 Private Question
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                            🌐 Public Question
+                          </span>
+                        )
+                      ) : (
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                          🤝 Shared Question
                         </span>
                       )}
                       {question.creator_name && (
@@ -1937,170 +2221,534 @@ export const QuestionBank = () => {
         </div>
       )}
 
-      {/* Add Question Modal */}
+      {/* Add Question Modal with Count Selector & Batch Builder */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            {/* Modal Header */}
-            <div className="bg-brand-navy px-6 py-4 rounded-t-xl flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">
-                Add Question to Bank
-              </h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+            {/* Header */}
+            <div className="bg-brand-navy text-white px-6 py-4 flex justify-between items-center shrink-0">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-gold block">
+                  Question Bank Creator • Step {addFormStep} of 2
+                </span>
+                <h3 className="text-xl font-bold">
+                  {addFormStep === 1
+                    ? "Select How Many Questions to Create"
+                    : `Create ${questionsBatch.length} Question${questionsBatch.length > 1 ? "s" : ""}`}
+                </h3>
+              </div>
               <button
                 onClick={() => setShowAddForm(false)}
-                className="text-white/60 hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-base transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                ✕
               </button>
             </div>
 
-            <div className="p-6">
-              {/* Subject Selection (Required) */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Assign to Subject <span className="text-red-500">*</span>
+            {/* STEP 1: Question Count Selector */}
+            {addFormStep === 1 && (
+              <div className="p-8 space-y-6 overflow-y-auto">
+                <div className="text-center max-w-md mx-auto space-y-2">
+                  <div className="w-14 h-14 bg-brand-gold/15 text-brand-gold rounded-2xl flex items-center justify-center mx-auto text-2xl font-black mb-3">
+                    ❓
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-800">
+                    How many questions would you like to create?
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Choose a quick count or enter any custom quantity to build your questions together.
+                  </p>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="grid grid-cols-5 gap-3 max-w-lg mx-auto">
+                  {[1, 2, 3, 5, 10].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setQuestionCountInput(preset)}
+                      className={`py-3 px-2 rounded-xl text-xs font-bold transition-all border text-center ${
+                        parseInt(questionCountInput) === preset
+                          ? "bg-brand-navy text-white border-brand-navy shadow-md ring-2 ring-brand-navy/20 scale-105"
+                          : "bg-white text-slate-700 border-slate-200 hover:border-brand-gold hover:bg-amber-50/50"
+                      }`}
+                    >
+                      <span className="block text-lg font-black">{preset}</span>
+                      <span className="text-[10px] opacity-80 uppercase tracking-wider block font-semibold">
+                        {preset === 1 ? "Question" : "Questions"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom input */}
+                <div className="max-w-xs mx-auto text-center">
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    Or Enter Custom Quantity:
+                  </label>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuestionCountInput((p) => Math.max(1, (parseInt(p) || 1) - 1))}
+                      className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-lg transition-colors"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={questionCountInput}
+                      onChange={(e) => setQuestionCountInput(e.target.value)}
+                      className="w-24 px-3 py-2 bg-white border border-slate-300 rounded-xl text-center text-lg font-extrabold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuestionCountInput((p) => Math.min(50, (parseInt(p) || 1) + 1))}
+                      className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-lg transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 max-w-lg mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProceedToQuestionBuilder}
+                    className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-extrabold rounded-xl transition-all shadow-xs flex items-center gap-2"
+                  >
+                    <span>Continue to Question Builder</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Multi-Question Form Builder */}
+            {addFormStep === 2 && (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                {/* Global Settings (Subject, Target Quiz, Privacy) */}
+                <div className="p-5 bg-slate-50 border-b border-slate-200 shrink-0 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Subject Selector */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Assign to Subject <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={batchSubjectId}
+                        onChange={(e) => {
+                          setBatchSubjectId(e.target.value);
+                          setBatchQuizId("");
+                        }}
+                        className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                      >
+                        <option value="">-- Select Subject --</option>
+                        {subjects.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {formatSubjectLabel(s)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Target Quiz Selector */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Target Quiz <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                      </label>
+                      <select
+                        value={batchQuizId}
+                        onChange={(e) => {
+                          const quizIdVal = e.target.value;
+                          const selectedQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(quizIdVal));
+                          setBatchQuizId(quizIdVal);
+                          if (selectedQuizObj?.subject_id) {
+                            setBatchSubjectId(selectedQuizObj.subject_id);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                      >
+                        <option value="">-- Standalone Question Bank (No Quiz Container) --</option>
+                        {(batchSubjectId
+                          ? allInstructorQuizzes.filter((q) => !q.subject_id || String(q.subject_id) === String(batchSubjectId))
+                          : allInstructorQuizzes
+                        ).map((quiz) => {
+                          const subjObj = subjects.find((s) => String(s.id) === String(quiz.subject_id));
+                          const subjTag = subjObj ? ` (${subjObj.code || subjObj.name})` : "";
+                          return (
+                            <option key={quiz.id} value={quiz.id}>
+                              {quiz.title}{subjTag}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Visibility Toggles */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Question Visibility:
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBatchIsPrivate(true)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          batchIsPrivate
+                            ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        🔒 Private
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBatchIsPrivate(false)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          !batchIsPrivate
+                            ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        🌐 Public
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Question Tabs Bar */}
+                <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center gap-2 overflow-x-auto shrink-0">
+                  {questionsBatch.map((qItem, idx) => {
+                    const isFilled = qItem.text.trim() !== "" && (qItem.options || []).every(o => o.trim() !== "");
+                    const isActive = activeBatchIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveBatchIndex(idx)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                          isActive
+                            ? "bg-brand-gold text-brand-navy shadow-xs ring-2 ring-brand-gold/30"
+                            : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-300"
+                        }`}
+                      >
+                        <span>Question #{idx + 1}</span>
+                        {isFilled && <span className="text-[10px] text-green-700 font-black">✓</span>}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={handleAddQuestionToBatch}
+                    className="px-3 py-1.5 bg-white text-brand-navy border border-dashed border-brand-navy/50 hover:bg-brand-navy/10 rounded-lg text-xs font-bold transition-colors shrink-0 flex items-center gap-1"
+                  >
+                    + Add Question
+                  </button>
+                </div>
+
+                {/* Active Question Editor Body */}
+                <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-brand-navy">
+                      Question #{activeBatchIndex + 1} of {questionsBatch.length}
+                    </span>
+                    {questionsBatch.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuestionFromBatch(activeBatchIndex)}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 transition-colors flex items-center gap-1"
+                      >
+                        🗑 Remove Question #{activeBatchIndex + 1}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Question Text */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Question Text <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={questionsBatch[activeBatchIndex]?.text || ""}
+                      onChange={(e) => handleUpdateBatchQuestion(activeBatchIndex, "text", e.target.value)}
+                      placeholder={`Enter text for Question #${activeBatchIndex + 1}...`}
+                      rows={3}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                    />
+                  </div>
+
+                  {/* Options */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Multiple Choice Options & Correct Answer <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-2.5">
+                      {(questionsBatch[activeBatchIndex]?.options || []).map((option, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer bg-slate-50 hover:bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
+                            <input
+                              type="radio"
+                              name={`batch-correct-${activeBatchIndex}`}
+                              checked={questionsBatch[activeBatchIndex]?.correctAnswer === optIdx}
+                              onChange={() => handleUpdateBatchQuestion(activeBatchIndex, "correctAnswer", optIdx)}
+                              className="accent-brand-navy w-4 h-4"
+                            />
+                            <span className="text-xs font-black text-slate-600">
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) => handleUpdateBatchOption(activeBatchIndex, optIdx, e.target.value)}
+                            placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                            className="flex-1 px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                          />
+                          {(questionsBatch[activeBatchIndex]?.options || []).length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveOptionFromBatchQuestion(activeBatchIndex, optIdx)}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddOptionToBatchQuestion(activeBatchIndex)}
+                      className="text-xs font-bold text-brand-gold hover:text-brand-gold-dark mt-2.5 transition-colors flex items-center gap-1"
+                    >
+                      + Add Option
+                    </button>
+                  </div>
+
+                  {/* Points */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Points
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={questionsBatch[activeBatchIndex]?.points || 1}
+                      onChange={(e) => handleUpdateBatchQuestion(activeBatchIndex, "points", parseInt(e.target.value) || 1)}
+                      className="w-24 px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 shrink-0 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setAddFormStep(1)}
+                    className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1"
+                  >
+                    ← Back to Count Selection
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddForm(false)}
+                      className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveBatchToBank}
+                      disabled={addingBatchProcessing}
+                      className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-extrabold rounded-xl transition-all disabled:opacity-50 shadow-xs"
+                    >
+                      {addingBatchProcessing
+                        ? "Saving Questions..."
+                        : `Save All ${questionsBatch.length} Question${questionsBatch.length > 1 ? "s" : ""} to Bank`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reuse Question Modal */}
+      <ReuseQuestionModal
+        isOpen={showReuseModal}
+        onClose={() => setShowReuseModal(false)}
+        questionsToReuse={questionsToReuse}
+        user={user}
+        defaultSubjectId={selectedSubjectId}
+        onSuccess={() => {
+          fetchQuestions();
+          setBulkSelected(new Set());
+        }}
+        navigate={navigate}
+      />
+
+      {/* Import Settings & Privacy Modal */}
+      {showImportConfigModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-brand-navy text-white px-6 py-4 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-gold block">
+                  Question Bank Import
+                </span>
+                <h3 className="text-lg font-bold">
+                  Import Settings ({pendingImportQuestions.length} Questions)
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowImportConfigModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-base transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* File details summary */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-slate-500 font-bold block mb-0.5">SOURCE FILE:</span>
+                  <span className="font-extrabold text-slate-800">{pendingImportFileName || "Imported File"}</span>
+                </div>
+                <span className="px-2.5 py-1 bg-brand-gold/20 text-brand-navy font-black rounded-lg">
+                  {pendingImportQuestions.length} Questions Found
+                </span>
+              </div>
+
+              {/* Subject Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Target Subject <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={newQuestion.subjectId || ""}
-                  onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, subjectId: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
+                  value={importTargetSubjectId}
+                  onChange={(e) => {
+                    setImportTargetSubjectId(e.target.value);
+                    setImportTargetQuizId("");
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-gold"
                 >
                   <option value="">-- Select Subject --</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {formatSubjectLabel(subject)}
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {formatSubjectLabel(s)}
                     </option>
                   ))}
                 </select>
-                {subjects.length === 0 && !subjectsLoading && (
-                  <p className="text-xs text-red-500 mt-1 font-medium">
-                    No subjects found. Please create a subject first before adding questions.
-                  </p>
-                )}
               </div>
 
-              {/* Question Text */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Question Text <span className="text-red-500">*</span>
+              {/* Target Quiz Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Target Quiz <span className="text-slate-400 font-normal lowercase">(optional)</span>
                 </label>
-                <textarea
-                  value={newQuestion.text}
-                  onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, text: e.target.value })
-                  }
-                  placeholder="Enter your question"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
-                />
-              </div>
-
-              {/* Options */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Options <span className="text-red-500">*</span>
-                </label>
-                <div className="space-y-2">
-                  {newQuestion.options.map((option, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input
-                        type="radio"
-                        name="correct-answer"
-                        checked={newQuestion.correctAnswer === idx}
-                        onChange={() =>
-                          setNewQuestion({
-                            ...newQuestion,
-                            correctAnswer: idx,
-                          })
-                        }
-                        className="mt-3"
-                      />
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => updateOption(idx, e.target.value)}
-                        placeholder={`Option ${idx + 1}`}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
-                      />
-                      {newQuestion.options.length > 2 && (
-                        <button
-                          onClick={() => removeOption(idx)}
-                          className="text-red-500 hover:text-red-700 px-3 transition-colors"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={addOption}
-                  className="text-brand-gold hover:text-brand-gold-dark font-semibold mt-2 transition-colors"
+                <select
+                  value={importTargetQuizId}
+                  onChange={(e) => {
+                    const quizIdVal = e.target.value;
+                    const selectedQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(quizIdVal));
+                    setImportTargetQuizId(quizIdVal);
+                    if (selectedQuizObj?.subject_id) {
+                      setImportTargetSubjectId(selectedQuizObj.subject_id);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-gold"
                 >
-                  + Add Option
-                </button>
+                  <option value="">-- Standalone Question Bank (No Quiz Container) --</option>
+                  {(importTargetSubjectId
+                    ? allInstructorQuizzes.filter((q) => !q.subject_id || String(q.subject_id) === String(importTargetSubjectId))
+                    : allInstructorQuizzes
+                  ).map((quiz) => {
+                    const subjObj = subjects.find((s) => String(s.id) === String(quiz.subject_id));
+                    const subjTag = subjObj ? ` (${subjObj.code || subjObj.name})` : "";
+                    return (
+                      <option key={quiz.id} value={quiz.id}>
+                        {quiz.title}{subjTag}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                  Select one of your created quizzes to import all questions directly into that quiz container.
+                </p>
               </div>
 
-              {/* Points */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Points
+              {/* Question Visibility (Private vs Public) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Question Visibility <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  value={newQuestion.points}
-                  onChange={(e) =>
-                    setNewQuestion({
-                      ...newQuestion,
-                      points: parseInt(e.target.value) || 1,
-                    })
-                  }
-                  min={1}
-                  className="w-24 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setImportIsPrivate(true)}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
+                      importIsPrivate === true
+                        ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                    }`}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1.5 mb-1">
+                      <span>🔒 Private Questions</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-normal leading-normal">
+                      Only visible to you. Not shared with co-instructors.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportIsPrivate(false)}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
+                      importIsPrivate === false
+                        ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                    }`}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1.5 mb-1">
+                      <span>🌐 Public Questions</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-normal leading-normal">
+                      Shared with co-instructors in the same subject for quiz reuse.
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-4">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
-                  onClick={handleAddToBank}
-                  className="flex-1 bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
-                >
-                  Add to Bank
-                </button>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  type="button"
+                  onClick={() => setShowImportConfigModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteImport}
+                  disabled={importProcessing || !importTargetSubjectId}
+                  className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-extrabold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                >
+                  {importProcessing ? "Importing..." : `Confirm & Import ${pendingImportQuestions.length} Questions`}
                 </button>
               </div>
             </div>
