@@ -704,18 +704,21 @@ export const InstructorQuiz = () => {
 
       let resolved = null;
 
-      // 1. Primary source: questions directly saved under this quiz ID
+      // 1. Fetch both direct questions and junction questions for this quiz ID
       const direct = await loadDirect(quizId);
-      if (direct && direct.rows.length > 0) {
-        resolved = direct;
-      }
+      const junction = await loadViaJunction(quizId);
 
-      // 2. Secondary source: questions linked via quiz_questions junction
-      if (!resolved || resolved.rows.length === 0) {
-        const junction = await loadViaJunction(quizId);
-        if (junction && junction.rows.length > 0) {
-          resolved = junction;
-        }
+      const combinedMap = new Map();
+      (direct?.rows || []).forEach((q) => {
+        if (q && q.id) combinedMap.set(q.id, q);
+      });
+      (junction?.rows || []).forEach((q) => {
+        if (q && q.id) combinedMap.set(q.id, q);
+      });
+
+      const combinedRows = Array.from(combinedMap.values());
+      if (combinedRows.length > 0) {
+        resolved = { source: "combined", rows: combinedRows };
       }
 
       // 3. Fallback: if revision copy has no saved questions yet, load from parent quiz
