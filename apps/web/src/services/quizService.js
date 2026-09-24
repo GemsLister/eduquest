@@ -181,7 +181,7 @@ export const quizService = {
       if (!isMissingTableError(junctionError) && viaJunction && viaJunction.length > 0) {
         const questions = viaJunction
           .map((row) => row.questions)
-          .filter((q) => q !== null);
+          .filter((q) => q !== null && (q.is_archived === null || q.is_archived === false));
         return { data: questions, error: null };
       }
     } catch (e) {
@@ -193,34 +193,18 @@ export const quizService = {
       .from("questions")
       .select("*")
       .eq("quiz_id", quizId)
+      .or("is_archived.is.null,is_archived.eq.false")
       .order("created_at", { ascending: true });
   },
 
   /**
-   * Get question count for a quiz
+   * Get question count for a quiz (only counting active, unique questions)
    * @param {string} quizId - Quiz ID
    * @returns {Promise<{count, error}>}
    */
-  getQuestionCount: async (quizId) => {
-    // Try junction table count first
-    try {
-      const { count: junctionCount, error: junctionError } = await supabase
-        .from("quiz_questions")
-        .select("*", { count: "exact", head: true })
-        .eq("quiz_id", quizId);
-
-      if (!isMissingTableError(junctionError) && junctionCount && junctionCount > 0) {
-        return { count: junctionCount, error: null };
-      }
-    } catch (e) {
-      // Ignore
-    }
-
-    // Fallback to direct quiz_id count
-    return await supabase
-      .from("questions")
-      .select("*", { count: "exact", head: true })
-      .eq("quiz_id", quizId);
+  getQuestionCount: async (quizId, parentQuizId = null) => {
+    const count = await fetchQuizQuestionCount(quizId, parentQuizId);
+    return { count, error: null };
   },
 
   /**
@@ -576,3 +560,91 @@ export const quizService = {
       .eq("quiz_id", quizId);
   },
 };
+
+/**
+ * Deduplicate active questions by ID and text (matching transformQuestions logic)
+ */
+export const countActiveUniqueQuestions = (questionsList) => {
+  if (!Array.isArray(questionsList)) return 0;
+  const seenIds = new Set();
+  const seenTexts = new Set();
+
+  const activeQuestions = questionsList.filter(
+    (q) => q && (q.is_archived === false || q.is_archived === null)
+  );
+
+  const uniqueQuestions = activeQuestions.filter((q) => {
+    if (!q || !q.id) return false;
+    const textNorm = (q.text || "").toLowerCase().trim();
+    if (seenIds.has(q.id)) return false;
+    if (textNorm && seenTexts.has(textNorm)) return false;
+    seenIds.add(q.id);
+    if (textNorm) seenTexts.add(textNorm);
+    return true;
+  });
+
+  return uniqueQuestions.length;
+};
+
+/**
+ * Accurately fetch active unique question count for a quiz
+ */
+export const fetchQuizQuestionCount = async (quizId, parentQuizId = null) => {
+  if (!quizId) return 0;
+
+  try {
+    const { data: junctionData, error: juncError } = await supabase
+      .from("quiz_questions")
+      .select("questions(id, text, is_archived)")
+      .eq("quiz_id", quizId);
+
+    if (!isMissingTableError(juncError) && junctionData && junctionData.length > 0) {
+      const questionsList = junctionData.map((row) => row.questions).filter(Boolean);
+      const count = countActiveUniqueQuestions(questionsList);
+      if (count > 0) return count;
+    }
+  } catch (e) {
+    // Fallback on error
+  }
+
+  try {
+    const { data: directData, error: directError } = await supabase
+      .from("questions")
+      .select("id, text, is_archived")
+      .eq("quiz_id", quizId)
+      .or("is_archived.is.null,is_archived.eq.false");
+
+    if (!directError && directData && directData.length > 0) {
+      const count = countActiveUniqueQuestions(directData);
+      if (count > 0) return count;
+    }
+  } catch (e) {
+    // Fallback on error
+  }
+
+  try {
+    const { data: sub } = await supabase
+      .from("quiz_analysis_submissions")
+      .select("analysis_results")
+      .eq("quiz_id", quizId)
+      .limit(1)
+      .maybeSingle();
+
+    const payload =
+      sub?.analysis_results?.analysis ||
+      sub?.analysis_results?.questionSnapshots ||
+      [];
+    if (Array.isArray(payload) && payload.length > 0) {
+      return payload.length;
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  if (parentQuizId) {
+    return await fetchQuizQuestionCount(parentQuizId, null);
+  }
+
+  return 0;
+};
+

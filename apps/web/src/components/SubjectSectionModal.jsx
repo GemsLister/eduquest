@@ -11,6 +11,7 @@ export const SubjectSectionModal = ({
   sectionQuizzes = {},
   userId,
   onSectionCreated,
+  onArchiveSubject,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -315,7 +316,21 @@ export const SubjectSectionModal = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-white border-t border-gray-200 flex justify-end">
+        <div className="p-4 bg-white border-t border-gray-200 flex items-center justify-between">
+          {onArchiveSubject ? (
+            <button
+              onClick={() => {
+                onClose();
+                onArchiveSubject(subject);
+              }}
+              className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              <span>Archive Subject</span>
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"

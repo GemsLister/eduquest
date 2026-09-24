@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { fetchQuizQuestionCount } from "../../services/quizService.js";
 
 const isMissingTableError = (error) => {
   if (!error) return false;
@@ -266,39 +267,6 @@ export const useFetchQuizzes = () => {
       // Fetch question counts and section-specific attempt counts for each quiz
       const quizzesWithCounts = await Promise.all(
         (quizzesData || []).map(async (quiz) => {
-          // Check junction table first
-          let qCount = null;
-          let countError = null;
-          try {
-            const { count: juncCount, error: juncError } = await supabase
-              .from("quiz_questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            if (!isMissingTableError(juncError) && juncCount && juncCount > 0) {
-              qCount = juncCount;
-              countError = null;
-            } else if (!isMissingTableError(juncError) && !juncError) {
-              qCount = juncCount || 0;
-              countError = null;
-            } else {
-              // Fallback to direct questions table
-              const direct = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.id);
-              qCount = direct.count || 0;
-              countError = direct.error;
-            }
-          } catch (e) {
-            // Fallback on any error
-            const direct = await supabase
-              .from("questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            qCount = direct.count || 0;
-            countError = direct.error;
-          }
-
           const targetQuizIds = [quiz.id];
           if (quiz.parent_quiz_id) targetQuizIds.push(quiz.parent_quiz_id);
 
@@ -311,57 +279,10 @@ export const useFetchQuizzes = () => {
             (a) => (sectionId ? a.section_id === sectionId : true)
           ).length;
 
-          let resolvedQuestionsCount = !countError ? qCount || 0 : 0;
-
-          if (resolvedQuestionsCount === 0) {
-            const { data: sub } = await supabase
-              .from("quiz_analysis_submissions")
-              .select("analysis_results")
-              .eq("quiz_id", quiz.id)
-              .limit(1)
-              .maybeSingle();
-
-            const payload = sub?.analysis_results?.analysis || sub?.analysis_results?.questionSnapshots || [];
-            if (payload.length > 0) {
-              resolvedQuestionsCount = payload.length;
-            }
-          }
-
-          if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
-            try {
-              const { count: rootJunc, error: rootJuncErr } = await supabase
-                .from("quiz_questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (!isMissingTableError(rootJuncErr) && rootJunc && rootJunc > 0) {
-                resolvedQuestionsCount = rootJunc;
-              } else if (!isMissingTableError(rootJuncErr)) {
-                const { count: rootCount } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.parent_quiz_id);
-                if (rootCount && rootCount > 0) {
-                  resolvedQuestionsCount = rootCount;
-                }
-              } else {
-                const { count: rootCount } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.parent_quiz_id);
-                if (rootCount && rootCount > 0) {
-                  resolvedQuestionsCount = rootCount;
-                }
-              }
-            } catch (e) {
-              const { count: rootCount } = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (rootCount && rootCount > 0) {
-                resolvedQuestionsCount = rootCount;
-              }
-            }
-          }
+          const resolvedQuestionsCount = await fetchQuizQuestionCount(
+            quiz.id,
+            quiz.parent_quiz_id
+          );
 
           return {
             ...quiz,

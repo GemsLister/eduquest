@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { fetchQuizQuestionCount } from "../../services/quizService.js";
 
 const isMissingTableError = (error) => {
   if (!error) return false;
@@ -243,77 +244,12 @@ export const useFetchInstructorQuizzes = () => {
 
       const quizzesWithCounts = await Promise.all(
         data.map(async (quiz) => {
-          let count = null;
-          let countError = null;
-          try {
-            const { count: juncCount, error: juncError } = await supabase
-              .from("quiz_questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            if (!isMissingTableError(juncError) && juncCount && juncCount > 0) {
-              count = juncCount;
-              countError = null;
-            } else if (!isMissingTableError(juncError) && !juncError) {
-              count = juncCount || 0;
-              countError = null;
-            } else {
-              const direct = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.id);
-              count = direct.count || 0;
-              countError = direct.error;
-            }
-          } catch (e) {
-            const direct = await supabase
-              .from("questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            count = direct.count || 0;
-            countError = direct.error;
-          }
+          const resolvedQuestionsCount = await fetchQuizQuestionCount(
+            quiz.id,
+            quiz.parent_quiz_id
+          );
 
           const latestSubmission = latestSubmissionByQuiz.get(quiz.id);
-
-          let resolvedQuestionsCount = !countError ? count || 0 : 0;
-
-          if (resolvedQuestionsCount === 0 && latestSubmission?.analysis_results) {
-            const payload =
-              latestSubmission.analysis_results.analysis ||
-              latestSubmission.analysis_results.questionSnapshots ||
-              [];
-            if (Array.isArray(payload) && payload.length > 0) {
-              resolvedQuestionsCount = payload.length;
-            }
-          }
-
-          if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
-            try {
-              const { count: rootJunc, error: rootJuncErr } = await supabase
-                .from("quiz_questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (!isMissingTableError(rootJuncErr) && rootJunc && rootJunc > 0) {
-                resolvedQuestionsCount = rootJunc;
-              } else {
-                const { count: rootCount } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.parent_quiz_id);
-                if (rootCount && rootCount > 0) {
-                  resolvedQuestionsCount = rootCount;
-                }
-              }
-            } catch (e) {
-              const { count: rootCount } = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (rootCount && rootCount > 0) {
-                resolvedQuestionsCount = rootCount;
-              }
-            }
-          }
 
           const totalAttempts =
             (attemptsCountByQuiz.get(quiz.id) || 0) +

@@ -5,6 +5,7 @@ import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
 import { useFetchSectionQuiz } from "../../hooks/quizHook/useFetchSectionQuiz.jsx";
 import { sectionService } from "../../services/sectionService.js";
+import { subjectService } from "../../services/subjectService.js";
 import { supabase } from "../../supabaseClient.js";
 import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
@@ -66,7 +67,7 @@ export const InstructorDashboard = () => {
       try {
         const { data } = await supabase
           .from("sections")
-          .select("*")
+          .select("*, subjects(id, name, code, description)")
           .eq("instructor_id", user.id)
           .eq("is_archived", true)
           .order("created_at", { ascending: false });
@@ -84,46 +85,137 @@ export const InstructorDashboard = () => {
     setShowArchived(!showArchived);
   };
 
-  const handleArchiveSection = async (sectionId, sectionName) => {
+  // Handler to archive an entire Subject along with its assigned sections
+  const handleArchiveSubject = async (subGroup) => {
     const confirmed = await confirm({
-      title: "Archive Section",
-      message: `Archive "${sectionName}"? You can restore it later from the Archived tab.`,
-      confirmText: "Archive",
+      title: "Archive Subject",
+      message: `Archive "${subGroup.name}"? This subject and all its assigned sections will be moved to the Archived tab. You can restore or permanently remove it later.`,
+      confirmText: "Archive Subject",
       cancelText: "Cancel",
       variant: "warning",
     });
     if (!confirmed) return;
 
     try {
-      const { error } = await sectionService.archiveSection(sectionId);
-      if (error) throw error;
-
-      const archived = sections.find((s) => s.id === sectionId);
-      setSections((prev) => prev.filter((s) => s.id !== sectionId));
-      if (archived) {
-        setArchivedSections((prev) => [archived, ...prev]);
+      // 1. Archive all sections belonging to this subject group
+      if (subGroup.sections && subGroup.sections.length > 0) {
+        await Promise.all(
+          subGroup.sections.map((sec) => sectionService.archiveSection(sec.id))
+        );
       }
-      notify.success(`"${sectionName}" archived!`);
+
+      // 2. Archive subject entry in database if subject_id is present
+      const subjectIdToUse = subGroup.subject_id || subGroup.id;
+      if (subjectIdToUse) {
+        try {
+          await subjectService.archiveSubject(subjectIdToUse);
+        } catch (sErr) {
+          console.warn("Could not archive subject record:", sErr);
+        }
+      }
+
+      // 3. Update local state
+      const archivedSecs = subGroup.sections.map((s) => ({ ...s, is_archived: true }));
+      const remainingSections = sections.filter(
+        (sec) => !subGroup.sections.some((s) => s.id === sec.id)
+      );
+
+      setSections(remainingSections);
+      setArchivedSections((prev) => [...archivedSecs, ...prev]);
+
+      notify.success(`Subject "${subGroup.name}" archived successfully!`);
     } catch (err) {
-      notify.error("Failed to archive section: " + err.message);
+      console.error("Error archiving subject:", err);
+      notify.error("Failed to archive subject: " + err.message);
     }
   };
 
-  const handleRestoreSection = async (sectionId) => {
-    try {
-      const { error } = await sectionService.updateSection(sectionId, {
-        is_archived: false,
-      });
-      if (error) throw error;
+  // Handler to restore an archived Subject and its sections
+  const handleRestoreSubject = async (subGroup) => {
+    const confirmed = await confirm({
+      title: "Restore Subject",
+      message: `Restore "${subGroup.name}"? This subject and its sections will be moved back to your active subjects list.`,
+      confirmText: "Restore Subject",
+      cancelText: "Cancel",
+      variant: "info",
+    });
+    if (!confirmed) return;
 
-      const restored = archivedSections.find((s) => s.id === sectionId);
-      setArchivedSections((prev) => prev.filter((s) => s.id !== sectionId));
-      if (restored) {
-        setSections((prev) => [restored, ...prev]);
+    try {
+      // 1. Unarchive sections
+      if (subGroup.sections && subGroup.sections.length > 0) {
+        await Promise.all(
+          subGroup.sections.map((sec) =>
+            sectionService.updateSection(sec.id, { is_archived: false })
+          )
+        );
       }
-      notify.success("Subject restored!");
+
+      // 2. Unarchive subject entry in database
+      const subjectIdToUse = subGroup.subject_id || subGroup.id;
+      if (subjectIdToUse) {
+        try {
+          await subjectService.unarchiveSubject(subjectIdToUse);
+        } catch (sErr) {
+          console.warn("Could not unarchive subject record:", sErr);
+        }
+      }
+
+      // 3. Update local state
+      const restoredSecs = subGroup.sections.map((s) => ({ ...s, is_archived: false }));
+      setArchivedSections((prev) =>
+        prev.filter((sec) => !subGroup.sections.some((s) => s.id === sec.id))
+      );
+      setSections((prev) => [...restoredSecs, ...prev]);
+
+      notify.success(`Subject "${subGroup.name}" restored successfully!`);
     } catch (err) {
-      notify.error("Failed to restore section: " + err.message);
+      console.error("Error restoring subject:", err);
+      notify.error("Failed to restore subject: " + err.message);
+    }
+  };
+
+  // Handler to permanently remove/delete an archived Subject
+  const handleDeleteSubject = async (subGroup) => {
+    const confirmed = await confirm({
+      title: "Permanently Remove Subject",
+      message: `Are you sure you want to permanently remove "${subGroup.name}" and all its assigned sections? This action cannot be undone.`,
+      confirmText: "Remove Permanently",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    try {
+      // 1. Delete sections under this subject
+      if (subGroup.sections && subGroup.sections.length > 0) {
+        await Promise.all(
+          subGroup.sections.map((sec) => sectionService.deleteSection(sec.id))
+        );
+      }
+
+      // 2. Delete subject entry if applicable
+      const subjectIdToUse = subGroup.subject_id || subGroup.id;
+      if (subjectIdToUse) {
+        try {
+          await subjectService.deleteSubject(subjectIdToUse);
+        } catch (sErr) {
+          console.warn("Could not delete subject record:", sErr);
+        }
+      }
+
+      // 3. Update local state
+      setArchivedSections((prev) =>
+        prev.filter((sec) => !subGroup.sections.some((s) => s.id === sec.id))
+      );
+      setSections((prev) =>
+        prev.filter((sec) => !subGroup.sections.some((s) => s.id === sec.id))
+      );
+
+      notify.success(`Subject "${subGroup.name}" permanently removed!`);
+    } catch (err) {
+      console.error("Error removing subject:", err);
+      notify.error("Failed to remove subject: " + err.message);
     }
   };
 
@@ -224,22 +316,67 @@ export const InstructorDashboard = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedSubjects = filteredSubjects.slice(startIndex, endIndex);
 
-  const filteredArchived = useMemo(() => {
-    if (!search.trim()) return archivedSections;
+  // Group archived sections by Subject
+  const groupedArchivedSubjects = useMemo(() => {
+    const map = new Map();
+
+    (archivedSections || []).forEach((sec) => {
+      const subjectObj = sec.subjects || {};
+      let subName = subjectObj.name;
+      let subCode = subjectObj.code || "";
+      let subDesc = subjectObj.description || sec.description || "";
+
+      if (!subName) {
+        if (sec.name && sec.name.includes("-")) {
+          const parts = sec.name.split("-");
+          subName = parts[0].trim();
+        } else {
+          subName = sec.name || "Untitled Subject";
+        }
+      }
+
+      const key = (subjectObj.id || subName).toLowerCase().trim();
+
+      if (!map.has(key)) {
+        map.set(key, {
+          id: subjectObj.id || sec.id,
+          subject_id: subjectObj.id || sec.subject_id,
+          name: subName,
+          code: subCode,
+          description: subDesc,
+          sections: [sec],
+        });
+      } else {
+        const existing = map.get(key);
+        if (!existing.sections.some((s) => s.id === sec.id)) {
+          existing.sections.push(sec);
+        }
+        if (!existing.code && subCode) existing.code = subCode;
+        if (!existing.description && subDesc) existing.description = subDesc;
+      }
+    });
+
+    return Array.from(map.values());
+  }, [archivedSections]);
+
+  const filteredArchivedSubjects = useMemo(() => {
+    if (!search.trim()) return groupedArchivedSubjects;
     const q = search.trim().toLowerCase();
-    return archivedSections.filter(
-      (s) =>
-        s.name?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q),
+    return groupedArchivedSubjects.filter(
+      (sub) =>
+        sub.name?.toLowerCase().includes(q) ||
+        sub.code?.toLowerCase().includes(q) ||
+        sub.description?.toLowerCase().includes(q) ||
+        sub.sections.some((sec) => sec.name?.toLowerCase().includes(q)),
     );
-  }, [archivedSections, search]);
+  }, [groupedArchivedSubjects, search]);
 
   const archivedTotalPages = Math.ceil(
-    filteredArchived.length / ITEMS_PER_PAGE,
+    filteredArchivedSubjects.length / ITEMS_PER_PAGE,
   );
   const archivedStartIndex = (archivedPage - 1) * ITEMS_PER_PAGE;
   const archivedEndIndex = archivedStartIndex + ITEMS_PER_PAGE;
-  const paginatedArchived = filteredArchived.slice(
+  const paginatedArchivedSubjects = filteredArchivedSubjects.slice(
     archivedStartIndex,
     archivedEndIndex,
   );
@@ -383,7 +520,7 @@ export const InstructorDashboard = () => {
                 />
               </svg>
               <span>Archived</span>
-              {archivedSections.length > 0 && (
+              {groupedArchivedSubjects.length > 0 && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                     showArchived
@@ -391,7 +528,7 @@ export const InstructorDashboard = () => {
                       : "bg-slate-100 text-slate-700"
                   }`}
                 >
-                  {archivedSections.length}
+                  {groupedArchivedSubjects.length}
                 </span>
               )}
             </button>
@@ -457,8 +594,35 @@ export const InstructorDashboard = () => {
                               "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3C/g%3E%3C/svg%3E\")",
                           }}
                         />
+
+                        {/* Archive Subject Quick Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchiveSubject(sub);
+                          }}
+                          title="Archive Subject"
+                          className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-white/80 hover:text-white transition-colors cursor-pointer z-10"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                            />
+                          </svg>
+                        </button>
+
                         <div className="relative z-[1] w-full">
-                          <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center justify-between gap-2 mb-1 pr-8">
                             {sub.code && (
                               <span className="px-2 py-0.5 rounded text-[10px] font-black bg-white/20 text-white uppercase tracking-wider backdrop-blur-xs">
                                 {sub.code}
@@ -596,13 +760,13 @@ export const InstructorDashboard = () => {
           </>
         )}
 
-        {/* Archived Sections */}
+        {/* Archived Subjects Section */}
         {showArchived && (
           <div className="mt-8">
-            <h2 className="text-lg font-bold text-gray-600 mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
+                className="h-5 w-5 text-slate-500"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -614,42 +778,112 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              Archived Subjects
+              <span>Archived Subjects ({groupedArchivedSubjects.length})</span>
             </h2>
+
             {archivedLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand-gold"></div>
               </div>
-            ) : filteredArchived.length === 0 ? (
-              <div className="bg-white rounded-lg p-8 text-center shadow-sm border border-gray-200">
+            ) : paginatedArchivedSubjects.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center shadow-xs border border-gray-200">
                 <p className="text-gray-500 text-sm">
                   {search.trim()
-                    ? "No archived subjects match your search."
-                    : "No archived subjects."}
+                    ? `No archived subjects match "${search}".`
+                    : "No archived subjects found."}
                 </p>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {paginatedArchived.map((section) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {paginatedArchivedSubjects.map((sub, idx) => (
                     <div
-                      key={section.id}
-                      className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-between opacity-70"
+                      key={sub.id || idx}
+                      className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all p-5 flex flex-col justify-between"
                     >
                       <div>
-                        <h3 className="font-bold text-gray-700">
-                          {section.name}
+                        <div className="flex items-center justify-between mb-2">
+                          {sub.code ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-700 uppercase tracking-wider">
+                              {sub.code}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                            Archived
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 line-clamp-1 mb-1">
+                          {sub.name}
                         </h3>
-                        <p className="text-xs text-gray-500">
-                          {section.description || "No subject"}
-                        </p>
+                        {sub.description && (
+                          <p className="text-xs text-gray-500 line-clamp-2 mb-3">
+                            {sub.description}
+                          </p>
+                        )}
+
+                        <div className="my-3 pt-3 border-t border-gray-100">
+                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                            Assigned Sections ({sub.sections.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                            {sub.sections.map((sec) => (
+                              <span
+                                key={sec.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200"
+                              >
+                                {sec.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleRestoreSection(section.id)}
-                        className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark transition-colors"
-                      >
-                        Restore
-                      </button>
+
+                      {/* Action buttons: Restore & Remove */}
+                      <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => handleRestoreSubject(sub)}
+                          className="flex-1 py-2 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3.5 w-3.5 text-brand-gold"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          <span>Restore</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubject(sub)}
+                          className="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          title="Remove / Delete Subject"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          <span>Remove</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -658,8 +892,8 @@ export const InstructorDashboard = () => {
                   <div className="flex items-center justify-between mt-6">
                     <p className="text-xs text-gray-400">
                       Showing {archivedStartIndex + 1}–
-                      {Math.min(archivedEndIndex, filteredArchived.length)} of{" "}
-                      {filteredArchived.length}
+                      {Math.min(archivedEndIndex, filteredArchivedSubjects.length)} of{" "}
+                      {filteredArchivedSubjects.length} archived subjects
                     </p>
                     <div className="flex items-center gap-1">
                       <button
@@ -718,6 +952,7 @@ export const InstructorDashboard = () => {
         onSectionCreated={(newSec) => {
           setSections((prev) => [newSec, ...prev]);
         }}
+        onArchiveSubject={handleArchiveSubject}
         onAddSection={(sub) => {
           setAddSectionSubject(sub);
         }}

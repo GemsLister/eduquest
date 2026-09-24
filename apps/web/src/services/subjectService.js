@@ -63,6 +63,42 @@ export const subjectService = {
       .eq("id", subjectId);
   },
 
+  /**
+   * Unarchive a subject
+   * @param {string} subjectId - Subject ID
+   * @returns {Promise<{error}>}
+   */
+  unarchiveSubject: async (subjectId) => {
+    return await supabase
+      .from("subjects")
+      .update({ is_archived: false })
+      .eq("id", subjectId);
+  },
+
+  /**
+   * Delete a subject
+   * @param {string} subjectId - Subject ID
+   * @returns {Promise<{error}>}
+   */
+  deleteSubject: async (subjectId) => {
+    return await supabase
+      .from("subjects")
+      .delete()
+      .eq("id", subjectId);
+  },
+
+  /**
+   * Get archived subjects
+   * @returns {Promise<{data, error}>}
+   */
+  getArchivedSubjects: async () => {
+    return await supabase
+      .from("subjects")
+      .select("*")
+      .eq("is_archived", true)
+      .order("name", { ascending: true });
+  },
+
   // ============ INSTRUCTOR-SUBJECT OPERATIONS ============
 
   /**

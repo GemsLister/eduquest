@@ -397,6 +397,10 @@ export const QuestionBank = () => {
     displayedQuestions.length > 0 &&
     displayedQuestions.every((q) => bulkSelected.has(q.id));
 
+  const allFilteredSelected =
+    allFiltered.length > 0 &&
+    allFiltered.every((q) => bulkSelected.has(q.id));
+
   const handleBulkSelectAllToggle = () => {
     setBulkSelected((prev) => {
       const next = new Set(prev);
@@ -406,6 +410,16 @@ export const QuestionBank = () => {
         displayedQuestions.forEach((q) => next.add(q.id));
       }
       return next;
+    });
+  };
+
+  const handleSelectAllFilteredToggle = () => {
+    setBulkSelected((prev) => {
+      if (allFilteredSelected) {
+        return new Set();
+      } else {
+        return new Set(allFiltered.map((q) => q.id));
+      }
     });
   };
 
@@ -452,10 +466,20 @@ export const QuestionBank = () => {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = async (targetSet = null) => {
+    const set = targetSet && targetSet instanceof Set ? targetSet : (Array.isArray(targetSet) ? new Set(targetSet) : bulkSelected);
+    const idsToDelete = Array.from(set);
+    if (idsToDelete.length === 0) return;
+
+    const isAllArchived = activeTab === "archived" && idsToDelete.length === allFiltered.length;
+    const titleText = isAllArchived ? "Remove All Archived Questions" : "Remove Questions Permanently";
+    const messageText = isAllArchived
+      ? `Are you sure you want to permanently remove ALL ${idsToDelete.length} archived question(s)? This action cannot be undone.`
+      : `Are you sure you want to permanently remove ${idsToDelete.length} question(s)? This action cannot be undone.`;
+
     const confirmed = await confirm({
-      title: "Remove Questions Permanently",
-      message: `Are you sure you want to permanently remove ${bulkSelected.size} question(s)? This cannot be undone.`,
+      title: titleText,
+      message: messageText,
       confirmText: "Remove",
       cancelText: "Cancel",
       variant: "danger",
@@ -463,19 +487,21 @@ export const QuestionBank = () => {
     if (confirmed) {
       let deleted = 0;
       let blocked = 0;
-      for (const id of bulkSelected) {
+      for (const id of idsToDelete) {
         const result = await deleteQuestion(id);
         if (result.success) {
           deleted++;
         } else {
           blocked++;
-          notify.error(result.error);
+          if (idsToDelete.length === 1) notify.error(result.error);
         }
       }
       setBulkSelected(new Set());
-      if (deleted > 0) notify.success(`Removed ${deleted} question(s)`);
+      if (deleted > 0) notify.success(`Permanently removed ${deleted} archived question(s)`);
       if (blocked > 0 && deleted === 0)
         notify.info("No questions were removed. Archive them instead.");
+      else if (blocked > 0)
+        notify.warning(`${blocked} question(s) could not be removed because they belong to published quizzes or have student attempts.`);
     }
   };
 
@@ -1609,21 +1635,30 @@ export const QuestionBank = () => {
 
       {/* 4. Bulk Actions Toolbar */}
       {activeTab !== "import" && bulkSelected.size > 0 && (
-        <div className="mb-4 p-3 bg-brand-navy/5 border border-brand-navy/10 rounded-lg flex justify-between items-center">
+        <div className="mb-4 p-3 bg-brand-navy/5 border border-brand-navy/10 rounded-lg flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
             <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={bulkSelectAll}
-                onChange={handleBulkSelectAllToggle}
-                className="mr-2 h-4 w-4 rounded"
+                checked={allFilteredSelected}
+                onChange={handleSelectAllFilteredToggle}
+                className="mr-2 h-4 w-4 rounded border-gray-300 text-brand-navy focus:ring-brand-gold cursor-pointer"
               />
               <span className="text-brand-navy font-semibold text-sm">
-                {bulkSelected.size} selected
+                {bulkSelected.size} selected {allFilteredSelected ? `(All ${allFiltered.length})` : `of ${allFiltered.length}`}
               </span>
             </label>
+            {!allFilteredSelected && (
+              <button
+                type="button"
+                onClick={handleSelectAllFilteredToggle}
+                className="text-xs text-brand-navy font-semibold underline hover:text-brand-gold transition-colors"
+              >
+                Select all {allFiltered.length} questions
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 const selectedList = allFiltered.filter((q) => bulkSelected.has(q.id));
@@ -1692,7 +1727,7 @@ export const QuestionBank = () => {
                   Restore Selected
                 </button>
                 <button
-                  onClick={handleBulkDelete}
+                  onClick={() => handleBulkDelete()}
                   className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
                 >
                   <svg
@@ -1709,7 +1744,7 @@ export const QuestionBank = () => {
                       d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                     />
                   </svg>
-                  Remove Selected
+                  Remove Selected ({bulkSelected.size})
                 </button>
               </>
             )}
@@ -1781,18 +1816,62 @@ export const QuestionBank = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Bulk select all checkbox (non-import tabs) */}
+          {/* Select all & Remove all toolbar (non-import tabs) */}
           {activeTab !== "import" && (
-            <div className="flex items-center px-2 py-1">
-              <label className="flex items-center cursor-pointer text-sm text-gray-500">
-                <input
-                  type="checkbox"
-                  checked={bulkSelectAll}
-                  onChange={handleBulkSelectAllToggle}
-                  className="mr-2 h-4 w-4 rounded"
-                />
-                Select all on this page
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl mb-3">
+              <div className="flex items-center gap-4 flex-wrap">
+                <label className="flex items-center cursor-pointer text-sm font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={handleSelectAllFilteredToggle}
+                    className="mr-2 h-4 w-4 rounded border-gray-300 text-brand-navy focus:ring-brand-gold cursor-pointer"
+                  />
+                  <span>
+                    Select All {activeTab === "archived" ? "Archived " : ""}Questions ({allFiltered.length})
+                  </span>
+                </label>
+
+                {!allFilteredSelected && (
+                  <button
+                    type="button"
+                    onClick={handleBulkSelectAllToggle}
+                    className="text-xs text-gray-500 hover:text-brand-navy underline transition-colors"
+                  >
+                    {bulkSelectAll ? "Deselect page" : "Select page only"}
+                  </button>
+                )}
+              </div>
+
+              {activeTab === "archived" && allFiltered.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idsToPass = bulkSelected.size > 0 ? bulkSelected : allFiltered.map((q) => q.id);
+                    handleBulkDelete(idsToPass);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Remove all archived questions permanently"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  {bulkSelected.size > 0
+                    ? `Remove Selected (${bulkSelected.size})`
+                    : `Remove All Archived Questions (${allFiltered.length})`}
+                </button>
+              )}
             </div>
           )}
 
