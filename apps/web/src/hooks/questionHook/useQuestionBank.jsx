@@ -16,7 +16,12 @@ export const useQuestionBank = () => {
       ? question.options.map((opt) => normalizeText(opt)).join("|")
       : "";
 
+    const subjId = question.subject_id || question.quizzes?.subject_id || question.sections?.subject_id || "no_subject";
+    const quizIdStr = question.quiz_id ? String(question.quiz_id) : (question.id ? `id_${question.id}` : "standalone");
+
     return [
+      quizIdStr,
+      subjId,
       normalizeText(question.text),
       normalizeText(question.type),
       options,
@@ -34,8 +39,11 @@ export const useQuestionBank = () => {
 
       const quizIdStr = question.quiz_id ? String(question.quiz_id) : null;
       const parentQuizIdStr = question.quizzes?.parent_quiz_id ? String(question.quizzes.parent_quiz_id) : (question.parent_quiz_id ? String(question.parent_quiz_id) : null);
-      const isOwn = question.is_own || question.quizzes?.instructor_id === user?.id || (!question.quiz_id && true);
-      const isPrivate = question.is_private === true || question.quizzes?.is_private !== false;
+      const isOwn = question.is_own !== undefined ? question.is_own : (question.instructor_id ? question.instructor_id === user?.id : (question.quizzes ? question.quizzes.instructor_id === user?.id : true));
+      
+      const isPrivate = question.is_private === false || question.blooms_level === "public"
+        ? false
+        : (question.is_private === true || question.blooms_level === "private" ? true : (question.quizzes ? question.quizzes.is_private !== false : false));
 
       if (!existing) {
         byKey.set(key, { 
@@ -57,18 +65,28 @@ export const useQuestionBank = () => {
       }
 
       if (isOwn) existing.is_own = true;
-      if (isPrivate) existing.is_private = true;
+      
+      // Preserve explicit Public status (is_private === false or blooms_level === "public") if any instance or standalone entry is public
+      if (question.is_private === false || question.blooms_level === "public" || isPrivate === false) {
+        existing.is_private = false;
+      }
+
       if (!existing.quizzes && question.quizzes) {
         existing.quizzes = question.quizzes;
+      }
+      if (!existing.subject_id && question.subject_id) {
+        existing.subject_id = question.subject_id;
+        existing.subject_name = question.subject_name;
+        existing.subjects = question.subjects;
       }
 
       const existingTime = new Date(existing.created_at || 0).getTime();
       const currentTime = new Date(question.created_at || 0).getTime();
-      if (currentTime < existingTime) {
+      if (currentTime > existingTime || (question.quiz_id === null && existing.quiz_id !== null)) {
         const accumulatedQuizIds = existing.all_quiz_ids;
         const accumulatedParentIds = existing.all_parent_quiz_ids;
         const accumulatedIsOwn = existing.is_own || isOwn;
-        const accumulatedIsPrivate = existing.is_private || isPrivate;
+        const accumulatedIsPrivate = (question.is_private === false || question.blooms_level === "public" || isPrivate === false) ? false : true;
         const accumulatedQuizzes = question.quizzes || existing.quizzes;
 
         byKey.set(key, { 
@@ -209,12 +227,18 @@ export const useQuestionBank = () => {
         .order("created_at", { ascending: false });
 
       if (!standaloneQError && standaloneQs) {
-        standaloneQuestions = standaloneQs.map((sq) => ({
-          ...sq,
-          is_own: true,
-          is_private: true,
-          is_archived: Boolean(sq.is_archived),
-        }));
+        standaloneQuestions = standaloneQs.map((sq) => {
+          const isOwn = sq.instructor_id ? sq.instructor_id === user?.id : true;
+          const isPrivate = sq.is_private === false || sq.blooms_level === "public"
+            ? false
+            : (sq.is_private === true || sq.blooms_level === "private" ? true : false);
+          return {
+            ...sq,
+            is_own: isOwn,
+            is_private: isPrivate,
+            is_archived: Boolean(sq.is_archived),
+          };
+        });
       }
 
       // Combine both types of questions
@@ -330,6 +354,58 @@ export const useQuestionBank = () => {
         return { success: false, error: "Question ID is required" };
       }
 
+      const question = activeQuestions.find((q) => q.id === questionId);
+
+      // Check if this question is linked to sibling quizzes via quiz_questions junction table
+      try {
+        const { data: siblingJunctions } = await supabase
+          .from("quiz_questions")
+          .select("quiz_id, order_index")
+          .eq("question_id", questionId);
+
+        if (siblingJunctions && siblingJunctions.length > 0 && question) {
+          for (const junc of siblingJunctions) {
+            const siblingQuizId = junc.quiz_id;
+            // If sibling quiz is different from target question's primary quiz_id
+            if (siblingQuizId && String(siblingQuizId) !== String(question.quiz_id)) {
+              const isPriv = question.is_private === false || question.blooms_level === "public" ? false : true;
+              const clonePayload = {
+                quiz_id: siblingQuizId,
+                instructor_id: question.instructor_id || user?.id || null,
+                type: question.type || "mcq",
+                text: question.text,
+                options: question.options || null,
+                correct_answer: question.correct_answer,
+                points: question.points || 1,
+                is_archived: false,
+                blooms_level: isPriv ? "private" : "public",
+                is_private: isPriv,
+                subject_id: question.subject_id || null,
+              };
+
+              let { data: newCloneData } = await supabase.from("questions").insert(clonePayload).select();
+              if (!newCloneData) {
+                delete clonePayload.is_private;
+                delete clonePayload.instructor_id;
+                const retry = await supabase.from("questions").insert(clonePayload).select();
+                newCloneData = retry.data;
+              }
+
+              if (newCloneData?.[0]?.id) {
+                // Re-point sibling junction to the new active cloned question so sibling quiz keeps its question active
+                await supabase
+                  .from("quiz_questions")
+                  .update({ question_id: newCloneData[0].id })
+                  .eq("quiz_id", siblingQuizId)
+                  .eq("question_id", questionId);
+              }
+            }
+          }
+        }
+      } catch (siblingErr) {
+        console.warn("[archiveQuestion] Sibling quiz clone check skipped:", siblingErr);
+      }
+
       const updateData = { 
         is_archived: true, 
         updated_at: new Date().toISOString() 
@@ -347,20 +423,7 @@ export const useQuestionBank = () => {
 
       if (error) throw error;
 
-      // Move from active to archived
-      const question = activeQuestions.find((q) => q.id === questionId);
-      if (question) {
-        const updatedQuestion = { 
-          ...question, 
-          is_archived: true,
-          section_id: sectionId || question.section_id
-        };
-        setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
-        setArchivedQuestions((prev) => [
-          ...prev,
-          updatedQuestion,
-        ]);
-      }
+      await fetchQuestions();
 
       return { success: true };
     } catch (error) {
@@ -399,68 +462,58 @@ export const useQuestionBank = () => {
   // Delete a question permanently (only if its quiz is unpublished and has no attempts)
   const deleteQuestion = async (questionId) => {
     try {
-      // 1. Identify all versions of this question (including duplicates across quizzes)
       const questionToDelete =
         activeQuestions.find((q) => q.id === questionId) ||
         archivedQuestions.find((q) => q.id === questionId);
 
       if (!questionToDelete) return { success: false, error: "Question not found" };
 
-      // Check if the quiz is published or has attempts
-      const { data: quiz } = await supabase
-        .from("quizzes")
-        .select("id, is_published")
-        .eq("id", questionToDelete.quiz_id)
-        .single();
+      if (questionToDelete.quiz_id) {
+        const { data: quiz } = await supabase
+          .from("quizzes")
+          .select("id, is_published")
+          .eq("id", questionToDelete.quiz_id)
+          .single();
 
-      if (quiz?.is_published) {
-        return {
-          success: false,
-          error:
-            "Cannot permanently delete this question because it belongs to a published quiz. You can archive it instead.",
-        };
+        if (quiz?.is_published) {
+          return {
+            success: false,
+            error:
+              "Cannot permanently delete this question because it belongs to a published quiz. You can archive it instead.",
+          };
+        }
+
+        const { count: attemptCount } = await supabase
+          .from("quiz_attempts")
+          .select("*", { count: "exact", head: true })
+          .eq("quiz_id", questionToDelete.quiz_id);
+
+        if (attemptCount > 0) {
+          return {
+            success: false,
+            error:
+              "Cannot permanently delete this question because its quiz already has student attempts. You can archive it instead.",
+          };
+        }
       }
 
-      const { count: attemptCount } = await supabase
-        .from("quiz_attempts")
-        .select("*", { count: "exact", head: true })
-        .eq("quiz_id", questionToDelete.quiz_id);
-
-      if (attemptCount > 0) {
-        return {
-          success: false,
-          error:
-            "Cannot permanently delete this question because its quiz already has student attempts. You can archive it instead.",
-        };
-      }
-
-      // Use the stored all_quiz_ids to find all instances
-      const allIds = questionToDelete.all_quiz_ids || [questionToDelete.quiz_id];
-
-      // 2. Delete responses for all identified question instances first
-      const { data: dbVersions } = await supabase
-        .from("questions")
-        .select("id")
-        .in("quiz_id", allIds)
-        .eq("text", questionToDelete.text);
-
-      const dbIds = dbVersions?.map((v) => v.id) || [questionId];
-
-      // Safe to delete — quiz is unpublished with no attempts
       await supabase
         .from("quiz_responses")
         .delete()
-        .in("question_id", dbIds);
+        .eq("question_id", questionId);
 
-      // 3. Delete all identified versions of the question
+      await supabase
+        .from("quiz_questions")
+        .delete()
+        .eq("question_id", questionId);
+
       const { error } = await supabase
         .from("questions")
         .delete()
-        .in("id", dbIds);
+        .eq("id", questionId);
 
       if (error) throw error;
 
-      // 4. Refresh local state
       await fetchQuestions();
 
       return { success: true };
@@ -470,12 +523,13 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Add a new question to the bank (without assigning to a quiz yet)
-  const addToBank = async (questionData, sectionId = null, subjectId = null) => {
+  // Add a new question to the bank (with optional target quiz container)
+  const addToBank = async (questionData, sectionId = null, subjectId = null, quizId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
 
-      // Add question as standalone (quiz_id = NULL) with section assignment
+      const targetQuizId = quizId || questionData.quizId || questionData.quiz_id || null;
+
       const correctAnswer =
         questionData.type === "mcq"
           ? questionData.options[questionData.correctAnswer] || questionData.correctAnswer
@@ -483,14 +537,18 @@ export const useQuestionBank = () => {
             ? questionData.correctAnswer === 0 ? "true" : "false"
             : questionData.correctAnswer;
 
+      const isPriv = questionData.isPrivate === false || questionData.is_private === false ? false : true;
       const questionPayload = {
-        quiz_id: null, // Standalone question in bank
+        quiz_id: targetQuizId,
+        instructor_id: user?.id || null,
         type: questionData.type || "mcq",
         text: questionData.text,
         options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
         correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
+        blooms_level: isPriv ? "private" : "public",
+        is_private: isPriv,
       };
 
       // Assign to section if provided (metadata only)
@@ -514,20 +572,54 @@ export const useQuestionBank = () => {
         }
       }
 
-      let { error: questionError } = await supabase.from("questions").insert(questionPayload);
+      let { data: insertedData, error: questionError } = await supabase
+        .from("questions")
+        .insert(questionPayload)
+        .select();
 
-      if (
-        questionError &&
-        (questionError.message?.includes("instructor_id") ||
-          questionError.code === "42703" ||
-          questionError.code === "PGRST204")
-      ) {
-        delete questionPayload.instructor_id;
-        const retry = await supabase.from("questions").insert(questionPayload);
-        questionError = retry.error;
+      if (questionError) {
+        const msg = (questionError.message || "").toLowerCase();
+        const code = questionError.code || "";
+        const isUnknownColumnErr =
+          code === "42703" ||
+          code === "PGRST204" ||
+          msg.includes("could not find") ||
+          msg.includes("schema cache") ||
+          msg.includes("is_private") ||
+          msg.includes("instructor_id");
+
+        if (isUnknownColumnErr) {
+          const fallbackPayload = { ...questionPayload };
+          delete fallbackPayload.is_private;
+          delete fallbackPayload.instructor_id;
+          const retry = await supabase.from("questions").insert(fallbackPayload).select();
+          questionError = retry.error;
+          insertedData = retry.data;
+        }
       }
 
       if (questionError) throw questionError;
+
+      // Link to quiz_questions junction table if targetQuizId specified
+      const insertedQuestionId = insertedData?.[0]?.id;
+      if (targetQuizId && insertedQuestionId) {
+        try {
+          const { data: existingJunc } = await supabase
+            .from("quiz_questions")
+            .select("order_index")
+            .eq("quiz_id", targetQuizId);
+
+          const maxOrder = existingJunc?.length ? Math.max(...existingJunc.map(j => j.order_index || 0)) + 1 : 0;
+
+          await supabase.from("quiz_questions").insert({
+            quiz_id: targetQuizId,
+            question_id: insertedQuestionId,
+            order_index: maxOrder
+          });
+        } catch (juncErr) {
+          console.warn("[addToBank] quiz_questions junction linking skipped:", juncErr);
+        }
+      }
 
       // Log activity audit event
       logAudit({
@@ -545,8 +637,8 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Add multiple questions to the bank as standalone questions (no quiz container)
-  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft", sectionId = null, subjectId = null) => {
+  // Add multiple questions to the bank (with optional target quiz container)
+  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft", sectionId = null, subjectId = null, isPrivate = true, targetQuizId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
       if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
@@ -576,8 +668,10 @@ export const useQuestionBank = () => {
           correctAnswer = q.options[correctAnswer];
         }
 
+        const isPriv = isPrivate !== undefined ? Boolean(isPrivate) : (q.is_private !== undefined ? Boolean(q.is_private) : true);
         const questionRow = {
-          quiz_id: null, // Standalone question in bank
+          quiz_id: targetQuizId || q.quiz_id || q.quizId || null,
+          instructor_id: user?.id || null,
           type: q.type || "mcq",
           text: q.text,
           options:
@@ -587,6 +681,8 @@ export const useQuestionBank = () => {
           correct_answer: String(correctAnswer ?? ""),
           points: q.points || 1,
           is_archived: false,
+          blooms_level: isPriv ? "private" : "public",
+          is_private: isPriv,
           created_at: new Date(baseBulkTime + idx * 100).toISOString(),
         };
 
@@ -603,26 +699,58 @@ export const useQuestionBank = () => {
         return questionRow;
       });
 
-      let { error: questionError } = await supabase
+      let { data: insertedRows, error: questionError } = await supabase
         .from("questions")
-        .insert(questionRows);
+        .insert(questionRows)
+        .select();
 
-      if (
-        questionError &&
-        (questionError.message?.includes("instructor_id") ||
-          questionError.code === "42703" ||
-          questionError.code === "PGRST204")
-      ) {
-        const cleanRows = questionRows.map((r) => {
-          const copy = { ...r };
-          delete copy.instructor_id;
-          return copy;
-        });
-        const retry = await supabase.from("questions").insert(cleanRows);
-        questionError = retry.error;
+      if (questionError) {
+        const msg = (questionError.message || "").toLowerCase();
+        const code = questionError.code || "";
+        const isUnknownColumnErr =
+          code === "42703" ||
+          code === "PGRST204" ||
+          msg.includes("could not find") ||
+          msg.includes("schema cache") ||
+          msg.includes("is_private") ||
+          msg.includes("instructor_id");
+
+        if (isUnknownColumnErr) {
+          const cleanRows = questionRows.map((r) => {
+            const copy = { ...r };
+            delete copy.is_private;
+            delete copy.instructor_id;
+            return copy;
+          });
+          const retry = await supabase.from("questions").insert(cleanRows).select();
+          questionError = retry.error;
+          insertedRows = retry.data;
+        }
       }
 
       if (questionError) throw questionError;
+
+      // Link inserted questions to quiz_questions junction table if targetQuizId is set
+      if (targetQuizId && insertedRows && insertedRows.length > 0) {
+        try {
+          const { data: existingJunc } = await supabase
+            .from("quiz_questions")
+            .select("order_index")
+            .eq("quiz_id", targetQuizId);
+
+          let nextOrder = existingJunc?.length ? Math.max(...existingJunc.map(j => j.order_index || 0)) + 1 : 0;
+
+          const juncRows = insertedRows.map(q => ({
+            quiz_id: targetQuizId,
+            question_id: q.id,
+            order_index: nextOrder++
+          }));
+
+          await supabase.from("quiz_questions").insert(juncRows);
+        } catch (juncErr) {
+          console.warn("[addBulkToBank] quiz_questions junction linking skipped:", juncErr);
+        }
+      }
 
       await fetchQuestions();
       return { success: true, count: questionRows.length };
