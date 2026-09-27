@@ -191,24 +191,105 @@ export const useFetchInstructorQuizzes = () => {
 
       const quizIds = data.map((quiz) => quiz.id);
       const sectionCountByQuiz = new Map();
+      const quizSubjectMap = new Map();
 
       if (quizIds.length > 0) {
-        const { data: quizSections, error: quizSectionsError } = await supabase
-          .from("quiz_sections")
-          .select("quiz_id, section_id")
-          .in("quiz_id", quizIds);
+        try {
+          const { data: quizSections, error: quizSectionsError } = await supabase
+            .from("quiz_sections")
+            .select("quiz_id, section_id")
+            .in("quiz_id", quizIds);
 
-        if (!quizSectionsError && quizSections) {
-          const uniqueSections = new Map();
-          quizSections.forEach((row) => {
-            const existing = uniqueSections.get(row.quiz_id) || new Set();
-            existing.add(row.section_id);
-            uniqueSections.set(row.quiz_id, existing);
-          });
+          if (!quizSectionsError && quizSections) {
+            const uniqueSections = new Map();
+            quizSections.forEach((row) => {
+              const existing = uniqueSections.get(row.quiz_id) || new Set();
+              existing.add(row.section_id);
+              uniqueSections.set(row.quiz_id, existing);
+            });
 
-          uniqueSections.forEach((sectionSet, qId) => {
-            sectionCountByQuiz.set(qId, sectionSet.size);
+            uniqueSections.forEach((sectionSet, qId) => {
+              sectionCountByQuiz.set(qId, sectionSet.size);
+            });
+          }
+
+          // Fetch all section details (both direct section_id and junction section_ids)
+          const directSectionIds = data.map((q) => q.section_id).filter(Boolean);
+          const junctionSectionIds = (quizSections || []).map((qs) => qs.section_id).filter(Boolean);
+          const allSectionIds = Array.from(new Set([...directSectionIds, ...junctionSectionIds]));
+
+          const sectionMap = new Map();
+          if (allSectionIds.length > 0) {
+            const { data: sectionsData } = await supabase
+              .from("sections")
+              .select("id, name, code, subject_id, subjects(id, name, code)")
+              .in("id", allSectionIds);
+
+            if (sectionsData) {
+              sectionsData.forEach((sec) => {
+                sectionMap.set(sec.id, sec);
+              });
+            }
+          }
+
+          // Fetch all subject details (both direct subject_id and from sections)
+          const directSubjectIds = data.map((q) => q.subject_id).filter(Boolean);
+          const sectionSubjectIds = Array.from(sectionMap.values())
+            .map((sec) => sec.subject_id)
+            .filter(Boolean);
+          const allSubjectIds = Array.from(new Set([...directSubjectIds, ...sectionSubjectIds]));
+
+          const subjectMap = new Map();
+          if (allSubjectIds.length > 0) {
+            const { data: subjectsData } = await supabase
+              .from("subjects")
+              .select("id, name, code, description")
+              .in("id", allSubjectIds);
+
+            if (subjectsData) {
+              subjectsData.forEach((sub) => {
+                subjectMap.set(sub.id, sub);
+              });
+            }
+          }
+
+          // Map subject info per quiz
+          data.forEach((quiz) => {
+            let sub = quiz.subject_id ? subjectMap.get(quiz.subject_id) : null;
+
+            if (!sub && quiz.section_id) {
+              const sec = sectionMap.get(quiz.section_id);
+              if (sec) {
+                sub = sec.subjects || (sec.subject_id ? subjectMap.get(sec.subject_id) : null);
+              }
+            }
+
+            if (!sub) {
+              const qSecs = (quizSections || []).filter((qs) => qs.quiz_id === quiz.id);
+              for (const qs of qSecs) {
+                const sec = sectionMap.get(qs.section_id);
+                if (sec) {
+                  const foundSub = sec.subjects || (sec.subject_id ? subjectMap.get(sec.subject_id) : null);
+                  if (foundSub) {
+                    sub = foundSub;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (sub) {
+              const displayName = sub.code ? `${sub.code} - ${sub.name}` : sub.name;
+              quizSubjectMap.set(quiz.id, {
+                id: sub.id,
+                name: sub.name,
+                code: sub.code || "",
+                display: displayName,
+              });
+            }
           });
+        } catch (subResolveErr) {
+          console.warn("Could not resolve subjects for quizzes:", subResolveErr);
         }
       }
 
@@ -255,8 +336,17 @@ export const useFetchInstructorQuizzes = () => {
             (attemptsCountByQuiz.get(quiz.id) || 0) +
             (quiz.parent_quiz_id ? (attemptsCountByQuiz.get(quiz.parent_quiz_id) || 0) : 0);
 
+          const subjectInfo = quizSubjectMap.get(quiz.id);
+
           return {
             ...quiz,
+            subject_id: quiz.subject_id || subjectInfo?.id || null,
+            subject_name: subjectInfo?.name || null,
+            subject_code: subjectInfo?.code || null,
+            subject_display: subjectInfo?.display || null,
+            subjects: subjectInfo
+              ? { id: subjectInfo.id, name: subjectInfo.name, code: subjectInfo.code }
+              : quiz.subjects || null,
             attempts: totalAttempts,
             questions_count: resolvedQuestionsCount,
             admin_review_status: latestSubmission?.status || null,
