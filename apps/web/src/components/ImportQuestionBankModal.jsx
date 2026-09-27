@@ -16,6 +16,7 @@ export const ImportQuestionBankModal = ({
   targetQuestionNumber = null,
   currentSubjectIds = [],
   currentSubjectNames = [],
+  currentQuizQuestions = [],
 }) => {
   const { activeQuestions, loading } = useQuestionBank();
   const { user } = useAuth();
@@ -52,8 +53,8 @@ export const ImportQuestionBankModal = ({
     );
     const qSubjectCode = normalize(q.subjects?.code || q.quizzes?.subjects?.code || q.quizzes?.subject_code || q.sections?.subject_code);
 
-    // Check ID match
-    if (qSubjectId && currentSubjectIds.some(id => String(id) === String(qSubjectId))) {
+    // Check exact ID match
+    if (qSubjectId && currentSubjectIds.some((id) => String(id) === String(qSubjectId))) {
       return true;
     }
 
@@ -61,18 +62,35 @@ export const ImportQuestionBankModal = ({
     if (normalizedSubjectNames.length > 0) {
       const isMatch = normalizedSubjectNames.some((currentName) => {
         if (!currentName) return false;
+        const normCurr = normalize(currentName);
+        if (!normCurr) return false;
 
-        // Direct exact or inclusion match for subject name / code
-        if (qSubjectName && (currentName === qSubjectName || (qSubjectName.length >= 3 && currentName.includes(qSubjectName)) || (currentName.length >= 3 && qSubjectName.includes(currentName)))) return true;
-        if (qSubjectCode && (currentName === qSubjectCode || currentName.includes(qSubjectCode) || qSubjectCode.includes(currentName))) return true;
+        // Exact match for full subject name or subject code
+        if (qSubjectName && normCurr === qSubjectName) return true;
+        if (qSubjectCode && normCurr === qSubjectCode) return true;
 
         // Stop words list to prevent generic structural terms from matching across different subjects
-        const stopWords = new Set(["class", "section", "dept", "department", "course", "subject", "management", "intro", "1", "2", "3", "a", "b", "c", "d"]);
-        const currentTokens = currentName.split(/[\s\-_]+/).map(normalize).filter(t => t.length >= 2 && !stopWords.has(t));
-        const qTokens = (qSubjectName + " " + qSubjectCode).split(/[\s\-_]+/).map(normalize).filter(t => t.length >= 2 && !stopWords.has(t));
+        const stopWords = new Set([
+          "class", "section", "dept", "department", "course", "subject",
+          "management", "development", "intro", "introduction", "fundamentals",
+          "principles", "1", "2", "3", "a", "b", "c", "d", "lab", "lecture",
+          "and", "or", "of", "to", "in", "for", "with"
+        ]);
+
+        const currentTokens = normCurr
+          .split(/[\s\-_]+/)
+          .map(normalize)
+          .filter((t) => t.length >= 2 && !stopWords.has(t));
+
+        const qTokens = (qSubjectName + " " + qSubjectCode)
+          .split(/[\s\-_]+/)
+          .map(normalize)
+          .filter((t) => t.length >= 2 && !stopWords.has(t));
 
         if (qTokens.length > 0 && currentTokens.length > 0) {
-          return currentTokens.some(ct => qTokens.some(qt => ct === qt || (ct.length >= 4 && qt.length >= 4 && (ct.includes(qt) || qt.includes(ct)))));
+          // Strict whole-word token equality: "database" === "database"
+          // Avoid substring includes() which causes "database" to match "data" in "Data Structure and Algorithm"
+          return currentTokens.some((ct) => qTokens.includes(ct));
         }
 
         return false;
@@ -89,20 +107,26 @@ export const ImportQuestionBankModal = ({
 
   // Helper function to check if a question is owned by current instructor
   const isQuestionOwn = (q) => {
-    return q.is_own || (q.quizzes && q.quizzes.instructor_id === user?.id);
+    if (!user) return false;
+    if (q.instructor_id) return q.instructor_id === user.id;
+    if (q.quizzes?.instructor_id) return q.quizzes.instructor_id === user.id;
+    if (q.is_own !== undefined) return Boolean(q.is_own);
+    return false;
   };
 
   // Helper function to check if a question is private
   const isQuestionPrivate = (q) => {
-    if (q.is_private === true) return true;
-    if (q.quizzes && q.quizzes.is_private !== false) return true;
+    if (q.is_private === false || q.blooms_level === "public") return false;
+    if (q.quizzes && q.quizzes.is_private === false) return false;
+    if (q.is_private === true || q.blooms_level === "private") return true;
+    if (q.quizzes && q.quizzes.is_private === true) return true;
     return false;
   };
 
   // Counts for tabs
   const myPrivateCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && isQuestionPrivate(q)).length;
   const myPublicCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && !isQuestionPrivate(q)).length;
-  const sharedCount = subjectMatchedQuestions.filter(q => !isQuestionOwn(q)).length;
+  const sharedCount = subjectMatchedQuestions.filter(q => !isQuestionOwn(q) && !isQuestionPrivate(q)).length;
   const gadCount = subjectMatchedQuestions.filter(q => isQuestionGad(q)).length;
 
   // 2. Privacy & Ownership & GAD Filtering
@@ -117,7 +141,7 @@ export const ImportQuestionBankModal = ({
       return isOwn && !isPrivate;
     }
     if (privacyFilter === "others_public") {
-      return !isOwn;
+      return !isOwn && !isPrivate;
     }
     if (privacyFilter === "gad_only") {
       return isQuestionGad(q);
@@ -403,12 +427,20 @@ export const ImportQuestionBankModal = ({
             finalFilteredQuestions.map((q, idx) => {
               const isOwn = isQuestionOwn(q);
               const isPrivate = isQuestionPrivate(q);
+              const normalizedBankText = (q.text || "").toLowerCase().trim();
+              const isAlreadyInQuiz = targetQuestionNumber === null && currentQuizQuestions.some((cq) => {
+                if (q.id && cq.id === q.id) return true;
+                if (normalizedBankText && (cq.text || "").toLowerCase().trim() === normalizedBankText) return true;
+                return false;
+              });
 
               return (
                 <div
                   key={q.id || idx}
                   className={`bg-white border rounded-2xl p-4 shadow-xs transition-all space-y-3 ${
-                    isOwn && isPrivate
+                    isAlreadyInQuiz
+                      ? "border-amber-200 bg-amber-50/50 opacity-80"
+                      : isOwn && isPrivate
                       ? "border-brand-navy/30 hover:border-brand-navy bg-brand-navy/5"
                       : "border-slate-200 hover:border-brand-navy/50"
                   }`}
@@ -420,6 +452,13 @@ export const ImportQuestionBankModal = ({
                         <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-bold uppercase text-slate-700">
                           {q.type === "mcq" ? "Multiple Choice" : q.type === "true_false" ? "True / False" : q.type}
                         </span>
+
+                        {/* Already in Quiz Badge */}
+                        {isAlreadyInQuiz && (
+                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-[10px] font-extrabold flex items-center gap-1">
+                            Already in Quiz
+                          </span>
+                        )}
 
                         {/* Points badge */}
                         <span className="px-2 py-0.5 bg-brand-navy/10 text-brand-navy rounded-md text-[10px] font-bold">
@@ -479,11 +518,15 @@ export const ImportQuestionBankModal = ({
                     </div>
 
                     <button
+                      disabled={isAlreadyInQuiz}
                       onClick={() => handleChoose(q)}
-                      className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0"
+                      className={`px-4 py-2 font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0 ${
+                        isAlreadyInQuiz
+                          ? "bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed"
+                          : "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
+                      }`}
                     >
-                      
-                      <span>Import This Question</span>
+                      <span>{isAlreadyInQuiz ? "Already in Quiz" : "Import This Question"}</span>
                     </button>
                   </div>
 
