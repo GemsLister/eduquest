@@ -39,11 +39,13 @@ export const useQuestionBank = () => {
 
       const quizIdStr = question.quiz_id ? String(question.quiz_id) : null;
       const parentQuizIdStr = question.quizzes?.parent_quiz_id ? String(question.quizzes.parent_quiz_id) : (question.parent_quiz_id ? String(question.parent_quiz_id) : null);
-      const isOwn = question.is_own !== undefined ? question.is_own : (question.instructor_id ? question.instructor_id === user?.id : (question.quizzes ? question.quizzes.instructor_id === user?.id : true));
+      const isOwn = question.is_own !== undefined
+        ? Boolean(question.is_own)
+        : (question.instructor_id ? question.instructor_id === user?.id : (question.quizzes ? question.quizzes.instructor_id === user?.id : false));
       
-      const isPrivate = question.is_private === false || question.blooms_level === "public"
-        ? false
-        : (question.is_private === true || question.blooms_level === "private" ? true : (question.quizzes ? question.quizzes.is_private !== false : false));
+      const isPrivate = question.is_private !== undefined
+        ? Boolean(question.is_private)
+        : (question.quizzes ? question.quizzes.is_private !== false : (question.blooms_level === "private"));
 
       if (!existing) {
         byKey.set(key, { 
@@ -66,8 +68,8 @@ export const useQuestionBank = () => {
 
       if (isOwn) existing.is_own = true;
       
-      // Preserve explicit Public status (is_private === false or blooms_level === "public") if any instance or standalone entry is public
-      if (question.is_private === false || question.blooms_level === "public" || isPrivate === false) {
+      // Preserve explicit Public status if any instance is public
+      if (isPrivate === false) {
         existing.is_private = false;
       }
 
@@ -86,7 +88,7 @@ export const useQuestionBank = () => {
         const accumulatedQuizIds = existing.all_quiz_ids;
         const accumulatedParentIds = existing.all_parent_quiz_ids;
         const accumulatedIsOwn = existing.is_own || isOwn;
-        const accumulatedIsPrivate = (question.is_private === false || question.blooms_level === "public" || isPrivate === false) ? false : true;
+        const accumulatedIsPrivate = (existing.is_private === false || isPrivate === false) ? false : true;
         const accumulatedQuizzes = question.quizzes || existing.quizzes;
 
         byKey.set(key, { 
@@ -107,6 +109,47 @@ export const useQuestionBank = () => {
     if (!user) return;
     try {
 
+      // 0. Fetch assigned subject IDs for current instructor
+      const userSubjectIds = new Set();
+      try {
+        const { data: userSections } = await supabase
+          .from("sections")
+          .select("subject_id")
+          .eq("instructor_id", user.id)
+          .or("is_archived.is.null,is_archived.eq.false");
+        (userSections || []).forEach((s) => s.subject_id && userSubjectIds.add(String(s.subject_id)));
+
+        try {
+          const { data: userInstSubjs } = await supabase
+            .from("instructor_subjects")
+            .select("subject_id")
+            .eq("instructor_id", user.id);
+          (userInstSubjs || []).forEach((s) => s.subject_id && userSubjectIds.add(String(s.subject_id)));
+        } catch (e) {}
+
+        try {
+          const { data: userTeachAssigns } = await supabase
+            .from("teaching_assignments")
+            .select("subject_id")
+            .eq("instructor_id", user.id);
+          (userTeachAssigns || []).forEach((t) => t.subject_id && userSubjectIds.add(String(t.subject_id)));
+        } catch (e) {}
+
+        const { data: userQuizzes } = await supabase
+          .from("quizzes")
+          .select("subject_id")
+          .eq("instructor_id", user.id);
+        (userQuizzes || []).forEach((q) => q.subject_id && userSubjectIds.add(String(q.subject_id)));
+
+        const { data: userQs } = await supabase
+          .from("questions")
+          .select("subject_id")
+          .eq("instructor_id", user.id);
+        (userQs || []).forEach((q) => q.subject_id && userSubjectIds.add(String(q.subject_id)));
+      } catch (subErr) {
+        console.warn("[useQuestionBank] Error fetching assigned subject IDs:", subErr);
+      }
+
       // 1. Fetch ALL of current user's quizzes (Private/Public, Draft/Published, Active/Archived)
       const { data: ownQuizzesData } = await supabase
         .from("quizzes")
@@ -115,14 +158,13 @@ export const useQuestionBank = () => {
 
       const ownQuizzes = ownQuizzesData || [];
 
-      // 2. Fetch ALL PUBLIC published quizzes from other instructors across all subjects/classes
+      // 2. Fetch ALL PUBLIC quizzes from other instructors across all subjects/classes
       const { data: publicQuizzes } = await supabase
         .from("quizzes")
         .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id")
         .neq("instructor_id", user.id)
         .or("is_archived.is.null,is_archived.eq.false")
-        .eq("is_private", false)
-        .eq("is_published", true);
+        .eq("is_private", false);
 
       const coInstructorPublicQuizzes = publicQuizzes || [];
 
@@ -167,11 +209,13 @@ export const useQuestionBank = () => {
             const quizMeta = q.quiz_id ? accessibleQuizMap.get(String(q.quiz_id)) || null : null;
             const isQuizArchived = quizMeta?.is_archived === true;
             const isQuestionArchived = q.is_archived === true;
+            const isOwn = q.instructor_id ? q.instructor_id === user.id : (quizMeta ? quizMeta.instructor_id === user.id : false);
+            const isPrivate = quizMeta ? quizMeta.is_private !== false : (q.is_private === true && q.blooms_level !== "public");
             return {
               ...q,
               quizzes: quizMeta,
-              is_own: quizMeta?.instructor_id === user.id,
-              is_private: q.is_private === true || quizMeta?.is_private !== false,
+              is_own: isOwn,
+              is_private: isPrivate,
               is_archived: isQuestionArchived || isQuizArchived,
             };
           });
@@ -200,12 +244,14 @@ export const useQuestionBank = () => {
                     const quizMeta = jq.quiz_id ? accessibleQuizMap.get(String(jq.quiz_id)) || null : null;
                     const isQuizArchived = quizMeta?.is_archived === true;
                     const isQuestionArchived = qRow.is_archived === true;
+                    const isOwn = qRow.instructor_id ? qRow.instructor_id === user.id : (quizMeta ? quizMeta.instructor_id === user.id : false);
+                    const isPrivate = quizMeta ? quizMeta.is_private !== false : (qRow.is_private === true && qRow.blooms_level !== "public");
                     quizQuestions.push({
                       ...qRow,
                       quizzes: quizMeta,
                       quiz_id: qRow.quiz_id || jq.quiz_id,
-                      is_own: quizMeta?.instructor_id === user.id,
-                      is_private: qRow.is_private === true || quizMeta?.is_private !== false,
+                      is_own: isOwn,
+                      is_private: isPrivate,
                       is_archived: isQuestionArchived || isQuizArchived,
                     });
                   }
@@ -228,10 +274,10 @@ export const useQuestionBank = () => {
 
       if (!standaloneQError && standaloneQs) {
         standaloneQuestions = standaloneQs.map((sq) => {
-          const isOwn = sq.instructor_id ? sq.instructor_id === user?.id : true;
+          const isOwn = sq.instructor_id ? sq.instructor_id === user?.id : false;
           const isPrivate = sq.is_private === false || sq.blooms_level === "public"
             ? false
-            : (sq.is_private === true || sq.blooms_level === "private" ? true : false);
+            : true;
           return {
             ...sq,
             is_own: isOwn,
@@ -331,8 +377,15 @@ export const useQuestionBank = () => {
         };
       });
 
+      // Filter out co-instructor shared questions for subjects not assigned to current instructor
+      const assignedSubjectQuestions = questionsWithCreators.filter((q) => {
+        if (q.is_own) return true;
+        if (!q.subject_id) return false;
+        return userSubjectIds.has(String(q.subject_id));
+      });
+
       // 1. Deduplicate ALL fetched questions by content first.
-      const allUniqueQuestions = dedupeQuestions(questionsWithCreators);
+      const allUniqueQuestions = dedupeQuestions(assignedSubjectQuestions);
 
       // 2. Separate into active and archived based on the canonical (oldest) instance's status.
       const active = allUniqueQuestions.filter((q) => !q.is_archived);
@@ -668,7 +721,7 @@ export const useQuestionBank = () => {
           correctAnswer = q.options[correctAnswer];
         }
 
-        const isPriv = isPrivate !== undefined ? Boolean(isPrivate) : (q.is_private !== undefined ? Boolean(q.is_private) : true);
+        const isPriv = isPrivate === "private" || isPrivate === true;
         const questionRow = {
           quiz_id: targetQuizId || q.quiz_id || q.quizId || null,
           instructor_id: user?.id || null,
