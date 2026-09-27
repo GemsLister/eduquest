@@ -328,6 +328,7 @@ export const InstructorQuiz = () => {
   // Archive subject modal state
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [questionToArchive, setQuestionToArchive] = useState(null);
+  const [archivingQuestionId, setArchivingQuestionId] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1041,6 +1042,7 @@ export const InstructorQuiz = () => {
   // Handle subject selection for archiving
   const handleArchiveWithSubject = async (sectionId) => {
     if (!questionToArchive) return;
+    setArchivingQuestionId(questionToArchive.id);
 
     try {
       const updateData = { 
@@ -1070,6 +1072,8 @@ export const InstructorQuiz = () => {
     } catch (err) {
       console.error("Error archiving question:", err);
       notify.error("Error archiving question: " + err.message);
+    } finally {
+      setArchivingQuestionId(null);
     }
   };
 
@@ -2134,12 +2138,22 @@ export const InstructorQuiz = () => {
                               );
                             }
                           }}
-                          disabled={deletingQuestionId === question.id}
-                          className={`${deletingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors`}
+                          disabled={deletingQuestionId === question.id || archivingQuestionId === question.id}
+                          className={`${deletingQuestionId === question.id || archivingQuestionId === question.id ? "text-gray-400 cursor-not-allowed" : "text-yellow-600 hover:text-yellow-800"} text-sm font-semibold px-3 py-1 transition-colors flex items-center gap-1`}
                         >
-                          {deletingQuestionId === question.id
-                            ? "..."
-                            : <><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>Archive</>}
+                          {archivingQuestionId === question.id ? (
+                            <>
+                              <svg className="animate-spin h-3.5 w-3.5 inline mr-1 text-yellow-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Archiving...
+                            </>
+                          ) : deletingQuestionId === question.id ? (
+                            "..."
+                          ) : (
+                            <><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>Archive</>
+                          )}
                         </button>
                         <button
                           onClick={async (e) => {
@@ -2544,6 +2558,28 @@ export const InstructorQuiz = () => {
         ))}
         currentQuizQuestions={questions}
       />
+
+      {/* Noticeable Loading Overlay during Archiving */}
+      {archivingQuestionId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[999999] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border-2 border-brand-gold flex flex-col items-center text-center animate-scale-in">
+            <div className="relative w-16 h-16 mb-4 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-amber-200 border-t-amber-600 animate-spin" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-brand-navy mb-1">Archiving Question...</h3>
+            <p className="text-sm text-gray-600">
+              Moving question to your Question Bank...
+            </p>
+            <div className="mt-4 flex items-center gap-2 bg-amber-50 text-amber-800 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-amber-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+              <span>Saving changes to database</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
