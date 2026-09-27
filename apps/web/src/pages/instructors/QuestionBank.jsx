@@ -53,6 +53,8 @@ export const QuestionBank = () => {
   const [quizzesFromSubject, setQuizzesFromSubject] = useState([]);
   const [allInstructorQuizzes, setAllInstructorQuizzes] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [archivingQuestionId, setArchivingQuestionId] = useState(null);
+  const [isBulkArchiving, setIsBulkArchiving] = useState(false);
 
   const {
     activeQuestions,
@@ -492,6 +494,31 @@ export const QuestionBank = () => {
     });
   };
 
+  const handleArchiveSingleQuestion = async (questionId) => {
+    const confirmed = await confirm({
+      title: "Archive Question",
+      message: "Are you sure you want to archive this question? You can restore it later from the Question Bank.",
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+    if (confirmed) {
+      setArchivingQuestionId(questionId);
+      try {
+        const res = await archiveQuestion(questionId);
+        if (res?.success !== false) {
+          notify.success("Question archived successfully!");
+        } else {
+          notify.error(res?.error || "Failed to archive question");
+        }
+      } catch (err) {
+        notify.error("Error archiving question: " + err.message);
+      } finally {
+        setArchivingQuestionId(null);
+      }
+    }
+  };
+
   const handleBulkArchive = async () => {
     const confirmed = await confirm({
       title: "Archive Questions",
@@ -501,11 +528,18 @@ export const QuestionBank = () => {
       variant: "warning",
     });
     if (confirmed) {
-      for (const id of bulkSelected) {
-        await archiveQuestion(id);
+      setIsBulkArchiving(true);
+      try {
+        for (const id of bulkSelected) {
+          await archiveQuestion(id);
+        }
+        setBulkSelected(new Set());
+        notify.success(`Archived ${bulkSelected.size} question(s)`);
+      } catch (err) {
+        notify.error("Error archiving questions: " + err.message);
+      } finally {
+        setIsBulkArchiving(false);
       }
-      setBulkSelected(new Set());
-      notify.success(`Archived ${bulkSelected.size} question(s)`);
     }
   };
 
@@ -1768,23 +1802,36 @@ export const QuestionBank = () => {
             {activeTab === "active" && (
               <button
                 onClick={handleBulkArchive}
-                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
+                disabled={isBulkArchiving}
+                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                  />
-                </svg>
-                Archive Selected
+                {isBulkArchiving ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Archiving...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                      />
+                    </svg>
+                    Archive Selected
+                  </>
+                )}
               </button>
             )}
             {activeTab === "archived" && (
@@ -2207,24 +2254,32 @@ export const QuestionBank = () => {
                   {activeTab === "active" && (
                     <div className="flex items-start gap-1 pt-4 pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => archiveQuestion(question.id)}
-                        className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors"
+                        onClick={() => handleArchiveSingleQuestion(question.id)}
+                        disabled={archivingQuestionId === question.id}
+                        className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Archive"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                          />
-                        </svg>
+                        {archivingQuestionId === question.id ? (
+                          <svg className="animate-spin h-4 w-4 text-yellow-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                            />
+                          </svg>
+                        )}
                       </button>
                       {quizId && (
                         <button
@@ -2943,6 +2998,30 @@ export const QuestionBank = () => {
                   {importProcessing ? "Importing..." : `Confirm & Import ${pendingImportQuestions.length} Questions`}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Noticeable Loading Overlay during Archiving */}
+      {(archivingQuestionId || isBulkArchiving) && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[999999] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border-2 border-brand-gold flex flex-col items-center text-center animate-scale-in">
+            <div className="relative w-16 h-16 mb-4 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-amber-200 border-t-amber-600 animate-spin" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-brand-navy mb-1">
+              {isBulkArchiving ? "Archiving Questions..." : "Archiving Question..."}
+            </h3>
+            <p className="text-sm text-gray-600">
+              Please wait while we update your Question Bank...
+            </p>
+            <div className="mt-4 flex items-center gap-2 bg-amber-50 text-amber-800 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-amber-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+              <span>Saving changes to database</span>
             </div>
           </div>
         </div>
