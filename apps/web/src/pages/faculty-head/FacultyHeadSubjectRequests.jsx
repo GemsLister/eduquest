@@ -116,9 +116,11 @@ export const FacultyHeadSubjectRequests = () => {
         .from("subjects")
         .insert([
           {
-            instructor_id: user.id,
+            created_by: user.id,
+            status: "approved",
             name: targetReq.subject_name,
             code: targetReq.subject_code || null,
+            grade_level: targetReq.grade_level || "1st",
             description: targetReq.description || null,
             is_archived: false,
           },
@@ -260,9 +262,11 @@ export const FacultyHeadSubjectRequests = () => {
 
       const { error: insertErr } = await supabase.from("subjects").insert([
         {
-          instructor_id: user.id,
+          created_by: user.id,
+          status: "approved",
           name: subjectNameTrimmed,
           code: newSubject.subject_code.trim() || null,
+          grade_level: newSubject.grade_level || "1st",
           description: newSubject.description.trim() || null,
           is_archived: false,
         },
