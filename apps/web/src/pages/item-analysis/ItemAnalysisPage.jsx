@@ -9,6 +9,7 @@ import { ItemAnalysisTable } from "../../components/container/item-analysis/Item
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 import { useDiscrimination } from "../../hooks/analysisHook/useDiscrimination";
 import { notify } from "../../utils/notify.jsx";
+import { exportItemAnalysisPdf } from "../../utils/exportItemAnalysisPdf";
 
 export const ItemAnalysisPage = () => {
   const { user } = useAuth();
@@ -207,7 +208,23 @@ export const ItemAnalysisPage = () => {
       if (error) throw error;
 
       setAnalysisSaved(true);
-      notify.success("Analysis saved successfully!");
+
+      // Generate & download PDF report
+      try {
+        const quizObj = quizzes.find((q) => String(q.id) === String(selectedQuiz));
+        await exportItemAnalysisPdf({
+          selectedQuiz: quizObj || { title: typeof selectedQuiz === "string" ? selectedQuiz : "Item Analysis Report" },
+          analysis,
+          testStats,
+          totalAttempts: allTakersList?.length || analysis.length || 0,
+          allTakers: allTakersList,
+          selectedCohortFilter,
+        });
+        notify.success("Analysis saved to database & exported as PDF!");
+      } catch (pdfErr) {
+        console.error("PDF export error:", pdfErr);
+        notify.success("Analysis saved successfully!");
+      }
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
