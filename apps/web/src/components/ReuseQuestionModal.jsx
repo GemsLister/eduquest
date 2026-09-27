@@ -214,15 +214,30 @@ export const ReuseQuestionModal = ({
 
     setSubmitting(true);
     try {
-      // Fetch existing order_index max for selected quiz
+      // Fetch existing questions for selectedQuizId to check duplicates
+      const { data: existingTargetQuestions } = await supabase
+        .from("questions")
+        .select("id, text")
+        .eq("quiz_id", selectedQuizId)
+        .or("is_archived.is.null,is_archived.eq.false");
+
+      const existingQuestionTexts = new Set(
+        (existingTargetQuestions || []).map((q) => (q.text || "").toLowerCase().trim()).filter(Boolean)
+      );
+
       const { data: existingJunctions } = await supabase
         .from("quiz_questions")
-        .select("question_id, order_index")
+        .select("question_id, order_index, questions(text)")
         .eq("quiz_id", selectedQuizId);
 
       const existingQuestionIds = new Set(
         (existingJunctions || []).map((j) => j.question_id)
       );
+      (existingJunctions || []).forEach((j) => {
+        if (j.questions?.text) {
+          existingQuestionTexts.add((j.questions.text || "").toLowerCase().trim());
+        }
+      });
 
       let maxOrder = 0;
       (existingJunctions || []).forEach((j) => {
@@ -232,8 +247,16 @@ export const ReuseQuestionModal = ({
       });
 
       let addedCount = 0;
+      let skippedCount = 0;
       for (let i = 0; i < questionsToReuse.length; i++) {
         const q = questionsToReuse[i];
+        const normalizedText = (q.text || "").toLowerCase().trim();
+
+        if (existingQuestionIds.has(q.id) || (normalizedText && existingQuestionTexts.has(normalizedText))) {
+          skippedCount++;
+          continue;
+        }
+
         maxOrder++;
         
         const isPriv = q.is_private === false || q.blooms_level === "public" ? false : true;
@@ -270,6 +293,8 @@ export const ReuseQuestionModal = ({
             question_id: newQId,
             order_index: maxOrder,
           });
+          existingQuestionIds.add(newQId);
+          if (normalizedText) existingQuestionTexts.add(normalizedText);
           addedCount++;
         }
       }
@@ -278,7 +303,9 @@ export const ReuseQuestionModal = ({
       const quizTitleText = targetQuizObj ? `"${targetQuizObj.title}"` : "selected quiz";
 
       if (addedCount > 0) {
-        notify.success(`Successfully added ${addedCount} question(s) to ${quizTitleText}!`);
+        notify.success(`Successfully added ${addedCount} question(s) to ${quizTitleText}!${skippedCount > 0 ? ` (${skippedCount} duplicate(s) skipped)` : ""}`);
+      } else if (skippedCount > 0) {
+        notify.info(`Question(s) are already in ${quizTitleText}. No duplicates were added.`);
       }
 
       if (onSuccess) onSuccess(selectedQuizId);
