@@ -7,7 +7,13 @@ function App() {
   return (
     <AuthProvider>
       <ConfirmProvider>
-        <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
+        <ToastContainer
+          position="top-right"
+          autoClose={4000}
+          hideProgressBar
+          theme="light"
+          style={{ zIndex: 999999 }}
+        />
         <Outlet />
       </ConfirmProvider>
     </AuthProvider>
