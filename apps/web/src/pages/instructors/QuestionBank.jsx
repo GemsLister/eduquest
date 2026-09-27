@@ -104,6 +104,51 @@ export const QuestionBank = () => {
     setBulkSelected(new Set());
   }, [activeTab, searchTerm, sortBy, selectedSubjectId, selectedQuizIdFilter, ownershipFilter, gadFilter]);
 
+  const getUserSubjectIds = async (userId) => {
+    const userSubjectIds = new Set();
+    if (!userId) return userSubjectIds;
+
+    try {
+      const { data: userSections } = await supabase
+        .from("sections")
+        .select("subject_id")
+        .eq("instructor_id", userId)
+        .or("is_archived.is.null,is_archived.eq.false");
+      (userSections || []).forEach((s) => s.subject_id && userSubjectIds.add(String(s.subject_id)));
+
+      try {
+        const { data: userInstSubjs } = await supabase
+          .from("instructor_subjects")
+          .select("subject_id")
+          .eq("instructor_id", userId);
+        (userInstSubjs || []).forEach((s) => s.subject_id && userSubjectIds.add(String(s.subject_id)));
+      } catch (e) {}
+
+      try {
+        const { data: userTeachAssigns } = await supabase
+          .from("teaching_assignments")
+          .select("subject_id")
+          .eq("instructor_id", userId);
+        (userTeachAssigns || []).forEach((t) => t.subject_id && userSubjectIds.add(String(t.subject_id)));
+      } catch (e) {}
+
+      const { data: userQuizzes } = await supabase
+        .from("quizzes")
+        .select("subject_id")
+        .eq("instructor_id", userId);
+      (userQuizzes || []).forEach((q) => q.subject_id && userSubjectIds.add(String(q.subject_id)));
+
+      const { data: userQs } = await supabase
+        .from("questions")
+        .select("subject_id")
+        .eq("instructor_id", userId);
+      (userQs || []).forEach((q) => q.subject_id && userSubjectIds.add(String(q.subject_id)));
+    } catch (err) {
+      console.warn("Error fetching instructor subject IDs:", err);
+    }
+    return userSubjectIds;
+  };
+
   // Fetch subjects on mount
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -114,6 +159,8 @@ export const QuestionBank = () => {
           return;
         }
 
+        const userSubjectIds = await getUserSubjectIds(user.id);
+
         const { data, error } = await supabase
           .from("subjects")
           .select("id, name, code, description")
@@ -121,7 +168,8 @@ export const QuestionBank = () => {
           .order("name", { ascending: true });
 
         if (error) throw error;
-        setSubjects(data || []);
+        const assigned = (data || []).filter((s) => userSubjectIds.has(String(s.id)));
+        setSubjects(assigned);
       } catch (err) {
         console.error("Error fetching subjects:", err);
         setSubjects([]);
@@ -131,7 +179,7 @@ export const QuestionBank = () => {
     };
 
     fetchSubjects();
-  }, []);
+  }, [user]);
 
   // Read URL params and set initial subject
   useEffect(() => {
@@ -147,6 +195,8 @@ export const QuestionBank = () => {
 
     const fetchAllQuizzes = async () => {
       try {
+        const userSubjectIds = await getUserSubjectIds(user.id);
+
         // 1. Fetch ALL quizzes created by current instructor
         const { data: ownQuizzes, error: ownErr } = await supabase
           .from("quizzes")
@@ -185,13 +235,18 @@ export const QuestionBank = () => {
           }
         });
 
-        const resolvedQuizzes = Array.from(uniqueMap.values()).map((q) => {
-          const resolvedSubjId = q.subject_id || quizSubjectMap.get(String(q.id)) || null;
-          return {
-            ...q,
-            subject_id: resolvedSubjId,
-          };
-        });
+        const resolvedQuizzes = Array.from(uniqueMap.values())
+          .map((q) => {
+            const resolvedSubjId = q.subject_id || quizSubjectMap.get(String(q.id)) || null;
+            return {
+              ...q,
+              subject_id: resolvedSubjId,
+            };
+          })
+          .filter((q) => {
+            if (q.instructor_id === user.id) return true;
+            return q.subject_id && userSubjectIds.has(String(q.subject_id));
+          });
 
         setAllInstructorQuizzes(resolvedQuizzes);
 
@@ -224,17 +279,18 @@ export const QuestionBank = () => {
   // Helper to check if a question is owned by current instructor
   const isQuestionOwn = (q) => {
     if (!user) return false;
-    if (q.is_own === true) return true;
-    if (q.quizzes?.instructor_id === user.id) return true;
-    if (q.instructor_id === user.id) return true;
+    if (q.instructor_id) return q.instructor_id === user.id;
+    if (q.quizzes?.instructor_id) return q.quizzes.instructor_id === user.id;
+    if (q.is_own !== undefined) return Boolean(q.is_own);
     return false;
   };
 
   // Helper to check if a question is Private
   const isQuestionPrivate = (q) => {
     if (q.is_private === false || q.blooms_level === "public") return false;
-    if (q.is_private === true || q.blooms_level === "private") return true;
     if (q.quizzes && q.quizzes.is_private === false) return false;
+    if (q.is_private === true || q.blooms_level === "private") return true;
+    if (q.quizzes && q.quizzes.is_private === true) return true;
     return false;
   };
 
@@ -250,8 +306,8 @@ export const QuestionBank = () => {
       // Show Public questions owned by current instructor
       filteredList = filteredList.filter((q) => isQuestionOwn(q) && !isQuestionPrivate(q));
     } else if (ownershipFilter === "others_public") {
-      // Show Public questions shared by other instructors
-      filteredList = filteredList.filter((q) => !isQuestionOwn(q));
+      // Show Public questions shared by other instructors (co-instructors)
+      filteredList = filteredList.filter((q) => !isQuestionOwn(q) && !isQuestionPrivate(q));
     }
 
     // Apply GAD Filter
@@ -293,8 +349,12 @@ export const QuestionBank = () => {
       const subjectIdStr = String(selectedSubjectId);
       
       filteredList = filteredList.filter((q) => {
-        // Include standalone questions assigned to this subject
-        const standaloneMatch = q.quiz_id === null && String(q.subject_id) === subjectIdStr;
+        // Direct subject match from question's subject_id, quiz's subject_id, section's subject_id, or subjects object
+        const directSubjectMatch =
+          String(q.subject_id) === subjectIdStr ||
+          String(q.quizzes?.subject_id) === subjectIdStr ||
+          String(q.subjects?.id) === subjectIdStr ||
+          String(q.sections?.subject_id) === subjectIdStr;
         
         // Include questions from quizzes in this subject
         let quizMatch = false;
@@ -307,7 +367,7 @@ export const QuestionBank = () => {
           quizMatch = directMatch || dedupeMatch || parentMatch;
         }
         
-        return standaloneMatch || quizMatch;
+        return directSubjectMatch || quizMatch;
       });
     } else if (quizId) {
       // URL-based import mode: show questions NOT from this quiz
@@ -701,24 +761,24 @@ export const QuestionBank = () => {
       if (res.success) {
         const targetQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(batchQuizId));
         const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
-        notify.success(
-          `Successfully created ${preparedArray.length} ${
-            batchIsPrivate ? "Private" : "Public"
-          } question(s)${quizMsg}!`
-        );
+      const isPriv = batchIsPrivate === true || batchIsPrivate === "private";
+      const visibilityLabel = isPriv ? "Private" : (batchIsPrivate === "shared" ? "Shared" : "Public");
+      notify.success(
+        `Successfully created ${preparedArray.length} ${visibilityLabel} question(s)${quizMsg}!`
+      );
 
-        setShowAddForm(false);
+      setShowAddForm(false);
 
-        // Auto-focus filters
-        setSelectedSubjectId(batchSubjectId);
-        if (batchQuizId) {
-          setSelectedQuizIdFilter(batchQuizId);
-        } else {
-          setSelectedQuizIdFilter(null);
-        }
-        setSearchTerm("");
-        setOwnershipFilter(batchIsPrivate ? "my_private" : "my_public");
-        setActiveTab("active");
+      // Auto-focus filters
+      setSelectedSubjectId(batchSubjectId);
+      if (batchQuizId) {
+        setSelectedQuizIdFilter(batchQuizId);
+      } else {
+        setSelectedQuizIdFilter(null);
+      }
+      setSearchTerm("");
+      setOwnershipFilter(isPriv ? "my_private" : "my_public");
+      setActiveTab("active");
 
         await fetchQuestions();
       } else {
@@ -1030,10 +1090,10 @@ export const QuestionBank = () => {
       if (res.success) {
         const targetQuizObj = quizzesFromSubject.find(q => String(q.id) === String(importTargetQuizId));
         const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
+        const isPriv = importIsPrivate === true || importIsPrivate === "private";
+        const visibilityLabel = isPriv ? "Private" : (importIsPrivate === "shared" ? "Shared" : "Public");
         notify.success(
-          `Successfully imported ${pendingImportQuestions.length} ${
-            importIsPrivate ? "Private" : "Public"
-          } question(s)${quizMsg}!`
+          `Successfully imported ${pendingImportQuestions.length} ${visibilityLabel} question(s)${quizMsg}!`
         );
         setShowImportConfigModal(false);
         setPendingImportQuestions([]);
@@ -1046,7 +1106,7 @@ export const QuestionBank = () => {
           setSelectedQuizIdFilter(null);
         }
         setSearchTerm("");
-        setOwnershipFilter(importIsPrivate ? "my_private" : "my_public");
+        setOwnershipFilter(isPriv ? "my_private" : "my_public");
         setActiveTab("active");
 
         await fetchQuestions();
@@ -1166,13 +1226,32 @@ export const QuestionBank = () => {
     };
     activeFilters.push({
       key: "sort",
-      label: `Sort: ${sortLabels[sortBy]}`,
+      label: `Sort: ${sortLabels[sortBy] || sortBy}`,
       clear: () => setSortBy("newest"),
     });
   }
+  if (ownershipFilter !== "all") {
+    const ownershipLabels = {
+      my_private: "Private Questions",
+      my_public: "Public Questions",
+      others_public: "Shared Questions",
+    };
+    activeFilters.push({
+      key: "ownership",
+      label: `Filter: ${ownershipLabels[ownershipFilter] || ownershipFilter}`,
+      clear: () => setOwnershipFilter("all"),
+    });
+  }
+  if (gadFilter !== "all") {
+    activeFilters.push({
+      key: "gad",
+      label: "GAD Questions",
+      clear: () => setGadFilter("all"),
+    });
+  }
   if (selectedSubjectId) {
-    const subjectName =
-      subjects.find((s) => s.id === selectedSubjectId)?.name || "Subject";
+    const subjectObj = subjects.find((s) => String(s.id) === String(selectedSubjectId));
+    const subjectName = subjectObj?.name || "Subject";
     activeFilters.push({
       key: "subject",
       label: `Subject: ${subjectName}`,
@@ -1183,9 +1262,10 @@ export const QuestionBank = () => {
     });
   }
   if (selectedQuizIdFilter) {
-    const quizTitle =
-      quizzesFromSubject.find((q) => q.id === selectedQuizIdFilter)?.title ||
-      "Quiz";
+    const quizObj = (selectedSubjectId ? quizzesFromSubject : allInstructorQuizzes).find(
+      (q) => String(q.id) === String(selectedQuizIdFilter)
+    );
+    const quizTitle = quizObj?.title || "Quiz";
     activeFilters.push({
       key: "quiz",
       label: `Quiz: ${quizTitle}`,
@@ -1620,13 +1700,16 @@ export const QuestionBank = () => {
             </span>
           ))}
           <button
+            type="button"
             onClick={() => {
               setSearchTerm("");
               setSortBy("newest");
-              setSelectedSectionId(null);
+              setSelectedSubjectId(null);
               setSelectedQuizIdFilter(null);
+              setOwnershipFilter("all");
+              setGadFilter("all");
             }}
-            className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"
+            className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors cursor-pointer"
           >
             Clear all
           </button>
@@ -1930,7 +2013,7 @@ export const QuestionBank = () => {
                       <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
                         📖 {question.subject_name || question.subjects?.name || question.quizzes?.subjects?.name || "Unassigned Subject"}
                       </span>
-                      {activeTab !== "import" && (
+                      {activeTab === "active" && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -2483,24 +2566,38 @@ export const QuestionBank = () => {
                       <button
                         type="button"
                         onClick={() => setBatchIsPrivate(true)}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
-                          batchIsPrivate
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          batchIsPrivate === true || batchIsPrivate === "private"
                             ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
                             : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
                         }`}
+                        title="Private - Only visible to you"
                       >
                         🔒 Private
                       </button>
                       <button
                         type="button"
-                        onClick={() => setBatchIsPrivate(false)}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
-                          !batchIsPrivate
+                        onClick={() => setBatchIsPrivate("public")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          batchIsPrivate === "public"
                             ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
                             : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
                         }`}
+                        title="Public - Visible to all"
                       >
                         🌐 Public
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBatchIsPrivate(false)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          batchIsPrivate === false || batchIsPrivate === "shared"
+                            ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                        }`}
+                        title="Shared - Shared with co-instructors in subject"
+                      >
+                        🤝 Shared
                       </button>
                     </div>
                   </div>
@@ -2771,42 +2868,58 @@ export const QuestionBank = () => {
                 </p>
               </div>
 
-              {/* Question Visibility (Private vs Public) */}
+              {/* Question Visibility (Private vs Public vs Shared) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Question Visibility <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setImportIsPrivate(true)}
-                    className={`p-3.5 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
-                      importIsPrivate === true
+                    className={`p-3 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
+                      importIsPrivate === true || importIsPrivate === "private"
                         ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
                         : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
                     }`}
                   >
-                    <span className="text-xs font-bold flex items-center gap-1.5 mb-1">
-                      <span>🔒 Private Questions</span>
+                    <span className="text-xs font-bold flex items-center gap-1.5 mb-0.5">
+                      <span>🔒 Private</span>
                     </span>
-                    <span className="text-[11px] text-slate-500 font-normal leading-normal">
-                      Only visible to you. Not shared with co-instructors.
+                    <span className="text-[10px] text-slate-500 font-normal leading-tight">
+                      Only visible to you.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportIsPrivate("public")}
+                    className={`p-3 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
+                      importIsPrivate === "public"
+                        ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                    }`}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1.5 mb-0.5">
+                      <span>🌐 Public</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-normal leading-tight">
+                      Visible to all.
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setImportIsPrivate(false)}
-                    className={`p-3.5 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
-                      importIsPrivate === false
+                    className={`p-3 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
+                      importIsPrivate === false || importIsPrivate === "shared"
                         ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
                         : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
                     }`}
                   >
-                    <span className="text-xs font-bold flex items-center gap-1.5 mb-1">
-                      <span>🌐 Public Questions</span>
+                    <span className="text-xs font-bold flex items-center gap-1.5 mb-0.5">
+                      <span>🤝 Shared</span>
                     </span>
-                    <span className="text-[11px] text-slate-500 font-normal leading-normal">
-                      Shared with co-instructors in the same subject for quiz reuse.
+                    <span className="text-[10px] text-slate-500 font-normal leading-tight">
+                      Shared with co-instructors.
                     </span>
                   </button>
                 </div>
