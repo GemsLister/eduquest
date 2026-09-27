@@ -344,6 +344,16 @@ export const QuizzesPageMain = () => {
                     <div
                       className={`px-5 py-4 bg-gradient-to-r group-hover:opacity-95 transition-opacity ${getCardGradient(quiz)}`}
                     >
+                      {/* Subject Pill / Tag if available */}
+                      {quiz.subject_display && (
+                        <div className="flex items-center gap-1.5 text-xs font-semibold mb-1 opacity-95">
+                          <span className="px-2.5 py-0.5 rounded-md bg-white/20 backdrop-blur-xs text-white text-[11px] font-black tracking-wide uppercase flex items-center gap-1 shadow-xs border border-white/20">
+                            <span>📖</span>
+                            <span className="truncate max-w-[240px]">{quiz.subject_display}</span>
+                          </span>
+                        </div>
+                      )}
+
                       <h3
                         className={`font-bold text-lg leading-snug line-clamp-2 mb-2 ${getCardTextColor(quiz)}`}
                       >
@@ -416,6 +426,17 @@ export const QuizzesPageMain = () => {
 
                     {/* Card Body */}
                     <div className="p-4 flex-1 flex flex-col gap-3">
+                      {/* Subject Row */}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-indigo-50/80 px-3 py-2 rounded-lg border border-indigo-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span className="font-semibold text-slate-500">Subject:</span>
+                        <span className="font-extrabold text-indigo-950 truncate">
+                          {quiz.subject_display || quiz.subject_name || (quiz.subjects ? (quiz.subjects.code ? `${quiz.subjects.code} - ${quiz.subjects.name}` : quiz.subjects.name) : "Unassigned Subject")}
+                        </span>
+                      </div>
+
                       {/* Owner Row */}
                       <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
