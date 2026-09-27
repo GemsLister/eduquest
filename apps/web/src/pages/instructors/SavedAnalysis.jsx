@@ -11,6 +11,7 @@ export const SavedAnalysisPage = () => {
   const confirm = useConfirm();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [archivingQuizId, setArchivingQuizId] = useState(null);
 
   useEffect(() => {
     const fetchSavedAnalyses = async () => {
@@ -61,9 +62,10 @@ export const SavedAnalysisPage = () => {
       message: `Are you sure you want to archive "${quizTitle}"?`,
       confirmText: "Archive",
       cancelText: "Cancel",
-      variant: "danger",
+      variant: "warning",
     });
     if (confirmed) {
+      setArchivingQuizId(quizId);
       try {
         const { error } = await supabase
           .from("quizzes")
@@ -74,6 +76,8 @@ export const SavedAnalysisPage = () => {
         notify.success("Quiz archived successfully");
       } catch (error) {
         notify.error("Failed to archive quiz: " + error.message);
+      } finally {
+        setArchivingQuizId(null);
       }
     }
   };
@@ -191,23 +195,31 @@ export const SavedAnalysisPage = () => {
                                 e.stopPropagation();
                                 handleArchive(quiz.id, quiz.title);
                               }}
-                              className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors flex items-center justify-center gap-1"
+                              disabled={archivingQuizId === quiz.id}
+                              className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Archive this quiz"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-3.5 w-3.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                                />
-                              </svg>
+                              {archivingQuizId === quiz.id ? (
+                                <svg className="animate-spin h-3.5 w-3.5 text-red-500" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              ) : (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3.5 w-3.5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                                  />
+                                </svg>
+                              )}
                             </button>
                           </div>
                         </div>
