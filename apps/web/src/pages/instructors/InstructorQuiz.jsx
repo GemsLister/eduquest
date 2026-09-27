@@ -125,15 +125,34 @@ export const InstructorQuiz = () => {
       };
       setQuestions(updated);
       setExpandedQuestions(new Set([...expandedQuestions, targetId]));
+      const targetPage = Math.ceil((bankTargetIndex + 1) / QUESTIONS_PER_PAGE);
+      setCurrentPage(targetPage);
       markDirty();
       notify.success(`Question #${bankTargetIndex + 1} updated from Question Bank!`);
     } else {
+      const normalizedNewText = (importedQuestion.text || "").toLowerCase().trim();
+      const existingIndex = questions.findIndex((q) => {
+        if (importedQuestion.id && q.id === importedQuestion.id) return true;
+        if (normalizedNewText && (q.text || "").toLowerCase().trim() === normalizedNewText) return true;
+        return false;
+      });
+
+      if (existingIndex !== -1) {
+        notify.warning(`This question is already in the quiz (Question #${existingIndex + 1})!`);
+        const pageOfExisting = Math.ceil((existingIndex + 1) / QUESTIONS_PER_PAGE);
+        setCurrentPage(pageOfExisting);
+        return;
+      }
+
       const newQuestionObj = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         ...importedQuestion,
       };
-      setQuestions([...questions, newQuestionObj]);
+      const updated = [...questions, newQuestionObj];
+      setQuestions(updated);
       setExpandedQuestions(new Set([...expandedQuestions, newQuestionObj.id]));
+      const newTotalPages = Math.ceil(updated.length / QUESTIONS_PER_PAGE);
+      setCurrentPage(newTotalPages);
       markDirty();
       notify.success("New question imported from Question Bank!");
     }
@@ -318,6 +337,22 @@ export const InstructorQuiz = () => {
   const startIndex = (validCurrentPage - 1) * QUESTIONS_PER_PAGE;
   const endIndex = startIndex + QUESTIONS_PER_PAGE;
   const paginatedQuestions = questions.slice(startIndex, endIndex);
+
+  const questionsEndRef = useRef(null);
+  const prevQuestionsLength = useRef(questions.length);
+
+  useEffect(() => {
+    if (initialLoadDone.current && questions.length > prevQuestionsLength.current) {
+      const newTotalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
+      setCurrentPage(newTotalPages);
+      setTimeout(() => {
+        if (questionsEndRef.current) {
+          questionsEndRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+    }
+    prevQuestionsLength.current = questions.length;
+  }, [questions.length, QUESTIONS_PER_PAGE]);
 
   const renderPageButtons = () => {
     const pages = [];
@@ -1934,40 +1969,6 @@ export const InstructorQuiz = () => {
               </p>
             )}
           </div>
-          {!isPublished && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label
-                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs cursor-pointer"
-                title="Import questions directly from a CSV or JSON file"
-              >
-                
-                <span>Import CSV</span>
-                <input
-                  type="file"
-                  accept=".csv,.json"
-                  onChange={handleImportCSVFile}
-                  className="hidden"
-                />
-              </label>
-              <button
-                onClick={() => {
-                  setBankTargetIndex(null);
-                  setShowBankModal(true);
-                }}
-                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs"
-                title="Import a new question from Question Bank"
-              >
-                
-                <span>From Question Bank</span>
-              </button>
-              <button
-                onClick={addQuestion}
-                className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
-              >
-                + Add Question
-              </button>
-            </div>
-          )}
         </div>
 
         {questions.length === 0 ? (
@@ -2001,7 +2002,7 @@ export const InstructorQuiz = () => {
                   onClick={addQuestion}
                   className="bg-brand-gold text-brand-navy px-5 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
                 >
-                  Add First Question
+                  Add Question
                 </button>
               </div>
             )}
@@ -2028,9 +2029,11 @@ export const InstructorQuiz = () => {
             )}
             {paginatedQuestions.map((question, index) => {
               const idx = startIndex + index;
+              const isLastOnPage = index === paginatedQuestions.length - 1;
               return (
               <div
                 key={`${question.id}-${idx}`}
+                ref={isLastOnPage ? questionsEndRef : null}
                 className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold transition-colors"
               >
                 {/* Collapsible header */}
@@ -2384,6 +2387,48 @@ export const InstructorQuiz = () => {
               </div>
             </div>
           )}
+
+          {!isPublished && (
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-6 mt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={addQuestion}
+                className="bg-brand-gold text-brand-navy px-5 py-2.5 rounded-lg font-bold hover:bg-brand-gold-dark transition-all text-sm shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Add Question</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBankTargetIndex(null);
+                  setShowBankModal(true);
+                }}
+                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2.5 rounded-lg font-semibold transition-all text-sm flex items-center gap-2 shadow-sm cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span>From Question Bank</span>
+              </button>
+              <label
+                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2.5 rounded-lg font-semibold transition-all text-sm flex items-center gap-2 cursor-pointer shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>Import CSV</span>
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  onChange={handleImportCSVFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          )}
           </>
         )}
       </div>
@@ -2436,25 +2481,7 @@ export const InstructorQuiz = () => {
             </>
           )}
 
-          {/* Divider between primary and secondary */}
-          {!isPublished && quizId && (
-            <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-          )}
 
-          {/* Secondary Actions */}
-          {quizId && !isPublished && (
-            <button
-              onClick={() =>
-                navigate(questionBankPath(quizId))
-              }
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Question Bank
-            </button>
-          )}
 
           {/* Right-aligned navigation */}
           <div className="ml-auto">
@@ -2503,8 +2530,19 @@ export const InstructorQuiz = () => {
         onClose={() => setShowBankModal(false)}
         onSelectQuestion={handleImportFromBank}
         targetQuestionNumber={bankTargetIndex !== null ? bankTargetIndex + 1 : null}
-        currentSubjectIds={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_id).filter(Boolean)}
-        currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).flatMap((s) => [s.subjects?.name, s.subjects?.code, s.subject_name, s.name, s.subject_code]).filter(Boolean)}
+        currentSubjectIds={Array.from(new Set(
+          availableSections
+            .filter((s) => selectedSectionIds.includes(s.id))
+            .map((s) => s.subject_id)
+            .filter(Boolean)
+        ))}
+        currentSubjectNames={Array.from(new Set(
+          availableSections
+            .filter((s) => selectedSectionIds.includes(s.id))
+            .flatMap((s) => [s.subjects?.name, s.subject_name])
+            .filter(Boolean)
+        ))}
+        currentQuizQuestions={questions}
       />
     </div>
   );
