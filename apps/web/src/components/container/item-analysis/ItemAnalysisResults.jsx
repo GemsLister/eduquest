@@ -388,19 +388,23 @@ export const ItemAnalysisResults = ({
               <button
                 onClick={handleSaveAnalysis}
                 disabled={savingAnalysis || !analysis || analysis.length === 0}
-                className={`px-6 py-2 rounded-full font-semibold text-white transition-colors ${
+                title="Save analysis to database and download PDF report"
+                className={`px-6 py-2 rounded-full font-semibold text-white transition-colors flex items-center gap-2 ${
                   savingAnalysis || !analysis || analysis.length === 0
                     ? "bg-gray-400 cursor-not-allowed"
                     : analysisSaved
-                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy"
-                    : "bg-brand-navy hover:bg-brand-indigo"
+                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy shadow-xs"
+                    : "bg-brand-navy hover:bg-brand-indigo shadow-xs"
                 }`}
               >
-                {savingAnalysis
-                  ? "Saving..."
-                  : analysisSaved
-                  ? "Saved"
-                  : "Save Analysis"}
+                <span>📄</span>
+                <span>
+                  {savingAnalysis
+                    ? "Saving & Exporting PDF..."
+                    : analysisSaved
+                    ? "Saved & Exported ✓"
+                    : "Save Analysis"}
+                </span>
               </button>
             </div>
           </div>
