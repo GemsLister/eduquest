@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
 import { notify } from "../../utils/notify.jsx";
+import { exportItemAnalysisPdf } from "../../utils/exportItemAnalysisPdf";
 
 const formatTimeSpent = (seconds) => {
   if (seconds === undefined || seconds === null) return "N/A";
@@ -508,7 +509,32 @@ export const ItemDifficulty = () => {
         notify.error("Failed to save analysis: " + (error.message || "Unknown error"));
       } else {
         setAnalysisSaved(true);
-        notify.success("Analysis saved successfully!");
+
+        // Generate and download PDF report
+        try {
+          const quizObj = quizzes.find((q) => String(q.id) === String(selectedQuiz));
+          const takersMap = new Map();
+          analysis.forEach((q) => {
+            (q.takersDetails || []).forEach((t) => {
+              if (t && t.name && !takersMap.has(t.name)) {
+                takersMap.set(t.name, t);
+              }
+            });
+          });
+          const allTakers = Array.from(takersMap.values());
+
+          await exportItemAnalysisPdf({
+            selectedQuiz: quizObj || { title: quizTitle || "Item Analysis Report" },
+            analysis,
+            totalAttempts: attemptsCount || allTakers.length,
+            allTakers,
+          });
+
+          notify.success("Analysis saved to database & exported as PDF!");
+        } catch (pdfErr) {
+          console.error("PDF export error:", pdfErr);
+          notify.success("Analysis saved successfully!");
+        }
       }
     } catch (err) {
       setSaveError(err.message);
