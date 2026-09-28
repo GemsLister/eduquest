@@ -718,16 +718,35 @@ export const ItemAnalysisPage = () => {
         isSmallSample: sampleSize > 0 && sampleSize < 10,
       });
 
+      // Calculate total time spent for each attempt
+      const attemptTotalTimeMap = {};
+      (responses || []).forEach((r) => {
+        if (!attemptTotalTimeMap[r.attempt_id]) attemptTotalTimeMap[r.attempt_id] = 0;
+        attemptTotalTimeMap[r.attempt_id] += Number(r.time_spent_seconds) || 0;
+      });
+
       setAllTakersList(
-        (attempts || []).map((att) => ({
-          id: att.id,
-          name:
-            att.guest_name ||
-            att.student_name ||
-            (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous"),
-          score: att.score || 0,
-          completedAt: att.completed_at || att.created_at || null,
-        })),
+        (attempts || []).map((att) => {
+          let totalTime = attemptTotalTimeMap[att.id] || 0;
+          if (totalTime <= 0 && att.completed_at && (att.started_at || att.created_at)) {
+            const start = new Date(att.started_at || att.created_at).getTime();
+            const end = new Date(att.completed_at).getTime();
+            if (end > start) {
+              totalTime = Math.round((end - start) / 1000);
+            }
+          }
+
+          return {
+            id: att.id,
+            name:
+              att.guest_name ||
+              att.student_name ||
+              (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous"),
+            score: att.score || 0,
+            completedAt: att.completed_at || att.created_at || null,
+            totalTimeSeconds: totalTime,
+          };
+        }),
       );
 
       setAnalysis(results);
