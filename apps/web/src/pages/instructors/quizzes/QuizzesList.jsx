@@ -143,7 +143,7 @@ export const QuizzesList = ({
                     </svg>
                     <span className="font-semibold text-slate-500">Subject:</span>
                     <span className="font-extrabold text-indigo-950 truncate">
-                      {quiz.subject_display || quiz.subject_name || (quiz.subjects ? (quiz.subjects.code ? `${quiz.subjects.code} - ${quiz.subjects.name}` : quiz.subjects.name) : "Unassigned Subject")}
+                      {quiz.subject_display || quiz.subject_name || (quiz.subjects ? (quiz.subjects.code ? `${quiz.subjects.code} - ${quiz.subjects.name}` : quiz.subjects.name) : (quiz.section_name || quiz.source_section_name || "Unassigned Subject"))}
                     </span>
                   </div>
 
