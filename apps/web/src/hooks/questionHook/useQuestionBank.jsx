@@ -150,23 +150,53 @@ export const useQuestionBank = () => {
         console.warn("[useQuestionBank] Error fetching assigned subject IDs:", subErr);
       }
 
+      // Get instructor's sections and subject IDs
+      const { data: mySectionsData } = await supabase
+        .from("sections")
+        .select("id, subject_id")
+        .eq("instructor_id", user.id)
+        .or("is_archived.is.null,is_archived.eq.false");
+
+      const mySectionIds = new Set((mySectionsData || []).map((s) => s.id).filter(Boolean));
+      const mySubjectIds = new Set((mySectionsData || []).map((s) => s.subject_id).filter(Boolean));
+
       // 1. Fetch ALL of current user's quizzes (Private/Public, Draft/Published, Active/Archived)
       const { data: ownQuizzesData } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id")
+        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id, description")
         .eq("instructor_id", user.id);
 
       const ownQuizzes = ownQuizzesData || [];
 
-      // 2. Fetch ALL PUBLIC quizzes from other instructors across all subjects/classes
+      // 2. Fetch non-private quizzes from other instructors
       const { data: publicQuizzes } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id")
+        .select("id, parent_quiz_id, version_number, is_archived, instructor_id, is_private, is_published, subject_id, section_id, description")
         .neq("instructor_id", user.id)
         .or("is_archived.is.null,is_archived.eq.false")
         .eq("is_private", false);
 
-      const coInstructorPublicQuizzes = publicQuizzes || [];
+      const parseVis = (q) => {
+        if (!q) return "private";
+        const desc = q.description || "";
+        const visMatch = desc.match(/\[vis:(private|shared|public)\]/i);
+        if (visMatch) return visMatch[1].toLowerCase();
+        if (q.visibility) return String(q.visibility).toLowerCase();
+        if (q.is_shared || q.is_shared_with_sections) return "shared";
+        if (q.is_private !== false) return "private";
+        return "public";
+      };
+
+      const coInstructorPublicQuizzes = (publicQuizzes || []).filter((q) => {
+        const vis = parseVis(q);
+        if (vis === "private") return false;
+        if (vis === "shared") {
+          const isSameSubject = q.subject_id && mySubjectIds.has(q.subject_id);
+          const isSameSection = q.section_id && mySectionIds.has(q.section_id);
+          return isSameSubject || isSameSection;
+        }
+        return true; // public
+      });
 
       const allAccessibleQuizzes = [...ownQuizzes, ...coInstructorPublicQuizzes];
       const quizIds = Array.from(
@@ -210,12 +240,16 @@ export const useQuestionBank = () => {
             const isQuizArchived = quizMeta?.is_archived === true;
             const isQuestionArchived = q.is_archived === true;
             const isOwn = q.instructor_id ? q.instructor_id === user.id : (quizMeta ? quizMeta.instructor_id === user.id : false);
-            const isPrivate = quizMeta ? quizMeta.is_private !== false : (q.is_private === true && q.blooms_level !== "public");
+            const qVis = quizMeta ? parseVis(quizMeta) : (q.is_private === true && q.blooms_level !== "public" ? "private" : "public");
+            const isPrivate = qVis === "private";
+            const isShared = qVis === "shared";
             return {
               ...q,
               quizzes: quizMeta,
               is_own: isOwn,
               is_private: isPrivate,
+              is_shared: isShared,
+              visibility: qVis,
               is_archived: isQuestionArchived || isQuizArchived,
             };
           });
