@@ -4,10 +4,27 @@ import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
 import { useAuth } from "../../../context/AuthContext.jsx";
 
+const getAssessmentTermBadge = (quiz) => {
+  const term = (quiz?.term || "").toLowerCase();
+  const title = (quiz?.title || "").toLowerCase();
+
+  if (term === "prelims" || title.includes("prelim")) {
+    return { label: "Prelims", bg: "bg-amber-500/20 text-white border-amber-300/40", icon: "📝" };
+  }
+  if (term === "midterms" || title.includes("midterm")) {
+    return { label: "Midterms", bg: "bg-blue-500/20 text-white border-blue-300/40", icon: "📘" };
+  }
+  if (term === "final term" || term === "finals" || title.includes("final")) {
+    return { label: "Final Term", bg: "bg-emerald-500/20 text-white border-emerald-300/40", icon: "🎓" };
+  }
+  return { label: "Exam", bg: "bg-indigo-500/20 text-white border-indigo-300/40", icon: "📄" };
+};
+
 export const QuizzesPageMain = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [filter, setFilter] = useState(location.state?.filter || "all");
+  const [termFilter, setTermFilter] = useState("all");
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -48,6 +65,24 @@ export const QuizzesPageMain = () => {
     }
   };
 
+  const filterQuizByTerm = (quiz, termKey) => {
+    if (termKey === "all") return true;
+    const title = (quiz.title || "").toLowerCase();
+    const description = (quiz.description || "").toLowerCase();
+    const term = (quiz.term || "").toLowerCase();
+
+    if (termKey === "prelims") {
+      return term === "prelims" || title.includes("prelim") || description.includes("prelim");
+    }
+    if (termKey === "midterms") {
+      return term === "midterms" || title.includes("midterm") || description.includes("midterm");
+    }
+    if (termKey === "final_term") {
+      return term === "final term" || term === "finals" || title.includes("final") || description.includes("final");
+    }
+    return true;
+  };
+
   // ── Badge counts ──
   const counts = useMemo(() => {
     if (!quizzes) return {};
@@ -61,16 +96,16 @@ export const QuizzesPageMain = () => {
   }, [quizzes]);
 
   const filteredQuizzes = useMemo(() => {
-    let result = quizzes?.filter((quiz) => filterQuiz(quiz, filter)) || [];
+    let result = quizzes?.filter((quiz) => filterQuiz(quiz, filter) && filterQuizByTerm(quiz, termFilter)) || [];
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter((quiz) => quiz.title?.toLowerCase().includes(q));
     }
     return result;
-  }, [quizzes, filter, search]);
+  }, [quizzes, filter, termFilter, search]);
 
   const filterTabs = [
-    { key: "all", label: "All", activeClass: "bg-brand-navy text-white" },
+    { key: "all", label: "All Statuses", activeClass: "bg-brand-navy text-white" },
     {
       key: "drafts",
       label: "Drafts",
@@ -91,6 +126,13 @@ export const QuizzesPageMain = () => {
       label: "Archived",
       activeClass: "bg-gray-700 text-white",
     },
+  ];
+
+  const termFilterTabs = [
+    { key: "all", label: "All Terms", icon: "🌐" },
+    { key: "prelims", label: "Prelims", icon: "📝" },
+    { key: "midterms", label: "Midterms", icon: "📘" },
+    { key: "final_term", label: "Final Term", icon: "🎓" },
   ];
 
   // ── Quiz state badge ──
@@ -162,37 +204,37 @@ export const QuizzesPageMain = () => {
       case "drafts":
         return {
           icon: "📝",
-          title: "No Drafts",
+          title: "No Draft Assessments",
           message:
-            'You don\'t have any draft quizzes. Click "+ Create Quiz" to get started!',
+            'You don\'t have any draft assessments. Click "+ Create Assessment / Exam" to get started!',
         };
       case "in_review":
         return {
           icon: "📋",
-          title: "No Quizzes In Review",
+          title: "No Assessments In Review",
           message:
-            "None of your quizzes are currently in the review pipeline. Submit a draft to get started.",
+            "None of your assessments are currently in the review pipeline. Submit a draft to get started.",
         };
       case "published":
         return {
           icon: "🚀",
-          title: "No Published Quizzes",
+          title: "No Published Assessments",
           message:
-            "You haven't published any quizzes yet. Once approved, assign to sections and publish!",
+            "You haven't published any assessments yet. Once approved, assign to sections and publish!",
         };
       case "archived":
         return {
           icon: "📦",
-          title: "No Archived Quizzes",
-          message: "You don't have any archived quizzes.",
+          title: "No Archived Assessments",
+          message: "You don't have any archived assessments.",
         };
       default:
         return {
           icon: "📝",
-          title: "No Quizzes Found",
+          title: "No Assessments Found",
           message: search.trim()
-            ? `No quizzes match "${search.trim()}".`
-            : 'You haven\'t created any quizzes yet. Click "+ Create Quiz" to get started!',
+            ? `No assessments match "${search.trim()}".`
+            : 'You haven\'t created any assessments yet. Click "+ Create Assessment / Exam" to get started!',
         };
     }
   };
@@ -204,10 +246,10 @@ export const QuizzesPageMain = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              Quiz Management
+              Assessment &amp; Exam Management
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Create, manage, and restore your quizzes
+              Create and manage Prelims, Midterms, Final Term examinations, and Quizzes
             </p>
           </div>
           <CreateQuizFormButton
@@ -222,79 +264,100 @@ export const QuizzesPageMain = () => {
 
       <div className="p-6">
         {/* Search + Filter Row */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-3">
-          {/* Search Bar */}
-          <div className="relative flex-1 max-w-sm">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search quizzes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
-            />
-            {search && (
+        <div className="mb-6 space-y-3">
+          {/* Term Filter Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs font-bold text-slate-500 uppercase shrink-0 mr-1">Term Filter:</span>
+            {termFilterTabs.map((tTab) => (
               <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {filterTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm flex items-center gap-1.5 ${
-                  filter === tab.key
-                    ? tab.activeClass
-                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                key={tTab.key}
+                onClick={() => setTermFilter(tTab.key)}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 ${
+                  termFilter === tTab.key
+                    ? "bg-brand-navy text-white shadow-xs ring-2 ring-brand-navy/20"
+                    : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
                 }`}
               >
-                {tab.label}
-                {counts[tab.key] > 0 && (
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold ${
-                      filter === tab.key
-                        ? "bg-white/25 text-white"
-                        : "bg-gray-200 text-gray-600"
-                    }`}
-                  >
-                    {counts[tab.key]}
-                  </span>
-                )}
+                <span>{tTab.icon}</span>
+                <span>{tTab.label}</span>
               </button>
             ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-sm">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search assessments (Prelims, Midterms, Finals)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/20"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {filterTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm flex items-center gap-1.5 ${
+                    filter === tab.key
+                      ? tab.activeClass
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                  {counts[tab.key] > 0 && (
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold ${
+                        filter === tab.key
+                          ? "bg-white/25 text-white"
+                          : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
+                      {counts[tab.key]}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -325,6 +388,7 @@ export const QuizzesPageMain = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredQuizzes.map((quiz) => {
                 const state = getQuizState(quiz);
+                const termBadge = getAssessmentTermBadge(quiz);
                 const isApproved =
                   (quiz.admin_review_status === "approved" ||
                     quiz.admin_review_status === "faculty_head_approved") &&
@@ -344,15 +408,19 @@ export const QuizzesPageMain = () => {
                     <div
                       className={`px-5 py-4 bg-gradient-to-r group-hover:opacity-95 transition-opacity ${getCardGradient(quiz)}`}
                     >
-                      {/* Subject Pill / Tag if available */}
-                      {quiz.subject_display && (
-                        <div className="flex items-center gap-1.5 text-xs font-semibold mb-1 opacity-95">
+                      {/* Term & Subject Row */}
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold mb-1 opacity-95">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-xs flex items-center gap-1 ${termBadge.bg}`}>
+                          <span>{termBadge.icon}</span>
+                          <span>{termBadge.label}</span>
+                        </span>
+                        {quiz.subject_display && (
                           <span className="px-2.5 py-0.5 rounded-md bg-white/20 backdrop-blur-xs text-white text-[11px] font-black tracking-wide uppercase flex items-center gap-1 shadow-xs border border-white/20">
                             <span>📖</span>
-                            <span className="truncate max-w-[240px]">{quiz.subject_display}</span>
+                            <span className="truncate max-w-[180px]">{quiz.subject_display}</span>
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       <h3
                         className={`font-bold text-lg leading-snug line-clamp-2 mb-2 ${getCardTextColor(quiz)}`}
@@ -387,16 +455,29 @@ export const QuizzesPageMain = () => {
                             Shared
                           </span>
                         )}
-                        {/* Privacy Badge */}
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            quiz.is_private !== false
-                              ? "bg-gray-800/80 text-gray-100 border-gray-600"
-                              : "bg-emerald-800/80 text-emerald-100 border-emerald-600"
-                          }`}
-                        >
-                          {quiz.is_private !== false ? "Private" : "Public"}
-                        </span>
+                        {/* Privacy / Visibility Badge */}
+                        {(() => {
+                          const vis = quiz.visibility || (quiz.is_shared ? "shared" : (quiz.is_private !== false ? "private" : "public"));
+                          if (vis === "shared" || quiz.is_shared) {
+                            return (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-purple-800/80 text-purple-100 border-purple-500">
+                                Shared
+                              </span>
+                            );
+                          }
+                          if (vis === "private" || quiz.is_private !== false) {
+                            return (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-gray-800/80 text-gray-100 border-gray-600">
+                                Private
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-800/80 text-emerald-100 border-emerald-600">
+                              Public
+                            </span>
+                          );
+                        })()}
                         {/* Status Badge */}
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${state.bg}`}
@@ -433,7 +514,7 @@ export const QuizzesPageMain = () => {
                         </svg>
                         <span className="font-semibold text-slate-500">Subject:</span>
                         <span className="font-extrabold text-indigo-950 truncate">
-                          {quiz.subject_display || quiz.subject_name || (quiz.subjects ? (quiz.subjects.code ? `${quiz.subjects.code} - ${quiz.subjects.name}` : quiz.subjects.name) : "Unassigned Subject")}
+                          {quiz.subject_display || quiz.subject_name || (quiz.subjects ? (quiz.subjects.code ? `${quiz.subjects.code} - ${quiz.subjects.name}` : quiz.subjects.name) : (quiz.section_name || quiz.source_section_name || "Unassigned Subject"))}
                         </span>
                       </div>
 
