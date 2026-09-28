@@ -1,3 +1,5 @@
+import React, { useState, useMemo, useEffect } from "react";
+
 const getCohortFilterLabel = (filter) => {
   const labels = {
     all: "All Students",
@@ -90,6 +92,55 @@ export const ItemAnalysisResults = ({
   selectedCohortFilter,
   testStats,
 }) => {
+  const [takersPage, setTakersPage] = useState(1);
+  const [allTakersSortKey, setAllTakersSortKey] = useState("score_desc");
+  const takersPerPage = 10;
+
+  useEffect(() => {
+    setTakersPage(1);
+  }, [allTakers?.length, selectedQuiz, allTakersSortKey]);
+
+  const sortedAllTakers = useMemo(() => {
+    if (!allTakers || allTakers.length === 0) return [];
+
+    return [...allTakers].sort((a, b) => {
+      if (allTakersSortKey === "score_desc") {
+        return (b.score || 0) - (a.score || 0);
+      } else if (allTakersSortKey === "score_asc") {
+        return (a.score || 0) - (b.score || 0);
+      } else if (allTakersSortKey === "name_asc") {
+        return a.name.localeCompare(b.name);
+      } else if (allTakersSortKey === "name_desc") {
+        return b.name.localeCompare(a.name);
+      } else if (allTakersSortKey === "first_to_finish") {
+        const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return timeA - timeB;
+      } else if (allTakersSortKey === "last_to_finish") {
+        const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return timeB - timeA;
+      }
+      return 0;
+    });
+  }, [allTakers, allTakersSortKey]);
+
+  const totalTakersPages = Math.max(1, Math.ceil((sortedAllTakers?.length || 0) / takersPerPage));
+  const paginatedTakers = useMemo(() => {
+    if (!sortedAllTakers) return [];
+    const start = (takersPage - 1) * takersPerPage;
+    return sortedAllTakers.slice(start, start + takersPerPage);
+  }, [sortedAllTakers, takersPage]);
+
+  const toggleHeaderSort = (field) => {
+    if (field === "name") {
+      setAllTakersSortKey((prev) => (prev === "name_asc" ? "name_desc" : "name_asc"));
+    } else if (field === "score") {
+      setAllTakersSortKey((prev) => (prev === "score_desc" ? "score_asc" : "score_desc"));
+    } else if (field === "time") {
+      setAllTakersSortKey((prev) => (prev === "first_to_finish" ? "last_to_finish" : "first_to_finish"));
+    }
+  };
   const isSmallSample =
     testStats?.isSmallSample || (totalAttempts > 0 && totalAttempts < 10);
   const sampleSize = testStats?.sampleSize || totalAttempts || 0;
@@ -412,20 +463,75 @@ export const ItemAnalysisResults = ({
           {/* All Takers Section */}
           {allTakers && allTakers.length > 0 && (
             <div className="p-4 border-t border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                All Students Who Took This Exam ({totalAttempts})
-              </h4>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-slate-700">
+                    All Students Who Took This Exam ({totalAttempts})
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium hidden md:inline">
+                    • Showing {(takersPage - 1) * takersPerPage + 1} to{" "}
+                    {Math.min(takersPage * takersPerPage, sortedAllTakers.length)} of {sortedAllTakers.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Sort by:</span>
+                  <select
+                    value={allTakersSortKey}
+                    onChange={(e) => setAllTakersSortKey(e.target.value)}
+                    className="text-xs font-bold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-brand-navy shadow-xs focus:outline-none focus:ring-1 focus:ring-brand-navy cursor-pointer"
+                  >
+                    <option value="score_desc">🏆 Highest to Lowest Score</option>
+                    <option value="score_asc">📉 Lowest to Highest Score</option>
+                    <option value="first_to_finish">⚡ First to Finish Exam</option>
+                    <option value="last_to_finish">⏳ Last to Finish Exam</option>
+                    <option value="name_asc">🔤 Alphabetical (A - Z)</option>
+                    <option value="name_desc">🔤 Alphabetical (Z - A)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100 text-gray-600 text-xs uppercase">
+                  <thead className="bg-gray-100 text-gray-600 text-xs uppercase font-bold border-b">
                     <tr>
-                      <th className="p-3 text-left">Student Name</th>
-                      <th className="p-3 text-center">Score</th>
-                      <th className="p-3 text-center">Status</th>
+                      <th
+                        onClick={() => toggleHeaderSort("name")}
+                        className="p-3 text-left cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort Alphabetically (A-Z / Z-A)"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Student Name</span>
+                          {allTakersSortKey === "name_asc" && <span className="text-brand-navy font-extrabold ml-1">↑</span>}
+                          {allTakersSortKey === "name_desc" && <span className="text-brand-navy font-extrabold ml-1">↓</span>}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleHeaderSort("score")}
+                        className="p-3 text-center cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort by Score (Highest-Lowest / Lowest-Highest)"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Score</span>
+                          {allTakersSortKey === "score_desc" && <span className="text-brand-navy font-extrabold ml-1">↓</span>}
+                          {allTakersSortKey === "score_asc" && <span className="text-brand-navy font-extrabold ml-1">↑</span>}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleHeaderSort("time")}
+                        className="p-3 text-center cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort by Completion Time (First to Finish / Last to Finish)"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Status</span>
+                          {allTakersSortKey === "first_to_finish" && <span className="text-emerald-600 font-extrabold text-[10px] lowercase ml-1">(earliest)</span>}
+                          {allTakersSortKey === "last_to_finish" && <span className="text-amber-600 font-extrabold text-[10px] lowercase ml-1">(latest)</span>}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {allTakers.map((taker) => (
+                    {paginatedTakers.map((taker) => (
                       <tr key={taker.id} className="hover:bg-gray-50">
                         <td className="p-3 text-gray-800 font-medium">
                           {taker.name}
@@ -443,6 +549,54 @@ export const ItemAnalysisResults = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {totalTakersPages > 1 && (
+                <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <div className="text-xs text-gray-500">
+                    Page {takersPage} of {totalTakersPages}
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setTakersPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={takersPage === 1}
+                      className={`relative inline-flex items-center justify-center px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                        takersPage === 1
+                          ? "text-gray-300 cursor-not-allowed border border-gray-100"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalTakersPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setTakersPage(page)}
+                        className={`relative inline-flex items-center justify-center w-7 h-7 text-xs font-semibold rounded-md transition-colors ${
+                          takersPage === page
+                            ? "bg-brand-navy text-white shadow-xs"
+                            : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setTakersPage((prev) => Math.min(prev + 1, totalTakersPages))}
+                      disabled={takersPage === totalTakersPages}
+                      className={`relative inline-flex items-center justify-center px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                        takersPage === totalTakersPages
+                          ? "text-gray-300 cursor-not-allowed border border-gray-100"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
