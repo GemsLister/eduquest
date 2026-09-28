@@ -111,15 +111,40 @@ export const useFetchInstructorQuizzes = () => {
           candidateQuizzes = extraData || [];
         }
 
-        // Fetch public quizzes
+        // Fetch non-private quizzes and filter by subject/section for Shared assessments
         const { data: publicQuizzes } = await supabase
           .from("quizzes")
-          .select("*")
+          .select("*, quiz_sections(section_id)")
           .eq("is_private", false)
           .order("created_at", { ascending: false });
 
+        const accessibleOtherQuizzes = (publicQuizzes || []).filter((q) => {
+          if (q.instructor_id === user.id) return true; // Own quiz
+
+          const rawDesc = q.description || "";
+          const visMatch = rawDesc.match(/\[vis:(private|shared|public)\]/i);
+          const resolvedVis = visMatch
+            ? visMatch[1].toLowerCase()
+            : (q.visibility ? q.visibility : (q.is_shared || q.is_shared_with_sections ? "shared" : (q.is_private !== false ? "private" : "public")));
+
+          if (resolvedVis === "private") return false;
+
+          if (resolvedVis === "shared") {
+            const qSubjectId = q.subject_id;
+            const qSectionId = q.section_id;
+            const isSameSubject = qSubjectId && mySubjectIds.has(qSubjectId);
+            const isSameSection = qSectionId && mySectionIds.has(qSectionId);
+            const quizSecs = q.quiz_sections || [];
+            const sharesAnySection = quizSecs.some((qs) => mySectionIds.has(qs.section_id));
+
+            return isSameSubject || isSameSection || sharesAnySection;
+          }
+
+          return true; // Public quizzes are visible to all instructors
+        });
+
         const combinedMap = new Map();
-        [...(myQuizzes || []), ...candidateQuizzes, ...(publicQuizzes || [])].forEach((q) => {
+        [...(myQuizzes || []), ...candidateQuizzes, ...accessibleOtherQuizzes].forEach((q) => {
           if (q && q.id && !combinedMap.has(q.id)) {
             combinedMap.set(q.id, q);
           }
@@ -154,6 +179,13 @@ export const useFetchInstructorQuizzes = () => {
       }
 
       const data = (rawQuizzes || []).map((q) => {
+        const rawDesc = q.description || "";
+        const visMatch = rawDesc.match(/\[vis:(private|shared|public)\]/i);
+        const resolvedVis = visMatch
+          ? visMatch[1].toLowerCase()
+          : (q.visibility ? q.visibility : (q.is_shared ? "shared" : (q.is_private !== false ? "private" : "public")));
+        const cleanDesc = rawDesc.replace(/\s*\[vis:(private|shared|public)\]\s*/gi, "").trim();
+
         const profile = profileMap.get(q.instructor_id);
         const ownerFirstName = profile?.first_name || "";
         const ownerLastName = profile?.last_name || "";
@@ -161,6 +193,10 @@ export const useFetchInstructorQuizzes = () => {
         const fallbackName = profile?.username || profile?.email || "Instructor";
         return {
           ...q,
+          description: cleanDesc,
+          visibility: resolvedVis,
+          is_shared: resolvedVis === "shared",
+          is_private: resolvedVis === "private",
           profiles: profile,
           owner_id: q.instructor_id,
           owner_name: fullName || fallbackName,
@@ -220,47 +256,110 @@ export const useFetchInstructorQuizzes = () => {
 
           const sectionMap = new Map();
           if (allSectionIds.length > 0) {
-            const { data: sectionsData } = await supabase
-              .from("sections")
-              .select("id, name, code, subject_id, subjects(id, name, code)")
-              .in("id", allSectionIds);
+            try {
+              const { data: sectionsData } = await supabase
+                .from("sections")
+                .select("id, name, code, subject_id, subject_code, description, subjects(id, name, code)")
+                .in("id", allSectionIds);
 
-            if (sectionsData) {
-              sectionsData.forEach((sec) => {
-                sectionMap.set(sec.id, sec);
-              });
+              if (sectionsData) {
+                sectionsData.forEach((sec) => {
+                  sectionMap.set(sec.id, sec);
+                });
+              }
+            } catch (secErr) {
+              console.warn("Could not query sections:", secErr);
             }
           }
 
-          // Fetch all subject details (both direct subject_id and from sections)
+          // Fetch teaching assignments for sections as another resolution strategy
+          const sectionToTaSubjectMap = new Map();
+          if (allSectionIds.length > 0) {
+            try {
+              const { data: taData } = await supabase
+                .from("teaching_assignments")
+                .select("section_id, subject_id, subjects(id, name, code)")
+                .in("section_id", allSectionIds);
+
+              if (taData) {
+                taData.forEach((ta) => {
+                  if (ta.subjects) sectionToTaSubjectMap.set(ta.section_id, ta.subjects);
+                });
+              }
+            } catch (taErr) {
+              console.warn("Could not query teaching assignments:", taErr);
+            }
+          }
+
+          // Fetch all subject details
           const directSubjectIds = data.map((q) => q.subject_id).filter(Boolean);
           const sectionSubjectIds = Array.from(sectionMap.values())
             .map((sec) => sec.subject_id)
             .filter(Boolean);
-          const allSubjectIds = Array.from(new Set([...directSubjectIds, ...sectionSubjectIds]));
+          const taSubjectIds = Array.from(sectionToTaSubjectMap.values())
+            .map((s) => s?.id)
+            .filter(Boolean);
+          const allSubjectIds = Array.from(new Set([...directSubjectIds, ...sectionSubjectIds, ...taSubjectIds]));
 
           const subjectMap = new Map();
-          if (allSubjectIds.length > 0) {
-            const { data: subjectsData } = await supabase
+          try {
+            if (allSubjectIds.length > 0) {
+              const { data: subjectsData } = await supabase
+                .from("subjects")
+                .select("id, name, code, description")
+                .in("id", allSubjectIds);
+
+              if (subjectsData) {
+                subjectsData.forEach((sub) => {
+                  subjectMap.set(sub.id, sub);
+                  if (sub.code) subjectMap.set(sub.code.toLowerCase(), sub);
+                });
+              }
+            }
+
+            // Also query overall active subjects as general fallback
+            const { data: allActiveSubs } = await supabase
               .from("subjects")
               .select("id, name, code, description")
-              .in("id", allSubjectIds);
+              .eq("is_archived", false);
 
-            if (subjectsData) {
-              subjectsData.forEach((sub) => {
-                subjectMap.set(sub.id, sub);
+            if (allActiveSubs) {
+              allActiveSubs.forEach((sub) => {
+                if (sub.id && !subjectMap.has(sub.id)) subjectMap.set(sub.id, sub);
+                if (sub.code) subjectMap.set(sub.code.toLowerCase(), sub);
+                if (sub.name) subjectMap.set(sub.name.toLowerCase(), sub);
               });
             }
+          } catch (subErr) {
+            console.warn("Could not query subjects:", subErr);
           }
 
           // Map subject info per quiz
           data.forEach((quiz) => {
             let sub = quiz.subject_id ? subjectMap.get(quiz.subject_id) : null;
 
-            if (!sub && quiz.section_id) {
-              const sec = sectionMap.get(quiz.section_id);
+            const targetSecId = quiz.section_id || (quizSections?.find((qs) => qs.quiz_id === quiz.id)?.section_id);
+
+            if (!sub && targetSecId) {
+              const sec = sectionMap.get(targetSecId);
               if (sec) {
                 sub = sec.subjects || (sec.subject_id ? subjectMap.get(sec.subject_id) : null);
+
+                if (!sub && sec.subject_code) {
+                  sub = subjectMap.get(sec.subject_code.toLowerCase());
+                }
+
+                if (!sub) {
+                  sub = sectionToTaSubjectMap.get(sec.id);
+                }
+
+                if (!sub && sec.name) {
+                  sub = {
+                    id: sec.id,
+                    name: sec.name,
+                    code: sec.subject_code || sec.code || "",
+                  };
+                }
               }
             }
 
@@ -269,9 +368,20 @@ export const useFetchInstructorQuizzes = () => {
               for (const qs of qSecs) {
                 const sec = sectionMap.get(qs.section_id);
                 if (sec) {
-                  const foundSub = sec.subjects || (sec.subject_id ? subjectMap.get(sec.subject_id) : null);
+                  const foundSub =
+                    sec.subjects ||
+                    (sec.subject_id ? subjectMap.get(sec.subject_id) : null) ||
+                    sectionToTaSubjectMap.get(sec.id);
                   if (foundSub) {
                     sub = foundSub;
+                    break;
+                  }
+                  if (sec.name) {
+                    sub = {
+                      id: sec.id,
+                      name: sec.name,
+                      code: sec.subject_code || sec.code || "",
+                    };
                     break;
                   }
                 }
@@ -279,7 +389,7 @@ export const useFetchInstructorQuizzes = () => {
             }
 
             if (sub) {
-              const displayName = sub.code ? `${sub.code} - ${sub.name}` : sub.name;
+              const displayName = sub.code && sub.name !== sub.code ? `${sub.code} - ${sub.name}` : sub.name;
               quizSubjectMap.set(quiz.id, {
                 id: sub.id,
                 name: sub.name,
