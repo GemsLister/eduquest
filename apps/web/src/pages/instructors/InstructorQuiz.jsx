@@ -86,6 +86,7 @@ export const InstructorQuiz = () => {
   const [error, setError] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [isPrivate, setIsPrivate] = useState(true);
+  const [visibility, setVisibility] = useState("private");
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
   const [availableSections, setAvailableSections] = useState([]);
   const [saveStatus, setSaveStatus] = useState("");
@@ -427,15 +428,34 @@ export const InstructorQuiz = () => {
     autoSaveTimer.current = setTimeout(async () => {
       if (!quizTitle.trim()) return;
       try {
-        await supabase
+        const isPriv = visibility === "private";
+        const isShared = visibility === "shared";
+        const rawDesc = (quizDescription || "").replace(/\s*\[vis:(private|shared|public)\]\s*/gi, "").trim();
+        const taggedDesc = rawDesc ? `${rawDesc}\n[vis:${visibility}]` : `[vis:${visibility}]`;
+
+        const { error: updateErr } = await supabase
           .from("quizzes")
           .update({
             title: quizTitle,
-            description: quizDescription || null,
+            description: taggedDesc,
             duration: quizDuration ? parseInt(quizDuration) : null,
-            is_private: isPrivate,
+            is_private: isPriv,
+            is_shared: isShared,
+            visibility: visibility,
           })
           .eq("id", quizId);
+
+        if (updateErr) {
+          await supabase
+            .from("quizzes")
+            .update({
+              title: quizTitle,
+              description: taggedDesc,
+              duration: quizDuration ? parseInt(quizDuration) : null,
+              is_private: isPriv,
+            })
+            .eq("id", quizId);
+        }
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
       } catch (err) {
@@ -444,7 +464,7 @@ export const InstructorQuiz = () => {
     }, 30000);
 
     return () => clearTimeout(autoSaveTimer.current);
-  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished, isPrivate]);
+  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished, isPrivate, visibility]);
 
   useEffect(() => {
     loadSections();
@@ -609,14 +629,25 @@ export const InstructorQuiz = () => {
         return;
       }
 
+      const rawDesc = quiz.description || "";
+      const visMatch = rawDesc.match(/\[vis:(private|shared|public)\]/i);
+      const loadedVis = visMatch
+        ? visMatch[1].toLowerCase()
+        : (quiz.visibility
+          ? quiz.visibility
+          : (quiz.is_shared || quiz.is_shared_with_sections ? "shared" : (quiz.is_private !== false ? "private" : "public")));
+
+      const cleanDesc = rawDesc.replace(/\s*\[vis:(private|shared|public)\]\s*/gi, "").trim();
+
       const loadedTitle = quiz.is_published
         ? (quiz.title || "").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")
         : quiz.title;
       setQuizTitle(loadedTitle);
-      setQuizDescription(quiz.description || "");
+      setQuizDescription(cleanDesc);
       setQuizDuration(quiz.duration || "");
       setIsPublished(quiz.is_published || false);
-      setIsPrivate(quiz.is_private !== false);
+      setVisibility(loadedVis);
+      setIsPrivate(loadedVis === "private");
       setShareToken(quiz.share_token || "");
       setParentQuizId(quiz.parent_quiz_id || null);
 
@@ -643,6 +674,10 @@ export const InstructorQuiz = () => {
         
         if (sectionTokens && sectionTokens.length > 0) {
           setSectionShareTokens(sectionTokens);
+          if (!quiz.visibility && quiz.is_shared !== false && quiz.is_private === false) {
+            setVisibility("shared");
+            setIsPrivate(false);
+          }
           
           // Check if any sections are missing tokens
           const missingTokens = sectionTokens.filter(st => !st.share_token);
@@ -1213,20 +1248,45 @@ export const InstructorQuiz = () => {
           ? quizTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")
           : quizTitle;
 
-        const { data, error: updateError } = await supabase
+        const isPriv = visibility === "private";
+        const isShared = visibility === "shared";
+        const rawDesc = (quizDescription || "").replace(/\s*\[vis:(private|shared|public)\]\s*/gi, "").trim();
+        const taggedDesc = rawDesc ? `${rawDesc}\n[vis:${visibility}]` : `[vis:${visibility}]`;
+
+        let data;
+        const { data: updatedData, error: updateError } = await supabase
           .from("quizzes")
           .update({
             title: cleanTitle,
-            description: quizDescription || null,
+            description: taggedDesc,
             duration: quizDuration ? parseInt(quizDuration) : null,
             is_published: publish || isPublished,
-            is_private: isPrivate,
+            is_private: isPriv,
+            is_shared: isShared,
+            visibility: visibility,
             share_token: publish ? newToken : shareToken || null,
           })
           .eq("id", quizId)
           .select();
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          const { data: fallbackData, error: fallbackErr } = await supabase
+            .from("quizzes")
+            .update({
+              title: cleanTitle,
+              description: taggedDesc,
+              duration: quizDuration ? parseInt(quizDuration) : null,
+              is_published: publish || isPublished,
+              is_private: isPriv,
+              share_token: publish ? newToken : shareToken || null,
+            })
+            .eq("id", quizId)
+            .select();
+          if (fallbackErr) throw fallbackErr;
+          data = fallbackData;
+        } else {
+          data = updatedData;
+        }
         quizData = data[0];
 
         const { data: existingQuestions } = await supabase
@@ -1534,19 +1594,22 @@ export const InstructorQuiz = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const nextVal = !isPrivate;
-                  setIsPrivate(nextVal);
+                  const nextVis = visibility === "private" ? "shared" : (visibility === "shared" ? "public" : "private");
+                  setVisibility(nextVis);
+                  setIsPrivate(nextVis === "private");
                   markDirty();
-                  notify.info(nextVal ? "Quiz set to Private (only visible to you)" : "Quiz set to Public (visible to all instructors)");
+                  notify.info(`Quiz visibility set to ${nextVis.charAt(0).toUpperCase() + nextVis.slice(1)}`);
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
-                  isPrivate
+                  visibility === "private"
                     ? "bg-white/10 text-white/90 border-white/20 hover:bg-white/20"
+                    : visibility === "shared"
+                    ? "bg-purple-500 text-white border-purple-400 hover:bg-purple-600"
                     : "bg-brand-gold text-brand-navy border-brand-gold hover:bg-brand-gold-dark"
                 }`}
-                title={isPrivate ? "Private: Only you can view this quiz in Question Bank" : "Public: Other instructors can view and import questions from this quiz"}
+                title={`Visibility: ${visibility}. Click to cycle visibility.`}
               >
-                <span>{isPrivate ? "Private" : "Public"}</span>
+                <span>{visibility === "private" ? "🔒 Private" : (visibility === "shared" ? "👥 Shared" : "🌐 Public")}</span>
               </button>
             )}
           </div>
@@ -1724,60 +1787,110 @@ export const InstructorQuiz = () => {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Quiz Visibility Setting
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2.5">
               <label
-                className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-colors ${
-                  isPrivate
-                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
-                    : "border-gray-200 hover:bg-gray-50"
+                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  visibility === "private"
+                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy shadow-sm"
+                    : "border-gray-200 bg-white hover:bg-gray-50/80 hover:border-gray-300"
                 } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <input
                   type="radio"
                   name="edit_quiz_visibility"
-                  checked={isPrivate}
+                  checked={visibility === "private"}
                   disabled={isPublished}
                   onChange={() => {
+                    setVisibility("private");
                     setIsPrivate(true);
                     markDirty();
                   }}
-                  className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                  className="mt-1 text-brand-navy focus:ring-brand-navy shrink-0"
                 />
-                <div>
-                  <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                    Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
-                  </span>
-                  <span className="block text-xs text-gray-500 mt-0.5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      Private
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full border border-gray-200 shrink-0">Default</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                     Only you can see this quiz and its questions. Hidden from all other instructors and Question Bank.
-                  </span>
+                  </p>
                 </div>
               </label>
 
               <label
-                className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-colors ${
-                  !isPrivate
-                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
-                    : "border-gray-200 hover:bg-gray-50"
+                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  visibility === "shared"
+                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy shadow-sm"
+                    : "border-gray-200 bg-white hover:bg-gray-50/80 hover:border-gray-300"
                 } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <input
                   type="radio"
                   name="edit_quiz_visibility"
-                  checked={!isPrivate}
+                  checked={visibility === "shared"}
                   disabled={isPublished}
                   onChange={() => {
+                    setVisibility("shared");
                     setIsPrivate(false);
                     markDirty();
                   }}
-                  className="mt-0.5 text-brand-navy focus:ring-brand-navy"
+                  className="mt-1 text-brand-navy focus:ring-brand-navy shrink-0"
                 />
-                <div>
-                  <span className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                    Public
-                  </span>
-                  <span className="block text-xs text-gray-500 mt-0.5">
-                    Visible to other instructors. Questions are available in the Question Bank for shared subjects.
-                  </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Shared
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Shared with instructors teaching the same subject or assigned sections.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  visibility === "public"
+                    ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy shadow-sm"
+                    : "border-gray-200 bg-white hover:bg-gray-50/80 hover:border-gray-300"
+                } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="edit_quiz_visibility"
+                  checked={visibility === "public"}
+                  disabled={isPublished}
+                  onChange={() => {
+                    setVisibility("public");
+                    setIsPrivate(false);
+                    markDirty();
+                  }}
+                  className="mt-1 text-brand-navy focus:ring-brand-navy shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                      Public
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Visible to all instructors. Questions are available in the Question Bank for shared subjects.
+                  </p>
                 </div>
               </label>
             </div>
