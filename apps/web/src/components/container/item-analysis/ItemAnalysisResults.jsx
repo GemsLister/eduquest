@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { formatTimeSpent } from "../../../utils/timeSpent";
 
 const getCohortFilterLabel = (filter) => {
   const labels = {
@@ -113,13 +114,23 @@ export const ItemAnalysisResults = ({
       } else if (allTakersSortKey === "name_desc") {
         return b.name.localeCompare(a.name);
       } else if (allTakersSortKey === "first_to_finish") {
-        const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-        return timeA - timeB;
+        const timeA = a.totalTimeSeconds || 0;
+        const timeB = b.totalTimeSeconds || 0;
+        if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        const compA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const compB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return compA - compB;
       } else if (allTakersSortKey === "last_to_finish") {
-        const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-        return timeB - timeA;
+        const timeA = a.totalTimeSeconds || 0;
+        const timeB = b.totalTimeSeconds || 0;
+        if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+          return timeB - timeA;
+        }
+        const compA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const compB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return compB - compA;
       }
       return 0;
     });
@@ -483,8 +494,8 @@ export const ItemAnalysisResults = ({
                   >
                     <option value="score_desc">🏆 Highest to Lowest Score</option>
                     <option value="score_asc">📉 Lowest to Highest Score</option>
-                    <option value="first_to_finish">⚡ First to Finish Exam</option>
-                    <option value="last_to_finish">⏳ Last to Finish Exam</option>
+                    <option value="first_to_finish">⚡ First to Finish (Fastest Total Time)</option>
+                    <option value="last_to_finish">⏳ Last to Finish (Longest Total Time)</option>
                     <option value="name_asc">🔤 Alphabetical (A - Z)</option>
                     <option value="name_desc">🔤 Alphabetical (Z - A)</option>
                   </select>
@@ -520,12 +531,12 @@ export const ItemAnalysisResults = ({
                       <th
                         onClick={() => toggleHeaderSort("time")}
                         className="p-3 text-center cursor-pointer hover:bg-gray-200 transition-colors select-none"
-                        title="Click to sort by Completion Time (First to Finish / Last to Finish)"
+                        title="Click to sort by Total Exam Time (Fastest / Slowest)"
                       >
                         <div className="flex items-center justify-center gap-1">
-                          <span>Status</span>
-                          {allTakersSortKey === "first_to_finish" && <span className="text-emerald-600 font-extrabold text-[10px] lowercase ml-1">(earliest)</span>}
-                          {allTakersSortKey === "last_to_finish" && <span className="text-amber-600 font-extrabold text-[10px] lowercase ml-1">(latest)</span>}
+                          <span>Status &amp; Time</span>
+                          {allTakersSortKey === "first_to_finish" && <span className="text-emerald-600 font-extrabold text-[10px] lowercase ml-1">(fastest time)</span>}
+                          {allTakersSortKey === "last_to_finish" && <span className="text-amber-600 font-extrabold text-[10px] lowercase ml-1">(slowest time)</span>}
                         </div>
                       </th>
                     </tr>
@@ -540,9 +551,16 @@ export const ItemAnalysisResults = ({
                           {taker.score}
                         </td>
                         <td className="p-3 text-center">
-                          <span className="px-2 py-1 bg-brand-navy/5 text-brand-navy text-xs rounded-full font-semibold border border-brand-navy/10">
-                            Completed
-                          </span>
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-brand-navy/5 text-brand-navy text-xs rounded-full font-semibold border border-brand-navy/10">
+                              Completed
+                            </span>
+                            {taker.totalTimeSeconds !== undefined && taker.totalTimeSeconds > 0 && (
+                              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title="Total time spent on exam">
+                                ⏱ {formatTimeSpent(taker.totalTimeSeconds)}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
