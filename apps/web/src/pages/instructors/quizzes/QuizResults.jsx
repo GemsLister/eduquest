@@ -430,11 +430,7 @@ export const QuizResults = () => {
 
                           let display = "—";
                           if (entry && entry.hasResponse) {
-                            if (entry.seconds !== null && entry.seconds !== undefined) {
-                              display = formatTimeSpent(entry.seconds);
-                            } else {
-                              display = "N/A";
-                            }
+                            display = formatTimeSpent(entry.seconds);
                           }
 
                           return (
