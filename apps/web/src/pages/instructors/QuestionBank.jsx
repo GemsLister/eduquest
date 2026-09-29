@@ -213,19 +213,7 @@ export const QuestionBank = () => {
           if (q.is_archived !== true) uniqueMap.set(q.id, q);
         });
 
-        // 2. Also fetch public quizzes from co-instructors
-        const { data: publicQuizzes } = await supabase
-          .from("quizzes")
-          .select("id, title, is_archived, is_published, is_private, instructor_id, subject_id, section_id")
-          .neq("instructor_id", user.id)
-          .eq("is_private", false)
-          .order("title", { ascending: true });
-
-        (publicQuizzes || []).forEach((q) => {
-          if (q.is_archived !== true && !uniqueMap.has(q.id)) uniqueMap.set(q.id, q);
-        });
-
-        // 3. Resolve section-to-subject mappings for quizzes assigned via sections
+        // 2. Resolve section-to-subject mappings for quizzes assigned via sections
         const { data: junctionRows } = await supabase
           .from("quiz_sections")
           .select("quiz_id, section_id, sections(subject_id)");
@@ -245,10 +233,7 @@ export const QuestionBank = () => {
               subject_id: resolvedSubjId,
             };
           })
-          .filter((q) => {
-            if (q.instructor_id === user.id) return true;
-            return q.subject_id && userSubjectIds.has(String(q.subject_id));
-          });
+          .filter((q) => q.instructor_id === user.id);
 
         setAllInstructorQuizzes(resolvedQuizzes);
 
