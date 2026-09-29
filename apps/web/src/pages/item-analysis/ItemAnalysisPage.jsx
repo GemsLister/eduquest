@@ -9,6 +9,7 @@ import { ItemAnalysisTable } from "../../components/container/item-analysis/Item
 import { EditChoiceModal } from "../../components/container/item-analysis/EditChoiceModal";
 import { useDiscrimination } from "../../hooks/analysisHook/useDiscrimination";
 import { notify } from "../../utils/notify.jsx";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const ItemAnalysisPage = () => {
   const { user } = useAuth();
@@ -596,12 +597,28 @@ export const ItemAnalysisPage = () => {
 
   if (loadingSections)
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading sections...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white min-h-screen p-6" aria-label="Loading item analysis">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 -mx-6 -mt-6 mb-6">
+            <div className="max-w-7xl mx-auto">
+              <Skeleton tone="bg-white/20" className="h-4 w-44 rounded-md mb-2" />
+              <Skeleton tone="bg-white/20" className="h-8 w-72 rounded-md" />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+          </div>
         </div>
       </div>
     );
@@ -642,19 +659,22 @@ export const ItemAnalysisPage = () => {
           if (!selectedQuiz) return null;
           if (loading)
             return (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold"></div>
-                  <p className="mt-3 text-brand-navy font-semibold text-sm">
-                    Analyzing...
-                  </p>
-                </div>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden" aria-label="Analyzing responses">
+                <SkeletonTableRow cells={4} />
+                <SkeletonTableRow cells={4} />
+                <SkeletonTableRow cells={4} />
+                <SkeletonTableRow cells={4} />
               </div>
             );
           if (analysis.length === 0)
             return (
-              <div className="text-center py-8">
-                No responses found for this quiz.
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-10 text-center">
+                <p className="text-base font-bold text-slate-800 mb-1">
+                  No responses found
+                </p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  This quiz has no attempts yet. Share the quiz link to collect responses before running the analysis.
+                </p>
               </div>
             );
 
@@ -684,8 +704,13 @@ export const ItemAnalysisPage = () => {
           }
           if (searchTerm && filteredAnalysis.length === 0) {
             return (
-              <div className="text-center py-8 text-gray-500">
-                No questions match "{searchTerm}"
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-10 text-center">
+                <p className="text-base font-bold text-slate-800 mb-1">
+                  No matching questions
+                </p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  No questions match "{searchTerm}". Try a different keyword.
+                </p>
               </div>
             );
           }

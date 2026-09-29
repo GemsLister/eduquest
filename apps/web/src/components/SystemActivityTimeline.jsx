@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { Skeleton } from "./ui/Skeleton.jsx";
 
 // Clean SVG Icons for Timeline Actions
 const ActionIcon = ({ type }) => {
@@ -442,12 +443,16 @@ export const SystemActivityTimeline = () => {
           {/* Search Box */}
           <div className="flex-1 min-w-[240px]">
             <div className="relative">
+              <label htmlFor="timeline-search" className="sr-only">
+                Search activity log
+              </label>
               <input
+                id="timeline-search"
                 type="text"
                 placeholder="Search user, action, quiz, subject, section, or reason..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -459,10 +464,14 @@ export const SystemActivityTimeline = () => {
 
           {/* Action Category Filter */}
           <div className="w-full md:w-56">
+            <label htmlFor="timeline-category" className="sr-only">
+              Filter by action category
+            </label>
             <select
+              id="timeline-category"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
             >
               <option value="all">All Action Categories</option>
               <option value="workflows">Approvals & Review Workflows</option>
@@ -474,10 +483,14 @@ export const SystemActivityTimeline = () => {
 
           {/* Role Filter */}
           <div className="w-full md:w-44">
+            <label htmlFor="timeline-role" className="sr-only">
+              Filter by role
+            </label>
             <select
+              id="timeline-role"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
             >
               <option value="all">All Roles</option>
               <option value="instructor">Instructor</option>
@@ -490,11 +503,28 @@ export const SystemActivityTimeline = () => {
 
       {/* Main Activity Timeline Stream */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200 shadow-xs">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mb-3"></div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Loading Activity Audit Log...
-          </p>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4" aria-label="Loading activity audit log">
+          <div className="flex gap-3 items-start">
+            <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-1/3 rounded-md mb-2" />
+              <Skeleton className="h-3 w-full rounded-md" />
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-1/4 rounded-md mb-2" />
+              <Skeleton className="h-3 w-2/3 rounded-md" />
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-1/2 rounded-md mb-2" />
+              <Skeleton className="h-3 w-3/4 rounded-md" />
+            </div>
+          </div>
         </div>
       ) : filteredLogs.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
@@ -594,7 +624,7 @@ export const SystemActivityTimeline = () => {
                     <div className="flex items-center justify-end pt-1">
                       <button
                         onClick={() => setActiveDetailLog(log)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-brand-navy transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-brand-navy transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -619,7 +649,8 @@ export const SystemActivityTimeline = () => {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  aria-label="Previous page"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Previous
                 </button>
@@ -629,7 +660,8 @@ export const SystemActivityTimeline = () => {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                  aria-label="Next page"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Next
                 </button>
@@ -642,9 +674,9 @@ export const SystemActivityTimeline = () => {
       {/* Structured Details Modal / Drawer */}
       {activeDetailLog && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="bg-brand-navy text-white p-5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-brand-navy to-brand-indigo text-white p-5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold tracking-widest text-brand-gold uppercase block mb-0.5">
                   Audit Entry Details
@@ -653,7 +685,8 @@ export const SystemActivityTimeline = () => {
               </div>
               <button
                 onClick={() => setActiveDetailLog(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm font-bold transition-colors"
+                aria-label="Close audit entry details"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
               >
                 ✕
               </button>
@@ -752,7 +785,7 @@ export const SystemActivityTimeline = () => {
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => setActiveDetailLog(null)}
-                className="px-5 py-2 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+                className="px-5 py-2 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-bold rounded-lg transition-colors shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
               >
                 Close Details
               </button>

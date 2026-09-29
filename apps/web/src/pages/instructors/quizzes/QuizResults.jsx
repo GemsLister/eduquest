@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
 import { formatTimeSpent } from "../../../utils/timeSpent.js";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { Skeleton, SkeletonTableRow } from "../../../components/ui/Skeleton.jsx";
 
 export const QuizResults = () => {
   const { quizId } = useParams();
@@ -196,12 +197,14 @@ export const QuizResults = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading results...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white p-6" aria-label="Loading results">
+        <Skeleton className="h-8 w-72 max-w-full rounded-md mb-2" />
+        <Skeleton className="h-4 w-48 rounded-md mb-6" />
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+          <SkeletonTableRow cells={4} />
+          <SkeletonTableRow cells={4} />
+          <SkeletonTableRow cells={4} />
+          <SkeletonTableRow cells={4} />
         </div>
       </div>
     );
@@ -212,12 +215,13 @@ export const QuizResults = () => {
       <div className="flex-1 overflow-auto bg-authentic-white p-6">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
+          aria-label="Back to previous page"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </button>
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-semibold">
           {error}
         </div>
       </div>
@@ -229,9 +233,10 @@ export const QuizResults = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
+          aria-label="Back to previous page"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </button>
         <div>
@@ -246,12 +251,16 @@ export const QuizResults = () => {
       </div>
 
       {attempts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="text-5xl mb-4">??</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+        <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-slate-200">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-navy/10 text-brand-navy flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-brand-navy mb-2">
             No Attempts Yet
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-500 max-w-md mx-auto text-sm">
             Students haven't taken this quiz yet. Share the quiz link with them
             to get started!
           </p>

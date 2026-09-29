@@ -126,7 +126,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               type="button"
               onClick={onClose}
               aria-label="Close subject request form"
-              className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -157,45 +157,48 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
           )}
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label htmlFor="subject-request-name" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Subject Name <span className="text-rose-500">*</span>
             </label>
             <input
+              id="subject-request-name"
               type="text"
               name="subject_name"
               value={formData.subject_name}
               onChange={handleInputChange}
               placeholder="e.g., Database Management"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm transition-all"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
               disabled={loading}
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label htmlFor="subject-request-code" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Subject Code <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
+              id="subject-request-code"
               type="text"
               name="subject_code"
               value={formData.subject_code}
               onChange={handleInputChange}
               placeholder="e.g., IT204, CS301"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm transition-all"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label htmlFor="subject-request-grade" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Grade / Year Level <span className="text-rose-500">*</span>
             </label>
             <select
+              id="subject-request-grade"
               name="grade_level"
               value={formData.grade_level}
               onChange={handleInputChange}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm transition-all bg-white cursor-pointer"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all bg-white cursor-pointer"
               disabled={loading}
             >
               {gradeLevels.map((lvl) => (
@@ -207,16 +210,17 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label htmlFor="subject-request-description" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Description / Rationale <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <textarea
+              id="subject-request-description"
               name="description"
               value={formData.description}
               onChange={handleInputChange}
               rows={3}
               placeholder="Brief overview of course topics or why this subject is needed..."
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-sm resize-none transition-all"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none transition-all"
               disabled={loading}
             />
           </div>
@@ -246,7 +250,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-bold text-xs hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               Cancel
             </button>
@@ -254,7 +258,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               {loading ? (
                 <>

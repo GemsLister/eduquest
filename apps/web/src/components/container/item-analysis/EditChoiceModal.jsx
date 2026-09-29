@@ -462,7 +462,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                       : "Edit the question text and options yourself."
                     }
                   </p>
-                  <button onClick={() => setIsManualEdit(true)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg">
+                  <button onClick={() => setIsManualEdit(true)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                     {hasDraft ? "Continue Editing Draft" : questionData?.autoFlag === 'reject' ? "Create New Question" : "Edit Manually"}
                   </button>
                 </div>
@@ -476,7 +476,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                       : "Let Gemini improve the question quality."
                     }
                   </p>
-                  <button onClick={handleAIGenerate} disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50">
+                  <button onClick={handleAIGenerate} disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
                     {loading ? 'Generating...' : questionData?.autoFlag === 'reject' ? 'Generate New Question' : 'Suggest with AI'}
                   </button>
                 </div>
@@ -484,26 +484,27 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
             ) : (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <button onClick={() => setIsManualEdit(false)} className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                  <button onClick={() => setIsManualEdit(false)} className="text-blue-600 font-semibold hover:underline flex items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                     <span>←</span> Back to Options
                   </button>
                   <button 
                     onClick={handleAIGenerate} 
                     disabled={loading}
-                    className="text-emerald-600 font-bold hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="text-emerald-600 font-bold hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                   >
                     <span>{loading ? '⏳' : '🤖'}</span>
                     {loading ? 'Regenerating...' : 'Regenerate with AI'}
                   </button>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                  <label htmlFor="edit-choice-text" className="block text-sm font-bold text-gray-700 mb-2">
                     {questionData?.autoFlag === 'reject' ? 'New Question Text' : 'Question Text'}
                   </label>
                   <textarea 
+                    id="edit-choice-text"
                     value={formData.text}
                     onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
-                    className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                     rows="3"
                     placeholder={questionData?.autoFlag === 'reject' ? 'Enter your new question here...' : ''}
                   />
@@ -524,7 +525,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                         type="text" 
                         value={opt} 
                         onChange={(e) => updateOption(idx, e.target.value)}
-                        className="flex-1 px-4 py-2 border rounded-xl"
+                        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                         placeholder={questionData?.autoFlag === 'reject' ? `New Option ${idx + 1}` : `Option ${idx + 1}`}
                       />
                     </div>
@@ -534,20 +535,20 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
                 <div className="flex gap-3">
                   <button 
                     onClick={handleSaveDraft} 
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                   >
                     {questionData?.autoFlag === 'reject' ? 'Finalize & Replace Question' : 'Finalize & Update Live'}
                   </button>
                   <button 
                     onClick={handleJustSaveDraft}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     Save as Draft
                   </button>
                 </div>
                 <button 
                   onClick={() => setIsManualEdit(false)} 
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all"
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const StudentProfiles = () => {
   const [subjects, setSubjects] = useState([]);
@@ -767,13 +768,13 @@ export const StudentProfiles = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 shadow-xs border-b border-white/10 mb-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
-              INSTRUCTOR DASHBOARD
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
+              Instructor Dashboard
             </p>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
               Student Profiles
             </h1>
-            <p className="text-slate-300 text-sm mt-1">
+            <p className="text-white/60 text-sm mt-1">
               Comprehensive student performance across quizzes, scores, and class distribution
             </p>
           </div>
@@ -785,17 +786,18 @@ export const StudentProfiles = () => {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
           {/* Subject Selection */}
           <div className="mb-6">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <label htmlFor="sp-subject" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
               Select Subject
             </label>
             <div className="w-full sm:w-96">
               <select
+                id="sp-subject"
                 value={selectedSubject}
                 onChange={(e) => {
                   setSelectedSubject(e.target.value);
                   setSelectedQuiz("");
                 }}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white text-slate-800 shadow-2xs font-semibold text-sm transition-all"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 bg-white text-slate-800 shadow-2xs font-semibold text-sm transition-all"
               >
                 <option value="">-- Select a Subject --</option>
                 {subjects.map((subject) => (
@@ -813,6 +815,9 @@ export const StudentProfiles = () => {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-80">
+                  <label htmlFor="sp-search" className="sr-only">
+                    Search by student name
+                  </label>
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <svg
                       className="h-4 w-4 text-slate-400"
@@ -829,11 +834,12 @@ export const StudentProfiles = () => {
                     </svg>
                   </div>
                   <input
+                    id="sp-search"
                     type="text"
                     value={studentSearch}
                     onChange={(e) => setStudentSearch(e.target.value)}
                     placeholder="Search by student name..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white text-slate-800 shadow-2xs text-sm transition-all placeholder:text-slate-400"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 bg-white text-slate-800 shadow-2xs text-sm transition-all placeholder:text-slate-400"
                   />
                 </div>
 
@@ -844,7 +850,8 @@ export const StudentProfiles = () => {
                   </span>
                   <button
                     onClick={() => setPerformanceFilter("all")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    aria-pressed={performanceFilter === "all"}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       performanceFilter === "all"
                         ? "bg-brand-navy text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -854,7 +861,8 @@ export const StudentProfiles = () => {
                   </button>
                   <button
                     onClick={() => setPerformanceFilter("strong")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    aria-pressed={performanceFilter === "strong"}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       performanceFilter === "strong"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/80"
@@ -864,7 +872,8 @@ export const StudentProfiles = () => {
                   </button>
                   <button
                     onClick={() => setPerformanceFilter("average")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    aria-pressed={performanceFilter === "average"}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       performanceFilter === "average"
                         ? "bg-amber-600 text-white shadow-xs"
                         : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100/80"
@@ -874,7 +883,8 @@ export const StudentProfiles = () => {
                   </button>
                   <button
                     onClick={() => setPerformanceFilter("weak")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    aria-pressed={performanceFilter === "weak"}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       performanceFilter === "weak"
                         ? "bg-rose-600 text-white shadow-xs"
                         : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100/80"
@@ -903,9 +913,11 @@ export const StudentProfiles = () => {
 
         {/* Loading State */}
         {loading && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center text-slate-600">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
-            <p className="mt-3 text-sm font-medium text-slate-500">Loading student records...</p>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden" aria-label="Loading student records">
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
           </div>
         )}
 
@@ -1075,7 +1087,8 @@ export const StudentProfiles = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all"
+                      aria-label="Previous page"
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       Previous
                     </button>
@@ -1091,7 +1104,9 @@ export const StudentProfiles = () => {
                             <button
                               key={page}
                               onClick={() => setCurrentPage(page)}
-                              className={`w-8 h-8 text-xs font-bold rounded-xl transition-all ${
+                              aria-label={`Go to page ${page}`}
+                              aria-current={currentPage === page ? "page" : undefined}
+                              className={`w-8 h-8 text-xs font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                                 currentPage === page
                                   ? "bg-brand-navy text-white shadow-xs"
                                   : "text-slate-600 hover:bg-slate-200/70"
@@ -1120,7 +1135,8 @@ export const StudentProfiles = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all"
+                      aria-label="Next page"
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       Next
                     </button>

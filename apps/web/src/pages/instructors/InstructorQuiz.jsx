@@ -8,6 +8,7 @@ import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { analyzeGADQuestion, detectGenderBias, replaceGenderBiasedTerm } from "../../services/gadAnalysisService.js";
 
 const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
@@ -365,7 +366,9 @@ export const InstructorQuiz = () => {
           key={page}
           type="button"
           onClick={() => setCurrentPage(page)}
-          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+          aria-label={`Go to question page ${page}`}
+          aria-current={validCurrentPage === page ? "page" : undefined}
+          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
             validCurrentPage === page
               ? "bg-brand-gold text-brand-navy font-bold shadow-sm"
               : "border border-gray-200 hover:bg-gray-50 text-gray-600"
@@ -1443,12 +1446,15 @@ export const InstructorQuiz = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading quiz...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quiz">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
+          <Skeleton tone="bg-white/20" className="h-7 w-64 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
         </div>
       </div>
     );
@@ -1457,16 +1463,17 @@ export const InstructorQuiz = () => {
   return (
     <div className="flex-1 overflow-auto bg-authentic-white">
       {/* Hero Banner */}
-      <div className="bg-brand-navy px-6 py-5">
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={() => navigate(quizzesPath)}
-            className="text-white/80 hover:text-white font-semibold text-sm transition-colors flex items-center gap-1"
+            aria-label="Back to quizzes"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Quizzes
+            Back to Quizzes
           </button>
           <span className="text-white/40">/</span>
           <span className="text-white/70 text-sm">
@@ -1476,7 +1483,7 @@ export const InstructorQuiz = () => {
 
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl font-black text-white tracking-tight">
               {quizTitle || (quizId ? "Edit Quiz" : "New Quiz")}
             </h1>
             <p className="text-white/60 text-sm mt-1">
@@ -1597,7 +1604,7 @@ export const InstructorQuiz = () => {
                         />
                         <button
                           onClick={() => copyToClipboard(sectionUrl)}
-                          className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-4 py-2 rounded-lg font-semibold transition text-sm"
+                          className="bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy px-4 py-2 rounded-lg font-semibold transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                         >
                           Copy Link
                         </button>
@@ -1778,18 +1785,19 @@ export const InstructorQuiz = () => {
                 if (questionCount === "" || questionCount < 1) setQuestionCount(1);
               }}
               autoFocus
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 mb-4 text-center text-lg"
+              aria-label="Number of questions to add"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-brand-navy focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all mb-4 text-center text-lg"
             />
             <div className="flex gap-3">
               <button
                 onClick={() => addMultipleQuestions(parseInt(questionCount) || 1)}
-                className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+                className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Add {parseInt(questionCount) || 1} Question{(parseInt(questionCount) || 1) > 1 ? "s" : ""}
               </button>
               <button
                 onClick={() => setShowAddQuestionPopup(false)}
-                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
@@ -1962,7 +1970,7 @@ export const InstructorQuiz = () => {
                   setBankTargetIndex(null);
                   setShowBankModal(true);
                 }}
-                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs"
+                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                 title="Import a new question from Question Bank"
               >
                 
@@ -1970,7 +1978,7 @@ export const InstructorQuiz = () => {
               </button>
               <button
                 onClick={addQuestion}
-                className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
+                className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 + Add Question
               </button>
@@ -1984,7 +1992,7 @@ export const InstructorQuiz = () => {
             {!isPublished && (
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <label
-                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 cursor-pointer shadow-xs focus-within:ring-2 focus-within:ring-brand-navy/40"
                 >
                   
                   <span>Import CSV</span>
@@ -2000,14 +2008,14 @@ export const InstructorQuiz = () => {
                     setBankTargetIndex(null);
                     setShowBankModal(true);
                   }}
-                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs"
+                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                 >
                   
                   <span>From Question Bank</span>
                 </button>
                 <button
                   onClick={addQuestion}
-                  className="bg-brand-gold text-brand-navy px-5 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors text-sm"
+                  className="bg-brand-gold text-brand-navy px-5 py-2 rounded-lg font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Add First Question
                 </button>
@@ -2039,12 +2047,22 @@ export const InstructorQuiz = () => {
               return (
               <div
                 key={`${question.id}-${idx}`}
-                className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold transition-colors"
+                className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold/60 transition-colors"
               >
                 {/* Collapsible header */}
                 <div
-                  className="flex justify-between items-center cursor-pointer select-none"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expandedQuestions.has(question.id)}
+                  aria-label={`Question ${idx + 1}: ${question.text || "Untitled question"}`}
+                  className="flex justify-between items-center cursor-pointer select-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   onClick={() => toggleQuestion(question.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleQuestion(question.id);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <svg
@@ -2092,7 +2110,7 @@ export const InstructorQuiz = () => {
                           setBankTargetIndex(idx);
                           setShowBankModal(true);
                         }}
-                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1 border border-amber-300 shadow-2xs"
+                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1 border border-amber-300 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                         title={`Import question from Question Bank into Question #${idx + 1}`}
                       >
                         
@@ -2376,7 +2394,8 @@ export const InstructorQuiz = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={validCurrentPage === 1}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700"
+                  aria-label="Previous question page"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Prev
                 </button>
@@ -2385,7 +2404,8 @@ export const InstructorQuiz = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={validCurrentPage === totalPages}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700"
+                  aria-label="Next question page"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Next
                 </button>
@@ -2409,7 +2429,7 @@ export const InstructorQuiz = () => {
                   setLastSaved(new Date());
                 }}
                 disabled={loading}
-                className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -2429,7 +2449,7 @@ export const InstructorQuiz = () => {
                 disabled={
                   loading || questions.length === 0 || questions.some((q) => !q.text.trim())
                 }
-                className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                 title={
                   questions.length === 0
                     ? "Add questions first"
@@ -2455,7 +2475,7 @@ export const InstructorQuiz = () => {
               onClick={() =>
                 navigate(questionBankPath(quizId))
               }
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -2468,7 +2488,8 @@ export const InstructorQuiz = () => {
           <div className="ml-auto">
             <button
               onClick={() => navigate(quizzesPath)}
-              className="text-gray-500 hover:text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+              aria-label={quizId ? "Close without saving" : "Cancel quiz creation"}
+              className="px-4 py-2.5 rounded-lg font-semibold text-sm border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               {quizId ? "Close" : "Cancel"}
             </button>

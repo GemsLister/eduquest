@@ -60,7 +60,7 @@ export const QuizzesList = ({
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Quizzes</h2>
       {quizzes.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+        <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-slate-200">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-navy/5 flex items-center justify-center text-brand-navy">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -82,14 +82,14 @@ export const QuizzesList = ({
             return (
               <div
                 key={quiz.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+                className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col"
               >
                 {/* Card Header — compact with title inside */}
                 <div
                   className={`px-5 py-4 ${
                     quiz.is_published
                       ? "bg-gradient-to-r from-brand-navy to-brand-indigo"
-                      : "bg-gradient-to-r from-yellow-400 to-yellow-500"
+                      : "bg-gradient-to-r from-slate-700 to-slate-800"
                   }`}
                 >
                   {/* Title */}
@@ -119,9 +119,7 @@ export const QuizzesList = ({
                       </span>
                     )}
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                        quiz.is_published ? "bg-white/25" : "bg-yellow-700/40"
-                      }`}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-white/25"
                     >
                       {quiz.is_published ? "Published" : "Draft"}
                     </span>
@@ -187,7 +185,8 @@ export const QuizzesList = ({
                           e.stopPropagation();
                           copyLink(quiz);
                         }}
-                        className={`shrink-0 p-1 rounded transition-colors ${
+                        aria-label={copiedId === quiz.id ? "Link copied" : "Copy share link"}
+                        className={`shrink-0 p-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                           copiedId === quiz.id
                             ? "text-green-600"
                             : "text-gray-400 hover:text-gray-700 hover:bg-gray-200"
@@ -219,7 +218,10 @@ export const QuizzesList = ({
                           handleToggleAccess(quiz.id, isOpen);
                         }}
                         disabled={togglingQuizId === quiz.id}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                        role="switch"
+                        aria-checked={isOpen}
+                        aria-label="Student access"
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                           togglingQuizId === quiz.id
                             ? "bg-gray-300 cursor-not-allowed"
                             : isOpen
@@ -247,7 +249,7 @@ export const QuizzesList = ({
                             : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                         )
                       }
-                      className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors"
+                      className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       {quiz.is_published ? "View" : "Continue"}
                     </button>
@@ -264,7 +266,7 @@ export const QuizzesList = ({
                               : `${basePath}/${quiz.id}`,
                           );
                         }}
-                        className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                        className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Results
                       </button>
@@ -275,7 +277,7 @@ export const QuizzesList = ({
                         await handleArchive(quiz.id, quiz.title);
                       }}
                       disabled={archivingQuizId === quiz.id}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
                         archivingQuizId === quiz.id
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "bg-red-50 text-red-500 hover:bg-red-100 border border-red-200"

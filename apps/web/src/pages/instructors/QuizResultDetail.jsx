@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 const isMissingTableError = (error) => {
   if (!error) return false;
@@ -135,13 +136,18 @@ export const QuizResultDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading details...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white p-6" aria-label="Loading attempt details">
+        <Skeleton className="h-8 w-80 max-w-full rounded-md mb-6" />
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
         </div>
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-2xl mt-4" />
       </div>
     );
   }
@@ -151,12 +157,13 @@ export const QuizResultDetail = () => {
       <div className="flex-1 overflow-auto bg-authentic-white p-6">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
+          aria-label="Back to previous page"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </button>
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-semibold">
           {error}
         </div>
       </div>
@@ -177,12 +184,13 @@ export const QuizResultDetail = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4"
+          aria-label="Back to previous page"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </button>
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 mb-8">
           <h1 className="text-3xl font-bold text-brand-navy mb-4">
             {quiz?.title}
           </h1>

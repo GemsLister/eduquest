@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { Skeleton } from "../../../components/ui/Skeleton.jsx";
 
 export const QuizzesPageMain = () => {
   const location = useLocation();
@@ -183,7 +184,7 @@ export const QuizzesPageMain = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
               {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -208,6 +209,9 @@ export const QuizzesPageMain = () => {
         <div className="mb-6 flex flex-col sm:flex-row gap-3">
           {/* Search Bar */}
           <div className="relative flex-1 max-w-md">
+            <label htmlFor="quiz-search" className="sr-only">
+              Search quizzes
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
@@ -223,16 +227,19 @@ export const QuizzesPageMain = () => {
               />
             </svg>
             <input
+              id="quiz-search"
               type="text"
               placeholder="Search quizzes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all shadow-xs"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -258,7 +265,8 @@ export const QuizzesPageMain = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
+                aria-pressed={filter === tab.key}
+                className={`px-4 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   filter === tab.key
                     ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
@@ -284,8 +292,13 @@ export const QuizzesPageMain = () => {
         {/* Quiz Grid */}
         <div>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" aria-label="Loading quizzes">
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
           ) : filteredQuizzes.length === 0 ? (
             (() => {
@@ -321,7 +334,7 @@ export const QuizzesPageMain = () => {
                 return (
                   <div
                     key={quiz.id}
-                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all overflow-hidden group flex flex-col"
+                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden group flex flex-col"
                   >
                     {/* Card Header */}
                     <div
@@ -451,7 +464,7 @@ export const QuizzesPageMain = () => {
                                     : `/instructor-dashboard/quiz-results/${quiz.id}`,
                                 )
                               }
-                              className="flex-1 bg-brand-navy text-white py-2 rounded-xl text-xs font-bold hover:bg-brand-indigo transition-all shadow-xs"
+                              className="flex-1 bg-brand-navy text-white py-2 rounded-lg text-xs font-bold hover:bg-brand-indigo transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                             >
                               Results
                             </button>
@@ -463,7 +476,7 @@ export const QuizzesPageMain = () => {
                                     : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                                 )
                               }
-                              className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all"
+                              className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                             >
                               View
                             </button>
@@ -477,7 +490,7 @@ export const QuizzesPageMain = () => {
                                   : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
                               )
                             }
-                            className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all"
+                            className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
                             {isApproved || isReviewLocked || isOutdatedVersion
                               ? "View"
@@ -489,7 +502,7 @@ export const QuizzesPageMain = () => {
                         {isApproved && (
                           <button
                             onClick={() => handlePublishQuiz(quiz.id)}
-                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
+                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-xs font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
                             Publish
                           </button>
@@ -499,14 +512,14 @@ export const QuizzesPageMain = () => {
                         {quiz.is_archived ? (
                           <button
                             onClick={() => handleRestoreQuiz(quiz.id)}
-                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
+                            className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-xs font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
                             Restore
                           </button>
                         ) : (
                           <button
                             onClick={() => handleArchiveQuiz(quiz.id)}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1"
+                            className="px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                             title="Archive this quiz"
                           >
                             <svg

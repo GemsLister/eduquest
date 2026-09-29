@@ -11,25 +11,26 @@ import * as Container from "../../components/container/containers.js";
 import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js";
 import { SubjectSectionModal } from "../../components/SubjectSectionModal.jsx";
 import { SubjectRequestForm } from "../../components/SubjectRequestForm.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 const ITEMS_PER_PAGE = 6;
 
 const cardThemes = [
   {
     gradient: "from-brand-navy to-brand-indigo",
-    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    button: "bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy",
     statBg: "bg-brand-navy/5",
     statText: "text-brand-navy",
   },
   {
     gradient: "from-brand-indigo to-brand-indigo-dark",
-    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    button: "bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy",
     statBg: "bg-brand-indigo/5",
     statText: "text-brand-indigo",
   },
   {
     gradient: "from-brand-indigo-dark to-brand-navy",
-    button: "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy",
+    button: "bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy",
     statBg: "bg-brand-navy/5",
     statText: "text-brand-navy",
   },
@@ -370,12 +371,19 @@ export const InstructorDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-authentic-white">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading subjects...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading subjects">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-44 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-56 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-72 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
       </div>
     );
@@ -389,7 +397,7 @@ export const InstructorDashboard = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
               {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -403,7 +411,7 @@ export const InstructorDashboard = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSubjectRequestModal(true)}
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold border border-white/20 transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-98"
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold border border-white/20 transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
               title="Request a new curriculum subject from the Department Head"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -426,6 +434,9 @@ export const InstructorDashboard = () => {
         {/* Search and Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
+            <label htmlFor="subject-search" className="sr-only">
+              Search subjects or sections
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -441,16 +452,19 @@ export const InstructorDashboard = () => {
               />
             </svg>
             <input
+              id="subject-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search subjects or sections..."
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all shadow-xs"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -472,8 +486,10 @@ export const InstructorDashboard = () => {
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleToggleArchived}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+              aria-pressed={showArchived}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                 showArchived
                   ? "bg-brand-navy text-white border-brand-navy shadow-sm"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-2xs"
@@ -555,11 +571,13 @@ export const InstructorDashboard = () => {
 
                 return (
                   <Container.SectionContainer key={sub.id || idx}>
-                    <div className="flex flex-col h-full relative group bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-xs hover:shadow-lg transition-all duration-200">
+                    <div className="flex flex-col h-full relative bg-white overflow-hidden">
                       {/* Subject Card Header */}
-                      <div
-                        className={`relative h-28 bg-gradient-to-br ${theme.gradient} flex items-end p-5 text-white cursor-pointer`}
+                      <button
+                        type="button"
+                        className={`relative h-28 w-full bg-gradient-to-br ${theme.gradient} flex items-end p-5 text-white text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold`}
                         onClick={() => setSelectedSubjectForModal(sub)}
+                        aria-label={`View sections for ${sub.name}`}
                       >
                         <div
                           className="absolute inset-0 opacity-10"
@@ -583,7 +601,7 @@ export const InstructorDashboard = () => {
                             {sub.name}
                           </h2>
                         </div>
-                      </div>
+                      </button>
 
                       {/* Subject Card Body */}
                       <div className="p-5 flex flex-col flex-1 justify-between bg-white">
@@ -608,20 +626,18 @@ export const InstructorDashboard = () => {
                                 const label = sectionCode || secDisplayName;
 
                                 return (
-                                  <span
+                                  <button
+                                    type="button"
                                     key={sec.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedSubjectForModal(sub);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors cursor-pointer border border-slate-200"
+                                    onClick={() => setSelectedSubjectForModal(sub)}
+                                    className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                                     title={`Section: ${sectionCode || secDisplayName}`}
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-brand-navy group-hover:text-brand-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                                     </svg>
                                     <span>{label}</span>
-                                  </span>
+                                  </button>
                                 );
                               })
                             )}
@@ -651,7 +667,7 @@ export const InstructorDashboard = () => {
                         {/* Action Button */}
                         <button
                           onClick={() => setSelectedSubjectForModal(sub)}
-                          className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${theme.button}`}
+                          className={`w-full py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${theme.button}`}
                         >
                           <span>View Sections ({sub.sections.length})</span>
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -678,7 +694,8 @@ export const InstructorDashboard = () => {
                       setCurrentPage((page) => Math.max(1, page - 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Prev
                   </button>
@@ -689,7 +706,9 @@ export const InstructorDashboard = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                      aria-label={`Go to page ${page}`}
+                      aria-current={page === currentPage ? "page" : undefined}
+                      className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                         page === currentPage
                           ? "bg-brand-gold text-brand-navy"
                           : "text-gray-500 hover:bg-gray-100"
@@ -703,7 +722,8 @@ export const InstructorDashboard = () => {
                       setCurrentPage((page) => Math.min(totalPages, page + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>
@@ -734,11 +754,13 @@ export const InstructorDashboard = () => {
               Archived Subjects
             </h2>
             {archivedLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading archived subjects">
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
               </div>
             ) : filteredArchived.length === 0 ? (
-              <div className="bg-white rounded-lg p-8 text-center shadow-sm border border-gray-200">
+              <div className="bg-white rounded-2xl p-8 text-center shadow-xs border border-slate-200">
                 <p className="text-gray-500 text-sm">
                   {search.trim()
                     ? "No archived subjects match your search."
@@ -751,7 +773,7 @@ export const InstructorDashboard = () => {
                   {paginatedArchived.map((section) => (
                     <div
                       key={section.id}
-                      className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-between opacity-70"
+                      className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all p-4 flex items-center justify-between opacity-70 hover:opacity-100"
                     >
                       <div>
                         <h3 className="font-bold text-gray-700">
@@ -763,7 +785,8 @@ export const InstructorDashboard = () => {
                       </div>
                       <button
                         onClick={() => handleRestoreSection(section.id)}
-                        className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark transition-colors"
+                        aria-label={`Restore ${section.name}`}
+                        className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Restore
                       </button>
@@ -784,7 +807,8 @@ export const InstructorDashboard = () => {
                           setArchivedPage((page) => Math.max(1, page - 1))
                         }
                         disabled={archivedPage === 1}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label="Previous archived page"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Prev
                       </button>
@@ -795,7 +819,9 @@ export const InstructorDashboard = () => {
                         <button
                           key={page}
                           onClick={() => setArchivedPage(page)}
-                          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
+                          aria-label={`Go to archived page ${page}`}
+                          aria-current={page === archivedPage ? "page" : undefined}
+                          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                             page === archivedPage
                               ? "bg-brand-gold text-brand-navy"
                               : "text-gray-500 hover:bg-gray-100"
@@ -811,7 +837,8 @@ export const InstructorDashboard = () => {
                           )
                         }
                         disabled={archivedPage === archivedTotalPages}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label="Next archived page"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Next
                       </button>
@@ -864,39 +891,41 @@ export const InstructorDashboard = () => {
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label htmlFor="edit-subject-name" className="block text-xs font-semibold text-gray-600 mb-1">
                   Subject Name
                 </label>
                 <input
+                  id="edit-subject-name"
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label htmlFor="edit-subject-description" className="block text-xs font-semibold text-gray-600 mb-1">
                   Description
                 </label>
                 <input
+                  id="edit-subject-description"
                   type="text"
                   value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setEditModal(null)}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={editSaving}
-                className="px-4 py-2 text-sm font-semibold bg-brand-gold text-brand-navy rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-semibold bg-brand-gold text-brand-navy rounded-lg hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 {editSaving ? "Saving..." : "Save Changes"}
               </button>

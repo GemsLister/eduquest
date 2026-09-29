@@ -161,7 +161,7 @@ export const ImportQuestionBankModal = ({
       {/* Modal Dialog */}
       <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10">
         {/* Header */}
-        <div className="bg-brand-navy text-white p-5 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo text-white p-5 flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-brand-gold block mb-0.5">
               Question Bank Import
@@ -177,7 +177,8 @@ export const ImportQuestionBankModal = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-base transition-colors"
+            aria-label="Close question bank import"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             ✕
           </button>
@@ -203,7 +204,8 @@ export const ImportQuestionBankModal = ({
           </span>
           <button
             onClick={() => setPrivacyFilter("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            aria-pressed={privacyFilter === "all"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               privacyFilter === "all"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
@@ -219,7 +221,8 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("my_private")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            aria-pressed={privacyFilter === "my_private"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               privacyFilter === "my_private"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
@@ -235,7 +238,8 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("my_public")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            aria-pressed={privacyFilter === "my_public"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               privacyFilter === "my_public"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
@@ -251,7 +255,8 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("others_public")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            aria-pressed={privacyFilter === "others_public"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               privacyFilter === "others_public"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
@@ -267,7 +272,8 @@ export const ImportQuestionBankModal = ({
 
           <button
             onClick={() => setPrivacyFilter("gad_only")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            aria-pressed={privacyFilter === "gad_only"}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               privacyFilter === "gad_only"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
@@ -285,24 +291,34 @@ export const ImportQuestionBankModal = ({
         {/* Filters Row */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
+            <label htmlFor="import-search" className="sr-only">
+              Search question text or options
+            </label>
             <input
+              id="import-search"
               type="text"
               placeholder="Search question text or options..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
             />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-              🔍
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </span>
           </div>
 
           {subjectsList.length > 1 && (
             <div className="w-full sm:w-48">
+              <label htmlFor="import-subject" className="sr-only">
+                Filter by section
+              </label>
               <select
+                id="import-subject"
                 value={selectedSubjectFilter}
                 onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
               >
                 <option value="all">All Matched Sections</option>
                 {subjectsList.map((s) => (
@@ -318,11 +334,19 @@ export const ImportQuestionBankModal = ({
         {/* Content Stream */}
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold mb-2"></div>
-              <span className="text-xs font-bold text-slate-500 uppercase">
-                Loading Question Bank...
-              </span>
+            <div className="space-y-4" aria-label="Loading question bank">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <div className="animate-pulse h-4 w-2/3 rounded-md bg-slate-200 mb-2" aria-hidden="true" />
+                <div className="animate-pulse h-3 w-1/3 rounded-md bg-slate-200" aria-hidden="true" />
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <div className="animate-pulse h-4 w-1/2 rounded-md bg-slate-200 mb-2" aria-hidden="true" />
+                <div className="animate-pulse h-3 w-1/4 rounded-md bg-slate-200" aria-hidden="true" />
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <div className="animate-pulse h-4 w-3/4 rounded-md bg-slate-200 mb-2" aria-hidden="true" />
+                <div className="animate-pulse h-3 w-1/2 rounded-md bg-slate-200" aria-hidden="true" />
+              </div>
             </div>
           ) : finalFilteredQuestions.length === 0 ? (
             <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 p-8">
@@ -354,7 +378,7 @@ export const ImportQuestionBankModal = ({
               return (
                 <div
                   key={q.id || idx}
-                  className={`bg-white border rounded-2xl p-4 shadow-xs transition-all space-y-3 ${
+                  className={`bg-white border rounded-2xl p-4 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all space-y-3 ${
                     isOwn && isPrivate
                       ? "border-brand-navy/30 hover:border-brand-navy bg-brand-navy/5"
                       : "border-slate-200 hover:border-brand-navy/50"
@@ -427,7 +451,8 @@ export const ImportQuestionBankModal = ({
 
                     <button
                       onClick={() => handleChoose(q)}
-                      className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0"
+                      aria-label={`Import this question: ${(q.text || "").slice(0, 60)}`}
+                      className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-extrabold text-xs rounded-lg shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       
                       <span>Import This Question</span>
@@ -476,7 +501,7 @@ export const ImportQuestionBankModal = ({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors"
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             Cancel
           </button>

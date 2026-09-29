@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.impeccable/
+PRODUCT.md
+DESIGN.md
+impeccable.md
+PRODUCT.MD
+DESIGN.MD
+IMPECCABLE.MD

@@ -10,6 +10,7 @@ import { createRevisionCopy } from "../../services/createRevisionCopy";
 import { notify } from "../../utils/notify.jsx";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -663,7 +664,7 @@ export const MySubmissions = () => {
           }`}
         >
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
               {isSeniorFaculty ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -681,11 +682,13 @@ export const MySubmissions = () => {
 
         {/* Main Tabs (Shown for Instructors only; Senior Faculty manages reviews via Exam Reviews) */}
         {!isSeniorFaculty && (
-          <div className="flex gap-2 border-b border-white/15">
+          <div className="flex gap-2 border-b border-white/15" role="tablist" aria-label="Submissions views">
             <button
               type="button"
+              role="tab"
+              aria-selected={mainTab === "my_submissions"}
               onClick={() => handleTabChange("my_submissions")}
-              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 rounded-t-lg ${
                 mainTab === "my_submissions"
                   ? "border-brand-gold text-brand-gold bg-white/10 rounded-t-lg"
                   : "border-transparent text-white/60 hover:text-white hover:bg-white/5 rounded-t-lg"
@@ -699,8 +702,10 @@ export const MySubmissions = () => {
 
             <button
               type="button"
+              role="tab"
+              aria-selected={mainTab === "peer_reviews"}
               onClick={() => handleTabChange("peer_reviews")}
-              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-3 font-bold text-sm border-b-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 rounded-t-lg ${
                 mainTab === "peer_reviews"
                   ? "border-brand-gold text-brand-gold bg-white/10 rounded-t-lg"
                   : "border-transparent text-white/60 hover:text-white hover:bg-white/5 rounded-t-lg"
@@ -735,7 +740,8 @@ export const MySubmissions = () => {
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
+                  aria-pressed={filter === tab.key}
+                  className={`px-4 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                     filter === tab.key
                       ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                       : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
@@ -759,8 +765,17 @@ export const MySubmissions = () => {
 
         {/* Submissions List */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+          <div className="space-y-4" aria-label="Loading submissions">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+              <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+              <Skeleton className="h-3 w-full rounded-md mb-2" />
+              <Skeleton className="h-3 w-2/3 rounded-md" />
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+              <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+              <Skeleton className="h-3 w-full rounded-md mb-2" />
+              <Skeleton className="h-3 w-1/2 rounded-md" />
+            </div>
           </div>
         ) : submissions.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
@@ -794,7 +809,7 @@ export const MySubmissions = () => {
             {paginatedSubmissions.map((submission) => (
               <div
                 key={submission.id}
-                className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all p-6"
+                className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all p-6"
               >
                 <div className="flex flex-col gap-4">
                   {/* Title and Status */}
@@ -949,7 +964,8 @@ export const MySubmissions = () => {
                             expandedId === submission.id ? null : submission.id,
                           )
                         }
-                        className="text-xs font-semibold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1"
+                        aria-expanded={expandedId === submission.id}
+                        className="text-xs font-semibold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -1469,7 +1485,8 @@ export const MySubmissions = () => {
                       setCurrentPage((page) => Math.max(1, page - 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Prev
                   </button>
@@ -1480,7 +1497,9 @@ export const MySubmissions = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      aria-label={`Go to page ${page}`}
+                      aria-current={page === currentPage ? "page" : undefined}
+                      className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                         page === currentPage
                           ? "bg-brand-navy text-white shadow-xs"
                           : "text-slate-600 hover:bg-slate-100 border border-slate-200"
@@ -1494,7 +1513,8 @@ export const MySubmissions = () => {
                       setCurrentPage((page) => Math.min(totalPages, page + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>
@@ -1524,7 +1544,11 @@ export const MySubmissions = () => {
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                   />
                 </svg>
+                <label htmlFor="peer-search" className="sr-only">
+                  Search quiz title or instructor
+                </label>
                 <input
+                  id="peer-search"
                   type="text"
                   placeholder="Search quiz title or instructor..."
                   value={peerSearch}
@@ -1532,7 +1556,7 @@ export const MySubmissions = () => {
                     setPeerSearch(e.target.value);
                     setPeerPage(1);
                   }}
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                  className="w-full pl-9 pr-4 py-2 text-sm text-brand-navy placeholder:text-slate-400 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
               </div>
 
@@ -1551,7 +1575,8 @@ export const MySubmissions = () => {
                       setPeerFilter(tab.key);
                       setPeerPage(1);
                     }}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                    aria-pressed={peerFilter === tab.key}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       peerFilter === tab.key
                         ? "bg-brand-navy text-white shadow-2xs"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1565,8 +1590,10 @@ export const MySubmissions = () => {
 
             {/* Peer Reviews Table / List */}
             {peerLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden" aria-label="Loading peer reviews">
+                <SkeletonTableRow cells={5} />
+                <SkeletonTableRow cells={5} />
+                <SkeletonTableRow cells={5} />
               </div>
             ) : filteredPeerReviews.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-2xs">
@@ -1668,9 +1695,9 @@ export const MySubmissions = () => {
                                     : `/instructor-dashboard/peer-reviews/${sub.id}`;
                                   navigate(targetPath);
                                 }}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                                   isPending
-                                    ? "bg-brand-gold hover:bg-brand-gold-dark text-brand-navy shadow-xs"
+                                    ? "bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy shadow-xs"
                                     : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
                                 }`}
                               >
@@ -1694,6 +1721,7 @@ export const MySubmissions = () => {
                       <button
                         onClick={() => setPeerPage((p) => Math.max(1, p - 1))}
                         disabled={peerPage === 1}
+                        aria-label="Previous peer reviews page"
                         className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
                       >
                         Prev
@@ -1703,6 +1731,7 @@ export const MySubmissions = () => {
                           setPeerPage((p) => Math.min(totalPeerPages, p + 1))
                         }
                         disabled={peerPage === totalPeerPages}
+                        aria-label="Next peer reviews page"
                         className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
                       >
                         Next

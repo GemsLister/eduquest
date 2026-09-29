@@ -6,6 +6,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -941,12 +942,19 @@ export const QuestionBank = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading questions...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading questions">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-40 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-64 rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex gap-4">
+            <Skeleton className="h-11 w-52 rounded-lg" />
+            <Skeleton className="h-11 flex-1 rounded-lg" />
+          </div>
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
         </div>
       </div>
     );
@@ -956,7 +964,7 @@ export const QuestionBank = () => {
     <div className="flex-1 overflow-auto bg-authentic-white">
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+        <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
           Instructor Dashboard
         </p>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -972,7 +980,7 @@ export const QuestionBank = () => {
           </div>
           <div className="flex flex-wrap gap-2.5 items-center">
             <label
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs focus-within:ring-2 focus-within:ring-brand-gold/70"
               style={{ display: importProcessing ? "none" : "inline-flex" }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -990,7 +998,7 @@ export const QuestionBank = () => {
             <button
               onClick={handleExportJSON}
               disabled={importProcessing}
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1000,7 +1008,7 @@ export const QuestionBank = () => {
             <button
               onClick={handleExportCSV}
               disabled={importProcessing}
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1009,7 +1017,7 @@ export const QuestionBank = () => {
             </button>
             <button
               onClick={() => setShowAddForm(true)}
-              className="bg-brand-gold text-brand-navy px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs flex items-center gap-1.5"
+              className="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -1099,7 +1107,8 @@ export const QuestionBank = () => {
         <div className="flex bg-slate-100/80 rounded-2xl p-1 border border-slate-200/80 overflow-x-auto mb-6 max-w-fit">
           <button
             onClick={() => setActiveTab("active")}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "active"}
+            className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               activeTab === "active"
                 ? "bg-white text-slate-900 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -1112,7 +1121,8 @@ export const QuestionBank = () => {
           </button>
           <button
             onClick={() => setActiveTab("archived")}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "archived"}
+            className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               activeTab === "archived"
                 ? "bg-white text-slate-900 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -1124,9 +1134,10 @@ export const QuestionBank = () => {
             </span>
           </button>
           {quizId && (
-            <button
-              onClick={() => setActiveTab("import")}
-              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+          <button
+            onClick={() => setActiveTab("import")}
+            aria-pressed={activeTab === "import"}
+              className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                 activeTab === "import"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -1209,7 +1220,7 @@ export const QuestionBank = () => {
             setSelectedSubjectId(subjectId);
             setSelectedQuizIdFilter(null);
           }}
-          className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs min-w-[200px] bg-white text-slate-800"
+          className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs min-w-[200px] bg-white text-slate-800"
           disabled={subjectsLoading}
         >
           <option value="">
@@ -1232,7 +1243,7 @@ export const QuestionBank = () => {
           <select
             value={selectedQuizIdFilter || ""}
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
-            className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs min-w-[220px] bg-white text-slate-800"
+            className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs min-w-[220px] bg-white text-slate-800"
           >
             <option value="">-- Select Quiz --</option>
             {quizzesFromSubject.length === 0 ? (
@@ -1249,6 +1260,9 @@ export const QuestionBank = () => {
 
         {/* Search bar */}
         <div className="flex-1 relative">
+          <label htmlFor="bank-search" className="sr-only">
+            Search questions
+          </label>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -1261,11 +1275,12 @@ export const QuestionBank = () => {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
+            id="bank-search"
             type="text"
             placeholder="Search questions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800"
+            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800"
           />
         </div>
 
@@ -1273,7 +1288,8 @@ export const QuestionBank = () => {
         <div className="relative">
           <button
             onClick={() => setShowSortDropdown(!showSortDropdown)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-brand-gold transition-all shadow-2xs"
+            aria-expanded={showSortDropdown}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-brand-gold transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1390,7 +1406,7 @@ export const QuestionBank = () => {
             {activeTab === "active" && (
               <button
                 onClick={handleBulkArchive}
-                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-all shadow-xs"
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1413,7 +1429,7 @@ export const QuestionBank = () => {
               <>
                 <button
                   onClick={handleBulkRestore}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-xs"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1433,7 +1449,7 @@ export const QuestionBank = () => {
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all shadow-xs"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1479,7 +1495,7 @@ export const QuestionBank = () => {
           <button
             onClick={handleImportToQuiz}
             disabled={importing || selectedQuestions.length === 0}
-            className="bg-brand-gold text-brand-navy px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-brand-gold text-brand-navy px-6 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             {importing
               ? "Importing..."
@@ -1556,7 +1572,7 @@ export const QuestionBank = () => {
                 }${
                   activeTab === "import" && isImportSelected
                     ? "border-2 border-brand-gold shadow-md ring-2 ring-brand-gold/20"
-                    : "border border-gray-200 hover:border-brand-gold/40 shadow-xs hover:shadow-md"
+                    : "border border-gray-200 hover:border-brand-gold/40 shadow-xs hover:shadow-lg hover:-translate-y-0.5"
                 }`}
               >
                 {/* 3. Left border accent */}
@@ -1859,7 +1875,8 @@ export const QuestionBank = () => {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+              aria-label="Previous page"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               Previous
             </button>
@@ -1873,7 +1890,9 @@ export const QuestionBank = () => {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
+                    aria-label={`Go to page ${page}`}
+                    aria-current={currentPage === page ? "page" : undefined}
+                    className={`w-8 h-8 rounded-lg font-bold text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       currentPage === page
                         ? "bg-brand-navy text-white shadow-xs"
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -1890,7 +1909,8 @@ export const QuestionBank = () => {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+              aria-label="Next page"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               Next
             </button>
@@ -1902,15 +1922,16 @@ export const QuestionBank = () => {
       {/* Add Question Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal Header */}
-            <div className="bg-brand-navy px-6 py-4 rounded-t-xl flex justify-between items-center">
+            <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-4 rounded-t-2xl flex justify-between items-center">
               <h2 className="text-xl font-bold text-white">
                 Add Question to Bank
               </h2>
               <button
                 onClick={() => setShowAddForm(false)}
-                className="text-white/60 hover:text-white transition-colors"
+                aria-label="Close add question form"
+                className="text-white/60 hover:text-white transition-colors rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -2028,13 +2049,13 @@ export const QuestionBank = () => {
               <div className="flex gap-4">
                 <button
                   onClick={handleAddToBank}
-                  className="flex-1 bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark transition-colors"
+                  className="flex-1 bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Add to Bank
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>

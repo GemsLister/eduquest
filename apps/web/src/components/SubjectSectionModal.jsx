@@ -124,7 +124,7 @@ export const SubjectSectionModal = ({
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -168,7 +168,7 @@ export const SubjectSectionModal = ({
                 setShowAddForm(!showAddForm);
                 setFormError("");
               }}
-              className="text-xs font-bold bg-brand-navy text-white hover:bg-brand-indigo px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              className="text-xs font-bold bg-brand-navy text-white hover:bg-brand-indigo px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
               <span>{showAddForm ? "Cancel" : "+ Add Section"}</span>
             </button>
@@ -181,22 +181,23 @@ export const SubjectSectionModal = ({
               className="bg-white border-2 border-brand-navy/20 p-4 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-200"
             >
               <div>
-                <label className="block text-xs font-bold text-brand-navy uppercase tracking-wider mb-1">
+                <label htmlFor="subject-modal-section-name" className="block text-xs font-bold text-brand-navy uppercase tracking-wider mb-1">
                   New Section Name for {subject.name}
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="subject-modal-section-name"
                     type="text"
                     value={newSectionName}
                     onChange={(e) => setNewSectionName(e.target.value)}
                     placeholder="e.g., BSIT 3C"
                     autoFocus
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                   />
                   <button
                     type="submit"
                     disabled={adding}
-                    className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                    className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     {adding ? "Saving..." : "Save Assignment"}
                   </button>
@@ -220,7 +221,7 @@ export const SubjectSectionModal = ({
               </p>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="mt-3 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark transition-colors cursor-pointer"
+                className="mt-3 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Assign First Section
               </button>
@@ -248,14 +249,16 @@ export const SubjectSectionModal = ({
                 const sectionCode = sec.description || sec.section_code || displayName;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={sec.id}
                     onClick={() => {
                       onClose();
                       const isAdminPath = location.pathname.startsWith("/admin-dashboard");
                       navigate(isAdminPath ? `/admin-dashboard/section/${sec.id}` : `/instructor-dashboard/section/${sec.id}`);
                     }}
-                    className="bg-white border border-gray-200 hover:border-brand-gold/60 rounded-xl p-4 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                    aria-label={`Open ${sectionCode}`}
+                    className="bg-white border border-gray-200 hover:border-brand-gold/60 rounded-2xl p-4 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     <div>
                       <div className="flex items-start justify-between mb-2">
@@ -299,7 +302,7 @@ export const SubjectSectionModal = ({
                         </p>
                       </div>
                       <div className="flex items-center justify-end">
-                        <span className="text-xs font-bold text-brand-navy group-hover:text-brand-gold flex items-center gap-1 transition-colors">
+                        <span className="text-xs font-bold text-brand-navy group-hover:text-brand-indigo flex items-center gap-1 transition-colors">
                           <span>Open</span>
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -307,7 +310,7 @@ export const SubjectSectionModal = ({
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -318,7 +321,7 @@ export const SubjectSectionModal = ({
         <div className="p-4 bg-white border-t border-gray-200 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             Close
           </button>

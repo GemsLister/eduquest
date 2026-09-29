@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import profileImage from "../../assets/instructor-profile.png";
 import citlCover from "../../assets/CITL_cover_photo.png";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const InstructorProfile = () => {
   const { user: authUser } = useAuth();
@@ -250,19 +251,32 @@ export const InstructorProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-brand-navy font-semibold">
-            Loading profile...
-          </p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading profile">
+        <div className="relative h-52 bg-brand-navy overflow-hidden">
+          <Skeleton tone="bg-white/20" className="absolute inset-0 w-full h-full" />
+        </div>
+        <div className="px-6 -mt-16 pb-8 max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 mb-6 p-6">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-28 w-28 rounded-2xl shrink-0" />
+              <div className="flex-1">
+                <Skeleton className="h-6 w-48 rounded-md mb-2" />
+                <Skeleton className="h-3 w-32 rounded-md" />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div className="flex-1 overflow-auto bg-authentic-white">
       {/* Banner */}
       <div className="relative h-52 bg-brand-navy overflow-hidden">
         <img
@@ -274,7 +288,7 @@ export const InstructorProfile = () => {
         {!editMode && (
           <button
             onClick={() => setEditMode(true)}
-            className="absolute top-4 right-6 flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-lg text-sm font-semibold transition-colors"
+            className="absolute top-4 right-6 flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -297,7 +311,7 @@ export const InstructorProfile = () => {
 
       <div className="px-6 -mt-16 pb-8 max-w-4xl mx-auto">
         {/* Profile Card — overlaps banner */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-6">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-200 mb-6">
           <div className="px-6 pt-0 pb-5">
             {/* Avatar overlapping banner */}
             <div className="relative -mt-14 mb-4 w-fit">
@@ -317,8 +331,9 @@ export const InstructorProfile = () => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarUploading}
-                className="absolute -bottom-1 -right-1 bg-brand-gold hover:bg-brand-gold-dark text-white rounded-lg p-1.5 shadow-md transition-colors"
+                className="absolute -bottom-1 -right-1 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 text-brand-navy rounded-lg p-1.5 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
                 title="Change profile picture"
+                aria-label="Change profile picture"
               >
                 {avatarUploading ? (
                   <svg
@@ -372,7 +387,7 @@ export const InstructorProfile = () => {
                     ? `${profile.firstName} ${profile.lastName}`.trim()
                     : profile.username || "No Name"}
                 </h1>
-                <span className="px-2.5 py-0.5 bg-brand-gold/10 text-brand-gold-dark text-xs font-bold rounded-full">
+                <span className="px-2.5 py-0.5 bg-brand-gold/15 border border-brand-gold/30 text-brand-navy text-xs font-bold rounded-full">
                   Instructor
                 </span>
               </div>
@@ -403,7 +418,7 @@ export const InstructorProfile = () => {
               ) : (
                 <button
                   onClick={() => setEditMode(true)}
-                  className="w-full bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-xl p-4 text-center transition-colors group"
+                  className="w-full bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-xl p-4 text-center transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   <p className="text-sm text-gray-400 group-hover:text-gray-500">
                     <span className="font-semibold">Add a bio</span> — Tell
@@ -417,51 +432,54 @@ export const InstructorProfile = () => {
 
         {/* Edit Mode */}
         {editMode && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6 mb-6">
             <h3 className="text-lg font-bold text-gray-800 mb-5">
               Edit Profile
             </h3>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  <label htmlFor="profile-first-name" className="block text-sm font-semibold text-gray-700 mb-1">
                     First Name *
                   </label>
                   <input
+                    id="profile-first-name"
                     type="text"
                     value={profile.firstName}
                     onChange={(e) =>
                       setProfile({ ...profile, firstName: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  <label htmlFor="profile-last-name" className="block text-sm font-semibold text-gray-700 mb-1">
                     Last Name
                   </label>
                   <input
+                    id="profile-last-name"
                     type="text"
                     value={profile.lastName}
                     onChange={(e) =>
                       setProfile({ ...profile, lastName: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  value={profile.username}
+                <div>
+                  <label htmlFor="profile-username" className="block text-sm font-semibold text-gray-700 mb-1">
+                    Username *
+                  </label>
+                  <input
+                    id="profile-username"
+                    type="text"
+                    value={profile.username}
                   onChange={(e) =>
                     setProfile({ ...profile, username: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
                 />
               </div>
 
@@ -477,32 +495,33 @@ export const InstructorProfile = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Bio
-                </label>
-                <textarea
-                  value={profile.bio}
+                <div>
+                  <label htmlFor="profile-bio" className="block text-sm font-semibold text-gray-700 mb-1">
+                    Bio
+                  </label>
+                  <textarea
+                    id="profile-bio"
+                    value={profile.bio}
                   onChange={(e) =>
                     setProfile({ ...profile, bio: e.target.value })
                   }
                   placeholder="Tell others about yourself, your teaching focus, or interests..."
                   rows="3"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setEditMode(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateProfile}
                   disabled={saveLoading}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   {saveLoading ? (
                     <>
@@ -539,7 +558,7 @@ export const InstructorProfile = () => {
 
         {/* Activity Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-indigo-100 rounded-xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -561,7 +580,7 @@ export const InstructorProfile = () => {
               Quizzes Created
             </p>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-green-100 rounded-xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -585,7 +604,7 @@ export const InstructorProfile = () => {
               Published
             </p>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 text-center">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-amber-100 rounded-xl flex items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -610,7 +629,7 @@ export const InstructorProfile = () => {
         </div>
 
         {/* Account Information — 2-column grid with icons */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
             Account Information
           </h3>

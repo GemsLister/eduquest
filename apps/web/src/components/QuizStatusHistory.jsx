@@ -78,7 +78,8 @@ export const QuizStatusHistory = ({ quizId, quizTitle }) => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-brand-navy transition-all shadow-2xs"
+        aria-expanded={false}
+        className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold text-brand-navy transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -110,7 +111,8 @@ export const QuizStatusHistory = ({ quizId, quizTitle }) => {
         </div>
         <button
           onClick={() => setIsOpen(false)}
-          className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors"
+          aria-label="Collapse status history"
+          className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -131,8 +133,21 @@ export const QuizStatusHistory = ({ quizId, quizTitle }) => {
 
       <div className="p-4">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-gold"></div>
+          <div className="space-y-3" aria-label="Loading status history">
+            <div className="flex gap-3 items-start">
+              <div className="animate-pulse h-4 w-4 rounded-full bg-slate-200 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="flex-1">
+                <div className="animate-pulse h-3.5 w-2/3 rounded-md bg-slate-200 mb-1.5" aria-hidden="true" />
+                <div className="animate-pulse h-3 w-1/3 rounded-md bg-slate-200" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="flex gap-3 items-start">
+              <div className="animate-pulse h-4 w-4 rounded-full bg-slate-200 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="flex-1">
+                <div className="animate-pulse h-3.5 w-1/2 rounded-md bg-slate-200 mb-1.5" aria-hidden="true" />
+                <div className="animate-pulse h-3 w-1/4 rounded-md bg-slate-200" aria-hidden="true" />
+              </div>
+            </div>
           </div>
         ) : history.length === 0 ? (
           <div className="text-center py-8 text-slate-500 text-xs font-medium">

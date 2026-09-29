@@ -40,7 +40,7 @@ export const CreateQuizFormButton = ({
     <>
       <button
         onClick={() => setShowQuizForm(true)}
-        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2.5 rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs active:scale-98 cursor-pointer"
+        className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2.5 rounded-lg font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
       >
         <span className="text-lg leading-none">+</span> Create Quiz
       </button>
@@ -67,7 +67,7 @@ export const CreateQuizFormButton = ({
                   type="button"
                   onClick={() => setShowQuizForm(false)}
                   aria-label="Close create quiz form"
-                  className="text-white/80 hover:text-white text-2xl leading-none font-semibold transition-colors"
+                  className="text-white/80 hover:text-white text-2xl leading-none font-semibold transition-colors rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
                 >
                   ×
                 </button>
@@ -150,26 +150,28 @@ export const CreateQuizFormButton = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="quiz-create-title" className="block text-sm font-semibold text-gray-700 mb-2">
                   Quiz Title <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="quiz-create-title"
                   type="text"
                   value={quizFormData.title}
                   onChange={(e) =>
                     setQuizFormData({ ...quizFormData, title: e.target.value })
                   }
                   placeholder="e.g., Biology Chapter 5 Test"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="quiz-create-instructions" className="block text-sm font-semibold text-gray-700 mb-2">
                   Instructions
                 </label>
                 <textarea
+                  id="quiz-create-instructions"
                   value={quizFormData.description}
                   onChange={(e) =>
                     setQuizFormData({
@@ -179,15 +181,16 @@ export const CreateQuizFormButton = ({
                   }
                   placeholder="Instructions of the quiz"
                   rows="3"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="quiz-create-duration" className="block text-sm font-semibold text-gray-700 mb-2">
                   Duration (minutes)
                 </label>
                 <input
+                  id="quiz-create-duration"
                   type="number"
                   min="1"
                   value={quizFormData.duration || ""}
@@ -198,7 +201,7 @@ export const CreateQuizFormButton = ({
                     })
                   }
                   placeholder="Leave blank for unlimited time"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-gold text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
               </div>
 
@@ -282,7 +285,7 @@ export const CreateQuizFormButton = ({
                 <button
                   type="button"
                   onClick={() => setShowQuizForm(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>
@@ -294,7 +297,7 @@ export const CreateQuizFormButton = ({
                     availableSections.length === 0 ||
                     selectedIds.length === 0
                   }
-                  className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   {isSubmitting ? "Creating..." : "Create Quiz"}
                 </button>

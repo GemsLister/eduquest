@@ -38,7 +38,7 @@ export const RevisionHistoryListModal = ({ isOpen, onClose, revisions, questionI
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-2xl max-h-[80vh] overflow-y-auto w-full mx-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl max-h-[80vh] overflow-y-auto w-full mx-4">
           <div className="sticky top-0 bg-white p-6 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Revision History</h2>

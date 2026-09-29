@@ -21,7 +21,7 @@ export const ItemAnalysisHeader = ({
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 -mx-6 -mt-6 mb-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
               Instructor Dashboard
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -61,13 +61,14 @@ export const ItemAnalysisHeader = ({
           
           {/* Section Selection */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+            <label htmlFor="ia-section" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Select Subject
             </label>
             <select
+              id="ia-section"
               value={selectedSection}
               onChange={(e) => onSectionChange(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800"
             >
               <option value="">Select Subject</option>
               {sections.map((section) => (
@@ -86,14 +87,15 @@ export const ItemAnalysisHeader = ({
 
           {/* Quiz/Subject Selection */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+            <label htmlFor="ia-quiz" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Select Quiz
             </label>
             <select
+              id="ia-quiz"
               value={selectedQuiz}
               onChange={(e) => onQuizChange(e.target.value)}
               disabled={!selectedSection || loadingQuizzes}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
             >
               <option value="">
                 {loadingQuizzes
@@ -113,40 +115,43 @@ export const ItemAnalysisHeader = ({
 
           {/* NEW: Question Search */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+            <label htmlFor="ia-search" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Search Questions
             </label>
             <input
+              id="ia-search"
               type="text"
               placeholder="Search by question text..."
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800"
               onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
             />
           </div>
 
           {/* NEW: Student Search */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+            <label htmlFor="ia-student" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Search Student
             </label>
             <input
+              id="ia-student"
               type="text"
               placeholder="Search student name..."
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800"
               onChange={(e) => onStudentSearchChange && onStudentSearchChange(e.target.value)}
             />
           </div>
 
           {/* NEW: Cohort Filter */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+            <label htmlFor="ia-cohort" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Filter by Cohort
             </label>
             <select
+              id="ia-cohort"
               value={selectedCohortFilter}
               onChange={(e) => onCohortFilterChange && onCohortFilterChange(e.target.value)}
               disabled={!selectedSection}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs bg-white text-slate-800 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
             >
               <option value="all">All Students</option>
               {cohortOptions?.map((option) => (

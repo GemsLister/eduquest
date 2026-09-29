@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { SystemActivityTimeline } from "../../components/SystemActivityTimeline";
 import { QuizStatusHistory } from "../../components/QuizStatusHistory";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const History = () => {
   const [quizzes, setQuizzes] = useState([]);
@@ -90,13 +91,13 @@ export const History = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 shadow-xs border-b border-white/10 mb-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
-              INSTRUCTOR DASHBOARD
+            <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
+              Instructor Dashboard
             </p>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
               Activity History & Audit Trail
             </h1>
-            <p className="text-slate-300 text-sm mt-1">
+            <p className="text-white/60 text-sm mt-1">
               Comprehensive audit log tracking system actions, examination revisions, review status transitions, and audit reasons
             </p>
           </div>
@@ -105,10 +106,12 @@ export const History = () => {
 
       <div className="max-w-7xl mx-auto px-6 pb-8 space-y-6">
         {/* Tabs Bar */}
-        <div className="inline-flex p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 gap-1.5 shadow-2xs">
+        <div className="inline-flex p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 gap-1.5 shadow-2xs" role="tablist" aria-label="History views">
           <button
+            role="tab"
+            aria-selected={activeTab === "system-activity"}
             onClick={() => setActiveTab("system-activity")}
-            className={`flex items-center gap-2 px-5 py-2.5 font-bold text-xs tracking-wider uppercase rounded-xl transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 font-bold text-xs tracking-wider uppercase rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               activeTab === "system-activity"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "text-slate-600 hover:text-brand-navy hover:bg-white/60"
@@ -120,8 +123,10 @@ export const History = () => {
             <span>System Activity Audit Trail</span>
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === "quiz-history"}
             onClick={() => setActiveTab("quiz-history")}
-            className={`flex items-center gap-2 px-5 py-2.5 font-bold text-xs tracking-wider uppercase rounded-xl transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 font-bold text-xs tracking-wider uppercase rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
               activeTab === "quiz-history"
                 ? "bg-brand-navy text-white shadow-xs"
                 : "text-slate-600 hover:text-brand-navy hover:bg-white/60"
@@ -143,24 +148,32 @@ export const History = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
+                  <label htmlFor="history-search" className="sr-only">
+                    Search examinations
+                  </label>
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
                   <input
+                    id="history-search"
                     type="text"
                     placeholder="Search examinations..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white text-slate-800 shadow-2xs transition-all placeholder:text-slate-400"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 bg-white text-slate-800 shadow-2xs transition-all placeholder:text-slate-400"
                   />
                 </div>
                 <div className="w-full sm:w-64">
+                  <label htmlFor="history-status" className="sr-only">
+                    Filter by status
+                  </label>
                   <select
+                    id="history-status"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 bg-white shadow-2xs transition-all"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 bg-white shadow-2xs transition-all"
                   >
                     <option value="all">All Statuses</option>
                     <option value="draft">Draft</option>
@@ -179,8 +192,15 @@ export const History = () => {
 
             {/* Quiz List */}
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold"></div>
+              <div className="space-y-4" aria-label="Loading examination history">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+                  <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+                  <Skeleton className="h-3 w-2/3 rounded-md" />
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+                  <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+                  <Skeleton className="h-3 w-1/2 rounded-md" />
+                </div>
               </div>
             ) : filteredQuizzes.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-8 text-center">
@@ -189,9 +209,11 @@ export const History = () => {
             ) : (
               <div className="space-y-4">
                 {paginatedQuizzes.map((quiz) => (
-                  <div key={quiz.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all">
-                    <div
-                      className="p-5 cursor-pointer hover:bg-slate-50 transition-colors"
+                  <div key={quiz.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                    <button
+                      type="button"
+                      aria-expanded={selectedQuiz?.id === quiz.id}
+                      className="w-full p-5 text-left hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
                       onClick={() => setSelectedQuiz(selectedQuiz?.id === quiz.id ? null : quiz)}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -220,14 +242,14 @@ export const History = () => {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-brand-navy bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition-all shadow-2xs">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-brand-navy bg-slate-100 px-3.5 py-2 rounded-lg transition-all shadow-2xs shrink-0">
                           <span>{selectedQuiz?.id === quiz.id ? "Hide History" : "View History"}</span>
                           <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-transform ${selectedQuiz?.id === quiz.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                           </svg>
-                        </div>
+                        </span>
                       </div>
-                    </div>
+                    </button>
 
                     {selectedQuiz?.id === quiz.id && (
                       <div className="border-t border-slate-200 p-5 bg-slate-50/70">
@@ -247,7 +269,8 @@ export const History = () => {
                       <button
                         onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-all shadow-2xs"
+                        aria-label="Previous page"
+                        className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Previous
                       </button>
@@ -257,7 +280,8 @@ export const History = () => {
                       <button
                         onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-all shadow-2xs"
+                        aria-label="Next page"
+                        className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         Next
                       </button>

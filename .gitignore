@@ -37,3 +37,17 @@ supabase/.temp/
 .agents/
 skills/
 .claude/
+.opencode/
+.impeccable/
+skills-lock.json
+
+# Design & Product artifacts
+PRODUCT.md
+DESIGN.md
+impeccable.md
+**/PRODUCT.md
+**/DESIGN.md
+**/impeccable.md
+**/PRODUCT.MD
+**/DESIGN.MD
+**/IMPECCABLE.MD

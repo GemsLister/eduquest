@@ -258,14 +258,15 @@ export const ItemRevisionComparisonModal = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleExportPdf}
-              className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-extrabold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-extrabold text-xs rounded-lg transition-all shadow-md flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               title="Export complete revision history and side-by-side comparison report as PDF"
             >
               <span>📄 Export as PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="text-white/70 hover:text-white text-3xl font-bold p-1 rounded-lg hover:bg-white/10 transition-colors"
+              aria-label="Close revision comparison"
+              className="text-white/70 hover:text-white text-3xl font-bold p-1 rounded-lg hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
               ×
             </button>
