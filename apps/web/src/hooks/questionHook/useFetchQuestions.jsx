@@ -66,7 +66,11 @@ export const useFetchQuestion = () => {
       const questionMap = new Map();
       [...directQs, ...createdQs, ...junctionQs].forEach((q) => {
         if (q && q.id && !questionMap.has(q.id)) {
-          questionMap.set(q.id, q);
+          const isOwn = q.instructor_id ? q.instructor_id === user.id : (q.created_by ? q.created_by === user.id : userQuizIds.includes(q.quiz_id));
+          const isPublicOrShared = q.is_private === false || q.visibility === 'public' || q.visibility === 'shared' || q.blooms_level === 'public';
+          if (isOwn || isPublicOrShared) {
+            questionMap.set(q.id, q);
+          }
         }
       });
 
