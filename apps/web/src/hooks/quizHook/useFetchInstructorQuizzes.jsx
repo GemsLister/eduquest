@@ -99,58 +99,7 @@ export const useFetchInstructorQuizzes = () => {
 
         if (myErr) console.error("Error fetching instructor quizzes:", myErr);
 
-        // Fetch candidate/section quizzes if any
-        let candidateQuizzes = [];
-        const extraIds = candidateQuizIds.filter((id) => !(myQuizzes || []).some((q) => q.id === id));
-        if (extraIds.length > 0) {
-          const { data: extraData } = await supabase
-            .from("quizzes")
-            .select("*")
-            .in("id", extraIds)
-            .order("created_at", { ascending: false });
-          candidateQuizzes = extraData || [];
-        }
-
-        // Fetch non-private quizzes and filter by subject/section for Shared assessments
-        const { data: publicQuizzes } = await supabase
-          .from("quizzes")
-          .select("*, quiz_sections(section_id)")
-          .eq("is_private", false)
-          .order("created_at", { ascending: false });
-
-        const accessibleOtherQuizzes = (publicQuizzes || []).filter((q) => {
-          if (q.instructor_id === user.id) return true; // Own quiz
-
-          const rawDesc = q.description || "";
-          const visMatch = rawDesc.match(/\[vis:(private|shared|public)\]/i);
-          const resolvedVis = visMatch
-            ? visMatch[1].toLowerCase()
-            : (q.visibility ? q.visibility : (q.is_shared || q.is_shared_with_sections ? "shared" : (q.is_private !== false ? "private" : "public")));
-
-          if (resolvedVis === "private") return false;
-
-          if (resolvedVis === "shared") {
-            const qSubjectId = q.subject_id;
-            const qSectionId = q.section_id;
-            const isSameSubject = qSubjectId && mySubjectIds.has(qSubjectId);
-            const isSameSection = qSectionId && mySectionIds.has(qSectionId);
-            const quizSecs = q.quiz_sections || [];
-            const sharesAnySection = quizSecs.some((qs) => mySectionIds.has(qs.section_id));
-
-            return isSameSubject || isSameSection || sharesAnySection;
-          }
-
-          return true; // Public quizzes are visible to all instructors
-        });
-
-        const combinedMap = new Map();
-        [...(myQuizzes || []), ...candidateQuizzes, ...accessibleOtherQuizzes].forEach((q) => {
-          if (q && q.id && !combinedMap.has(q.id)) {
-            combinedMap.set(q.id, q);
-          }
-        });
-
-        rawQuizzes = Array.from(combinedMap.values());
+        rawQuizzes = myQuizzes || [];
       } catch (quizErr) {
         console.error("Error loading rawQuizzes:", quizErr);
       }
@@ -474,13 +423,7 @@ export const useFetchInstructorQuizzes = () => {
 
       const visibleQuizzes = quizzesWithCounts.filter((quiz) => {
         const isOwner = (quiz.instructor_id || quiz.owner_id) === user.id;
-        const isSubmittedByMe = submissionQuizIdsSet.has(quiz.id);
-        const isAssignedToMySection =
-          sectionQuizIdsSet.has(quiz.id) || (quiz.section_id && mySectionIdsSet.has(quiz.section_id));
-        const isPublic = quiz.is_private === false;
-
-        const isAccessible = isOwner || isSubmittedByMe || isAssignedToMySection || isPublic;
-        return isAccessible;
+        return isOwner;
       });
 
       setQuizzes(visibleQuizzes);
