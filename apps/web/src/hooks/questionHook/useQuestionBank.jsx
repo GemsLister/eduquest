@@ -411,10 +411,11 @@ export const useQuestionBank = () => {
         };
       });
 
-      // Filter out co-instructor shared questions for subjects not assigned to current instructor
+      // Filter out co-instructor private questions and non-assigned subject questions
       const assignedSubjectQuestions = questionsWithCreators.filter((q) => {
         if (q.is_own) return true;
-        if (!q.subject_id) return false;
+        if (q.is_private === true) return false; // Never show private questions of other instructors
+        if (!q.subject_id) return true;
         return userSubjectIds.has(String(q.subject_id));
       });
 
