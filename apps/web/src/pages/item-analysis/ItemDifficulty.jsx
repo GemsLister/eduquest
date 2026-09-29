@@ -107,11 +107,12 @@ export const ItemDifficulty = () => {
         );
 
         let finalQuizzes = [];
-        if (allCandidateIds.length > 0) {
+        if (allCandidateIds.length > 0 && user?.id) {
           const { data: quizzesData, error: quizzesError } = await supabase
             .from("quizzes")
             .select("id, title, is_published, description, duration")
             .in("id", allCandidateIds)
+            .eq("instructor_id", user.id)
             .eq("is_published", true)
             .eq("is_archived", false)
             .order("created_at", { ascending: false });
