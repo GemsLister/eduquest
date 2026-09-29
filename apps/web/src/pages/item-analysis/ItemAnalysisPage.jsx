@@ -121,11 +121,12 @@ export const ItemAnalysisPage = () => {
         );
 
         let finalQuizzes = [];
-        if (allCandidateIds.length > 0) {
+        if (allCandidateIds.length > 0 && user?.id) {
           const { data: qData } = await supabase
             .from("quizzes")
             .select("id, title, is_published, is_archived")
             .in("id", allCandidateIds)
+            .eq("instructor_id", user.id)
             .eq("is_published", true)
             .eq("is_archived", false);
 
