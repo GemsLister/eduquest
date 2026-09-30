@@ -11,6 +11,34 @@ export const useQuestionBank = () => {
 
   const normalizeText = (value) => (value || "").toLowerCase().trim();
 
+  const parseVis = (q) => {
+    if (!q) return "private";
+    const desc = q.description || "";
+    const visMatch = desc.match(/\[vis:(private|shared|public)\]/i);
+    if (visMatch) return visMatch[1].toLowerCase();
+    if (q.visibility) return String(q.visibility).toLowerCase();
+    if (q.is_shared || q.is_shared_with_sections) return "shared";
+    if (q.is_private !== false) return "private";
+    return "public";
+  };
+
+  const parseQuestionVis = (q) => {
+    if (!q) return "private";
+    if (q.visibility) {
+      const v = String(q.visibility).toLowerCase();
+      if (v === "shared" || v === "public" || v === "private") return v;
+    }
+    if (q.blooms_level) {
+      const b = String(q.blooms_level).toLowerCase();
+      if (b === "shared" || b === "public" || b === "private") return b;
+    }
+    if (q.is_private === true) return "private";
+    if (q.is_shared === true) return "shared";
+    if (q.quizzes) return parseVis(q.quizzes);
+    if (q.is_private === false) return "public";
+    return "public";
+  };
+
   const buildQuestionKey = (question) => {
     const options = Array.isArray(question.options)
       ? question.options.map((opt) => normalizeText(opt)).join("|")
@@ -41,17 +69,19 @@ export const useQuestionBank = () => {
       const parentQuizIdStr = question.quizzes?.parent_quiz_id ? String(question.quizzes.parent_quiz_id) : (question.parent_quiz_id ? String(question.parent_quiz_id) : null);
       const isOwn = question.is_own !== undefined
         ? Boolean(question.is_own)
-        : (question.instructor_id ? question.instructor_id === user?.id : (question.quizzes ? question.quizzes.instructor_id === user?.id : false));
+        : (question.instructor_id ? question.instructor_id === user?.id : (question.quizzes ? question.quizzes.instructor_id === user?.id : true));
       
-      const isPrivate = question.is_private !== undefined
-        ? Boolean(question.is_private)
-        : (question.quizzes ? question.quizzes.is_private !== false : (question.blooms_level === "private"));
+      const qVis = parseQuestionVis(question);
+      const isPrivate = question.is_private !== undefined ? Boolean(question.is_private) : (qVis === "private");
+      const isShared = qVis === "shared";
 
       if (!existing) {
         byKey.set(key, { 
           ...question, 
           is_own: isOwn,
           is_private: isPrivate,
+          is_shared: isShared,
+          visibility: question.visibility || qVis,
           all_quiz_ids: quizIdStr ? [quizIdStr] : [],
           all_parent_quiz_ids: parentQuizIdStr ? [parentQuizIdStr] : []
         });
@@ -68,9 +98,12 @@ export const useQuestionBank = () => {
 
       if (isOwn) existing.is_own = true;
       
-      // Preserve explicit Public status if any instance is public
+      // Preserve explicit non-private status if any instance is shared/public
       if (isPrivate === false) {
         existing.is_private = false;
+      }
+      if (isShared === true) {
+        existing.is_shared = true;
       }
 
       if (!existing.quizzes && question.quizzes) {
@@ -88,14 +121,18 @@ export const useQuestionBank = () => {
         const accumulatedQuizIds = existing.all_quiz_ids;
         const accumulatedParentIds = existing.all_parent_quiz_ids;
         const accumulatedIsOwn = existing.is_own || isOwn;
-        const accumulatedIsPrivate = (existing.is_private === false || isPrivate === false) ? false : true;
         const accumulatedQuizzes = question.quizzes || existing.quizzes;
+        const accumulatedVis = question.visibility || (accumulatedQuizzes ? parseVis(accumulatedQuizzes) : existing.visibility || qVis);
+        const accumulatedIsPrivate = accumulatedVis === "private";
+        const accumulatedIsShared = accumulatedVis === "shared";
 
         byKey.set(key, { 
           ...question, 
           quizzes: accumulatedQuizzes,
           is_own: accumulatedIsOwn,
           is_private: accumulatedIsPrivate,
+          is_shared: accumulatedIsShared,
+          visibility: accumulatedVis,
           all_quiz_ids: accumulatedQuizIds,
           all_parent_quiz_ids: accumulatedParentIds
         });
@@ -176,16 +213,6 @@ export const useQuestionBank = () => {
         .or("is_archived.is.null,is_archived.eq.false")
         .eq("is_private", false);
 
-      const parseVis = (q) => {
-        if (!q) return "private";
-        const desc = q.description || "";
-        const visMatch = desc.match(/\[vis:(private|shared|public)\]/i);
-        if (visMatch) return visMatch[1].toLowerCase();
-        if (q.visibility) return String(q.visibility).toLowerCase();
-        if (q.is_shared || q.is_shared_with_sections) return "shared";
-        if (q.is_private !== false) return "private";
-        return "public";
-      };
 
       const coInstructorPublicQuizzes = (publicQuizzes || []).filter((q) => {
         const vis = parseVis(q);
@@ -239,8 +266,10 @@ export const useQuestionBank = () => {
             const quizMeta = q.quiz_id ? accessibleQuizMap.get(String(q.quiz_id)) || null : null;
             const isQuizArchived = quizMeta?.is_archived === true;
             const isQuestionArchived = q.is_archived === true;
-            const isOwn = q.instructor_id ? q.instructor_id === user.id : (quizMeta ? quizMeta.instructor_id === user.id : false);
-            const qVis = quizMeta ? parseVis(quizMeta) : (q.is_private === true && q.blooms_level !== "public" ? "private" : "public");
+            const isOwn = q.is_own !== undefined
+              ? Boolean(q.is_own)
+              : (q.instructor_id ? q.instructor_id === user.id : (quizMeta ? quizMeta.instructor_id === user.id : true));
+            const qVis = parseQuestionVis({ ...q, quizzes: quizMeta });
             const isPrivate = qVis === "private";
             const isShared = qVis === "shared";
             return {
@@ -308,14 +337,18 @@ export const useQuestionBank = () => {
 
       if (!standaloneQError && standaloneQs) {
         standaloneQuestions = standaloneQs.map((sq) => {
-          const isOwn = sq.instructor_id ? sq.instructor_id === user?.id : false;
-          const isPrivate = sq.is_private === false || sq.blooms_level === "public"
-            ? false
-            : true;
+          const isOwn = sq.is_own !== undefined
+            ? Boolean(sq.is_own)
+            : (sq.instructor_id ? sq.instructor_id === user?.id : true);
+          const visVal = parseQuestionVis(sq);
+          const isPrivate = visVal === "private";
+          const isShared = visVal === "shared";
           return {
             ...sq,
             is_own: isOwn,
             is_private: isPrivate,
+            is_shared: isShared,
+            visibility: visVal,
             is_archived: Boolean(sq.is_archived),
           };
         });
@@ -625,18 +658,21 @@ export const useQuestionBank = () => {
             ? questionData.correctAnswer === 0 ? "true" : "false"
             : questionData.correctAnswer;
 
-      const isPriv = questionData.isPrivate === false || questionData.is_private === false ? false : true;
+      const rawVis = questionData.visibility || 
+        (questionData.isPrivate === "shared" || questionData.is_private === "shared" || questionData.is_shared ? "shared" : 
+        (questionData.isPrivate === "public" || questionData.is_private === "public" || questionData.is_private === false || questionData.isPrivate === false ? "public" : "private"));
+      const visVal = String(rawVis).toLowerCase();
+      const isPriv = visVal === "private";
+
       const questionPayload = {
         quiz_id: targetQuizId,
-        instructor_id: user?.id || null,
         type: questionData.type || "mcq",
         text: questionData.text,
         options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
         correct_answer: correctAnswer,
         points: questionData.points || 1,
         is_archived: false,
-        blooms_level: isPriv ? "private" : "public",
-        is_private: isPriv,
+        blooms_level: visVal,
       };
 
       // Assign to section if provided (metadata only)
@@ -674,12 +710,18 @@ export const useQuestionBank = () => {
           msg.includes("could not find") ||
           msg.includes("schema cache") ||
           msg.includes("is_private") ||
-          msg.includes("instructor_id");
+          msg.includes("is_shared") ||
+          msg.includes("visibility") ||
+          msg.includes("instructor_id") ||
+          msg.includes("blooms_level");
 
         if (isUnknownColumnErr) {
           const fallbackPayload = { ...questionPayload };
           delete fallbackPayload.is_private;
+          delete fallbackPayload.is_shared;
+          delete fallbackPayload.visibility;
           delete fallbackPayload.instructor_id;
+          delete fallbackPayload.blooms_level;
           const retry = await supabase.from("questions").insert(fallbackPayload).select();
           questionError = retry.error;
           insertedData = retry.data;
@@ -756,10 +798,17 @@ export const useQuestionBank = () => {
           correctAnswer = q.options[correctAnswer];
         }
 
-        const isPriv = isPrivate === "private" || isPrivate === true;
+        const qVisRaw = q.visibility || q.is_private || q.isPrivate || isPrivate;
+        const visVal = qVisRaw === "shared" || q.is_shared === true || q.isShared === true
+          ? "shared"
+          : (qVisRaw === "public" || qVisRaw === false || q.is_private === false || q.isPrivate === false
+            ? "public"
+            : "private");
+
+        const isPriv = visVal === "private";
+
         const questionRow = {
           quiz_id: targetQuizId || q.quiz_id || q.quizId || null,
-          instructor_id: user?.id || null,
           type: q.type || "mcq",
           text: q.text,
           options:
@@ -769,8 +818,7 @@ export const useQuestionBank = () => {
           correct_answer: String(correctAnswer ?? ""),
           points: q.points || 1,
           is_archived: false,
-          blooms_level: isPriv ? "private" : "public",
-          is_private: isPriv,
+          blooms_level: visVal,
           created_at: new Date(baseBulkTime + idx * 100).toISOString(),
         };
 
@@ -801,13 +849,19 @@ export const useQuestionBank = () => {
           msg.includes("could not find") ||
           msg.includes("schema cache") ||
           msg.includes("is_private") ||
-          msg.includes("instructor_id");
+          msg.includes("is_shared") ||
+          msg.includes("visibility") ||
+          msg.includes("instructor_id") ||
+          msg.includes("blooms_level");
 
         if (isUnknownColumnErr) {
           const cleanRows = questionRows.map((r) => {
             const copy = { ...r };
             delete copy.is_private;
+            delete copy.is_shared;
+            delete copy.visibility;
             delete copy.instructor_id;
+            delete copy.blooms_level;
             return copy;
           });
           const retry = await supabase.from("questions").insert(cleanRows).select();
