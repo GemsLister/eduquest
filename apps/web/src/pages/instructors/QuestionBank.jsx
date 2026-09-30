@@ -272,14 +272,54 @@ export const QuestionBank = () => {
     return false;
   };
 
-  // Helper to check if a question is Private
-  const isQuestionPrivate = (q) => {
-    if (q.is_private === false || q.blooms_level === "public") return false;
-    if (q.quizzes && q.quizzes.is_private === false) return false;
-    if (q.is_private === true || q.blooms_level === "private") return true;
-    if (q.quizzes && q.quizzes.is_private === true) return true;
-    return false;
+  // Helper to check question visibility scope: "private" | "shared" | "public"
+  const getQuestionVisibility = (q) => {
+    if (!q) return "private";
+
+    // 1. Check explicit visibility property from question or quiz
+    if (q.visibility) {
+      const v = String(q.visibility).toLowerCase();
+      if (v === "shared" || v === "public" || v === "private") return v;
+    }
+
+    // 2. Check blooms_level property if storing vis tag
+    if (q.blooms_level) {
+      const b = String(q.blooms_level).toLowerCase();
+      if (b === "shared" || b === "public" || b === "private") return b;
+    }
+
+    // 3. Check quiz visibility if attached
+    if (q.quizzes?.visibility) {
+      const v = String(q.quizzes.visibility).toLowerCase();
+      if (v === "shared" || v === "public" || v === "private") return v;
+    }
+
+    // 4. Check tag in description [vis:...] if present
+    const desc = q.description || q.quizzes?.description || "";
+    const visMatch = desc.match(/\[vis:(private|shared|public)\]/i);
+    if (visMatch) return visMatch[1].toLowerCase();
+
+    // 5. Check is_private flag if explicitly set to true
+    if (q.is_private === true) {
+      return "private";
+    }
+
+    // 6. Explicit boolean flags for is_shared
+    if (q.is_shared === true || q.quizzes?.is_shared === true || q.quizzes?.is_shared_with_sections === true) {
+      return "shared";
+    }
+
+    // 7. Check is_private for public
+    if (q.is_private === false || q.quizzes?.is_private === false) {
+      return "public";
+    }
+
+    return "public";
   };
+
+  const isQuestionPrivate = (q) => getQuestionVisibility(q) === "private";
+  const isQuestionShared = (q) => getQuestionVisibility(q) === "shared";
+  const isQuestionPublic = (q) => getQuestionVisibility(q) === "public";
 
   // Filter questions
   const filterQuestions = (questions) => {
@@ -288,13 +328,13 @@ export const QuestionBank = () => {
     // Apply Ownership & Privacy Filter
     if (ownershipFilter === "my_private") {
       // Show Private questions owned by current instructor
-      filteredList = filteredList.filter((q) => isQuestionOwn(q) && isQuestionPrivate(q));
+      filteredList = filteredList.filter((q) => isQuestionPrivate(q));
     } else if (ownershipFilter === "my_public" || ownershipFilter === "mine") {
       // Show Public questions owned by current instructor
-      filteredList = filteredList.filter((q) => isQuestionOwn(q) && !isQuestionPrivate(q));
-    } else if (ownershipFilter === "others_public") {
-      // Show Public questions shared by other instructors (co-instructors)
-      filteredList = filteredList.filter((q) => !isQuestionOwn(q) && !isQuestionPrivate(q));
+      filteredList = filteredList.filter((q) => isQuestionPublic(q));
+    } else if (ownershipFilter === "others_public" || ownershipFilter === "shared") {
+      // Show Shared questions (or non-private questions shared by co-instructors)
+      filteredList = filteredList.filter((q) => isQuestionShared(q) || (!isQuestionOwn(q) && !isQuestionPrivate(q)));
     }
 
     // Apply GAD Filter
@@ -758,13 +798,16 @@ export const QuestionBank = () => {
             ? q.options[q.correctAnswer] || q.correctAnswer
             : q.correctAnswer;
 
+        const visVal = batchIsPrivate === "shared" ? "shared" : (batchIsPrivate === "public" ? "public" : "private");
         return {
           text: q.text.trim(),
           type: q.type || "mcq",
           options: q.type === "mcq" ? q.options.filter((opt) => opt.trim()) : null,
           correct_answer: correctAnswer,
           points: q.points || 1,
-          is_private: batchIsPrivate,
+          is_private: visVal === "private",
+          is_shared: visVal === "shared",
+          visibility: visVal,
         };
       });
 
@@ -780,24 +823,25 @@ export const QuestionBank = () => {
       if (res.success) {
         const targetQuizObj = allInstructorQuizzes.find((q) => String(q.id) === String(batchQuizId));
         const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
-      const isPriv = batchIsPrivate === true || batchIsPrivate === "private";
-      const visibilityLabel = isPriv ? "Private" : (batchIsPrivate === "shared" ? "Shared" : "Public");
-      notify.success(
-        `Successfully created ${preparedArray.length} ${visibilityLabel} question(s)${quizMsg}!`
-      );
+        const isPriv = batchIsPrivate === true || batchIsPrivate === "private";
+        const isShared = batchIsPrivate === "shared";
+        const visibilityLabel = isPriv ? "Private" : (isShared ? "Shared" : "Public");
+        notify.success(
+          `Successfully created ${preparedArray.length} ${visibilityLabel} question(s)${quizMsg}!`
+        );
 
-      setShowAddForm(false);
+        setShowAddForm(false);
 
-      // Auto-focus filters
-      setSelectedSubjectId(batchSubjectId);
-      if (batchQuizId) {
-        setSelectedQuizIdFilter(batchQuizId);
-      } else {
-        setSelectedQuizIdFilter(null);
-      }
-      setSearchTerm("");
-      setOwnershipFilter(isPriv ? "my_private" : "my_public");
-      setActiveTab("active");
+        // Auto-focus filters
+        setSelectedSubjectId(batchSubjectId);
+        if (batchQuizId) {
+          setSelectedQuizIdFilter(batchQuizId);
+        } else {
+          setSelectedQuizIdFilter(null);
+        }
+        setSearchTerm("");
+        setOwnershipFilter(isPriv ? "my_private" : (isShared ? "shared" : "my_public"));
+        setActiveTab("active");
 
         await fetchQuestions();
       } else {
@@ -1098,8 +1142,18 @@ export const QuestionBank = () => {
     }
     setImportProcessing(true);
     try {
+      const preparedImportQuestions = pendingImportQuestions.map((q) => {
+        const visVal = importIsPrivate === "shared" ? "shared" : (importIsPrivate === "public" ? "public" : "private");
+        return {
+          ...q,
+          is_private: visVal === "private",
+          is_shared: visVal === "shared",
+          visibility: visVal,
+        };
+      });
+
       const res = await addBulkToBank(
-        pendingImportQuestions,
+        preparedImportQuestions,
         null,
         null,
         importTargetSubjectId,
@@ -1110,7 +1164,8 @@ export const QuestionBank = () => {
         const targetQuizObj = quizzesFromSubject.find(q => String(q.id) === String(importTargetQuizId));
         const quizMsg = targetQuizObj ? ` into quiz "${targetQuizObj.title}"` : "";
         const isPriv = importIsPrivate === true || importIsPrivate === "private";
-        const visibilityLabel = isPriv ? "Private" : (importIsPrivate === "shared" ? "Shared" : "Public");
+        const isShared = importIsPrivate === "shared";
+        const visibilityLabel = isPriv ? "Private" : (isShared ? "Shared" : "Public");
         notify.success(
           `Successfully imported ${pendingImportQuestions.length} ${visibilityLabel} question(s)${quizMsg}!`
         );
@@ -1125,7 +1180,7 @@ export const QuestionBank = () => {
           setSelectedQuizIdFilter(null);
         }
         setSearchTerm("");
-        setOwnershipFilter(isPriv ? "my_private" : "my_public");
+        setOwnershipFilter(isPriv ? "my_private" : (isShared ? "shared" : "my_public"));
         setActiveTab("active");
 
         await fetchQuestions();
@@ -2098,20 +2153,18 @@ export const QuestionBank = () => {
                           AI Revised
                         </span>
                       )}
-                      {/* Privacy & Ownership Badge */}
-                      {isQuestionOwn(question) ? (
-                        isQuestionPrivate(question) ? (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
-                            🔒 Private Question
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
-                            🌐 Public Question
-                          </span>
-                        )
-                      ) : (
+                      {/* Privacy & Scope Badge */}
+                      {isQuestionPrivate(question) ? (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                          🔒 Private Question
+                        </span>
+                      ) : isQuestionShared(question) ? (
                         <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
                           🤝 Shared Question
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                          🌐 Public Question
                         </span>
                       )}
                       {question.creator_name && (
@@ -2629,7 +2682,7 @@ export const QuestionBank = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setBatchIsPrivate(false)}
+                        onClick={() => setBatchIsPrivate("shared")}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
                           batchIsPrivate === false || batchIsPrivate === "shared"
                             ? "bg-brand-navy text-white border-brand-navy shadow-2xs"
@@ -2948,7 +3001,7 @@ export const QuestionBank = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setImportIsPrivate(false)}
+                    onClick={() => setImportIsPrivate("shared")}
                     className={`p-3 rounded-xl border text-left flex flex-col transition-all cursor-pointer ${
                       importIsPrivate === false || importIsPrivate === "shared"
                         ? "border-brand-navy bg-brand-navy/5 shadow-2xs font-bold text-brand-navy ring-2 ring-brand-navy/20"
