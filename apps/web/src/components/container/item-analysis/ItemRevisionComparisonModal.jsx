@@ -229,19 +229,19 @@ export const ItemRevisionComparisonModal = ({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-brand-navy via-brand-indigo to-indigo-900 px-6 py-5 text-white shrink-0 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 text-white shrink-0 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <span className="px-3 py-0.5 rounded-full text-xs font-black bg-brand-gold text-brand-navy uppercase tracking-wider shadow-xs">
                 {itemNumberDisplay}
               </span>
               <span
-                className={`px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                className={`px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
                   statusLabel === "REJECT"
-                    ? "bg-red-500 text-white"
+                    ? "bg-red-500/20 text-red-200 border-red-400/30"
                     : statusLabel === "REVISE"
-                    ? "bg-orange-500 text-white"
-                    : "bg-emerald-500 text-white"
+                    ? "bg-amber-500/20 text-amber-200 border-amber-400/30"
+                    : "bg-emerald-500/20 text-emerald-200 border-emerald-400/30"
                 }`}
               >
                 STATUS: {statusLabel}
@@ -251,7 +251,10 @@ export const ItemRevisionComparisonModal = ({
               </span>
             </div>
             <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
-              <span>📜</span> Full Revision History & Side-by-Side Comparison
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Full Revision History & Side-by-Side Comparison
             </h2>
           </div>
 
@@ -261,7 +264,10 @@ export const ItemRevisionComparisonModal = ({
               className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-extrabold text-xs rounded-lg transition-all shadow-md flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               title="Export complete revision history and side-by-side comparison report as PDF"
             >
-              <span>📄 Export as PDF</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3 3m0 0l-3-3m3 3V8" />
+              </svg>
+              <span>Export as PDF</span>
             </button>
             <button
               onClick={onClose}
@@ -276,7 +282,10 @@ export const ItemRevisionComparisonModal = ({
         {/* Revision Selector Timeline Bar */}
         <div className="bg-slate-100 border-b border-slate-200 px-6 py-3 shrink-0 flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-2 flex items-center gap-1">
-            <span>⏱️</span> Select Old Revision to Compare:
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Select Old Revision to Compare:
           </span>
           {revisionsList.map((rev, idx) => {
             const isSelected = selectedRevisionIndex === idx;
@@ -284,9 +293,10 @@ export const ItemRevisionComparisonModal = ({
               <button
                 key={idx}
                 onClick={() => setSelectedRevisionIndex(idx)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                aria-pressed={isSelected}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   isSelected
-                    ? "bg-brand-navy text-white border-brand-navy shadow-md scale-105"
+                    ? "bg-brand-navy text-white border-brand-navy shadow-md"
                     : "bg-white text-slate-700 border-slate-300 hover:border-brand-indigo hover:bg-slate-50"
                 }`}
               >
@@ -307,11 +317,17 @@ export const ItemRevisionComparisonModal = ({
           <div className="ml-auto flex items-center gap-2">
             {diffs.hasChanges ? (
               <span className="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse">
-                ⚡ Differences Detected
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Differences Detected
               </span>
             ) : (
-              <span className="text-xs font-bold px-3 py-1 bg-slate-200 text-slate-600 rounded-full">
-                ✓ Identical Content
+              <span className="text-xs font-bold px-3 py-1 bg-slate-200 text-slate-600 rounded-full flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Identical Content
               </span>
             )}
           </div>
@@ -738,13 +754,16 @@ export const ItemRevisionComparisonModal = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleExportPdf}
-              className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-extrabold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-extrabold text-xs rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
-              <span>📄 Export as PDF</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3 3m0 0l-3-3m3 3V8" />
+              </svg>
+              <span>Export as PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-brand-navy hover:bg-brand-indigo text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+              className="px-6 py-2 bg-brand-navy hover:bg-brand-indigo text-white rounded-lg text-xs font-bold transition-all shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
               Close Comparison
             </button>
@@ -759,7 +778,10 @@ export const ItemRevisionComparisonModal = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-black text-brand-navy flex items-center gap-2">
-                  <span>📄</span> Export Revision History PDF
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3 3m0 0l-3-3m3 3V8" />
+                  </svg>
+                  Export Revision History PDF
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   What revision information would you like to include?
@@ -767,7 +789,8 @@ export const ItemRevisionComparisonModal = ({
               </div>
               <button
                 onClick={() => setShowExportModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-xl leading-none"
+                aria-label="Close export options"
+                className="text-slate-400 hover:text-slate-600 font-bold text-xl leading-none rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 ×
               </button>
@@ -834,14 +857,14 @@ export const ItemRevisionComparisonModal = ({
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
               <button
                 onClick={triggerPdfGeneration}
                 disabled={exporting}
-                className="px-5 py-2 bg-brand-navy hover:bg-brand-indigo text-white font-black text-xs rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
+                className="px-5 py-2 bg-brand-navy hover:bg-brand-indigo text-white font-black text-xs rounded-lg transition-all shadow-md cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
               >
                 {exporting ? "Generating PDF..." : "Export PDF Report"}
               </button>

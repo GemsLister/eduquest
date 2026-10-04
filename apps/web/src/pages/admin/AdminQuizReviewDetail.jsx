@@ -7,6 +7,7 @@ import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 /**
  * F7: Quick-fill revision suggestion templates for per-question feedback.
@@ -302,10 +303,18 @@ export const AdminQuizReviewDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-gray-600 font-semibold">Loading...</p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading submission review">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-8 w-80 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-56 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+          </div>
         </div>
       </div>
     );
@@ -314,11 +323,11 @@ export const AdminQuizReviewDetail = () => {
   if (!submission) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600">Submission not found.</p>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 text-center">
+          <p className="text-rose-700 text-sm font-semibold">Submission not found.</p>
           <button
             onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg"
+            className="mt-4 px-4 py-2 bg-brand-navy hover:bg-brand-indigo text-white rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
           >
             Go Back
           </button>
@@ -350,8 +359,12 @@ export const AdminQuizReviewDetail = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
           onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-          className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
+          aria-label="Back to exam reviews"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
           Back to Reviews
         </button>
         <div className="flex items-center gap-4">
@@ -412,7 +425,7 @@ export const AdminQuizReviewDetail = () => {
                       `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
                     )
                   }
-                  className="px-3 py-1.5 bg-emerald-700/10 hover:bg-emerald-700/20 text-emerald-900 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                  className="px-3 py-1.5 bg-emerald-700/10 hover:bg-emerald-700/20 text-emerald-900 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 >
                   View Latest Version
                 </button>
@@ -440,7 +453,7 @@ export const AdminQuizReviewDetail = () => {
                         `/admin-dashboard/quiz-reviews/${previousInChain.id}`,
                       )
                     }
-                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     View Previous Version
                   </button>
@@ -452,7 +465,7 @@ export const AdminQuizReviewDetail = () => {
                         `/admin-dashboard/quiz-reviews/${latestInChain.id}`,
                       )
                     }
-                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    className="px-3 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-xs font-semibold rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     View Latest Version
                   </button>
@@ -1094,14 +1107,14 @@ export const AdminQuizReviewDetail = () => {
             <button
               onClick={() => handleAction("revision_requested")}
               disabled={actionLoading}
-              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
             >
               Request Revision
             </button>
             <button
               onClick={() => handleAction("approved")}
               disabled={actionLoading}
-              className="px-6 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              className="px-6 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
               Forward to Department Head
             </button>
@@ -1112,33 +1125,37 @@ export const AdminQuizReviewDetail = () => {
       {/* Feedback Modal */}
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-brand-navy mb-4">
               Revision Request Feedback
             </h3>
             <p className="text-sm text-gray-500 mb-4">
               Please provide overall feedback or per-question feedback above to
               help the instructor understand your decision.
             </p>
+            <label htmlFor="review-feedback" className="sr-only">
+              Revision request feedback
+            </label>
             <textarea
+              id="review-feedback"
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Enter your feedback..."
               rows="4"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold mb-4"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all mb-4"
               autoFocus
             />
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowFeedbackModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleAction(pendingAction)}
                 disabled={!hasAnyFeedback() || actionLoading}
-                className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo disabled:opacity-50"
+                className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
               >
                 {actionLoading ? "Submitting..." : "Submit"}
               </button>

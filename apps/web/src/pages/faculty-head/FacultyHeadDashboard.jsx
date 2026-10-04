@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { subjectService } from "../../services/subjectService.js";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const FacultyHeadDashboard = () => {
   const { user } = useAuth();
@@ -142,6 +143,34 @@ export const FacultyHeadDashboard = () => {
 
   const totalPendingActions = pendingApprovals + pendingSubjectRequests;
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading dashboard">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-56 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-64 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <SkeletonTableRow cells={3} />
+            <SkeletonTableRow cells={3} />
+            <SkeletonTableRow cells={3} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Header Banner */}
@@ -172,12 +201,13 @@ export const FacultyHeadDashboard = () => {
       <div className="p-6">
         {/* Summary Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <a
-            href="/faculty-head-dashboard/quiz-approvals"
-            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-md transition-all cursor-pointer group"
+          <button
+            type="button"
+            onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
@@ -196,14 +226,15 @@ export const FacultyHeadDashboard = () => {
                 Action Needed
               </span>
             )}
-          </a>
+          </button>
 
-          <a
-            href="/faculty-head-dashboard/subject-requests"
-            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-md transition-all cursor-pointer group"
+          <button
+            type="button"
+            onClick={() => navigate("/faculty-head-dashboard/subject-requests")}
+            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-brand-navy/10 text-brand-navy flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-brand-navy/10 text-brand-navy flex items-center justify-center shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
@@ -222,7 +253,7 @@ export const FacultyHeadDashboard = () => {
                 Pending Review
               </span>
             )}
-          </a>
+          </button>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -251,7 +282,7 @@ export const FacultyHeadDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center group-hover:bg-brand-navy group-hover:text-white transition-colors">
@@ -275,7 +306,7 @@ export const FacultyHeadDashboard = () => {
 
             <button
               onClick={() => navigate("/faculty-head-dashboard/subject-requests")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-gold/20 flex items-center justify-center group-hover:bg-brand-gold group-hover:text-brand-navy transition-colors">
@@ -307,7 +338,7 @@ export const FacultyHeadDashboard = () => {
             </h2>
             <button
               onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-              className="text-xs font-bold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1 cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <span>View All Submissions</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -317,12 +348,7 @@ export const FacultyHeadDashboard = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center text-xs text-gray-400">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-navy mb-3"></div>
-                <p>Loading recent submissions...</p>
-              </div>
-            ) : recentSubmissions.length === 0 ? (
+            {recentSubmissions.length === 0 ? (
               <div className="text-center py-12 px-4">
                 <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -337,13 +363,14 @@ export const FacultyHeadDashboard = () => {
             ) : (
               <div className="divide-y divide-gray-100">
                 {recentSubmissions.map((sub) => (
-                  <button
-                    key={sub.id}
-                    onClick={() =>
-                      navigate(`/faculty-head-dashboard/quiz-approvals/${sub.id}`)
-                    }
-                    className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors text-left cursor-pointer group"
-                  >
+                    <button
+                      key={sub.id}
+                      onClick={() =>
+                        navigate(`/faculty-head-dashboard/quiz-approvals/${sub.id}`)
+                      }
+                      aria-label={`Review ${sub.quizTitle} by ${sub.instructorName}`}
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors text-left cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
+                    >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 group-hover:text-brand-navy transition-colors truncate">
                         {sub.quizTitle}

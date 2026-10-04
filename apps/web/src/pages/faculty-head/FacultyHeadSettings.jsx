@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const FacultyHeadSettings = () => {
   const { user } = useAuth();
@@ -66,9 +67,26 @@ export const FacultyHeadSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-navy mb-3" />
-        <p className="text-xs text-gray-400 font-semibold">Loading settings...</p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading settings">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-40 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="max-w-3xl space-y-6">
+            <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6 space-y-4">
+              <Skeleton className="h-5 w-48 rounded-md" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+            <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6 space-y-4">
+              <Skeleton className="h-5 w-56 rounded-md" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -93,7 +111,7 @@ export const FacultyHeadSettings = () => {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="self-start sm:self-auto px-5 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-bold rounded-xl text-xs transition-all shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer active:scale-98"
+            className="self-start sm:self-auto px-5 py-2.5 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-bold rounded-lg text-xs transition-all shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -125,28 +143,30 @@ export const FacultyHeadSettings = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                <label htmlFor="settings-reviewer" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                   Reviewed by (Senior Faculty)
                 </label>
                 <input
+                  id="settings-reviewer"
                   type="text"
                   value={reviewerName}
                   onChange={(e) => setReviewerName(e.target.value)}
                   placeholder="e.g. Joan Marie M. Panes"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold outline-none transition-all shadow-2xs"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold outline-none transition-all shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                <label htmlFor="settings-approver" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                   Approved by (Department Head)
                 </label>
                 <input
+                  id="settings-approver"
                   type="text"
                   value={approverName}
                   onChange={(e) => setApproverName(e.target.value)}
                   placeholder="e.g. Dr. Sales G. Aribe Jr."
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold outline-none transition-all shadow-2xs"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold outline-none transition-all shadow-2xs"
                 />
               </div>
             </div>
@@ -172,13 +192,14 @@ export const FacultyHeadSettings = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                <label htmlFor="settings-semester" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                   Semester
                 </label>
                 <select
+                  id="settings-semester"
                   value={semesterOverride}
                   onChange={(e) => setSemesterOverride(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold outline-none transition-all shadow-2xs bg-white"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-xs text-brand-navy focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold outline-none transition-all shadow-2xs bg-white"
                 >
                   <option value="">Auto-detect (Current Academic Calendar)</option>
                   <option value="1st Semester">1st Semester</option>
@@ -188,15 +209,16 @@ export const FacultyHeadSettings = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                <label htmlFor="settings-school-year" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                   School Year
                 </label>
                 <input
+                  id="settings-school-year"
                   type="text"
                   value={schoolYearOverride}
                   onChange={(e) => setSchoolYearOverride(e.target.value)}
                   placeholder="e.g., 2026-2027 (leave blank to auto-detect)"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold outline-none transition-all shadow-2xs"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold outline-none transition-all shadow-2xs"
                 />
               </div>
             </div>
@@ -207,7 +229,7 @@ export const FacultyHeadSettings = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-bold text-xs rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer active:scale-98 flex items-center gap-2"
+              className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-bold text-xs rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

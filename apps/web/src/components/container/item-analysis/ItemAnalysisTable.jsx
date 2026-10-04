@@ -68,8 +68,11 @@ export const ItemAnalysisTable = ({
                           
                           {item.revision_history && item.revision_history.length > 0 && (
                             <div className="mt-1 flex items-center gap-1.5">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
-                                📜 Has Revisions ({item.revision_history.length})
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-brand-indigo/10 text-brand-indigo font-bold uppercase tracking-wider border border-brand-indigo/20 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Has Revisions ({item.revision_history.length})
                               </span>
                               <span className="text-[10px] text-slate-400 italic font-normal">Saved to Question Bank</span>
                             </div>
@@ -125,7 +128,9 @@ export const ItemAnalysisTable = ({
                     <td className="p-3 text-center">
                       <button
                         onClick={() => toggleDetails(item.question_id)}
-                        className={`p-2 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
+                        aria-expanded={expandedQuestion === item.question_id}
+                        aria-label={`${expandedQuestion === item.question_id ? "Hide" : "Inspect"} breakdown for item ${startIndex + index + 1}`}
+                        className={`p-2 rounded-lg border text-xs font-bold transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                           expandedQuestion === item.question_id
                             ? 'bg-brand-navy text-white border-brand-navy shadow-xs'
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -172,7 +177,8 @@ export const ItemAnalysisTable = ({
               <button
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+                aria-label="Previous page"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Previous
               </button>
@@ -188,7 +194,9 @@ export const ItemAnalysisTable = ({
                       <button
                         key={page}
                         onClick={() => handlePageChange(page)}
-                        className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
+                        aria-label={`Go to page ${page}`}
+                        aria-current={currentPage === page ? "page" : undefined}
+                        className={`w-8 h-8 rounded-lg font-bold text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                           currentPage === page
                             ? 'bg-brand-navy text-white shadow-xs'
                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -214,7 +222,8 @@ export const ItemAnalysisTable = ({
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+                aria-label="Next page"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Next
               </button>
@@ -224,65 +233,68 @@ export const ItemAnalysisTable = ({
       </div>
       <div className="lg:w-72 lg:flex-shrink-0 lg:sticky lg:top-4 lg:max-h-[80vh] lg:overflow-y-auto order-1 lg:order-2">
         <div className="bg-slate-50/70 rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <h4 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide text-center border-b border-slate-200 pb-2">
-            📊 Legend
+          <h4 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-center border-b border-slate-200 pb-2 flex items-center justify-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Legend
           </h4>
           <div className="space-y-3 mb-4">
-            <div className="group">
-              <span className="block w-full h-7 bg-green-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">RETAIN</span>
+            <div>
+              <span className="flex items-center justify-center gap-1.5 w-full py-1 rounded-full text-xs font-bold text-green-700 bg-green-50 border border-green-200 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                Retain
+              </span>
               <div className="text-xs text-slate-700 text-center">
-                <strong className="text-green-700">D: 0.40-1.00</strong>
+                <strong className="font-mono text-green-700">D: 0.40-1.00</strong>
                 <br />
                 Good discrimination
               </div>
             </div>
-            <div className="group">
-              <span className="block w-full h-7 bg-orange-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REVISE</span>
+            <div>
+              <span className="flex items-center justify-center gap-1.5 w-full py-1 rounded-full text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Revise
+              </span>
               <div className="text-xs text-slate-700 text-center">
-                <strong className="text-red-700">D: 0.20-0.39</strong>
+                <strong className="font-mono text-amber-700">D: 0.20-0.39</strong>
                 <br />
                 Fair discrimination
               </div>
             </div>
-            <div className="group">
-              <span className="block w-full h-7 bg-red-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">REJECT</span>
+            <div>
+              <span className="flex items-center justify-center gap-1.5 w-full py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                Reject
+              </span>
               <div className="text-xs text-slate-700 text-center">
-                <strong className="text-gray-700">D: 0.00-0.19</strong>
+                <strong className="font-mono text-rose-700">D: 0.00-0.19</strong>
                 <br />
                 Poor discrimination
               </div>
             </div>
-            <div className="group">
-              <span className="block w-full h-6 bg-emerald-500 rounded-lg text-white text-[10px] font-bold text-center py-0.5 mb-1 shadow-sm group-hover:shadow-md transition-all">EXCELLENT</span>
+            <div>
+              <span className="flex items-center justify-center gap-1.5 w-full py-1 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Excellent
+              </span>
               <div className="text-xs text-slate-700 text-center">Discrimination at least 0.40</div>
             </div>
-            <div className="group">
-              <span className="block w-full h-7 bg-amber-500 rounded-lg text-white text-xs font-bold text-center py-1 mb-1 shadow-sm group-hover:shadow-md transition-all">POOR</span>
+            <div>
+              <span className="flex items-center justify-center gap-1.5 w-full py-1 rounded-full text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Poor
+              </span>
               <div className="text-xs text-slate-700 text-center">Discrimination below 0.20</div>
             </div>
-            
+
             <div className="pt-2 border-t border-slate-200 mt-2">
-              {/* <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase tracking-wider border border-amber-200 shadow-sm">
-                  📝 Revision Pending
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 italic mb-2">
-                A draft revision exists. Click to compare and finalize.
-              </p> */}
-
-              {/* <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold uppercase tracking-wider border border-green-200 shadow-sm">
-                  ✓ Item Revised
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 italic mb-2">
-                This item has been finalized with a revision.
-              </p> */}
-
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold uppercase tracking-wider border border-purple-200 shadow-sm">
-                  📜 Has Revisions
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-brand-indigo/10 text-brand-indigo font-bold uppercase tracking-wider border border-brand-indigo/20 shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Has Revisions
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 italic">

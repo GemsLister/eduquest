@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
 import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const FacultyHeadQuizApprovals = () => {
   const { user } = useAuth();
@@ -354,6 +355,34 @@ export const FacultyHeadQuizApprovals = () => {
     { key: "all", label: "All", dotColor: "bg-gray-400" },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quiz approvals">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-52 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-72 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-2/3 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-1/2 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-3/4 rounded-md" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner */}
@@ -381,6 +410,9 @@ export const FacultyHeadQuizApprovals = () => {
         {/* Search + Filter */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">
+            <label htmlFor="approvals-search" className="sr-only">
+              Search by quiz title or instructor
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
@@ -396,16 +428,19 @@ export const FacultyHeadQuizApprovals = () => {
               />
             </svg>
             <input
+              id="approvals-search"
               type="text"
               placeholder="Search by quiz title or instructor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -430,7 +465,8 @@ export const FacultyHeadQuizApprovals = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                aria-pressed={filter === tab.key}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   filter === tab.key
                     ? "bg-white text-gray-800 shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
@@ -453,14 +489,7 @@ export const FacultyHeadQuizApprovals = () => {
         </div>
 
         {/* Submissions List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">Loading submissions...</p>
-            </div>
-          </div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg
@@ -498,12 +527,23 @@ export const FacultyHeadQuizApprovals = () => {
                 return (
                   <div
                     key={submission.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Review ${(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${getInstructorName(submission)}`}
                     onClick={() =>
                       navigate(
                         `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
                       )
                     }
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-brand-gold/30 transition-all p-5 cursor-pointer group"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(
+                          `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
+                        );
+                      }
+                    }}
+                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/30 transition-all p-5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     <div className="flex items-start gap-4">
                       <div
@@ -637,7 +677,7 @@ export const FacultyHeadQuizApprovals = () => {
                           <>
                             <button
                               onClick={(e) => handleExportPdf(e, submission)}
-                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                               title="Export TOS PDF"
                             >
                               <svg
@@ -660,7 +700,7 @@ export const FacultyHeadQuizApprovals = () => {
                               onClick={(e) =>
                                 handleExportQuizPaper(e, submission)
                               }
-                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                               title="Export Quiz Paper"
                             >
                               <svg
@@ -716,7 +756,8 @@ export const FacultyHeadQuizApprovals = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Previous
                   </button>
@@ -730,7 +771,9 @@ export const FacultyHeadQuizApprovals = () => {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors ${
+                          aria-label={`Go to page ${page}`}
+                          aria-current={currentPage === page ? "page" : undefined}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                             currentPage === page
                               ? "bg-brand-navy text-white shadow-xs"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -747,7 +790,8 @@ export const FacultyHeadQuizApprovals = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>

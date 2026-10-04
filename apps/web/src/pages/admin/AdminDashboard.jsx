@@ -7,6 +7,7 @@ import {
   BloomsDistributionChart,
   LotsHotsBar,
 } from "../../components/BloomsVisualization";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const AdminDashboard = () => {
   const { user } = useAuth();
@@ -258,11 +259,36 @@ export const AdminDashboard = () => {
     return `${days}d ago`;
   };
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading dashboard">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-32 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-56 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-xs font-bold uppercase tracking-widest mb-1">
+        <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -292,9 +318,10 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          <a
-            href="/admin-dashboard/quiz-reviews"
-            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4 hover:border-brand-gold/40 hover:shadow-md transition-all cursor-pointer"
+          <button
+            type="button"
+            onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -316,7 +343,7 @@ export const AdminDashboard = () => {
                 </span>
               </div>
             )}
-          </a>
+          </button>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
@@ -483,7 +510,7 @@ export const AdminDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
               onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
@@ -518,7 +545,7 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/registration-requests")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
@@ -553,7 +580,7 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/instructors")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-navy/10 flex items-center justify-center">
@@ -583,7 +610,7 @@ export const AdminDashboard = () => {
 
             <button
               onClick={() => navigate("/admin-dashboard/create-instructor")}
-              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-md transition-all text-left group cursor-pointer"
+              className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-gold/15 flex items-center justify-center">
@@ -603,7 +630,7 @@ export const AdminDashboard = () => {
                   </svg>
                 </div>
               </div>
-              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-gold-dark transition-colors">
+              <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
                 Create Instructor
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -744,15 +771,17 @@ export const AdminDashboard = () => {
               </h2>
               <button
                 onClick={() => navigate("/admin-dashboard/quiz-reviews")}
-                className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors"
+                className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 View All
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
               {recentLoading ? (
-                <div className="p-8 text-center text-sm text-gray-400">
-                  Loading recent submissions...
+                <div aria-label="Loading recent submissions">
+                  <SkeletonTableRow cells={3} />
+                  <SkeletonTableRow cells={3} />
+                  <SkeletonTableRow cells={3} />
                 </div>
               ) : recentSubmissions.length === 0 ? (
                 <div className="text-center py-8">
@@ -788,7 +817,8 @@ export const AdminDashboard = () => {
                       onClick={() =>
                         navigate(`/admin-dashboard/quiz-reviews/${sub.id}`)
                       }
-                      className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
+                      aria-label={`Review ${sub.quizTitle} by ${sub.instructorName}`}
+                      className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">

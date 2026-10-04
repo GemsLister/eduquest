@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRegistrationRequests } from "../../hooks/adminHook/useRegistrationRequests.jsx";
 import { notify } from "../../utils/notify.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const AdminRegistrationRequests = () => {
   const {
@@ -67,11 +68,64 @@ export const AdminRegistrationRequests = () => {
     return "?";
   };
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading registration requests">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-32 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-72 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-56 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+            <div className="flex items-start gap-3.5 mb-4">
+              <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-1/3 rounded-md mb-2" />
+                <Skeleton className="h-3 w-1/2 rounded-md" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 flex-1 rounded-lg" />
+              <Skeleton className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+            <div className="flex items-start gap-3.5 mb-4">
+              <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-1/4 rounded-md mb-2" />
+                <Skeleton className="h-3 w-2/3 rounded-md" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 flex-1 rounded-lg" />
+              <Skeleton className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+            <div className="flex items-start gap-3.5 mb-4">
+              <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-1/3 rounded-md mb-2" />
+                <Skeleton className="h-3 w-1/2 rounded-md" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 flex-1 rounded-lg" />
+              <Skeleton className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+        <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
@@ -93,14 +147,7 @@ export const AdminRegistrationRequests = () => {
       </div>
 
       <div className="p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">Loading requests...</p>
-            </div>
-          </div>
-        ) : requests.length === 0 ? (
+        {requests.length === 0 ? (
           /* Empty State */
           <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-emerald-50 rounded-2xl flex items-center justify-center">
@@ -157,7 +204,8 @@ export const AdminRegistrationRequests = () => {
                 <button
                   onClick={handleApproveAll}
                   disabled={bulkLoading}
-                  className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  aria-label={`Approve all ${requests.length} requests`}
+                  className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   {bulkLoading ? (
                     <>
@@ -221,7 +269,7 @@ export const AdminRegistrationRequests = () => {
                 return (
                   <div
                     key={req.id}
-                    className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                    className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between"
                   >
                     {/* Top row: Avatar + Name + Status */}
                     <div className="flex items-start gap-3.5 mb-4">
@@ -288,7 +336,8 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleApprove(req.id)}
                         disabled={isActioning}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={`Approve ${req.username || req.email}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
                         {isApproving ? (
                           <>
@@ -337,7 +386,8 @@ export const AdminRegistrationRequests = () => {
                       <button
                         onClick={() => handleReject(req.id)}
                         disabled={isActioning}
-                        className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl font-bold text-xs hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs"
+                        aria-label={`Reject ${req.username || req.email}`}
+                        className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg font-bold text-xs hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                       >
                         {isRejecting ? (
                           <>
@@ -385,7 +435,8 @@ export const AdminRegistrationRequests = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Previous
                   </button>
@@ -400,7 +451,9 @@ export const AdminRegistrationRequests = () => {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-xl font-bold text-xs transition-all ${
+                          aria-label={`Go to page ${page}`}
+                          aria-current={currentPage === page ? "page" : undefined}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                             currentPage === page
                               ? "bg-brand-navy text-white shadow-xs"
                               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -417,7 +470,8 @@ export const AdminRegistrationRequests = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(requests.length / PAGE_SIZE), prev + 1))}
                     disabled={currentPage === Math.ceil(requests.length / PAGE_SIZE)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>

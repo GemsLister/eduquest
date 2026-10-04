@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const FacultyHeadAuditTrail = () => {
   const [auditLogs, setAuditLogs] = useState([]);
@@ -151,6 +152,31 @@ export const FacultyHeadAuditTrail = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading audit trail">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-72 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Header Banner consistent with Department Head navigation */}
@@ -169,10 +195,12 @@ export const FacultyHeadAuditTrail = () => {
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/20 self-start sm:self-auto backdrop-blur-xs">
+          <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/20 self-start sm:self-auto backdrop-blur-xs" role="tablist" aria-label="Audit trail view">
             <button
+              role="tab"
+              aria-selected={viewMode === "table"}
               onClick={() => setViewMode("table")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
                 viewMode === "table"
                   ? "bg-brand-gold text-brand-navy shadow-xs"
                   : "text-white/80 hover:text-white"
@@ -181,8 +209,10 @@ export const FacultyHeadAuditTrail = () => {
               Table View
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === "timeline"}
               onClick={() => setViewMode("timeline")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
                 viewMode === "timeline"
                   ? "bg-brand-gold text-brand-navy shadow-xs"
                   : "text-white/80 hover:text-white"
@@ -199,7 +229,7 @@ export const FacultyHeadAuditTrail = () => {
           {/* Filters & Search Bar */}
           <div className="p-5 bg-slate-50/60 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              <label htmlFor="audit-search" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                 Search Audit Trail
               </label>
               <div className="relative">
@@ -214,16 +244,19 @@ export const FacultyHeadAuditTrail = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
+                  id="audit-search"
                   type="text"
                   placeholder="Search quiz, user, action, details..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 text-xs shadow-2xs"
+                  className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
                 />
                 {searchTerm && (
                   <button
+                    type="button"
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-sm"
+                    aria-label="Clear search"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-sm rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     ×
                   </button>
@@ -232,13 +265,14 @@ export const FacultyHeadAuditTrail = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              <label htmlFor="audit-action" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                 Filter by Action
               </label>
               <select
+                id="audit-action"
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 bg-white text-xs shadow-2xs"
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold bg-white shadow-2xs transition-all"
               >
                 <option value="all">All Actions</option>
                 <option value="QUIZ_APPROVED">Quiz Approved</option>
@@ -254,13 +288,14 @@ export const FacultyHeadAuditTrail = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              <label htmlFor="audit-table" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                 Filter by Table
               </label>
               <select
+                id="audit-table"
                 value={filterTable}
                 onChange={(e) => setFilterTable(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold/50 bg-white text-xs shadow-2xs"
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold bg-white shadow-2xs transition-all"
               >
                 <option value="all">All Tables</option>
                 <option value="quizzes">Quizzes</option>
@@ -273,12 +308,7 @@ export const FacultyHeadAuditTrail = () => {
 
           {/* Main Content */}
           <div className="p-0">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-navy mb-3"></div>
-                <p className="text-xs text-gray-400 font-semibold">Loading audit logs...</p>
-              </div>
-            ) : viewMode === "table" ? (
+            {viewMode === "table" ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 text-slate-600 uppercase font-bold tracking-wider border-b border-gray-200 text-[11px]">
@@ -435,7 +465,8 @@ export const FacultyHeadAuditTrail = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer"
+                      aria-label="Previous page"
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       Previous
                     </button>
@@ -449,7 +480,9 @@ export const FacultyHeadAuditTrail = () => {
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
+                            aria-label={`Go to page ${page}`}
+                            aria-current={currentPage === page ? "page" : undefined}
+                            className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                               currentPage === page
                                 ? "bg-brand-navy text-white shadow-xs"
                                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -470,7 +503,8 @@ export const FacultyHeadAuditTrail = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer"
+                      aria-label="Next page"
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                     >
                       Next
                     </button>

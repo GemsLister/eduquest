@@ -117,10 +117,10 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
               </div>
             </div>
 
-            <button
-              onClick={handleCreateAnother}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-gold text-brand-navy rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs"
-            >
+              <button
+                onClick={handleCreateAnother}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-brand-gold text-brand-navy rounded-lg font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -167,7 +167,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
             {/* Name row */}
             <div className="flex gap-3 mb-3">
               <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label htmlFor="create-first-name" className="block text-sm font-semibold text-gray-700 mb-1">
                   First Name
                 </label>
                 <div className="relative">
@@ -186,17 +186,18 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                     />
                   </svg>
                   <input
+                    id="create-first-name"
                     type="text"
                     name="firstName"
                     value={form.firstName}
                     onChange={handleChange}
                     placeholder="e.g. Juan"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs transition-all"
                   />
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label htmlFor="create-last-name" className="block text-sm font-semibold text-gray-700 mb-1">
                   Last Name
                 </label>
                 <div className="relative">
@@ -215,12 +216,13 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                     />
                   </svg>
                   <input
+                    id="create-last-name"
                     type="text"
                     name="lastName"
                     value={form.lastName}
                     onChange={handleChange}
                     placeholder="e.g. dela Cruz"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs transition-all"
                   />
                 </div>
               </div>
@@ -228,7 +230,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
 
             {/* Username */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label htmlFor="create-username" className="block text-sm font-semibold text-gray-700 mb-1">
                 Username
               </label>
               <div className="relative">
@@ -247,13 +249,14 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   />
                 </svg>
                 <input
+                  id="create-username"
                   type="text"
                   name="username"
                   value={form.username}
                   onChange={handleChange}
                   placeholder="e.g. jdelacruz"
                   autoComplete="off"
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -270,7 +273,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
 
             {/* Email */}
             <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label htmlFor="create-email" className="block text-sm font-semibold text-gray-700 mb-1">
                 Email <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -289,6 +292,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   />
                 </svg>
                 <input
+                  id="create-email"
                   type="email"
                   name="email"
                   value={form.email}
@@ -296,14 +300,14 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   placeholder="instructor@school.edu.ph"
                   required
                   autoComplete="off"
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs transition-all"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label htmlFor="create-password" className="block text-sm font-semibold text-gray-700 mb-1">
                 Password <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -322,6 +326,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   />
                 </svg>
                 <input
+                  id="create-password"
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={form.password}
@@ -330,12 +335,13 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="w-full pl-10 pr-16 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 shadow-2xs"
+                  className="w-full pl-10 pr-16 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -376,7 +382,7 @@ export const CreateInstructorForm = ({ onSubmit, loading, error, success }) => {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-gold text-brand-navy px-6 py-3 rounded-xl font-bold hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-gold text-brand-navy px-6 py-3 rounded-lg font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             {loading ? (
               <>

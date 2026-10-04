@@ -7,6 +7,7 @@ import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
+import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
 
@@ -317,10 +318,18 @@ export const FacultyHeadApprovalDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-gray-600 font-semibold">Loading...</p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading approval review">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-8 w-80 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-56 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+            <SkeletonTableRow cells={4} />
+          </div>
         </div>
       </div>
     );
@@ -329,11 +338,11 @@ export const FacultyHeadApprovalDetail = () => {
   if (!submission) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600">Submission not found.</p>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 text-center">
+          <p className="text-rose-700 text-sm font-semibold">Submission not found.</p>
           <button
             onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg"
+            className="mt-4 px-4 py-2 bg-brand-navy hover:bg-brand-indigo text-white rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
           >
             Go Back
           </button>
@@ -365,8 +374,12 @@ export const FacultyHeadApprovalDetail = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
           onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-          className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
+          aria-label="Back to quiz approvals"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
           Back to Approvals
         </button>
         <div className="flex items-center gap-4">
@@ -707,7 +720,7 @@ export const FacultyHeadApprovalDetail = () => {
             <button
               onClick={() => setShowRevisionModal(true)}
               disabled={actionLoading}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -718,7 +731,7 @@ export const FacultyHeadApprovalDetail = () => {
             <button
               onClick={handleApprove}
               disabled={actionLoading}
-              className="px-8 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md"
+              className="px-8 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
               {actionLoading ? (
                 <>
@@ -761,36 +774,38 @@ export const FacultyHeadApprovalDetail = () => {
                 </h3>
                 <button
                   onClick={() => setShowRevisionModal(false)}
-                  className="text-gray-400 hover:text-gray-600 font-bold"
+                  aria-label="Close revision request"
+                  className="text-gray-400 hover:text-gray-600 font-bold rounded-lg p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   ✕
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                <label htmlFor="approval-feedback" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
                   Feedback & Required Revisions for Instructor
                 </label>
                 <textarea
+                  id="approval-feedback"
                   rows={4}
                   value={feedbackInput}
                   onChange={(e) => setFeedbackInput(e.target.value)}
                   placeholder="Specify question edits, Bloom's level updates, or items that require modification..."
-                  className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setShowRevisionModal(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleRequestRevision}
                   disabled={actionLoading}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                 >
                   {actionLoading ? "Submitting..." : "Send Revision Request"}
                 </button>

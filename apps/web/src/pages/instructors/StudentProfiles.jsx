@@ -762,6 +762,31 @@ export const StudentProfiles = () => {
     return { strong, average, weak };
   }, [filteredResults]);
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white min-h-screen" aria-label="Loading student profiles">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 shadow-xs border-b border-white/10 mb-6">
+          <div className="max-w-7xl mx-auto">
+            <Skeleton tone="bg-white/20" className="h-4 w-44 rounded-md mb-2" />
+            <Skeleton tone="bg-white/20" className="h-8 w-56 max-w-full rounded-md mb-2" />
+            <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 pb-8 space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
+            <Skeleton className="h-11 w-96 max-w-full rounded-lg" />
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto bg-authentic-white min-h-screen">
       {/* Signature Top Hero Banner */}
@@ -908,16 +933,6 @@ export const StudentProfiles = () => {
               <p className="font-bold text-sm">Error</p>
               <p className="text-xs">{error}</p>
             </div>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden" aria-label="Loading student records">
-            <SkeletonTableRow cells={5} />
-            <SkeletonTableRow cells={5} />
-            <SkeletonTableRow cells={5} />
-            <SkeletonTableRow cells={5} />
           </div>
         )}
 

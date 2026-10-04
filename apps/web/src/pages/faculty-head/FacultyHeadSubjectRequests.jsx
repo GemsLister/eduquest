@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { notify } from "../../utils/notify.jsx";
 import { subjectService } from "../../services/subjectService.js";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const FacultyHeadSubjectRequests = () => {
   const { user } = useAuth();
@@ -262,6 +263,39 @@ export const FacultyHeadSubjectRequests = () => {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading subject requests">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-72 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+            <div className="p-5 border-b border-gray-100">
+              <Skeleton className="h-5 w-1/3 rounded-md mb-2" />
+              <Skeleton className="h-3 w-2/3 rounded-md" />
+            </div>
+            <div className="p-5 border-b border-gray-100">
+              <Skeleton className="h-5 w-1/4 rounded-md mb-2" />
+              <Skeleton className="h-3 w-1/2 rounded-md" />
+            </div>
+            <div className="p-5">
+              <Skeleton className="h-5 w-1/3 rounded-md mb-2" />
+              <Skeleton className="h-3 w-3/4 rounded-md" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner with consistent Department Head theme */}
@@ -289,7 +323,7 @@ export const FacultyHeadSubjectRequests = () => {
 
           <button
             onClick={() => setShowCreateForm(true)}
-            className="self-start sm:self-auto px-4 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy font-bold rounded-xl text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer active:scale-98"
+            className="self-start sm:self-auto px-4 py-2.5 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-bold rounded-lg text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -366,7 +400,8 @@ export const FacultyHeadSubjectRequests = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
+                aria-pressed={filter === tab.key}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   filter === tab.key
                     ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                     : "bg-white text-slate-700 border-slate-200 hover:border-brand-navy hover:text-brand-navy shadow-2xs"
@@ -391,6 +426,9 @@ export const FacultyHeadSubjectRequests = () => {
 
           {/* Search Input */}
           <div className="relative flex-1 max-w-sm">
+            <label htmlFor="subject-req-search" className="sr-only">
+              Search by name, code, requester
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -402,16 +440,19 @@ export const FacultyHeadSubjectRequests = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
+              id="subject-req-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, code, requester..."
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-gold/50 shadow-xs"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-xs transition-all"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-sm"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-sm rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 ×
               </button>
@@ -429,7 +470,8 @@ export const FacultyHeadSubjectRequests = () => {
               </div>
               <button
                 onClick={() => setShowCreateForm(false)}
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1"
+                aria-label="Close create subject form"
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 ×
               </button>
@@ -438,48 +480,51 @@ export const FacultyHeadSubjectRequests = () => {
             <form onSubmit={handleDirectCreate} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label htmlFor="direct-subject-name" className="block text-xs font-bold text-gray-700 mb-1">
                     Subject Name *
                   </label>
                   <input
+                    id="direct-subject-name"
                     type="text"
                     value={newSubject.subject_name}
                     onChange={(e) =>
                       setNewSubject({ ...newSubject, subject_name: e.target.value })
                     }
                     placeholder="e.g., Database Management"
-                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold text-xs"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                     disabled={creatingSubject}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label htmlFor="direct-subject-code" className="block text-xs font-bold text-gray-700 mb-1">
                     Subject Code
                   </label>
                   <input
+                    id="direct-subject-code"
                     type="text"
                     value={newSubject.subject_code}
                     onChange={(e) =>
                       setNewSubject({ ...newSubject, subject_code: e.target.value })
                     }
                     placeholder="e.g., CS301"
-                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold text-xs"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                     disabled={creatingSubject}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="direct-grade-level" className="block text-xs font-bold text-gray-700 mb-1">
                   Grade Level *
                 </label>
                 <select
+                  id="direct-grade-level"
                   value={newSubject.grade_level}
                   onChange={(e) =>
                     setNewSubject({ ...newSubject, grade_level: e.target.value })
                   }
-                  className="w-full px-3.5 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold text-xs"
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                   disabled={creatingSubject}
                 >
                   {gradeLevels.map((level) => (
@@ -491,17 +536,18 @@ export const FacultyHeadSubjectRequests = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="direct-subject-description" className="block text-xs font-bold text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
+                  id="direct-subject-description"
                   value={newSubject.description}
                   onChange={(e) =>
                     setNewSubject({ ...newSubject, description: e.target.value })
                   }
                   placeholder="Brief description of the subject..."
                   rows="3"
-                  className="w-full px-3.5 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-gold text-xs resize-none"
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none transition-all"
                   disabled={creatingSubject}
                 />
               </div>
@@ -511,14 +557,14 @@ export const FacultyHeadSubjectRequests = () => {
                   type="button"
                   onClick={() => setShowCreateForm(false)}
                   disabled={creatingSubject}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creatingSubject}
-                  className="px-5 py-2 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
+                  className="px-5 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   {creatingSubject ? "Creating..." : "Create Subject"}
                 </button>
@@ -529,12 +575,7 @@ export const FacultyHeadSubjectRequests = () => {
 
         {/* Requests List */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
-          {loading ? (
-            <div className="p-12 text-center text-xs font-semibold text-gray-400">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-navy mb-3"></div>
-              <p>Loading subject requests...</p>
-            </div>
-          ) : filteredRequests.length === 0 ? (
+          {filteredRequests.length === 0 ? (
             <div className="p-12 text-center text-sm text-gray-400">
               No subject requests found in this view.
             </div>
@@ -611,7 +652,8 @@ export const FacultyHeadSubjectRequests = () => {
                       <button
                         onClick={() => handleApprove(request.id)}
                         disabled={processingId === request.id}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer active:scale-98"
+                        aria-label={`Approve ${request.subject_name}`}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -621,7 +663,8 @@ export const FacultyHeadSubjectRequests = () => {
                       <button
                         onClick={() => openRejectModal(request)}
                         disabled={processingId === request.id}
-                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer active:scale-98"
+                        aria-label={`Reject ${request.subject_name}`}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -648,7 +691,8 @@ export const FacultyHeadSubjectRequests = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Previous
                   </button>
@@ -662,7 +706,9 @@ export const FacultyHeadSubjectRequests = () => {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
+                          aria-label={`Go to page ${page}`}
+                          aria-current={currentPage === page ? "page" : undefined}
+                          className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                             currentPage === page
                               ? "bg-brand-navy text-white shadow-xs"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -679,7 +725,8 @@ export const FacultyHeadSubjectRequests = () => {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>
@@ -708,12 +755,16 @@ export const FacultyHeadSubjectRequests = () => {
             <p className="text-xs text-gray-600 mb-3 leading-relaxed">
               Please provide a clear reason for rejection. This feedback will be sent directly to the requesting instructor.
             </p>
+            <label htmlFor="reject-reason" className="sr-only">
+              Reason for rejection
+            </label>
             <textarea
+              id="reject-reason"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="e.g., A similar curriculum subject is already active..."
               rows={3}
-              className="w-full p-3 border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none mb-4"
+              className="w-full p-3 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-200 resize-none mb-4 transition-all"
               autoFocus
             />
             <div className="flex justify-end gap-2">
@@ -722,14 +773,14 @@ export const FacultyHeadSubjectRequests = () => {
                   setRejectModalTarget(null);
                   setRejectReason("");
                 }}
-                className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmReject}
                 disabled={!rejectReason.trim() || processingId === rejectModalTarget.id}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
               >
                 {processingId === rejectModalTarget.id ? "Rejecting..." : "Confirm Rejection"}
               </button>

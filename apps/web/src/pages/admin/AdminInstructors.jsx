@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
 import { InstructorTable } from "../../components/admin/InstructorTable.jsx";
 import { notify } from "../../utils/notify.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const AdminInstructors = () => {
   const { instructors, loading, error, statusLoading, toggleInstructorStatus } =
@@ -75,11 +76,31 @@ export const AdminInstructors = () => {
     { key: "disabled", label: "Disabled", count: disabledCount },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading instructors">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-32 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-60 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-48 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Page Header */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+        <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
@@ -96,6 +117,9 @@ export const AdminInstructors = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           {/* Search */}
           <div className="relative flex-1">
+            <label htmlFor="instructors-search" className="sr-only">
+              Search by name, email, or username
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
@@ -111,16 +135,19 @@ export const AdminInstructors = () => {
               />
             </svg>
             <input
+              id="instructors-search"
               type="text"
               placeholder="Search by name, email, or username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all shadow-xs"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all shadow-xs"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -146,7 +173,8 @@ export const AdminInstructors = () => {
               <button
                 key={f.key}
                 onClick={() => setStatusFilter(f.key)}
-                className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border ${
+                aria-pressed={statusFilter === f.key}
+                className={`px-4 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   statusFilter === f.key
                     ? "bg-brand-navy text-white border-brand-navy shadow-xs"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs"
@@ -167,14 +195,7 @@ export const AdminInstructors = () => {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">Loading instructors...</p>
-            </div>
-          </div>
-        ) : filtered.length > 0 ? (
+        {filtered.length > 0 ? (
           <InstructorTable
             instructors={paginated}
             statusLoading={statusLoading}
@@ -222,7 +243,8 @@ export const AdminInstructors = () => {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                aria-label="Previous page"
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Prev
               </button>
@@ -231,7 +253,9 @@ export const AdminInstructors = () => {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    aria-label={`Go to page ${page}`}
+                    aria-current={page === currentPage ? "page" : undefined}
+                    className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                       page === currentPage
                         ? "bg-brand-navy text-white shadow-xs"
                         : "border border-slate-200 hover:bg-slate-50 text-slate-600"
@@ -246,7 +270,8 @@ export const AdminInstructors = () => {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                aria-label="Next page"
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Next
               </button>

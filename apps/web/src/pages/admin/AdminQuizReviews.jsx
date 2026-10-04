@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const AdminQuizReviews = () => {
   const navigate = useNavigate();
@@ -304,11 +305,39 @@ export const AdminQuizReviews = () => {
     },
   };
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading submissions">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-32 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-64 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-2/3 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-1/2 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-3/4 rounded-md" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
-        <p className="text-brand-gold text-xs font-bold tracking-widest uppercase mb-1">
+        <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
@@ -332,6 +361,9 @@ export const AdminQuizReviews = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           {/* Search */}
           <div className="relative flex-1">
+            <label htmlFor="reviews-search" className="sr-only">
+              Search by quiz title or instructor
+            </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
@@ -347,16 +379,19 @@ export const AdminQuizReviews = () => {
               />
             </svg>
             <input
+              id="reviews-search"
               type="text"
               placeholder="Search by quiz title or instructor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/40 focus:border-brand-gold shadow-2xs"
+              className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -382,7 +417,8 @@ export const AdminQuizReviews = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                aria-pressed={filter === tab.key}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   filter === tab.key
                     ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -405,14 +441,7 @@ export const AdminQuizReviews = () => {
         </div>
 
         {/* Submissions List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">Loading submissions...</p>
-            </div>
-          </div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg
@@ -452,12 +481,14 @@ export const AdminQuizReviews = () => {
                 const instructorName = getInstructorName(submission);
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={submission.id}
                     onClick={() =>
                       navigate(`/admin-dashboard/quiz-reviews/${submission.id}`)
                     }
-                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md hover:border-brand-gold/40 transition-all p-5 cursor-pointer group"
+                    aria-label={`Review ${(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${instructorName}`}
+                    className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/40 transition-all p-5 cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
@@ -709,7 +740,7 @@ export const AdminQuizReviews = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -726,7 +757,8 @@ export const AdminQuizReviews = () => {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                    aria-label="Previous page"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Prev
                   </button>
@@ -735,7 +767,9 @@ export const AdminQuizReviews = () => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`w-8 h-8 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                        aria-label={`Go to page ${page}`}
+                        aria-current={currentPage === page ? "page" : undefined}
+                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                           currentPage === page
                             ? "bg-brand-navy text-white shadow-xs"
                             : "border border-slate-200 hover:bg-slate-50 text-slate-600"
@@ -750,7 +784,8 @@ export const AdminQuizReviews = () => {
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                    aria-label="Next page"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Next
                   </button>

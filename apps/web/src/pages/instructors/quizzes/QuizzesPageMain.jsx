@@ -178,6 +178,32 @@ export const QuizzesPageMain = () => {
 
   const isAdminPath = location.pathname.startsWith("/admin-dashboard");
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quizzes">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-48 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6">
+          <div className="mb-6 flex flex-col sm:flex-row gap-3">
+            <Skeleton className="h-11 flex-1 max-w-md rounded-lg" />
+            <Skeleton className="h-11 w-64 rounded-lg" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner */}
@@ -291,16 +317,7 @@ export const QuizzesPageMain = () => {
 
         {/* Quiz Grid */}
         <div>
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" aria-label="Loading quizzes">
-              <Skeleton className="h-64 w-full rounded-2xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-            </div>
-          ) : filteredQuizzes.length === 0 ? (
+          {filteredQuizzes.length === 0 ? (
             (() => {
               const empty = getEmptyState();
               return (

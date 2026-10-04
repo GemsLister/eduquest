@@ -158,7 +158,7 @@ export const InstructorTable = ({
           return (
             <div
               key={instructor.id}
-              className={`relative bg-white rounded-2xl border shadow-xs transition-all hover:shadow-md ${
+              className={`relative bg-white rounded-2xl border shadow-xs transition-all hover:shadow-lg hover:-translate-y-0.5 ${
                 isDisabled
                   ? "border-amber-200 bg-amber-50/30"
                   : "border-gray-200"
@@ -181,7 +181,9 @@ export const InstructorTable = ({
                       openMenuId === instructor.id ? null : instructor.id,
                     )
                   }
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                  aria-expanded={openMenuId === instructor.id}
+                  aria-label={`Options for ${fullName}`}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -208,7 +210,7 @@ export const InstructorTable = ({
                     <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[180px]">
                       <button
                         onClick={() => handleChangePwdOpen(instructor)}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -229,7 +231,7 @@ export const InstructorTable = ({
                       <button
                         onClick={() => handleToggleClick(instructor)}
                         disabled={statusLoading === instructor.id}
-                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors disabled:opacity-50 ${
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60 ${
                           isDisabled
                             ? "text-green-600 hover:bg-green-50"
                             : "text-amber-600 hover:bg-amber-50"
@@ -400,17 +402,22 @@ export const InstructorTable = ({
               .
             </p>
             <div className="relative mb-5">
+              <label htmlFor="change-password-input" className="sr-only">
+                New password
+              </label>
               <input
+                id="change-password-input"
                 type={showNewPassword ? "text" : "password"}
                 placeholder="New password (min. 6 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold shadow-2xs"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 pr-16 text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors cursor-pointer"
+                aria-label={showNewPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 {showNewPassword ? "Hide" : "Show"}
               </button>
@@ -418,14 +425,14 @@ export const InstructorTable = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setChangePwdTarget(null)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-50 transition-all shadow-2xs cursor-pointer"
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-bold text-xs hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel
               </button>
               <button
                 onClick={handleChangePwdSubmit}
                 disabled={pwdLoading}
-                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-xl font-bold text-xs hover:bg-brand-gold-dark transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 {pwdLoading ? "Saving..." : "Save Password"}
               </button>

@@ -650,6 +650,30 @@ export const MySubmissions = () => {
     };
   }, [submissions]);
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading submissions">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-40 rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-8 w-72 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-80 max-w-full rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-2/3 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+            <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+            <Skeleton className="h-3 w-full rounded-md mb-2" />
+            <Skeleton className="h-3 w-1/2 rounded-md" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hero Banner with Main Tabs */}
@@ -764,20 +788,7 @@ export const MySubmissions = () => {
             </div>
 
         {/* Submissions List */}
-        {loading ? (
-          <div className="space-y-4" aria-label="Loading submissions">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
-              <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
-              <Skeleton className="h-3 w-full rounded-md mb-2" />
-              <Skeleton className="h-3 w-2/3 rounded-md" />
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
-              <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
-              <Skeleton className="h-3 w-full rounded-md mb-2" />
-              <Skeleton className="h-3 w-1/2 rounded-md" />
-            </div>
-          </div>
-        ) : submissions.length === 0 ? (
+        {submissions.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-gray-200">
             <div className="w-16 h-16 mx-auto mb-4 bg-brand-navy/10 rounded-2xl flex items-center justify-center">
               <svg

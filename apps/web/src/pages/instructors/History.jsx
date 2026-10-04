@@ -85,6 +85,30 @@ export const History = () => {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedQuizzes = filteredQuizzes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-auto bg-authentic-white min-h-screen" aria-label="Loading activity history">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8 shadow-xs border-b border-white/10 mb-6">
+          <div className="max-w-7xl mx-auto">
+            <Skeleton tone="bg-white/20" className="h-4 w-44 rounded-md mb-2" />
+            <Skeleton tone="bg-white/20" className="h-8 w-72 max-w-full rounded-md mb-2" />
+            <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 pb-8 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+            <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
+            <Skeleton className="h-3 w-2/3 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+            <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
+            <Skeleton className="h-3 w-1/2 rounded-md" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto bg-authentic-white min-h-screen">
       {/* Signature Top Hero Banner */}
@@ -191,18 +215,7 @@ export const History = () => {
             </div>
 
             {/* Quiz List */}
-            {loading ? (
-              <div className="space-y-4" aria-label="Loading examination history">
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
-                  <Skeleton className="h-5 w-1/3 rounded-md mb-3" />
-                  <Skeleton className="h-3 w-2/3 rounded-md" />
-                </div>
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
-                  <Skeleton className="h-5 w-1/4 rounded-md mb-3" />
-                  <Skeleton className="h-3 w-1/2 rounded-md" />
-                </div>
-              </div>
-            ) : filteredQuizzes.length === 0 ? (
+            {filteredQuizzes.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-8 text-center">
                 <p className="text-slate-500 font-medium text-sm">No examinations found</p>
               </div>
