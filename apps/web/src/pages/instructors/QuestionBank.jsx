@@ -20,6 +20,9 @@ export const QuestionBank = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [editQuestionForm, setEditQuestionForm] = useState(null);
+  const [savingQuestionEdit, setSavingQuestionEdit] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [importing, setImporting] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
@@ -65,6 +68,7 @@ export const QuestionBank = () => {
     deleteQuestion,
     addToBank,
     addBulkToBank,
+    hasDuplicateQuestionText,
     fetchQuestions,
   } = useQuestionBank();
 
@@ -660,6 +664,135 @@ export const QuestionBank = () => {
     setShowReuseModal(true);
   };
 
+  const handleOpenEditQuestion = (question) => {
+    const options = Array.isArray(question.options)
+      ? question.options.map((option) => String(option ?? ""))
+      : [];
+    const correctAnswerIndex = options.findIndex(
+      (option, index) =>
+        option === String(question.correct_answer ?? "") ||
+        String(index) === String(question.correct_answer ?? "")
+    );
+
+    setEditingQuestion(question);
+    setEditQuestionForm({
+      text: question.text || "",
+      options: options.length > 0 ? options : ["", ""],
+      correctAnswerIndex: correctAnswerIndex >= 0 ? correctAnswerIndex : 0,
+      answer: String(question.correct_answer ?? ""),
+      points: question.points || 1,
+      visibility: getQuestionVisibility(question),
+    });
+  };
+
+  const handleSaveQuestionEdit = async (event) => {
+    event.preventDefault();
+    if (!editingQuestion || !editQuestionForm) return;
+
+    const questionType = editingQuestion.type || "mcq";
+    const questionText = editQuestionForm.text.trim();
+    if (!questionText) {
+      notify.warning("Question text is required.");
+      return;
+    }
+
+    let options = null;
+    let correctAnswer = editQuestionForm.answer.trim();
+    if (questionType === "mcq") {
+      const selectedAnswer = editQuestionForm.options[editQuestionForm.correctAnswerIndex]?.trim();
+      options = editQuestionForm.options.map((option) => option.trim()).filter(Boolean);
+      if (options.length < 2 || !selectedAnswer) {
+        notify.warning("Enter at least two options and select the correct answer.");
+        return;
+      }
+      correctAnswer = selectedAnswer;
+    } else if (questionType === "true_false") {
+      correctAnswer = editQuestionForm.answer;
+    }
+
+    setSavingQuestionEdit(true);
+    try {
+      const { data: quizLinks, error: quizLinksError } = await supabase
+        .from("quiz_questions")
+        .select("quiz_id")
+        .eq("question_id", editingQuestion.id);
+
+      if (quizLinksError) throw quizLinksError;
+
+      const createBankCopy =
+        Boolean(editingQuestion.quiz_id) ||
+        editingQuestion.is_own === false ||
+        (quizLinks || []).length > 0;
+      const questionTextChanged = questionText !== String(editingQuestion.text ?? "").trim();
+      if (
+        (createBankCopy || questionTextChanged) &&
+        await hasDuplicateQuestionText([questionText], [editingQuestion.id])
+      ) {
+        notify.error("This question already exists in the Question Bank.");
+        return;
+      }
+
+      const updates = {
+        text: questionText,
+        type: questionType,
+        options,
+        correct_answer: correctAnswer,
+        points: Math.max(1, Number(editQuestionForm.points) || 1),
+        blooms_level: editQuestionForm.visibility,
+        updated_at: new Date().toISOString(),
+      };
+      let sourceReferenceSaved = true;
+
+      if (createBankCopy) {
+        const bankCopyPayload = {
+          ...updates,
+          quiz_id: null,
+          instructor_id: user?.id || null,
+          subject_id:
+            editingQuestion.subject_id ||
+            editingQuestion.quizzes?.subject_id ||
+            editingQuestion.sections?.subject_id ||
+            null,
+          is_archived: Boolean(editingQuestion.is_archived),
+          source_question_id: editingQuestion.id,
+        };
+        let { error } = await supabase.from("questions").insert(bankCopyPayload);
+        const errorMessage = (error?.message || "").toLowerCase();
+        if (error && errorMessage.includes("source_question_id")) {
+          const fallbackPayload = { ...bankCopyPayload };
+          delete fallbackPayload.source_question_id;
+          const retry = await supabase.from("questions").insert(fallbackPayload);
+          error = retry.error;
+          sourceReferenceSaved = false;
+        }
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("questions")
+          .update(updates)
+          .eq("id", editingQuestion.id);
+        if (error) throw error;
+      }
+
+      setEditingQuestion(null);
+      setEditQuestionForm(null);
+      if (createBankCopy) setBulkSelected(new Set());
+      await fetchQuestions();
+      notify.success(
+        createBankCopy && !sourceReferenceSaved
+          ? "Saved as a separate Question Bank version. Apply the source-question migration to record its link to the original."
+          : createBankCopy
+          ? "Saved as a separate Question Bank version. Existing quiz copies were not changed."
+          : "Question Bank question updated."
+      );
+    } catch (error) {
+      console.error("Error editing Question Bank question:", error);
+      notify.error("Failed to save question: " + error.message);
+    } finally {
+      setSavingQuestionEdit(false);
+    }
+  };
+
   // Open Add Question Form with Step 1 (Question Count Selector)
   const handleOpenAddForm = () => {
     setQuestionCountInput(1);
@@ -882,6 +1015,7 @@ export const QuestionBank = () => {
           options: q.options,
           correct_answer: q.correct_answer,
           points: q.points,
+          source_question_id: q.id,
           auto_answer: true, // Auto-answer flag for imported questions
         };
         let { error } = await supabase.from("questions").insert(payload);
@@ -1413,8 +1547,8 @@ export const QuestionBank = () => {
           </label>
           <button
             onClick={handleExportJSON}
-            disabled={importProcessing}
-            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+            disabled={importProcessing || bulkSelected.size === 0}
+            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold enabled:hover:bg-brand-navy enabled:hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1423,8 +1557,8 @@ export const QuestionBank = () => {
           </button>
           <button
             onClick={handleExportCSV}
-            disabled={importProcessing}
-            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold hover:bg-brand-navy hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+            disabled={importProcessing || bulkSelected.size === 0}
+            className="bg-white text-brand-navy border-2 border-brand-navy px-4 py-3 rounded-lg font-semibold enabled:hover:bg-brand-navy enabled:hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2100,32 +2234,50 @@ export const QuestionBank = () => {
                       <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
                         📖 {question.subject_name || question.subjects?.name || question.quizzes?.subjects?.name || "Unassigned Subject"}
                       </span>
-                      {activeTab === "active" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenReuseModal(question);
-                          }}
-                          className="ml-auto px-3 py-1 bg-brand-gold text-brand-navy hover:bg-brand-gold-dark text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                          title="Reuse this question in a quiz"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2.5}
+                      {activeTab !== "import" && (
+                        <div className="ml-auto flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditQuestion(question);
+                            }}
+                            className="px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-100 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                            title="Edit Question Bank version"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            />
-                          </svg>
-                          <span>Reuse</span>
-                        </button>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.651-1.651a2.121 2.121 0 013 3l-1.651 1.651M16.862 4.487L7.5 13.85l-1 4 4-1 9.362-9.363m-3-3L19.5 6.5M19 14v5a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h5" />
+                            </svg>
+                            <span>Edit</span>
+                          </button>
+                          {activeTab === "active" && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenReuseModal(question);
+                              }}
+                              className="px-3 py-1 bg-brand-gold text-brand-navy hover:bg-brand-gold-dark text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              title="Reuse this question in a quiz"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                              <span>Reuse</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                       {question.quizzes?.title && (
                         <span className="text-xs text-gray-500 italic">
@@ -2852,6 +3004,224 @@ export const QuestionBank = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {editingQuestion && editQuestionForm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <form
+            onSubmit={handleSaveQuestionEdit}
+            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between bg-brand-navy px-6 py-4 text-white">
+              <div>
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold">
+                  Question Bank
+                </span>
+                <h3 className="text-lg font-bold">Edit Question</h3>
+                <p className="mt-1 text-xs text-white/75">Existing quiz copies remain unchanged.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingQuestion(null);
+                  setEditQuestionForm(null);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                aria-label="Close edit question"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-5 overflow-y-auto p-6">
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Question Text
+                </label>
+                <textarea
+                  value={editQuestionForm.text}
+                  onChange={(event) =>
+                    setEditQuestionForm((previous) => ({ ...previous, text: event.target.value }))
+                  }
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                  required
+                />
+              </div>
+
+              {editingQuestion.type === "mcq" && (
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Options and Correct Answer
+                  </label>
+                  <div className="space-y-2">
+                    {editQuestionForm.options.map((option, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3">
+                          <input
+                            type="radio"
+                            name="edit-correct-answer"
+                            checked={editQuestionForm.correctAnswerIndex === index}
+                            onChange={() =>
+                              setEditQuestionForm((previous) => ({ ...previous, correctAnswerIndex: index }))
+                            }
+                            aria-label={`Mark option ${index + 1} correct`}
+                          />
+                          <span className="text-xs font-bold text-slate-600">{String.fromCharCode(65 + index)}</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={option}
+                          onChange={(event) =>
+                            setEditQuestionForm((previous) => ({
+                              ...previous,
+                              options: previous.options.map((item, optionIndex) =>
+                                optionIndex === index ? event.target.value : item
+                              ),
+                            }))
+                          }
+                          placeholder={`Option ${index + 1}`}
+                          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                          required
+                        />
+                        {editQuestionForm.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditQuestionForm((previous) => ({
+                                ...previous,
+                                options: previous.options.filter((_, optionIndex) => optionIndex !== index),
+                                correctAnswerIndex:
+                                  previous.correctAnswerIndex === index
+                                    ? Math.max(0, index - 1)
+                                    : previous.correctAnswerIndex > index
+                                      ? previous.correctAnswerIndex - 1
+                                      : previous.correctAnswerIndex,
+                              }))
+                            }
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                            aria-label={`Remove option ${index + 1}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditQuestionForm((previous) => ({ ...previous, options: [...previous.options, ""] }))
+                    }
+                    className="mt-2 text-xs font-bold text-brand-navy hover:text-brand-gold-dark"
+                  >
+                    + Add Option
+                  </button>
+                </div>
+              )}
+
+              {editingQuestion.type === "true_false" && (
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Correct Answer
+                  </label>
+                  <select
+                    value={String(editQuestionForm.answer).toLowerCase() === "false" ? "false" : "true"}
+                    onChange={(event) =>
+                      setEditQuestionForm((previous) => ({ ...previous, answer: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
+                  >
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                  </select>
+                </div>
+              )}
+
+              {!['mcq', 'true_false'].includes(editingQuestion.type) && (
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Correct Answer
+                  </label>
+                  <input
+                    type="text"
+                    value={editQuestionForm.answer}
+                    onChange={(event) =>
+                      setEditQuestionForm((previous) => ({ ...previous, answer: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Points
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={editQuestionForm.points}
+                  onChange={(event) =>
+                    setEditQuestionForm((previous) => ({ ...previous, points: event.target.value }))
+                  }
+                  className="w-28 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                />
+              </div>
+
+              <fieldset>
+                <legend className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Visibility
+                </legend>
+                <div role="radiogroup" aria-label="Question visibility" className="grid grid-cols-3 rounded-lg border border-slate-300 p-1">
+                  {[
+                    ["private", "Private"],
+                    ["shared", "Shared"],
+                    ["public", "Public"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={editQuestionForm.visibility === value}
+                      onClick={() =>
+                        setEditQuestionForm((previous) => ({ ...previous, visibility: value }))
+                      }
+                      className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${
+                        editQuestionForm.visibility === value
+                          ? "bg-brand-navy text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingQuestion(null);
+                  setEditQuestionForm(null);
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingQuestionEdit}
+                className="rounded-lg bg-brand-gold px-5 py-2.5 text-xs font-extrabold text-brand-navy hover:bg-brand-gold-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingQuestionEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

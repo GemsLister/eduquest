@@ -11,6 +11,55 @@ export const useQuestionBank = () => {
 
   const normalizeText = (value) => (value || "").toLowerCase().trim();
 
+  const hasDuplicateQuestionText = async (texts, excludedQuestionIds = []) => {
+    const submittedTexts = texts.map((text) => String(text ?? "").trim()).filter(Boolean);
+    const uniqueTexts = new Set();
+    for (const text of submittedTexts) {
+      if (uniqueTexts.has(text)) return true;
+      uniqueTexts.add(text);
+    }
+
+    const candidateTexts = Array.from(uniqueTexts);
+    for (let index = 0; index < candidateTexts.length; index += 20) {
+      const textBatch = candidateTexts.slice(index, index + 20);
+      let { data, error } = await supabase
+        .from("questions")
+        .select("id, text, quiz_id, source_question_id")
+        .in("text", textBatch);
+
+      let hasSourceQuestionColumn = true;
+      const errorMessage = (error?.message || "").toLowerCase();
+      if (
+        error &&
+        (error.code === "42703" ||
+          error.code === "PGRST204" ||
+          errorMessage.includes("source_question_id"))
+      ) {
+        hasSourceQuestionColumn = false;
+        const fallback = await supabase
+          .from("questions")
+          .select("id, text, quiz_id")
+          .in("text", textBatch);
+        data = fallback.data;
+        error = fallback.error;
+      }
+
+      if (error) throw error;
+      if (
+        (data || []).some(
+          (question) =>
+            !(hasSourceQuestionColumn && question.quiz_id && question.source_question_id) &&
+            !excludedQuestionIds.includes(question.id) &&
+            uniqueTexts.has(String(question.text ?? "").trim())
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const parseVis = (q) => {
     if (!q) return "private";
     const desc = q.description || "";
@@ -354,8 +403,20 @@ export const useQuestionBank = () => {
         });
       }
 
-      // Combine both types of questions
-      const allQuestions = [...quizQuestions, ...standaloneQuestions];
+      // Prefer an active standalone bank version over the question it was copied from.
+      const supersededQuestionIds = new Set(
+        standaloneQuestions
+          .filter(
+            (question) =>
+              !question.is_archived &&
+              question.source_question_id &&
+              String(question.instructor_id) === String(user.id)
+          )
+          .map((question) => String(question.source_question_id))
+      );
+      const allQuestions = [...quizQuestions, ...standaloneQuestions].filter(
+        (question) => !supersededQuestionIds.has(String(question.id))
+      );
 
       if (allQuestions.length === 0) {
         setActiveQuestions([]);
@@ -648,6 +709,10 @@ export const useQuestionBank = () => {
   const addToBank = async (questionData, sectionId = null, subjectId = null, quizId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
+      const questionText = String(questionData.text ?? "").trim();
+      if (await hasDuplicateQuestionText([questionText])) {
+        return { success: false, error: "This question already exists in the Question Bank." };
+      }
 
       const targetQuizId = quizId || questionData.quizId || questionData.quiz_id || null;
 
@@ -667,7 +732,7 @@ export const useQuestionBank = () => {
       const questionPayload = {
         quiz_id: targetQuizId,
         type: questionData.type || "mcq",
-        text: questionData.text,
+        text: questionText,
         options: questionData.type === "mcq" ? questionData.options.filter((opt) => opt.trim()) : null,
         correct_answer: correctAnswer,
         points: questionData.points || 1,
@@ -774,6 +839,10 @@ export const useQuestionBank = () => {
       if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
         return { success: false, error: "No questions to import" };
       }
+      const questionTexts = questionsArray.map((question) => String(question.text ?? "").trim());
+      if (await hasDuplicateQuestionText(questionTexts)) {
+        return { success: false, error: "This question already exists in the Question Bank." };
+      }
 
       // Derive subject_id from section if not provided
       let derivedSubjectId = subjectId;
@@ -810,7 +879,7 @@ export const useQuestionBank = () => {
         const questionRow = {
           quiz_id: targetQuizId || q.quiz_id || q.quizId || null,
           type: q.type || "mcq",
-          text: q.text,
+          text: questionTexts[idx],
           options:
             (q.type || "mcq") === "mcq" && Array.isArray(q.options)
               ? q.options.filter((opt) => opt !== null && opt !== undefined && String(opt).trim() !== "")
@@ -917,6 +986,7 @@ export const useQuestionBank = () => {
     activeQuestions,
     archivedQuestions,
     loading,
+    hasDuplicateQuestionText,
     archiveQuestion,
     restoreQuestion,
     deleteQuestion,

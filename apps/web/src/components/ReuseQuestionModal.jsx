@@ -272,6 +272,7 @@ export const ReuseQuestionModal = ({
           blooms_level: isPriv ? "private" : "public",
           is_private: isPriv,
           subject_id: currentSubjectId || q.subject_id || null,
+          source_question_id: q.id,
         };
 
         let { data: newCloneData, error: cloneErr } = await supabase
@@ -367,6 +368,7 @@ export const ReuseQuestionModal = ({
           blooms_level: isPriv ? "private" : "public",
           is_private: isPriv,
           subject_id: currentSubjectId || q.subject_id || null,
+          source_question_id: q.id,
         };
 
         let { data: newCloneData, error: cloneErr } = await supabase
