@@ -137,6 +137,9 @@ export const Sidebar = () => {
   const confirm = useConfirm();
   const { user } = useAuth();
   const [submissionNotifCount, setSubmissionNotifCount] = useState(0);
+  // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
+  const [pinned, setPinned] = useState(false);
+  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
 
   useEffect(() => {
     if (!user?.id) return;
@@ -191,18 +194,24 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="group static flex flex-col bg-brand-navy w-[72px] hover:w-[240px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10 rounded-r-2xl">
-      {/* Logo */}
-      <div className="flex items-center gap-3 py-6 px-4 border-b border-white/10">
+    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[240px]" : "w-[72px] hover:w-[240px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10 rounded-r-2xl`}>
+      {/* Logo — tap to pin the sidebar open */}
+      <button
+        type="button"
+        onClick={() => setPinned((p) => !p)}
+        aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
+        aria-expanded={pinned}
+        className="flex items-center gap-3 py-6 px-4 border-b border-white/10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
+      >
         <img
           src={citlLogo}
           alt="citl-logo"
           className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
-        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-lg whitespace-nowrap tracking-wide">
+        <span className={`${labelVisibility} transition-opacity duration-200 font-black text-white text-lg whitespace-nowrap tracking-wide`}>
           BUKSU CITL
         </span>
-      </div>
+      </button>
 
       <nav className="flex-1 px-3 mt-4">
         <ul className="flex flex-col gap-2">
@@ -212,6 +221,7 @@ export const Sidebar = () => {
                 to={nav.path}
                 end={nav.end}
                 onClick={nav.isLogout ? handleLogout : undefined}
+                title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
                     isActive && !nav.isLogout
@@ -228,7 +238,7 @@ export const Sidebar = () => {
                     </span>
                   )}
                 </span>
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
+                <span className={`${labelVisibility} transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm`}>
                   {nav.name}
                 </span>
               </NavLink>
@@ -239,7 +249,7 @@ export const Sidebar = () => {
 
       {/* Bottom accent */}
       <div className="px-3 pb-6 mt-auto">
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-xs px-3 whitespace-nowrap">
+        <div className={`${labelVisibility} transition-opacity duration-200 text-white/30 text-xs px-3 whitespace-nowrap`}>
           © 2026 BUKSU CITL
         </div>
       </div>

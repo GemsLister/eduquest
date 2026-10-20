@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { notify } from "../../utils/notify.jsx";
 import { subjectService } from "../../services/subjectService.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
+import { CurriculumSubjectsPanel } from "../../components/faculty-head/CurriculumSubjectsPanel.jsx";
 
 export const FacultyHeadSubjectRequests = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const confirm = useConfirm();
+  // "requests" | "subjects"
+  const [view, setView] = useState("requests");
   const [allRequests, setAllRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, pending, approved, rejected
@@ -46,9 +48,10 @@ export const FacultyHeadSubjectRequests = () => {
     setCurrentPage(1);
   }, [filter, search]);
 
+  // Only the initial load shows the skeleton; later refreshes (after approve,
+  // reject, or create) update the list in place.
   const fetchRequests = async () => {
     try {
-      setLoading(true);
       const { data, error } = await subjectService.getAllSubjectRequests();
       if (error) throw error;
       setAllRequests(data || []);
@@ -106,22 +109,71 @@ export const FacultyHeadSubjectRequests = () => {
   const endIndex = startIndex + PAGE_SIZE;
   const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
+  // Approving/rejecting the last item on the last page shrinks the list
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const closeRejectModal = () => {
+    if (rejectModalTarget && processingId === rejectModalTarget.id) return;
+    setRejectModalTarget(null);
+    setRejectReason("");
+  };
+
+  const closeCreateForm = () => {
+    if (creatingSubject) return;
+    setShowCreateForm(false);
+  };
+
+  // Esc closes whichever modal is open
+  useEffect(() => {
+    if (!rejectModalTarget && !showCreateForm) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (rejectModalTarget) closeRejectModal();
+      else closeCreateForm();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const handleApprove = async (requestId) => {
+    const targetReq = allRequests.find((r) => r.id === requestId);
+    if (!targetReq) return;
+
+    let duplicate = null;
+    try {
+      duplicate = await subjectService.findDuplicateSubject({
+        name: targetReq.subject_name,
+        code: targetReq.subject_code,
+      });
+    } catch (err) {
+      console.warn("Duplicate check failed:", err);
+    }
+
+    const ok = await confirm({
+      title: duplicate ? "Possible duplicate subject" : "Approve subject request?",
+      message: duplicate
+        ? `An active subject already matches this request: "${duplicate.name}"${duplicate.code ? ` (${duplicate.code})` : ""}. Approving will create a second subject and assign it to ${targetReq.requester_name || "the instructor"}. Consider rejecting and pointing them to the existing subject instead.`
+        : `"${targetReq.subject_name}" will be added to the curriculum and assigned to ${targetReq.requester_name || "the requesting instructor"}.`,
+      confirmText: duplicate ? "Approve Anyway" : "Approve",
+      cancelText: "Cancel",
+      variant: duplicate ? "warning" : "success",
+    });
+    if (!ok) return;
+
     setProcessingId(requestId);
     try {
-      const targetReq = allRequests.find((r) => r.id === requestId);
-      if (!targetReq) throw new Error("Request not found");
-
       await subjectService.approveSubjectRequest(requestId, targetReq, user?.id);
 
       notify.success("Subject request approved and published to curriculum successfully!");
       window.dispatchEvent(new CustomEvent("subject-requests-changed"));
       window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
       window.dispatchEvent(new CustomEvent("subjects-changed"));
-      fetchRequests();
     } catch (err) {
       console.error("Error approving request:", err);
       notify.error(err.message || "Failed to approve request");
+      fetchRequests();
     } finally {
       setProcessingId(null);
     }
@@ -154,10 +206,10 @@ export const FacultyHeadSubjectRequests = () => {
       setRejectReason("");
       window.dispatchEvent(new CustomEvent("subject-requests-changed"));
       window.dispatchEvent(new CustomEvent("pending-subject-requests-changed"));
-      fetchRequests();
     } catch (err) {
       console.error("Error rejecting request:", err);
       notify.error(err.message || "Failed to reject request");
+      fetchRequests();
     } finally {
       setProcessingId(null);
     }
@@ -171,6 +223,17 @@ export const FacultyHeadSubjectRequests = () => {
       const subjectNameTrimmed = newSubject.subject_name.trim();
       if (!subjectNameTrimmed) {
         notify.error("Subject name is required");
+        return;
+      }
+
+      const duplicate = await subjectService.findDuplicateSubject({
+        name: subjectNameTrimmed,
+        code: newSubject.subject_code,
+      });
+      if (duplicate) {
+        notify.error(
+          `A subject with this ${duplicate.name.trim().toLowerCase() === subjectNameTrimmed.toLowerCase() ? "name" : "code"} already exists: ${duplicate.name}${duplicate.code ? ` (${duplicate.code})` : ""}.`,
+        );
         return;
       }
 
@@ -191,7 +254,8 @@ export const FacultyHeadSubjectRequests = () => {
         description: "",
       });
       setShowCreateForm(false);
-      fetchRequests();
+      // Show where the new subject lives
+      setView("subjects");
     } catch (err) {
       console.error("Error creating subject:", err);
       notify.error(err.message || "Failed to create subject");
@@ -392,6 +456,30 @@ export const FacultyHeadSubjectRequests = () => {
           </div>
         </div>
 
+        {/* View switcher: incoming requests vs. the existing curriculum */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6" role="tablist" aria-label="Subject management view">
+          {[
+            { key: "requests", label: "Requests" },
+            { key: "subjects", label: "Curriculum Subjects" },
+          ].map((v) => (
+            <button
+              key={v.key}
+              role="tab"
+              aria-selected={view === v.key}
+              onClick={() => setView(v.key)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
+                view === v.key ? "bg-white text-brand-navy shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {view === "subjects" ? (
+          <CurriculumSubjectsPanel />
+        ) : (
+        <>
         {/* Filters and Search Toolbar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           {/* Status Tabs */}
@@ -459,119 +547,6 @@ export const FacultyHeadSubjectRequests = () => {
             )}
           </div>
         </div>
-
-        {/* Direct Create Subject Modal / Form */}
-        {showCreateForm && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-md">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
-              <div>
-                <h3 className="text-lg font-bold text-brand-navy">Create New Subject Directly</h3>
-                <p className="text-xs text-gray-500">Publish a new subject straight to the curriculum without a request.</p>
-              </div>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                aria-label="Close create subject form"
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleDirectCreate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="direct-subject-name" className="block text-xs font-bold text-gray-700 mb-1">
-                    Subject Name *
-                  </label>
-                  <input
-                    id="direct-subject-name"
-                    type="text"
-                    value={newSubject.subject_name}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, subject_name: e.target.value })
-                    }
-                    placeholder="e.g., Database Management"
-                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
-                    disabled={creatingSubject}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="direct-subject-code" className="block text-xs font-bold text-gray-700 mb-1">
-                    Subject Code
-                  </label>
-                  <input
-                    id="direct-subject-code"
-                    type="text"
-                    value={newSubject.subject_code}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, subject_code: e.target.value })
-                    }
-                    placeholder="e.g., CS301"
-                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
-                    disabled={creatingSubject}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="direct-grade-level" className="block text-xs font-bold text-gray-700 mb-1">
-                  Grade Level *
-                </label>
-                <select
-                  id="direct-grade-level"
-                  value={newSubject.grade_level}
-                  onChange={(e) =>
-                    setNewSubject({ ...newSubject, grade_level: e.target.value })
-                  }
-                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
-                  disabled={creatingSubject}
-                >
-                  {gradeLevels.map((level) => (
-                    <option key={level} value={level}>
-                      {level} Year
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="direct-subject-description" className="block text-xs font-bold text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="direct-subject-description"
-                  value={newSubject.description}
-                  onChange={(e) =>
-                    setNewSubject({ ...newSubject, description: e.target.value })
-                  }
-                  placeholder="Brief description of the subject..."
-                  rows="3"
-                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none transition-all"
-                  disabled={creatingSubject}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  disabled={creatingSubject}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingSubject}
-                  className="px-5 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  {creatingSubject ? "Creating..." : "Create Subject"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {/* Requests List */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
@@ -735,12 +710,151 @@ export const FacultyHeadSubjectRequests = () => {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
+
+      {/* Direct Create Subject Modal */}
+      {showCreateForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeCreateForm();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-subject-title"
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100"
+          >
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+              <div>
+                <h3 id="create-subject-title" className="text-lg font-bold text-brand-navy">Create New Subject Directly</h3>
+                <p className="text-xs text-gray-500">Publish a new subject straight to the curriculum without a request.</p>
+              </div>
+              <button
+                onClick={closeCreateForm}
+                aria-label="Close create subject form"
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleDirectCreate} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="direct-subject-name" className="block text-xs font-bold text-gray-700 mb-1">
+                    Subject Name *
+                  </label>
+                  <input
+                    id="direct-subject-name"
+                    type="text"
+                    required
+                    autoFocus
+                    value={newSubject.subject_name}
+                    onChange={(e) =>
+                      setNewSubject({ ...newSubject, subject_name: e.target.value })
+                    }
+                    placeholder="e.g., Database Management"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
+                    disabled={creatingSubject}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="direct-subject-code" className="block text-xs font-bold text-gray-700 mb-1">
+                    Subject Code
+                  </label>
+                  <input
+                    id="direct-subject-code"
+                    type="text"
+                    value={newSubject.subject_code}
+                    onChange={(e) =>
+                      setNewSubject({ ...newSubject, subject_code: e.target.value })
+                    }
+                    placeholder="e.g., CS301"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
+                    disabled={creatingSubject}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="direct-grade-level" className="block text-xs font-bold text-gray-700 mb-1">
+                  Year Level *
+                </label>
+                <select
+                  id="direct-grade-level"
+                  value={newSubject.grade_level}
+                  onChange={(e) =>
+                    setNewSubject({ ...newSubject, grade_level: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
+                  disabled={creatingSubject}
+                >
+                  {gradeLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level} Year
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="direct-subject-description" className="block text-xs font-bold text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="direct-subject-description"
+                  value={newSubject.description}
+                  onChange={(e) =>
+                    setNewSubject({ ...newSubject, description: e.target.value })
+                  }
+                  placeholder="Brief description of the subject..."
+                  rows="3"
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none transition-all"
+                  disabled={creatingSubject}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeCreateForm}
+                  disabled={creatingSubject}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingSubject || !newSubject.subject_name.trim()}
+                  className="px-5 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                >
+                  {creatingSubject ? "Creating..." : "Create Subject"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* In-app Rejection Confirmation Modal */}
       {rejectModalTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeRejectModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Reject ${rejectModalTarget.subject_name}`}
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -769,10 +883,7 @@ export const FacultyHeadSubjectRequests = () => {
             />
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setRejectModalTarget(null);
-                  setRejectReason("");
-                }}
+                onClick={closeRejectModal}
                 className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Cancel

@@ -114,6 +114,14 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                 </div>
               </div>
 
+              {/* Department Head revision request */}
+              {rev.faculty_head_feedback && (
+                <div className="mt-4 p-3 bg-orange-50 border-l-4 border-orange-400 rounded-r-lg text-xs text-orange-900">
+                  <div className="font-bold mb-1">Department Head Feedback:</div>
+                  <p className="whitespace-pre-wrap">{rev.faculty_head_feedback}</p>
+                </div>
+              )}
+
               {/* Revision Feedback / Notes */}
               {(rev.admin_feedback || rev.notes) && (
                 <div className="mt-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg text-xs text-amber-900">
@@ -121,7 +129,7 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                     </svg>
-                    Department Head / Reviewer Feedback:
+                    Reviewer Feedback:
                   </div>
                   <p className="whitespace-pre-wrap">{rev.admin_feedback || rev.notes}</p>
                 </div>

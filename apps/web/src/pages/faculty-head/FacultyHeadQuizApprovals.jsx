@@ -1,23 +1,50 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { exportBloomsPdf } from "../../utils/exportBloomsPdf";
-import { exportQuizPaperPdf } from "../../utils/exportQuizPaperPdf";
+import { notify } from "../../utils/notify.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import {
+  HEAD_STATUSES,
+  loadHeadSubmissions,
+  countHeadSubmissions,
+  cleanQuizTitle,
+  getProfileName,
+  exportSubmissionTosPdf,
+  exportSubmissionQuizPaper,
+} from "../../services/facultyHeadService.js";
+
+const TAB_KEYS = [
+  HEAD_STATUSES.PENDING,
+  HEAD_STATUSES.APPROVED,
+  HEAD_STATUSES.RETURNED,
+  "all",
+];
 
 export const FacultyHeadQuizApprovals = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [allSubmissions, setAllSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("faculty_head_review");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  // `${submissionId}:pdf` | `${submissionId}:paper` while an export is generating
+  const [exporting, setExporting] = useState(null);
   const PAGE_SIZE = 10;
+
+  const tabParam = searchParams.get("tab");
+  const filter = TAB_KEYS.includes(tabParam) ? tabParam : HEAD_STATUSES.PENDING;
+  const setFilter = (key) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", key);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     loadSubmissions();
+    window.addEventListener("pending-quiz-approvals-changed", loadSubmissions);
+    return () =>
+      window.removeEventListener("pending-quiz-approvals-changed", loadSubmissions);
   }, []);
 
   // Reset pagination on search or tab change
@@ -26,128 +53,17 @@ export const FacultyHeadQuizApprovals = () => {
   }, [search, filter]);
 
   const loadSubmissions = async () => {
-    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("*, quizzes(title, description, duration)")
-        .in("status", ["faculty_head_review", "faculty_head_approved"])
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const instructorIds = [...new Set(data.map((s) => s.instructor_id).filter(Boolean))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, first_name, last_name, email, username")
-          .in("id", instructorIds);
-
-        const profileMap = {};
-        profiles?.forEach((p) => {
-          profileMap[p.id] = p;
-        });
-
-        // Fetch all quizzes involved to build a recursive rootId resolver
-        const quizIds = [...new Set(data.map((s) => s.quiz_id).filter(Boolean))];
-        let quizMap = new Map();
-        if (quizIds.length > 0) {
-          const { data: qData } = await supabase
-            .from("quizzes")
-            .select("id, parent_quiz_id, title, version_number");
-          qData?.forEach((q) => quizMap.set(q.id, q));
-        }
-
-        const findRootId = (quizId) => {
-          if (!quizId) return null;
-          let curr = quizId;
-          let visited = new Set();
-          while (curr && !visited.has(curr)) {
-            visited.add(curr);
-            const q = quizMap.get(curr);
-            if (q && q.parent_quiz_id) {
-              curr = q.parent_quiz_id;
-            } else {
-              break;
-            }
-          }
-          return curr;
-        };
-
-        const getChainKey = (s) => {
-          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
-          if (rootQuizId) return `quiz_${rootQuizId}`;
-
-          const rawTitle = s.quizzes?.title || "";
-          const baseTitle = rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
-          if (baseTitle && s.instructor_id) return `title_${s.instructor_id}_${baseTitle}`;
-
-          return `sub_${s.id}`;
-        };
-
-        const chains = new Map();
-        for (const s of data) {
-          const key = getChainKey(s);
-          if (!chains.has(key)) chains.set(key, []);
-          chains.get(key).push(s);
-        }
-
-        const visibleData = [];
-        for (const chainSubs of chains.values()) {
-          const sortedAsc = [...chainSubs].sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime(),
-          );
-          visibleData.push(sortedAsc[sortedAsc.length - 1]);
-        }
-
-        visibleData.sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime(),
-        );
-
-        // Fetch section data for each submission
-        const enriched = await Promise.all(
-          visibleData.map(async (s) => {
-            let section = null;
-            if (s.quiz_id) {
-              const { data: qs } = await supabase
-                .from("quiz_sections")
-                .select("section_id, sections(name, subject_code)")
-                .eq("quiz_id", s.quiz_id)
-                .limit(1)
-                .maybeSingle();
-              section = qs?.sections || null;
-            }
-            return {
-              ...s,
-              profiles: profileMap[s.instructor_id] || null,
-              section,
-            };
-          }),
-        );
-
-        setAllSubmissions(enriched);
-      } else {
-        setAllSubmissions([]);
-      }
+      setAllSubmissions(await loadHeadSubmissions());
     } catch (err) {
       console.error("Error loading submissions:", err);
+      notify.error("Failed to load quiz approvals.");
     } finally {
       setLoading(false);
     }
   };
 
-  const counts = useMemo(() => {
-    const c = { faculty_head_review: 0, faculty_head_approved: 0, all: 0 };
-    allSubmissions.forEach((s) => {
-      c.all++;
-      if (c[s.status] !== undefined) c[s.status]++;
-    });
-    return c;
-  }, [allSubmissions]);
+  const counts = useMemo(() => countHeadSubmissions(allSubmissions), [allSubmissions]);
 
   const filtered = useMemo(() => {
     let list = allSubmissions;
@@ -155,33 +71,38 @@ export const FacultyHeadQuizApprovals = () => {
       list = list.filter((s) => s.status === filter);
     }
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((s) => {
-        const title = (s.quizzes?.title || "").toLowerCase();
-        const p = s.profiles;
-        const name = p
-          ? `${p.first_name || ""} ${p.last_name || ""} ${p.username || ""} ${p.email || ""}`.toLowerCase()
-          : "";
-        return title.includes(q) || name.includes(q);
-      });
+      const q = search.trim().toLowerCase();
+      list = list.filter((s) =>
+        [
+          s.quizzes?.title,
+          getProfileName(s.profiles, ""),
+          s.profiles?.email,
+          getProfileName(s.reviewer, ""),
+          s.section?.name,
+          s.section?.subject_code,
+        ]
+          .filter(Boolean)
+          .some((v) => v.toLowerCase().includes(q)),
+      );
     }
     return list;
   }, [allSubmissions, filter, search]);
 
-  const getInstructorName = (submission) => {
-    const p = submission.profiles;
-    if (!p) return "Unknown Instructor";
-    const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
-    return name || p.username || p.email || "Unknown Instructor";
-  };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(startIndex, startIndex + PAGE_SIZE);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const getInitials = (submission) => {
     const p = submission.profiles;
     if (!p) return "?";
     if (p.first_name || p.last_name) {
       return (
-        ((p.first_name || "")[0] + (p.last_name || "")[0]).toUpperCase() || "?"
-      );
+        ((p.first_name || "")[0] || "") + ((p.last_name || "")[0] || "")
+      ).toUpperCase() || "?";
     }
     return (p.username || p.email || "?")[0].toUpperCase();
   };
@@ -215,6 +136,10 @@ export const FacultyHeadQuizApprovals = () => {
         bg: "bg-green-100 text-green-700",
         label: "Approved",
       },
+      revision_requested: {
+        bg: "bg-orange-100 text-orange-700",
+        label: "Returned for Revision",
+      },
     };
     const c = config[status] || {
       bg: "bg-gray-100 text-gray-600",
@@ -243,117 +168,41 @@ export const FacultyHeadQuizApprovals = () => {
     });
   };
 
-  const handleExportPdf = async (e, submission) => {
+  const runExport = async (e, submission, kind) => {
     e.stopPropagation();
-    const p = submission.profiles;
-    const instructorName = p
-      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
-        p.username ||
-        p.email
-      : undefined;
-
-    let reviewerName, approverName, semesterOverride, schoolYearOverride;
-    if (user) {
-      const { data: signatories } = await supabase
-        .from("tos_signatories")
-        .select(
-          "reviewer_name, approver_name, semester_override, school_year_override",
-        )
-        .eq("faculty_head_id", user.id)
-        .single();
-      if (signatories) {
-        reviewerName = signatories.reviewer_name;
-        approverName = signatories.approver_name;
-        semesterOverride = signatories.semester_override;
-        schoolYearOverride = signatories.school_year_override;
+    if (exporting) return;
+    setExporting(`${submission.id}:${kind}`);
+    try {
+      if (kind === "pdf") {
+        await exportSubmissionTosPdf(submission, user?.id);
+      } else {
+        await exportSubmissionQuizPaper(submission, user?.id);
       }
+    } catch (err) {
+      console.error("Export failed:", err);
+      notify.error("Export failed. Please try again.");
+    } finally {
+      setExporting(null);
     }
-
-    await exportBloomsPdf({
-      quizTitle: submission.quizzes?.title,
-      results: submission.analysis_results,
-      instructorName,
-      reviewerName,
-      approverName,
-      submittedAt: submission.created_at,
-      adminFeedback: submission.admin_feedback,
-      status: submission.status,
-      subjectCode: submission.section?.subject_code,
-      courseName: submission.section?.name,
-      semesterOverride,
-      schoolYearOverride,
-      reviewedAt: submission.reviewed_at,
-      facultyHeadApprovedAt: submission.faculty_head_approved_at,
-    });
-  };
-
-  const handleExportQuizPaper = async (e, submission) => {
-    e.stopPropagation();
-    const p = submission.profiles;
-    const instructorName = p
-      ? `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
-        p.username ||
-        p.email
-      : undefined;
-
-    let semesterOverride, schoolYearOverride;
-    if (user) {
-      const { data: signatories } = await supabase
-        .from("tos_signatories")
-        .select("semester_override, school_year_override")
-        .eq("faculty_head_id", user.id)
-        .single();
-      if (signatories) {
-        semesterOverride = signatories.semester_override;
-        schoolYearOverride = signatories.school_year_override;
-      }
-    }
-
-    let questions = submission.analysis_results?.questionSnapshots || [];
-    if (questions.length === 0 && submission.quiz_id) {
-      const { data: qRows } = await supabase
-        .from("questions")
-        .select("id, text, type, options")
-        .eq("quiz_id", submission.quiz_id)
-        .order("created_at", { ascending: true });
-      questions = (qRows || []).map((q) => ({
-        questionId: q.id,
-        questionText: q.text,
-        type: q.type,
-        options: q.options || [],
-      }));
-    }
-
-    const questionFeedback = submission.question_feedback || {};
-    const questionFeedbackByNumber = {};
-    (submission.analysis_results?.analysis || []).forEach((item, idx) => {
-      const fb = questionFeedback[item.questionId];
-      if (fb) questionFeedbackByNumber[idx + 1] = fb;
-    });
-
-    await exportQuizPaperPdf({
-      quizTitle: submission.quizzes?.title,
-      quizDescription: submission.quizzes?.description,
-      instructorName,
-      courseName: submission.section?.name,
-      semesterOverride,
-      schoolYearOverride,
-      submittedAt: submission.created_at,
-      questions,
-      questionFeedback,
-      questionFeedbackByNumber,
-    });
   };
 
   const tabs = [
-    { key: "faculty_head_review", label: "Pending", dotColor: "bg-yellow-400" },
-    {
-      key: "faculty_head_approved",
-      label: "Approved",
-      dotColor: "bg-green-500",
-    },
+    { key: HEAD_STATUSES.PENDING, label: "Pending", dotColor: "bg-yellow-400" },
+    { key: HEAD_STATUSES.APPROVED, label: "Approved", dotColor: "bg-green-500" },
+    { key: HEAD_STATUSES.RETURNED, label: "Returned", dotColor: "bg-orange-500" },
     { key: "all", label: "All", dotColor: "bg-gray-400" },
   ];
+
+  const emptyMessages = {
+    faculty_head_review: "No quizzes are waiting for your approval.",
+    faculty_head_approved: "Quizzes you approve will appear here.",
+    revision_requested: "Quizzes you return for revision will appear here so you can track them.",
+    all: "Quiz analyses forwarded by reviewers will appear here.",
+  };
+
+  const Spinner = () => (
+    <span className="h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+  );
 
   if (loading) {
     return (
@@ -402,7 +251,7 @@ export const FacultyHeadQuizApprovals = () => {
           )}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Approve quiz analyses reviewed by the Senior Faculty
+          Approve quiz analyses forwarded by peer reviewers and Senior Faculty
         </p>
       </div>
 
@@ -411,7 +260,7 @@ export const FacultyHeadQuizApprovals = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">
             <label htmlFor="approvals-search" className="sr-only">
-              Search by quiz title or instructor
+              Search by quiz, instructor, reviewer, or subject
             </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -430,7 +279,7 @@ export const FacultyHeadQuizApprovals = () => {
             <input
               id="approvals-search"
               type="text"
-              placeholder="Search by quiz title or instructor..."
+              placeholder="Search by quiz, instructor, reviewer, or subject..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all"
@@ -511,9 +360,7 @@ export const FacultyHeadQuizApprovals = () => {
               {search ? "No Results Found" : "No Submissions"}
             </h3>
             <p className="text-gray-400 text-sm max-w-sm mx-auto">
-              {search
-                ? `No submissions match "${search}".`
-                : "Quiz analyses forwarded by Senior Faculty will appear here."}
+              {search ? `No submissions match "${search}".` : emptyMessages[filter]}
             </p>
           </div>
         ) : (
@@ -523,24 +370,26 @@ export const FacultyHeadQuizApprovals = () => {
                 const summary = submission.analysis_results?.summary;
                 const lotsPct = summary?.lotsPercentage || 0;
                 const hotsPct = summary?.hotsPercentage || 0;
+                const quizTitle = cleanQuizTitle(submission.quizzes?.title);
+                const instructorName = getProfileName(submission.profiles, "Unknown Instructor");
+                const reviewerName = submission.reviewer
+                  ? `${getProfileName(submission.reviewer)} (${submission.reviewer.is_admin ? "Senior Faculty" : "Peer Reviewer"})`
+                  : null;
+                const isReturned = submission.status === HEAD_STATUSES.RETURNED;
 
                 return (
                   <div
                     key={submission.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Review ${(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${getInstructorName(submission)}`}
+                    aria-label={`Review ${quizTitle} by ${instructorName}`}
                     onClick={() =>
-                      navigate(
-                        `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
-                      )
+                      navigate(`/faculty-head-dashboard/quiz-approvals/${submission.id}`)
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        navigate(
-                          `/faculty-head-dashboard/quiz-approvals/${submission.id}`,
-                        );
+                        navigate(`/faculty-head-dashboard/quiz-approvals/${submission.id}`);
                       }
                     }}
                     className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/30 transition-all p-5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -557,20 +406,34 @@ export const FacultyHeadQuizApprovals = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
-                            {(
-                              submission.quizzes?.title || "Untitled Quiz"
-                            ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+                            {quizTitle}
                           </h3>
                           {getStatusBadge(submission.status)}
+                          {submission.resubmitted && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-700">
+                              Resubmitted — back in review
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400 mb-3">
                           <span>
                             by{" "}
-                            <span className="font-semibold text-gray-600">
-                              {getInstructorName(submission)}
-                            </span>
+                            <span className="font-semibold text-gray-600">{instructorName}</span>
                           </span>
+                          {reviewerName && (
+                            <span>
+                              reviewed by{" "}
+                              <span className="font-semibold text-gray-600">{reviewerName}</span>
+                            </span>
+                          )}
+                          {submission.section && (
+                            <span className="font-semibold text-gray-500">
+                              {[submission.section.subject_code, submission.section.name]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -593,20 +456,6 @@ export const FacultyHeadQuizApprovals = () => {
                         {summary && (
                           <div className="flex items-center gap-3 flex-wrap">
                             <span className="flex items-center gap-1 px-2.5 py-1 bg-brand-navy/10 rounded-lg text-xs font-semibold text-brand-navy">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-3.5 w-3.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
                               {summary.totalQuestions} questions
                             </span>
 
@@ -644,80 +493,51 @@ export const FacultyHeadQuizApprovals = () => {
                           </div>
                         )}
 
+                        {isReturned && submission.faculty_head_feedback && (
+                          <div className="mt-3 p-2.5 bg-orange-50 rounded-lg border border-orange-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-orange-600">
+                              Your Revision Request
+                            </p>
+                            <p className="text-xs text-orange-800 line-clamp-2">
+                              {submission.faculty_head_feedback}
+                            </p>
+                          </div>
+                        )}
+
                         {submission.admin_feedback && (
-                          <div className="mt-3 flex items-start gap-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-                              />
-                            </svg>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
-                                Senior Faculty Feedback
-                              </p>
-                              <p className="text-xs text-blue-700 line-clamp-2">
-                                {submission.admin_feedback}
-                              </p>
-                            </div>
+                          <div className="mt-3 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
+                              Reviewer Feedback
+                            </p>
+                            <p className="text-xs text-blue-700 line-clamp-2">
+                              {submission.admin_feedback}
+                            </p>
                           </div>
                         )}
                       </div>
 
                       <div className="shrink-0 flex items-center self-center gap-2">
-                        {submission.status === "faculty_head_approved" && (
+                        {submission.status === HEAD_STATUSES.APPROVED && (
                           <>
                             <button
-                              onClick={(e) => handleExportPdf(e, submission)}
-                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+                              onClick={(e) => runExport(e, submission, "pdf")}
+                              disabled={!!exporting}
+                              aria-busy={exporting === `${submission.id}:pdf`}
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-wait focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                               title="Export TOS PDF"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-3.5 w-3.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              PDF
+                              {exporting === `${submission.id}:pdf` ? <Spinner /> : null}
+                              {exporting === `${submission.id}:pdf` ? "Exporting…" : "PDF"}
                             </button>
                             <button
-                              onClick={(e) =>
-                                handleExportQuizPaper(e, submission)
-                              }
-                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+                              onClick={(e) => runExport(e, submission, "paper")}
+                              disabled={!!exporting}
+                              aria-busy={exporting === `${submission.id}:paper`}
+                              className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-wait focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                               title="Export Quiz Paper"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-3.5 w-3.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              Quiz Paper
+                              {exporting === `${submission.id}:paper` ? <Spinner /> : null}
+                              {exporting === `${submission.id}:paper` ? "Exporting…" : "Quiz Paper"}
                             </button>
                           </>
                         )}
@@ -730,11 +550,7 @@ export const FacultyHeadQuizApprovals = () => {
                             stroke="currentColor"
                             strokeWidth={2}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9 5l7 7-7 7"
-                            />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
                         </div>
                       </div>
@@ -745,7 +561,7 @@ export const FacultyHeadQuizApprovals = () => {
             </div>
 
             {/* Pagination Controls Bar */}
-            {filtered.length > 0 && totalPages > 1 && (
+            {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 text-xs font-semibold text-gray-600 bg-white p-4 rounded-xl shadow-xs">
                 <span>
                   Showing <strong>{startIndex + 1}</strong>–
@@ -804,4 +620,3 @@ export const FacultyHeadQuizApprovals = () => {
     </>
   );
 };
-

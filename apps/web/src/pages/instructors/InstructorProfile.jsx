@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import profileImage from "../../assets/instructor-profile.png";
 import citlCover from "../../assets/CITL_cover_photo.png";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { ChangePasswordCard } from "../../components/profile/ChangePasswordCard.jsx";
 
 export const InstructorProfile = () => {
   const { user: authUser } = useAuth();
@@ -19,6 +20,7 @@ export const InstructorProfile = () => {
     createdAt: "",
     isInstructor: false,
     isAdmin: false,
+    isFacultyHead: false,
   });
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -92,6 +94,7 @@ export const InstructorProfile = () => {
             createdAt: newProfile.created_at || authUser.created_at || "",
             isInstructor: newProfile.is_instructor,
             isAdmin: newProfile.is_admin,
+            isFacultyHead: !!newProfile.is_faculty_head,
           });
         } else if (profileError) {
           throw profileError;
@@ -120,6 +123,7 @@ export const InstructorProfile = () => {
             createdAt: profileData.created_at || authUser.created_at || "",
             isInstructor: profileData.is_instructor,
             isAdmin: profileData.is_admin,
+            isFacultyHead: !!profileData.is_faculty_head,
           });
         }
 
@@ -248,6 +252,12 @@ export const InstructorProfile = () => {
       year: "numeric",
     });
   };
+
+  const roleLabel = profile.isFacultyHead
+    ? "Department Head"
+    : profile.isAdmin
+      ? "Senior Faculty"
+      : "Instructor";
 
   if (loading) {
     return (
@@ -388,7 +398,7 @@ export const InstructorProfile = () => {
                     : profile.username || "No Name"}
                 </h1>
                 <span className="px-2.5 py-0.5 bg-brand-gold/15 border border-brand-gold/30 text-brand-navy text-xs font-bold rounded-full">
-                  {profile.isAdmin ? "Senior Faculty" : "Instructor"}
+                  {roleLabel}
                 </span>
               </div>
               <p className="text-gray-500 text-sm mt-1">@{profile.username}</p>
@@ -557,6 +567,8 @@ export const InstructorProfile = () => {
         )}
 
         {/* Activity Stats */}
+        {/* Department Heads approve quizzes rather than author them */}
+        {!profile.isFacultyHead && (
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 text-center">
             <div className="w-10 h-10 mx-auto mb-2 bg-indigo-100 rounded-xl flex items-center justify-center">
@@ -627,6 +639,7 @@ export const InstructorProfile = () => {
             <p className="text-xs text-gray-400 font-medium mt-0.5">Subjects</p>
           </div>
         </div>
+        )}
 
         {/* Account Information — 2-column grid with icons */}
         <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6">
@@ -683,7 +696,7 @@ export const InstructorProfile = () => {
                   Role
                 </p>
                 <p className="text-sm font-semibold text-gray-700">
-                  {profile.isAdmin ? "Senior Faculty" : "Instructor"}
+                  {roleLabel}
                 </p>
               </div>
             </div>
@@ -744,6 +757,8 @@ export const InstructorProfile = () => {
             </div>
           </div>
         </div>
+
+        <ChangePasswordCard />
       </div>
     </div>
   );

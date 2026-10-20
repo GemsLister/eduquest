@@ -10,14 +10,27 @@ import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
+import {
+  HEAD_STATUSES,
+  cleanQuizTitle,
+  getProfileName,
+  updateSubmissionAsHead,
+  exportSubmissionTosPdf,
+  exportSubmissionQuizPaper,
+} from "../../services/facultyHeadService.js";
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  // "approve" | "revision" while that action is running
+  const [pendingAction, setPendingAction] = useState(null);
+  const actionLoading = pendingAction !== null;
+  const [exporting, setExporting] = useState(null);
   const [questionMetaById, setQuestionMetaById] = useState({});
   const [questionMetaByText, setQuestionMetaByText] = useState({});
   const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
@@ -50,9 +63,21 @@ export const FacultyHeadApprovalDetail = () => {
       if (data) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("first_name, last_name, email, username")
+          .select("first_name, last_name, email, username, is_admin")
           .eq("id", data.instructor_id)
-          .single();
+          .maybeSingle();
+
+        // Who reviewed / forwarded this submission (peer reviewer or Senior Faculty)
+        const reviewerId = data.reviewed_by || data.assigned_reviewer_id;
+        let reviewer = null;
+        if (reviewerId) {
+          const { data: reviewerProfile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, email, username, is_admin")
+            .eq("id", reviewerId)
+            .maybeSingle();
+          reviewer = reviewerProfile || null;
+        }
 
         // Fetch section data via quiz_sections junction table
         let sectionData = null;
@@ -110,15 +135,33 @@ export const FacultyHeadApprovalDetail = () => {
           );
         }
 
-        // Fetch revision history chain for this quiz
+        // Fetch revision history chain for this quiz: all submissions for
+        // quizzes that share this chain's rootId, newest first.
         const rootId = data.quizzes?.parent_quiz_id || data.quiz_id;
-        const { data: allRevisions } = await supabase
-          .from("quiz_analysis_submissions")
-          .select("*, quizzes(title, parent_quiz_id), profiles(first_name, last_name, username)")
-          .or(`quiz_id.eq.${rootId},quizzes.parent_quiz_id.eq.${rootId}`)
-          .order("created_at", { ascending: false });
+        let allRevisions = [];
+        if (rootId) {
+          const { data: chainQuizzes } = await supabase
+            .from("quizzes")
+            .select("id")
+            .or(`id.eq.${rootId},parent_quiz_id.eq.${rootId}`);
 
-        setRevisions(allRevisions || [data]);
+          const chainQuizIds = (chainQuizzes || []).map((q) => q.id);
+          if (chainQuizIds.length > 0) {
+            const { data: chainSubs } = await supabase
+              .from("quiz_analysis_submissions")
+              .select("*, quizzes(title, parent_quiz_id)")
+              .in("quiz_id", chainQuizIds)
+              .order("created_at", { ascending: false });
+            allRevisions = (chainSubs || []).map((s) => ({
+              ...s,
+              profiles: s.instructor_id === data.instructor_id ? profile : null,
+            }));
+          }
+        }
+
+        setRevisions(
+          allRevisions.length > 0 ? allRevisions : [{ ...data, profiles: profile }],
+        );
 
         // Fetch relevant audit logs for this quiz
         const { data: logs } = await supabase
@@ -128,7 +171,7 @@ export const FacultyHeadApprovalDetail = () => {
           .order("created_at", { ascending: false });
 
         setAuditLogs(logs || []);
-        setSubmission({ ...data, profiles: profile, section: sectionData });
+        setSubmission({ ...data, profiles: profile, reviewer, section: sectionData });
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -138,17 +181,35 @@ export const FacultyHeadApprovalDetail = () => {
     }
   };
 
+  // Senior Faculty submitters live under /admin-dashboard; instructors would be
+  // bounced to their own dashboard by the route guard otherwise.
+  const getSubmitterSubmissionsLink = () =>
+    submission?.profiles?.is_admin
+      ? "/admin-dashboard/my-submissions"
+      : "/instructor-dashboard/my-submissions";
+
   const handleApprove = async () => {
-    setActionLoading(true);
+    const confirmed = await confirm({
+      title: "Approve this quiz?",
+      message: `"${cleanQuizTitle(submission.quizzes?.title)}" will be published to students and its questions added to the Question Bank. This can't be undone from here.`,
+      confirmText: "Approve & Publish",
+      cancelText: "Cancel",
+      variant: "success",
+    });
+    if (!confirmed) return;
+
+    setPendingAction("approve");
     try {
-      const { error } = await supabase
-        .from("quiz_analysis_submissions")
-        .update({
-          status: "faculty_head_approved",
+      const now = new Date().toISOString();
+      const { error } = await updateSubmissionAsHead(
+        submissionId,
+        {
+          status: HEAD_STATUSES.APPROVED,
           faculty_head_approved_by: user?.id,
-          faculty_head_approved_at: new Date().toISOString(),
-        })
-        .eq("id", submissionId);
+          faculty_head_approved_at: now,
+        },
+        { faculty_head_reviewed_by: user?.id, faculty_head_reviewed_at: now },
+      );
 
       if (error) throw error;
 
@@ -181,7 +242,7 @@ export const FacultyHeadApprovalDetail = () => {
         title: "Quiz Approved by Department Head",
         message: `Your quiz analysis for "${quizTitle}" has been approved by the Department Head.`,
         type: "success",
-        link: `/instructor-dashboard/my-submissions`,
+        link: getSubmitterSubmissionsLink(),
       });
 
       window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
@@ -200,20 +261,57 @@ export const FacultyHeadApprovalDetail = () => {
         action: "QUIZ_APPROVED",
         tableName: "quizzes",
         recordId: submission.quiz_id,
+        itemName: cleanQuizTitle(quizTitle),
+        subjectName: submission.section?.subject_code || null,
+        sectionName: submission.section?.name || null,
+        previousStatus: HEAD_STATUSES.PENDING,
+        newStatus: HEAD_STATUSES.APPROVED,
+        reason: "Approved by Department Head",
+        userRole: "faculty_head",
         newValues: {
           submissionId: submission.id,
           quizTitle: quizTitle,
           instructorId: submission.instructor_id,
-          status: "faculty_head_approved",
+          status: HEAD_STATUSES.APPROVED,
         },
       });
       notify.success("Quiz approved successfully!");
-      navigate("/faculty-head-dashboard/quiz-approvals");
+      navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.APPROVED}`);
     } catch (err) {
       console.error("Error approving submission:", err);
       notify.error("Failed to approve submission");
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
+    }
+  };
+
+  const closeRevisionModal = () => {
+    if (pendingAction === "revision") return;
+    setShowRevisionModal(false);
+    setFeedbackInput("");
+  };
+
+  // Esc closes the revision modal
+  useEffect(() => {
+    if (!showRevisionModal) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeRevisionModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const runExport = async (kind) => {
+    if (exporting) return;
+    setExporting(kind);
+    try {
+      if (kind === "pdf") await exportSubmissionTosPdf(submission, user?.id);
+      else await exportSubmissionQuizPaper(submission, user?.id);
+    } catch (err) {
+      console.error("Export failed:", err);
+      notify.error("Export failed. Please try again.");
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -223,16 +321,22 @@ export const FacultyHeadApprovalDetail = () => {
       return;
     }
 
-    setActionLoading(true);
+    setPendingAction("revision");
     try {
-      const { error } = await supabase
-        .from("quiz_analysis_submissions")
-        .update({
-          status: "revision_requested",
-          admin_feedback: feedbackInput,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", submissionId);
+      const now = new Date().toISOString();
+      const feedback = feedbackInput.trim();
+      // The reviewer's admin_feedback is preserved; the Department Head's
+      // instructions go to their own column.
+      const { error } = await updateSubmissionAsHead(
+        submissionId,
+        { status: HEAD_STATUSES.RETURNED, updated_at: now },
+        {
+          faculty_head_feedback: feedback,
+          faculty_head_reviewed_by: user?.id,
+          faculty_head_reviewed_at: now,
+        },
+        { admin_feedback: feedback },
+      );
 
       if (error) throw error;
 
@@ -244,8 +348,11 @@ export const FacultyHeadApprovalDetail = () => {
         title: "Revision Requested by Department Head",
         message: `The Department Head requested changes for "${quizTitle}": "${feedbackInput.slice(0, 100)}..."`,
         type: "warning",
-        link: `/instructor-dashboard/my-submissions`,
+        link: getSubmitterSubmissionsLink(),
       });
+
+      window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
+      window.dispatchEvent(new Event("submissions-changed"));
 
       // Log workflow history status change
       if (submission.quiz_id) {
@@ -261,22 +368,31 @@ export const FacultyHeadApprovalDetail = () => {
         action: "REVISION_REQUESTED",
         tableName: "quizzes",
         recordId: submission.quiz_id,
+        itemName: cleanQuizTitle(quizTitle),
+        subjectName: submission.section?.subject_code || null,
+        sectionName: submission.section?.name || null,
+        previousStatus: HEAD_STATUSES.PENDING,
+        newStatus: HEAD_STATUSES.RETURNED,
+        reason: feedbackInput.trim(),
+        userRole: "faculty_head",
         newValues: {
           submissionId: submission.id,
           quizTitle: quizTitle,
-          feedback: feedbackInput,
-          status: "revision_requested",
+          instructorId: submission.instructor_id,
+          feedback: feedbackInput.trim(),
+          status: HEAD_STATUSES.RETURNED,
         },
       });
 
       notify.success("Revision requested successfully!");
       setShowRevisionModal(false);
-      navigate("/faculty-head-dashboard/quiz-approvals");
+      setFeedbackInput("");
+      navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.RETURNED}`);
     } catch (err) {
       console.error("Error requesting revision:", err);
       notify.error("Failed to submit revision request.");
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
@@ -302,10 +418,12 @@ export const FacultyHeadApprovalDetail = () => {
     const styles = {
       faculty_head_review: "bg-yellow-100 text-yellow-700 border-yellow-300",
       faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
+      revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
     };
     const labels = {
       faculty_head_review: "Pending Approval",
       faculty_head_approved: "Approved",
+      revision_requested: "Returned for Revision",
     };
     return (
       <span
@@ -315,6 +433,17 @@ export const FacultyHeadApprovalDetail = () => {
       </span>
     );
   };
+
+  const formatDateTime = (dateStr) =>
+    dateStr
+      ? new Date(dateStr).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "—";
 
   if (loading) {
     return (
@@ -385,20 +514,25 @@ export const FacultyHeadApprovalDetail = () => {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              {(submission.quizzes?.title || "Quiz Analysis Review").replace(
-                /\s*\(Revised(?:\s+\d+)?\)\s*$/,
-                "",
-              )}
+              {cleanQuizTitle(submission.quizzes?.title || "Quiz Analysis Review")}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Submitted by{" "}
-              {submission.profiles
-                ? `${submission.profiles.first_name || ""} ${submission.profiles.last_name || ""}`.trim() ||
-                  submission.profiles.username ||
-                  submission.profiles.email ||
-                  "Unknown"
-                : "Unknown"}
+              <span className="text-white/90 font-semibold">
+                {getProfileName(submission.profiles)}
+              </span>{" "}
+              on {formatDateTime(submission.created_at)}
             </p>
+            {submission.reviewer && (
+              <p className="text-white/60 text-sm mt-0.5">
+                Reviewed by{" "}
+                <span className="text-white/90 font-semibold">
+                  {getProfileName(submission.reviewer)}
+                </span>{" "}
+                ({submission.reviewer.is_admin ? "Senior Faculty" : "Peer Reviewer"})
+                {submission.reviewed_at && <> on {formatDateTime(submission.reviewed_at)}</>}
+              </p>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-3">
             {getStatusBadge(submission.status)}
@@ -413,17 +547,38 @@ export const FacultyHeadApprovalDetail = () => {
         {/* Revision History */}
         <ExamRevisionHistory revisions={revisions} currentSubmissionId={submission.id} />
 
-        {/* Senior Faculty Overall Feedback */}
+        {/* Department Head revision request (kept separate from reviewer feedback) */}
+        {submission.faculty_head_feedback && (
+          <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+            <p className="text-sm font-semibold text-orange-700 mb-1">
+              Department Head Revision Request:
+            </p>
+            <p className="text-orange-900 whitespace-pre-wrap">{submission.faculty_head_feedback}</p>
+            {submission.faculty_head_reviewed_at && (
+              <p className="text-xs text-orange-500 mt-2">
+                Returned on {formatDateTime(submission.faculty_head_reviewed_at)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Reviewer Overall Feedback */}
         {submission.admin_feedback && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-sm font-semibold text-blue-700 mb-1">
-              Senior Faculty Overall Feedback:
+              Reviewer Overall Feedback
+              {submission.reviewer && (
+                <span className="font-normal text-blue-600">
+                  {" "}— {getProfileName(submission.reviewer)} (
+                  {submission.reviewer.is_admin ? "Senior Faculty" : "Peer Reviewer"})
+                </span>
+              )}
+              :
             </p>
-            <p className="text-blue-800">{submission.admin_feedback}</p>
+            <p className="text-blue-800 whitespace-pre-wrap">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
               <p className="text-xs text-blue-400 mt-2">
-                Reviewed on{" "}
-                {new Date(submission.reviewed_at).toLocaleDateString()}
+                Reviewed on {formatDateTime(submission.reviewed_at)}
               </p>
             )}
           </div>
@@ -434,7 +589,7 @@ export const FacultyHeadApprovalDetail = () => {
           Object.keys(submission.question_feedback).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-sm font-semibold text-blue-700 mb-2">
-                Per-Question Feedback from Senior Faculty:
+                Per-Question Feedback from Reviewer:
               </p>
               <div className="space-y-2">
                 {results?.analysis?.map((item, idx) => {
@@ -701,7 +856,7 @@ export const FacultyHeadApprovalDetail = () => {
                   {submission.question_feedback?.[item.questionId] && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-xs font-semibold text-blue-600 mb-0.5">
-                        Senior Faculty Feedback:
+                        Reviewer Feedback:
                       </p>
                       <p className="text-sm text-blue-800">
                         {submission.question_feedback[item.questionId]}
@@ -733,7 +888,7 @@ export const FacultyHeadApprovalDetail = () => {
               disabled={actionLoading}
               className="px-8 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
-              {actionLoading ? (
+              {pendingAction === "approve" ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   Approving...
@@ -763,17 +918,27 @@ export const FacultyHeadApprovalDetail = () => {
 
         {/* Revision Request Feedback Modal */}
         {showRevisionModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeRevisionModal();
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="revision-modal-title"
+              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4"
+            >
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <h3 id="revision-modal-title" className="text-lg font-bold text-gray-800 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   Request Quiz Revision
                 </h3>
                 <button
-                  onClick={() => setShowRevisionModal(false)}
+                  onClick={closeRevisionModal}
                   aria-label="Close revision request"
                   className="text-gray-400 hover:text-gray-600 font-bold rounded-lg p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
@@ -791,39 +956,81 @@ export const FacultyHeadApprovalDetail = () => {
                   value={feedbackInput}
                   onChange={(e) => setFeedbackInput(e.target.value)}
                   placeholder="Specify question edits, Bloom's level updates, or items that require modification..."
+                  autoFocus
                   className="w-full p-3 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                 />
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  The reviewer's original feedback is kept; your note is shown to the instructor separately.
+                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  onClick={() => setShowRevisionModal(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                  onClick={closeRevisionModal}
+                  disabled={pendingAction === "revision"}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleRequestRevision}
-                  disabled={actionLoading}
+                  disabled={actionLoading || !feedbackInput.trim()}
                   className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                 >
-                  {actionLoading ? "Submitting..." : "Send Revision Request"}
+                  {pendingAction === "revision" ? "Submitting..." : "Send Revision Request"}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* After approval - show approved banner */}
-        {submission.status === "faculty_head_approved" && (
+        {/* Returned banner */}
+        {submission.status === HEAD_STATUSES.RETURNED && (
+          <div className="p-6 bg-orange-50 border border-orange-200 rounded-xl text-center">
+            <h3 className="text-lg font-bold text-orange-800 mb-1">
+              Returned to the instructor for revision
+            </h3>
+            <p className="text-orange-600 text-sm">
+              The revised version will come back to Quiz Approvals after it passes review again.
+            </p>
+          </div>
+        )}
+
+        {/* After approval - approved banner with exports */}
+        {submission.status === HEAD_STATUSES.APPROVED && (
           <div className="p-6 bg-green-50 border border-green-200 rounded-xl text-center">
-            
-            <h3 className="text-lg font-bold text-green-800 mb-2">
+            <h3 className="text-lg font-bold text-green-800 mb-1">
               This quiz has been approved
             </h3>
-            <p className="text-green-600 text-sm">
-              You can export the PDFs from the approvals list page.
-            </p>
+            {submission.faculty_head_approved_at && (
+              <p className="text-green-600 text-sm mb-4">
+                Approved on {formatDateTime(submission.faculty_head_approved_at)}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => runExport("pdf")}
+                disabled={!!exporting}
+                aria-busy={exporting === "pdf"}
+                className="px-5 py-2.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+              >
+                {exporting === "pdf" && (
+                  <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                )}
+                {exporting === "pdf" ? "Exporting…" : "Export TOS PDF"}
+              </button>
+              <button
+                onClick={() => runExport("paper")}
+                disabled={!!exporting}
+                aria-busy={exporting === "paper"}
+                className="px-5 py-2.5 bg-brand-navy hover:bg-brand-indigo text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+              >
+                {exporting === "paper" && (
+                  <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                )}
+                {exporting === "paper" ? "Exporting…" : "Export Quiz Paper"}
+              </button>
+            </div>
           </div>
         )}
       </div>

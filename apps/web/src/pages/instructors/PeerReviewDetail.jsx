@@ -233,7 +233,7 @@ export const PeerReviewDetail = () => {
               title: "New Exam Awaiting Final Approval",
               message: `Quiz "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
               type: "info",
-              link: `/faculty-head/quiz-approvals`,
+              link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
             }));
             await supabase.from("notifications").insert(headNotifs);
           }

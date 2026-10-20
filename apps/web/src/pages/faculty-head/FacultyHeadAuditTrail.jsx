@@ -1,156 +1,386 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
+import { notify } from "../../utils/notify.jsx";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
+import {
+  AUDIT_ACTION_OPTIONS,
+  AUDIT_TABLE_OPTIONS,
+  formatAuditAction,
+  formatAuditRole,
+  formatAuditStatus,
+  formatAuditTable,
+  getAuditStatusTone,
+  getReadableFields,
+  getChangedFields,
+  getReferencedUserIds,
+  getAuditSubmissionId,
+  getAuditStatus,
+  getAuditFeedback,
+  getAuditItemName,
+} from "../../utils/auditFormat.js";
+
+// Newest records loaded per query; narrow the date range to see older ones.
+const FETCH_LIMIT = 1000;
+const ITEMS_PER_PAGE = 10;
+
+const getActionBadgeColor = (action) => {
+  switch ((action || "").toUpperCase()) {
+    case "QUIZ_CREATED":
+    case "QUIZ_PUBLISHED":
+      return "bg-blue-50 text-blue-800 border border-blue-200/80";
+    case "SUBMITTED_FOR_REVIEW":
+    case "RESUBMITTED_FOR_REVIEW":
+      return "bg-amber-50 text-amber-800 border border-amber-200/80";
+    case "FORWARDED_TO_HEAD":
+    case "PEER_REVIEW_FORWARDED_TO_HEAD":
+      return "bg-sky-50 text-sky-800 border border-sky-200/80";
+    case "QUIZ_APPROVED":
+      return "bg-emerald-50 text-emerald-800 border border-emerald-200/80";
+    case "REVISION_REQUESTED":
+    case "PEER_REVIEW_REVISION_REQUESTED":
+      return "bg-orange-50 text-orange-800 border border-orange-200/80";
+    case "QUIZ_UPDATED":
+    case "QUESTION_UPDATED":
+    case "SECTION_UPDATED":
+      return "bg-indigo-50 text-indigo-800 border border-indigo-200/80";
+    case "QUIZ_DELETED":
+    case "QUESTION_DELETED":
+    case "SECTION_ARCHIVED":
+      return "bg-rose-50 text-rose-800 border border-rose-200/80";
+    case "ANALYSIS_SAVED":
+      return "bg-purple-50 text-purple-800 border border-purple-200/80";
+    default:
+      return "bg-slate-100 text-slate-700 border border-slate-200";
+  }
+};
+
+const fullName = (p) =>
+  p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email || null : null;
+
+const formatDate = (dateString) =>
+  new Date(dateString).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const ContextCell = ({ log }) => {
+  const item = getAuditItemName(log);
+  const context = [log.subject_name, log.section_name].filter(Boolean).join(" · ");
+  if (!item && !context) return <span className="text-gray-400">—</span>;
+  return (
+    <div className="min-w-0">
+      {item && <div className="font-bold text-brand-navy text-xs truncate max-w-[220px]">{item}</div>}
+      {context && <div className="text-[10px] text-gray-500 truncate max-w-[220px]">{context}</div>}
+    </div>
+  );
+};
+
+const ActorCell = ({ log }) => (
+  <div>
+    <div className="font-bold text-gray-900">{fullName(log.profiles) || "Unknown User"}</div>
+    <div className="text-[10px] text-gray-500">{formatAuditRole(log.user_role)}</div>
+  </div>
+);
+
+/** Readable details for one audit record (replaces the raw JSON dump). */
+const EventDetails = ({ log }) => {
+  const [showRaw, setShowRaw] = useState(false);
+  const status = getAuditStatus(log);
+  const feedback = getAuditFeedback(log);
+  const submissionId = getAuditSubmissionId(log);
+  const extraFields = getReadableFields(log.new_values);
+  const changes = getChangedFields(log.old_values, log.new_values);
+
+  const rows = [
+    { label: "Item", value: getAuditItemName(log) },
+    { label: "Subject", value: log.subject_name },
+    { label: "Section", value: log.section_name },
+    { label: "Instructor", value: log.instructorName },
+    ...extraFields.map((f) => ({ label: f.label, value: f.value })),
+  ].filter((r) => r.value && r.value !== "—");
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs">
+      {(status || log.previous_status) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px] w-24 shrink-0">
+            Status
+          </span>
+          {log.previous_status && (
+            <>
+              <span className={`px-2 py-0.5 rounded-full border font-semibold ${getAuditStatusTone(log.previous_status)}`}>
+                {formatAuditStatus(log.previous_status)}
+              </span>
+              <span className="text-gray-400" aria-hidden="true">→</span>
+            </>
+          )}
+          {status && (
+            <span className={`px-2 py-0.5 rounded-full border font-bold ${getAuditStatusTone(status)}`}>
+              {formatAuditStatus(status)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {rows.map((r) => (
+            <div key={r.label} className="flex gap-2 min-w-0">
+              <dt className="font-bold text-gray-500 uppercase tracking-wider text-[10px] w-24 shrink-0 pt-0.5">
+                {r.label}
+              </dt>
+              <dd className="text-gray-800 font-medium break-words min-w-0">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {feedback && (
+        <div>
+          <p className="font-bold text-gray-500 uppercase tracking-wider text-[10px] mb-1">
+            Reason / Feedback
+          </p>
+          <p className="text-gray-800 whitespace-pre-wrap bg-white border border-slate-200 rounded-lg p-2.5">
+            {feedback}
+          </p>
+        </div>
+      )}
+
+      {log.change_summary && (
+        <p className="text-gray-700">
+          <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px] mr-2">Summary</span>
+          {log.change_summary}
+        </p>
+      )}
+
+      {changes.length > 0 && (
+        <div>
+          <p className="font-bold text-gray-500 uppercase tracking-wider text-[10px] mb-1">Changes</p>
+          <ul className="space-y-1">
+            {changes.map((c) => (
+              <li key={c.key} className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-gray-600">{c.label}:</span>
+                <span className="line-through text-rose-600/80 break-words">{c.before}</span>
+                <span className="text-gray-400" aria-hidden="true">→</span>
+                <span className="text-emerald-700 font-semibold break-words">{c.after}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        {submissionId && (
+          <Link
+            to={`/faculty-head-dashboard/quiz-approvals/${submissionId}`}
+            className="inline-flex items-center gap-1 font-bold text-brand-navy hover:text-brand-indigo hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          >
+            Open submission
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
+        {(log.new_values || log.old_values) && (
+          <button
+            type="button"
+            onClick={() => setShowRaw((v) => !v)}
+            aria-expanded={showRaw}
+            className="text-[11px] text-gray-400 hover:text-gray-600 underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          >
+            {showRaw ? "Hide technical details" : "Technical details"}
+          </button>
+        )}
+      </div>
+
+      {showRaw && (
+        <pre className="p-3 bg-white border border-slate-200 text-slate-600 rounded-lg overflow-auto font-mono text-[10px] whitespace-pre-wrap break-all max-h-60">
+          {JSON.stringify({ record_id: log.record_id, old_values: log.old_values, new_values: log.new_values }, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+};
 
 export const FacultyHeadAuditTrail = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hitLimit, setHitLimit] = useState(false);
   const [filterAction, setFilterAction] = useState("all");
   const [filterTable, setFilterTable] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'timeline'
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     fetchAuditLogs();
-  }, [filterAction, filterTable]);
+  }, [filterAction, filterTable, dateFrom, dateTo]);
 
   // Reset pagination when search, filter, or viewMode changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterAction, filterTable, viewMode]);
+    setExpandedId(null);
+  }, [searchTerm, filterAction, filterTable, dateFrom, dateTo, viewMode]);
 
+  // Only the first load shows the skeleton so changing a filter doesn't
+  // unmount the filter bar mid-interaction.
   const fetchAuditLogs = async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
       let query = supabase
         .from("audit_trail")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(FETCH_LIMIT);
 
-      if (filterAction !== "all") {
-        query = query.eq("action", filterAction);
-      }
-
-      if (filterTable !== "all") {
-        query = query.eq("table_name", filterTable);
-      }
+      if (filterAction !== "all") query = query.eq("action", filterAction);
+      if (filterTable !== "all") query = query.eq("table_name", filterTable);
+      if (dateFrom) query = query.gte("created_at", new Date(`${dateFrom}T00:00:00`).toISOString());
+      if (dateTo) query = query.lte("created_at", new Date(`${dateTo}T23:59:59.999`).toISOString());
 
       const { data: logsData, error: logsError } = await query;
-
       if (logsError) throw logsError;
 
       const rawLogs = logsData || [];
+      setHitLimit(rawLogs.length >= FETCH_LIMIT);
 
-      // Fetch profiles manually to ensure compatibility
-      const userIds = [...new Set(rawLogs.map((l) => l.user_id).filter(Boolean))];
-      let profileMap = {};
-
-      if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("id, username, email, first_name, last_name")
-          .in("id", userIds);
-
-        (profilesData || []).forEach((p) => {
-          profileMap[p.id] = p;
-        });
-      }
-
-      // Fetch quiz information for quiz-related audit logs
+      // Resolve actors and any instructors referenced in the payload
+      const userIds = [
+        ...new Set(rawLogs.flatMap((l) => [l.user_id, ...getReferencedUserIds(l)]).filter(Boolean)),
+      ];
       const quizIds = [
         ...new Set(
-          rawLogs
-            .filter((l) => l.table_name === "quizzes")
-            .map((l) => l.record_id)
-            .filter(Boolean)
+          rawLogs.filter((l) => l.table_name === "quizzes").map((l) => l.record_id).filter(Boolean),
         ),
       ];
-      let quizMap = {};
 
-      if (quizIds.length > 0) {
-        const { data: quizzesData } = await supabase
-          .from("quizzes")
-          .select("id, title, status")
-          .in("id", quizIds);
+      const [profilesRes, quizzesRes] = await Promise.all([
+        userIds.length
+          ? supabase
+              .from("profiles")
+              .select("id, username, email, first_name, last_name")
+              .in("id", userIds)
+          : Promise.resolve({ data: [] }),
+        quizIds.length
+          ? supabase.from("quizzes").select("id, title, status").in("id", quizIds)
+          : Promise.resolve({ data: [] }),
+      ]);
 
-        (quizzesData || []).forEach((q) => {
-          quizMap[q.id] = q;
-        });
-      }
+      const profileMap = new Map((profilesRes.data || []).map((p) => [p.id, p]));
+      const quizMap = new Map((quizzesRes.data || []).map((q) => [q.id, q]));
 
-      const enrichedLogs = rawLogs.map((log) => ({
-        ...log,
-        profiles: profileMap[log.user_id] || null,
-        quiz: quizMap[log.record_id] || null,
-      }));
-
-      setAuditLogs(enrichedLogs);
+      setAuditLogs(
+        rawLogs.map((log) => {
+          const instructorId = getReferencedUserIds(log)[0];
+          return {
+            ...log,
+            profiles: profileMap.get(log.user_id) || null,
+            quiz: log.table_name === "quizzes" ? quizMap.get(log.record_id) || null : null,
+            instructorName: instructorId ? fullName(profileMap.get(instructorId)) : null,
+          };
+        }),
+      );
     } catch (error) {
       console.error("Error fetching audit logs:", error);
+      notify.error("Failed to load audit logs.");
       setAuditLogs([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const filteredLogs = useMemo(() => {
-    if (!searchTerm.trim()) return auditLogs;
-    const term = searchTerm.toLowerCase();
-    return auditLogs.filter((log) => {
-      const actionMatch = (log.action || "").toLowerCase().includes(term);
-      const tableMatch = (log.table_name || "").toLowerCase().includes(term);
-      const userMatch =
-        (log.profiles?.username || "").toLowerCase().includes(term) ||
-        (log.profiles?.email || "").toLowerCase().includes(term) ||
-        (log.profiles?.first_name || "").toLowerCase().includes(term) ||
-        (log.profiles?.last_name || "").toLowerCase().includes(term);
-      const detailsMatch = JSON.stringify(log.new_values || {})
-        .toLowerCase()
-        .includes(term);
-      return actionMatch || tableMatch || userMatch || detailsMatch;
-    });
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return auditLogs;
+    // Search what people can see — not IDs buried in the raw payload
+    return auditLogs.filter((log) =>
+      [
+        formatAuditAction(log.action),
+        formatAuditTable(log.table_name),
+        formatAuditRole(log.user_role),
+        fullName(log.profiles),
+        log.profiles?.email,
+        getAuditItemName(log),
+        log.subject_name,
+        log.section_name,
+        log.instructorName,
+        getAuditFeedback(log),
+        log.change_summary,
+        getAuditStatus(log) && formatAuditStatus(getAuditStatus(log)),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term)),
+    );
   }, [auditLogs, searchTerm]);
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getActionBadgeColor = (action) => {
-    switch (action?.toLowerCase()) {
-      case "quiz_created":
-        return "bg-blue-50 text-blue-800 border border-blue-200/80";
-      case "quiz_submitted":
-      case "revision_submitted":
-        return "bg-amber-50 text-amber-800 border border-amber-200/80";
-      case "quiz_approved":
-        return "bg-emerald-50 text-emerald-800 border border-emerald-200/80";
-      case "revision_requested":
-        return "bg-orange-50 text-orange-800 border border-orange-200/80";
-      case "quiz_updated":
-        return "bg-indigo-50 text-indigo-800 border border-indigo-200/80";
-      case "quiz_deleted":
-        return "bg-rose-50 text-rose-800 border border-rose-200/80";
-      case "analysis_saved":
-        return "bg-purple-50 text-purple-800 border border-purple-200/80";
-      case "user_login":
-        return "bg-slate-100 text-slate-700 border border-slate-200";
-      default:
-        return "bg-gray-100 text-gray-700 border border-gray-200";
-    }
-  };
 
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ITEMS_PER_PAGE));
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+  const hasActiveFilters =
+    filterAction !== "all" || filterTable !== "all" || dateFrom || dateTo || searchTerm;
+
+  const clearFilters = () => {
+    setFilterAction("all");
+    setFilterTable("all");
+    setDateFrom("");
+    setDateTo("");
+    setSearchTerm("");
+  };
+
+  const exportCsv = () => {
+    if (filteredLogs.length === 0) return;
+    const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = [
+      "Timestamp",
+      "Action",
+      "Area",
+      "Item",
+      "Subject",
+      "Section",
+      "Instructor",
+      "Previous Status",
+      "New Status",
+      "Reason / Feedback",
+      "Performed By",
+      "Email",
+      "Role",
+    ];
+    const rows = filteredLogs.map((log) => [
+      new Date(log.created_at).toLocaleString("en-US"),
+      formatAuditAction(log.action),
+      formatAuditTable(log.table_name),
+      getAuditItemName(log),
+      log.subject_name,
+      log.section_name,
+      log.instructorName,
+      log.previous_status ? formatAuditStatus(log.previous_status) : "",
+      getAuditStatus(log) ? formatAuditStatus(getAuditStatus(log)) : "",
+      getAuditFeedback(log),
+      fullName(log.profiles) || "Unknown User",
+      log.profiles?.email,
+      formatAuditRole(log.user_role),
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(escape).join(",")).join("\r\n");
+    // Byte-order mark so Excel opens the UTF-8 CSV with names intact
+    const BOM = String.fromCharCode(0xfeff);
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit-trail-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -162,11 +392,6 @@ export const FacultyHeadAuditTrail = () => {
         </div>
         <div className="p-6">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-            <div className="p-5 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-            </div>
             <SkeletonTableRow cells={5} />
             <SkeletonTableRow cells={5} />
             <SkeletonTableRow cells={5} />
@@ -176,6 +401,10 @@ export const FacultyHeadAuditTrail = () => {
       </div>
     );
   }
+
+  const fieldLabel = "block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5";
+  const fieldInput =
+    "w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-brand-navy bg-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all";
 
   return (
     <>
@@ -194,32 +423,34 @@ export const FacultyHeadAuditTrail = () => {
             </p>
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/20 self-start sm:self-auto backdrop-blur-xs" role="tablist" aria-label="Audit trail view">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button
-              role="tab"
-              aria-selected={viewMode === "table"}
-              onClick={() => setViewMode("table")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
-                viewMode === "table"
-                  ? "bg-brand-gold text-brand-navy shadow-xs"
-                  : "text-white/80 hover:text-white"
-              }`}
+              type="button"
+              onClick={exportCsv}
+              disabled={filteredLogs.length === 0}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
-              Table View
+              Export CSV
             </button>
-            <button
-              role="tab"
-              aria-selected={viewMode === "timeline"}
-              onClick={() => setViewMode("timeline")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
-                viewMode === "timeline"
-                  ? "bg-brand-gold text-brand-navy shadow-xs"
-                  : "text-white/80 hover:text-white"
-              }`}
-            >
-              Timeline View
-            </button>
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/20 backdrop-blur-xs" role="tablist" aria-label="Audit trail view">
+              {[
+                { key: "table", label: "Table View" },
+                { key: "timeline", label: "Timeline View" },
+              ].map((v) => (
+                <button
+                  key={v.key}
+                  role="tab"
+                  aria-selected={viewMode === v.key}
+                  onClick={() => setViewMode(v.key)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
+                    viewMode === v.key ? "bg-brand-gold text-brand-navy shadow-xs" : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -227,9 +458,9 @@ export const FacultyHeadAuditTrail = () => {
       <div className="p-6">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
           {/* Filters & Search Bar */}
-          <div className="p-5 bg-slate-50/60 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="audit-search" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+          <div className="p-5 bg-slate-50/60 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-2">
+              <label htmlFor="audit-search" className={fieldLabel}>
                 Search Audit Trail
               </label>
               <div className="relative">
@@ -246,10 +477,10 @@ export const FacultyHeadAuditTrail = () => {
                 <input
                   id="audit-search"
                   type="text"
-                  placeholder="Search quiz, user, action, details..."
+                  placeholder="Search quiz, person, action, feedback..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
+                  className={`${fieldInput} pl-10 pr-10`}
                 />
                 {searchTerm && (
                   <button
@@ -265,45 +496,92 @@ export const FacultyHeadAuditTrail = () => {
             </div>
 
             <div>
-              <label htmlFor="audit-action" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-                Filter by Action
+              <label htmlFor="audit-action" className={fieldLabel}>
+                Action
               </label>
               <select
                 id="audit-action"
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold bg-white shadow-2xs transition-all"
+                className={fieldInput}
               >
                 <option value="all">All Actions</option>
-                <option value="QUIZ_APPROVED">Quiz Approved</option>
-                <option value="QUIZ_SUBMITTED">Quiz Submitted</option>
-                <option value="REVISION_REQUESTED">Revision Requested</option>
-                <option value="REVISION_SUBMITTED">Revision Submitted</option>
-                <option value="QUIZ_CREATED">Quiz Created</option>
-                <option value="QUIZ_UPDATED">Quiz Updated</option>
-                <option value="QUIZ_DELETED">Quiz Deleted</option>
-                <option value="ANALYSIS_SAVED">Analysis Saved</option>
-                <option value="USER_LOGIN">User Login</option>
+                {AUDIT_ACTION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
-              <label htmlFor="audit-table" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-                Filter by Table
+              <label htmlFor="audit-table" className={fieldLabel}>
+                Area
               </label>
               <select
                 id="audit-table"
                 value={filterTable}
                 onChange={(e) => setFilterTable(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold bg-white shadow-2xs transition-all"
+                className={fieldInput}
               >
-                <option value="all">All Tables</option>
-                <option value="quizzes">Quizzes</option>
-                <option value="quiz_analysis_submissions">Submissions</option>
-                <option value="questions">Questions</option>
-                <option value="profiles">Profiles</option>
+                <option value="all">All Areas</option>
+                {AUDIT_TABLE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
+
+            <div>
+              <span className={fieldLabel}>Date Range</span>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="audit-date-from" className="sr-only">From date</label>
+                <input
+                  id="audit-date-from"
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className={`${fieldInput} px-2`}
+                />
+                <span className="text-gray-400 text-xs" aria-hidden="true">–</span>
+                <label htmlFor="audit-date-to" className="sr-only">To date</label>
+                <input
+                  id="audit-date-to"
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className={`${fieldInput} px-2`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Result summary */}
+          <div className="px-5 py-2.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
+            <span className="flex items-center gap-2">
+              {refreshing && (
+                <span className="h-3 w-3 rounded-full border-2 border-slate-300 border-t-brand-navy animate-spin" aria-hidden="true" />
+              )}
+              <strong className="text-gray-700">{filteredLogs.length}</strong> record
+              {filteredLogs.length === 1 ? "" : "s"}
+              {hitLimit && (
+                <span className="text-amber-700">
+                  · showing the latest {FETCH_LIMIT.toLocaleString()} — narrow the date range to see older records
+                </span>
+              )}
+            </span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="font-bold text-brand-navy hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           {/* Main Content */}
@@ -315,87 +593,75 @@ export const FacultyHeadAuditTrail = () => {
                     <tr>
                       <th className="px-5 py-3.5 text-left">Timestamp</th>
                       <th className="px-5 py-3.5 text-left">Action</th>
-                      <th className="px-5 py-3.5 text-left">Table</th>
                       <th className="px-5 py-3.5 text-left">Quiz / Context</th>
-                      <th className="px-5 py-3.5 text-left">User</th>
-                      <th className="px-5 py-3.5 text-left">Role</th>
-                      <th className="px-5 py-3.5 text-left">Details</th>
+                      <th className="px-5 py-3.5 text-left">Performed By</th>
+                      <th className="px-5 py-3.5 text-left">Area</th>
+                      <th className="px-5 py-3.5 text-right">
+                        <span className="sr-only">Details</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {paginatedLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-5 py-3.5 text-gray-600 font-mono text-[11px] whitespace-nowrap">
-                          {formatDate(log.created_at)}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${getActionBadgeColor(
-                              log.action
-                            )}`}
-                          >
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-700 font-semibold">
-                          {log.table_name || "-"}
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-700">
-                          {log.table_name === "quizzes" && log.quiz ? (
-                            <div>
-                              <div className="font-bold text-brand-navy text-xs">
-                                {log.quiz.title || "Untitled Quiz"}
-                              </div>
-                              {log.quiz.status && (
-                                <span className="inline-block mt-0.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold">
-                                  {log.quiz.status}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            "-"
+                    {paginatedLogs.map((log) => {
+                      const expanded = expandedId === log.id;
+                      return (
+                        <Fragment key={log.id}>
+                          <tr className={`transition-colors ${expanded ? "bg-slate-50/80" : "hover:bg-slate-50/70"}`}>
+                            <td className="px-5 py-3.5 text-gray-600 font-mono text-[11px] whitespace-nowrap">
+                              {formatDate(log.created_at)}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${getActionBadgeColor(log.action)}`}>
+                                {formatAuditAction(log.action)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-gray-700">
+                              <ContextCell log={log} />
+                            </td>
+                            <td className="px-5 py-3.5 text-gray-700">
+                              <ActorCell log={log} />
+                            </td>
+                            <td className="px-5 py-3.5 text-gray-600 font-medium whitespace-nowrap">
+                              {formatAuditTable(log.table_name)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedId(expanded ? null : log.id)}
+                                aria-expanded={expanded}
+                                aria-controls={`audit-details-${log.id}`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-brand-navy hover:bg-brand-navy/5 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                              >
+                                {expanded ? "Hide" : "Details"}
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
+                                  aria-hidden="true"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          {expanded && (
+                            <tr id={`audit-details-${log.id}`} className="bg-slate-50/80">
+                              <td colSpan={6} className="px-5 pb-4 pt-0">
+                                <EventDetails log={log} />
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-700">
-                          <div className="font-bold text-gray-900">
-                            {log.profiles?.first_name || log.profiles?.last_name
-                              ? `${log.profiles.first_name || ""} ${log.profiles.last_name || ""}`.trim()
-                              : log.profiles?.username || "Unknown User"}
-                          </div>
-                          {log.profiles?.email && (
-                            <div className="text-[10px] text-gray-400 font-mono">
-                              {log.profiles.email}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-700 font-medium capitalize">
-                          {log.user_role || "-"}
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-600 max-w-xs">
-                          {log.new_values ? (
-                            <details className="text-xs group">
-                              <summary className="cursor-pointer font-bold text-brand-navy hover:text-brand-indigo hover:underline">
-                                View Event Details
-                              </summary>
-                              <pre className="mt-2 p-3 bg-brand-navy text-emerald-400 rounded-xl text-left overflow-auto font-mono text-[10px]">
-                                {JSON.stringify(log.new_values, null, 2)}
-                              </pre>
-                            </details>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                     {filteredLogs.length === 0 && (
                       <tr>
-                        <td colSpan="7" className="p-12 text-center text-gray-400">
-                          <div className="font-bold text-sm text-gray-700 mb-1">
-                            No audit logs found
-                          </div>
-                          <p className="text-xs text-gray-400">
-                            Try adjusting your search terms or filters above.
-                          </p>
+                        <td colSpan={6} className="p-12 text-center text-gray-400">
+                          <div className="font-bold text-sm text-gray-700 mb-1">No audit logs found</div>
+                          <p className="text-xs text-gray-400">Try adjusting your search terms or filters above.</p>
                         </td>
                       </tr>
                     )}
@@ -409,44 +675,30 @@ export const FacultyHeadAuditTrail = () => {
                   {paginatedLogs.map((log) => (
                     <div key={log.id} className="relative group">
                       <div className="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full bg-brand-gold border-2 border-brand-navy shadow-xs" />
-                      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs hover:shadow-xs transition-all space-y-2">
+                      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs hover:shadow-xs transition-all space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${getActionBadgeColor(
-                                log.action
-                              )}`}
-                            >
-                              {log.action}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${getActionBadgeColor(log.action)}`}>
+                              {formatAuditAction(log.action)}
                             </span>
-                            <span className="text-xs font-semibold text-gray-500 font-mono">
-                              {log.table_name ? `[${log.table_name}]` : ""}
+                            <span className="text-xs font-semibold text-gray-500">
+                              {formatAuditTable(log.table_name)}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-400 font-mono">
-                            {formatDate(log.created_at)}
-                          </span>
+                          <span className="text-xs text-gray-400 font-mono">{formatDate(log.created_at)}</span>
                         </div>
                         <div className="text-sm font-bold text-gray-900">
-                          {log.profiles?.first_name || log.profiles?.last_name
-                            ? `${log.profiles.first_name || ""} ${log.profiles.last_name || ""}`.trim()
-                            : log.profiles?.username || log.user_id || "System User"}
-                          <span className="text-xs font-normal text-gray-500 ml-2 capitalize">
-                            ({log.user_role || "User"})
+                          {fullName(log.profiles) || "Unknown User"}
+                          <span className="text-xs font-normal text-gray-500 ml-2">
+                            ({formatAuditRole(log.user_role)})
                           </span>
                         </div>
-                        {log.new_values && (
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-mono text-gray-700 overflow-x-auto">
-                            {JSON.stringify(log.new_values)}
-                          </div>
-                        )}
+                        <EventDetails log={log} />
                       </div>
                     </div>
                   ))}
                   {filteredLogs.length === 0 && (
-                    <div className="text-center py-12 text-gray-400 text-xs">
-                      No timeline logs match your filters.
-                    </div>
+                    <div className="text-center py-12 text-gray-400 text-xs">No timeline logs match your filters.</div>
                   )}
                 </div>
               </div>
@@ -471,11 +723,7 @@ export const FacultyHeadAuditTrail = () => {
                       Previous
                     </button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                      if (
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
+                      if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
                         return (
                           <button
                             key={page}
@@ -483,9 +731,7 @@ export const FacultyHeadAuditTrail = () => {
                             aria-label={`Go to page ${page}`}
                             aria-current={currentPage === page ? "page" : undefined}
                             className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
-                              currentPage === page
-                                ? "bg-brand-navy text-white shadow-xs"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              currentPage === page ? "bg-brand-navy text-white shadow-xs" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                             }`}
                           >
                             {page}
@@ -518,3 +764,4 @@ export const FacultyHeadAuditTrail = () => {
     </>
   );
 };
+

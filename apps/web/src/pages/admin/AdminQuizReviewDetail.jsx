@@ -241,6 +241,31 @@ export const AdminQuizReviewDetail = () => {
         });
       }
 
+      // Forwarded: let the Department Heads know it's awaiting final approval
+      if (status === "approved") {
+        try {
+          const { data: deptHeads } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("is_faculty_head", true);
+
+          if (deptHeads && deptHeads.length > 0) {
+            await supabase.from("notifications").insert(
+              deptHeads.map((h) => ({
+                user_id: h.id,
+                title: "New Exam Awaiting Final Approval",
+                message: `Quiz "${quizTitle}" was reviewed by the Senior Faculty and is awaiting your final department head approval.`,
+                type: "info",
+                link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
+              })),
+            );
+          }
+        } catch (nErr) {
+          console.warn("Could not notify Department Heads:", nErr);
+        }
+        window.dispatchEvent(new Event("pending-quiz-approvals-changed"));
+      }
+
       window.dispatchEvent(new Event("pending-quiz-reviews-changed"));
 
       const messages = {

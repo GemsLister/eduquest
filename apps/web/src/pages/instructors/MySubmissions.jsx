@@ -893,7 +893,19 @@ export const MySubmissions = () => {
                     </div>
                   )}
 
-                  {/* Senior Faculty Overall Feedback */}
+                  {/* Department Head revision request */}
+                  {submission.faculty_head_feedback && (
+                    <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
+                      <p className="text-xs font-semibold mb-1 text-orange-600">
+                        Department Head Revision Request:
+                      </p>
+                      <p className="text-sm text-orange-800 whitespace-pre-wrap">
+                        {submission.faculty_head_feedback}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Reviewer Overall Feedback */}
                   {submission.admin_feedback && (
                     <div
                       className={`p-3 rounded-lg border ${
@@ -909,7 +921,7 @@ export const MySubmissions = () => {
                             : "text-orange-600"
                         }`}
                       >
-                        Overall Senior Faculty Feedback:
+                        Overall Reviewer Feedback:
                       </p>
                       <p
                         className={`text-sm ${

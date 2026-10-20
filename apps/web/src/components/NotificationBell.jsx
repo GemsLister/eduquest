@@ -1,11 +1,61 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
+
+/**
+ * Notification links are written by whoever triggers them and often point at
+ * the instructor portal. Map them onto the portal the reader is actually in so
+ * Senior Faculty aren't bounced by the route guard, and fix legacy links.
+ */
+const resolveNotificationLink = (link, pathname) => {
+  if (!link) return null;
+  const target = link.replace(/^\/faculty-head\//, "/faculty-head-dashboard/");
+
+  // Department Head pages aren't reachable from the other portals; send the
+  // reader to their own Subjects page (subject-request updates) instead.
+  if (target.startsWith("/faculty-head-dashboard") && !pathname.startsWith("/faculty-head-dashboard")) {
+    return pathname.startsWith("/admin-dashboard") ? "/admin-dashboard/subjects" : "/instructor-dashboard";
+  }
+
+  if (pathname.startsWith("/admin-dashboard") && target.startsWith("/instructor-dashboard")) {
+    const rest = target.slice("/instructor-dashboard".length);
+    const peer = rest.match(/^\/peer-reviews(\/[^?]*)?/);
+    if (peer) return `/admin-dashboard/quiz-reviews${peer[1] || ""}`;
+    if (rest === "" || rest === "/") return "/admin-dashboard/subjects";
+    if (rest.startsWith("/instructor-quiz")) {
+      return `/admin-dashboard/create-quiz${rest.slice("/instructor-quiz".length)}`;
+    }
+    if (rest.startsWith("/instructor-profile")) return "/admin-dashboard/profile";
+    return `/admin-dashboard${rest}`;
+  }
+  return target;
+};
+
+// Subject-request notifications store a JSON payload in `message` (it's parsed
+// elsewhere), so render those as a sentence instead of raw JSON.
+const formatNotificationMessage = (message) => {
+  if (typeof message !== "string" || !message.trim().startsWith("{")) return message;
+  try {
+    const p = JSON.parse(message);
+    const name = p.subject_name ? `"${p.subject_name}"` : "A subject";
+    if (p.request_status === "approved") return `${name} was approved and added to your subjects.`;
+    if (p.request_status === "rejected") {
+      return `${name} was not approved${p.rejection_reason ? `: ${p.rejection_reason}` : "."}`;
+    }
+    if (p.request_status === "pending") {
+      return `${p.requester_name || "An instructor"} requested ${name}${p.grade_level ? ` (${p.grade_level} year)` : ""}.`;
+    }
+    return message;
+  } catch {
+    return message;
+  }
+};
 
 export const NotificationBell = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -13,17 +63,19 @@ export const NotificationBell = () => {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
+    if (!user?.id) return;
     loadNotifications();
 
-    // Subscribe to real-time notifications
+    // Subscribe to this user's real-time notifications only
     const channel = supabase
-      .channel("notifications")
+      .channel(`notifications:${user.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           setNotifications((prev) => [payload.new, ...prev]);
@@ -35,7 +87,7 @@ export const NotificationBell = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user?.id]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -89,7 +141,8 @@ export const NotificationBell = () => {
   const handleNotificationClick = (notification) => {
     if (menuOpenId) return;
     if (!notification.is_read) markAsRead(notification.id);
-    if (notification.link) navigate(notification.link);
+    const target = resolveNotificationLink(notification.link, location.pathname);
+    if (target) navigate(target);
     setOpen(false);
   };
 
@@ -131,7 +184,9 @@ export const NotificationBell = () => {
       {/* Bell Button */}
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 text-gray-500 hover:text-brand-navy transition-colors rounded-lg hover:bg-brand-gold/10"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        aria-expanded={open}
+        className="relative p-2 text-gray-500 hover:text-brand-navy transition-colors rounded-lg hover:bg-brand-gold/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -205,7 +260,7 @@ export const NotificationBell = () => {
                           )}
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                          {n.message}
+                          {formatNotificationMessage(n.message)}
                         </p>
                         <p className="text-[10px] text-gray-400 mt-1">
                           {timeAgo(n.created_at)}

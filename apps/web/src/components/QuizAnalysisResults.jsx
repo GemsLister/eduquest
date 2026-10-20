@@ -147,7 +147,7 @@ export const QuizAnalysisResults = ({
       if (previousSubmissionId) {
         const { data: prev } = await supabase
           .from("quiz_analysis_submissions")
-          .select("id, status, admin_feedback, assigned_reviewer_id, analysis_results")
+          .select("*")
           .eq("id", previousSubmissionId)
           .maybeSingle();
         if (prev) targetSub = prev;
@@ -157,7 +157,7 @@ export const QuizAnalysisResults = ({
       if (!targetSub && quizId && quizId !== "draft") {
         const { data } = await supabase
           .from("quiz_analysis_submissions")
-          .select("id, status, admin_feedback, assigned_reviewer_id, analysis_results, previous_submission_id")
+          .select("*")
           .eq("quiz_id", quizId)
           .eq("instructor_id", instructorId)
           .order("created_at", { ascending: false })
@@ -176,7 +176,7 @@ export const QuizAnalysisResults = ({
         if (qData?.parent_quiz_id) {
           const { data: parentSub } = await supabase
             .from("quiz_analysis_submissions")
-            .select("id, status, admin_feedback, assigned_reviewer_id, analysis_results")
+            .select("*")
             .eq("quiz_id", qData.parent_quiz_id)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -506,13 +506,20 @@ export const QuizAnalysisResults = ({
               >
                 {existingSubmission.status === "revision_requested"
                   ? `Revision Requested by ${
-                      lockedReviewer
+                      existingSubmission.faculty_head_feedback
+                        ? "Department Head"
+                        : lockedReviewer
                         ? `${lockedReviewer.first_name || ""} ${lockedReviewer.last_name || ""}`.trim() +
                           (lockedReviewer.is_admin ? " (Senior Faculty)" : " (Peer Reviewer)")
                         : "Reviewer"
                     }`
                   : "Previously Rejected"}
               </p>
+              {existingSubmission.faculty_head_feedback && (
+                <p className="text-sm text-orange-600">
+                  Department Head: {existingSubmission.faculty_head_feedback}
+                </p>
+              )}
               {existingSubmission.admin_feedback && (
                 <p
                   className={`text-sm ${
@@ -521,7 +528,8 @@ export const QuizAnalysisResults = ({
                       : "text-red-600"
                   }`}
                 >
-                  Feedback: {existingSubmission.admin_feedback}
+                  {existingSubmission.faculty_head_feedback ? "Reviewer: " : "Feedback: "}
+                  {existingSubmission.admin_feedback}
                 </p>
               )}
               <p className="text-xs text-gray-500 mt-2">

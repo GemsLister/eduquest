@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { subjectService } from "../../services/subjectService.js";
+import { loadHeadSubmissions, HEAD_STATUSES } from "../../services/facultyHeadService.js";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
 import citlLogo from "../../assets/BUKSU_CITL.jpg";
 
@@ -64,6 +65,16 @@ const navItems = [
     ),
   },
   {
+    name: "Profile",
+    path: "/faculty-head-dashboard/profile",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
+  {
     name: "Logout",
     path: "/",
     icon: (
@@ -82,17 +93,18 @@ export const FacultyHeadSidebar = () => {
   const confirm = useConfirm();
   const [pendingQuizCount, setPendingQuizCount] = useState(0);
   const [pendingSubjectCount, setPendingSubjectCount] = useState(0);
+  // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
+  const [pinned, setPinned] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
-      // Pending Quiz Approvals
+      // Pending Quiz Approvals — same per-chain counting as the Quiz Approvals list
       try {
-        const { count } = await supabase
-          .from("quiz_analysis_submissions")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "faculty_head_review");
-        setPendingQuizCount(count || 0);
-      } catch (e) {}
+        const subs = await loadHeadSubmissions({ enrich: false });
+        setPendingQuizCount(subs.filter((s) => s.status === HEAD_STATUSES.PENDING).length);
+      } catch (err) {
+        console.warn("Could not load pending approvals count:", err);
+      }
 
       // Pending Subject Requests
       try {
@@ -101,7 +113,9 @@ export const FacultyHeadSidebar = () => {
           (r) => r.request_status === "pending"
         ).length;
         setPendingSubjectCount(pendingReqs);
-      } catch (e) {}
+      } catch (err) {
+        console.warn("Could not load subject requests count:", err);
+      }
     };
 
     fetchCounts();
@@ -115,6 +129,8 @@ export const FacultyHeadSidebar = () => {
       window.removeEventListener("pending-subject-requests-changed", fetchCounts);
     };
   }, []);
+
+  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -136,21 +152,27 @@ export const FacultyHeadSidebar = () => {
   };
 
   return (
-    <aside className="group static flex flex-col bg-brand-navy w-[68px] hover:w-[220px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
-      {/* Logo */}
-      <div className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10">
+    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[220px]" : "w-[68px] hover:w-[220px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10`}>
+      {/* Logo — tap to pin the sidebar open */}
+      <button
+        type="button"
+        onClick={() => setPinned((p) => !p)}
+        aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
+        aria-expanded={pinned}
+        className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
+      >
         <img
           src={citlLogo}
           alt="BUKSU CITL logo"
           className="h-9 w-9 shrink-0 rounded-full object-cover"
         />
-        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide">
+        <span className={`${labelVisibility} transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide`}>
           BUKSU CITL
         </span>
-      </div>
+      </button>
 
       {/* Nav items */}
-      <nav className="flex-1 px-2 py-3">
+      <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden">
         <ul className="flex flex-col gap-1">
           {navItems.map((nav) => (
             <li key={nav.name}>
@@ -158,6 +180,7 @@ export const FacultyHeadSidebar = () => {
                 to={nav.path}
                 end={nav.end}
                 onClick={nav.isLogout ? handleLogout : undefined}
+                title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
                     isActive && !nav.isLogout
@@ -179,7 +202,7 @@ export const FacultyHeadSidebar = () => {
                     </span>
                   )}
                 </span>
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
+                <span className={`${labelVisibility} transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm`}>
                   {nav.name}
                 </span>
               </NavLink>
@@ -189,7 +212,7 @@ export const FacultyHeadSidebar = () => {
       </nav>
       {/* Bottom accent */}
       <div className="px-2 pb-4">
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap">
+        <div className={`${labelVisibility} transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap`}>
           © 2026 BUKSU CITL
         </div>
       </div>

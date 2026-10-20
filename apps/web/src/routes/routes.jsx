@@ -270,6 +270,10 @@ export const router = createBrowserRouter(
               path: "audit-trail",
               element: <FacultyHeadIndex.FacultyHeadAuditTrail />,
             },
+            {
+              path: "profile",
+              element: <InstructorIndex.InstructorProfile />,
+            },
           ],
         },
       ],

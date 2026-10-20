@@ -31,22 +31,56 @@ const pageTitles = {
   "/admin-dashboard/registration-requests": "Registration Requests",
   "/admin-dashboard/create-instructor": "Add Instructor",
   "/admin-dashboard/question-bank": "Question Bank",
+  "/admin-dashboard/item-difficulty-analysis": "Item Analysis",
+  "/admin-dashboard/student-profiles": "Student Profiles",
   "/admin-dashboard/quiz-results": "Quiz Results",
+  "/admin-dashboard/profile": "Profile",
   "/admin-dashboard": "Dashboard",
+  "/faculty-head-dashboard/quiz-approvals": "Quiz Approvals",
+  "/faculty-head-dashboard/subject-requests": "Subject Requests",
+  "/faculty-head-dashboard/audit-trail": "Audit Trail",
+  "/faculty-head-dashboard/settings": "Settings",
+  "/faculty-head-dashboard/profile": "Profile",
+  "/faculty-head-dashboard": "Dashboard",
 };
+
+// Per-portal home path, profile link and role label
+const portals = [
+  {
+    prefix: "/faculty-head-dashboard",
+    profilePath: "/faculty-head-dashboard/profile",
+    roleLabel: "Department Head",
+    fallbackTitle: "Dashboard",
+  },
+  {
+    prefix: "/admin-dashboard",
+    profilePath: "/admin-dashboard/profile",
+    roleLabel: "Senior Faculty",
+    fallbackTitle: "Dashboard",
+  },
+  {
+    prefix: "/instructor-dashboard",
+    profilePath: "/instructor-dashboard/instructor-profile",
+    roleLabel: "Instructor",
+    fallbackTitle: "Subjects",
+  },
+];
 
 export const Header = () => {
   const userData = useUsername();
   const location = useLocation();
 
+  const portal =
+    portals.find((p) => location.pathname.startsWith(p.prefix)) ||
+    portals[portals.length - 1];
+
   const matched = Object.entries(pageTitles).find(([path]) => {
-    if (path === "/instructor-dashboard" || path === "/admin-dashboard") {
+    if (portals.some((p) => p.prefix === path)) {
       return location.pathname === path || location.pathname === `${path}/`;
     }
     return location.pathname.startsWith(path);
   });
-  const pageTitle = matched ? matched[1] : "Subjects";
-  
+  const pageTitle = matched ? matched[1] : portal.fallbackTitle;
 
   if (userData.loading)
     return <div className="h-16 bg-white border-b border-gray-100" />;
@@ -62,18 +96,18 @@ export const Header = () => {
       <div className="flex items-center gap-3">
         <NotificationBell />
         <Link
-          to="/instructor-dashboard/instructor-profile"
-          className="flex items-center gap-3 group"
+          to={portal.profilePath}
+          className="flex items-center gap-3 group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
         >
           <div className="text-right hidden sm:block">
             <p className="text-sm font-semibold text-gray-800 group-hover:text-brand-navy transition-colors">
               {userData.googleName || userData.dbName}
             </p>
-            <p className="text-xs text-gray-400">Instructor</p>
+            <p className="text-xs text-gray-400">{portal.roleLabel}</p>
           </div>
           <img
             src={userData.avatarUrl || defaultAvatar}
-            alt="instructor-image"
+            alt={`${portal.roleLabel} profile picture`}
             className="h-10 w-10 rounded-full object-cover aspect-square ring-2 ring-brand-gold/40 group-hover:ring-brand-gold transition-all"
           />
         </Link>

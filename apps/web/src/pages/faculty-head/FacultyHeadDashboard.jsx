@@ -4,6 +4,13 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { subjectService } from "../../services/subjectService.js";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
+import {
+  HEAD_STATUSES,
+  loadHeadSubmissions,
+  countHeadSubmissions,
+  cleanQuizTitle,
+  getProfileName,
+} from "../../services/facultyHeadService.js";
 
 export const FacultyHeadDashboard = () => {
   const { user } = useAuth();
@@ -16,30 +23,29 @@ export const FacultyHeadDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      const displayName =
-        user.user_metadata?.full_name || user.email?.split("@")[0] || "Department Head";
-      setName(displayName);
-    }
+    if (user) loadName();
     loadStats();
   }, [user]);
 
+  // Prefer the profile's real name over the Google name / email prefix
+  const loadName = async () => {
+    const fallback =
+      user.user_metadata?.full_name || user.email?.split("@")[0] || "Department Head";
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, username")
+      .eq("id", user.id)
+      .maybeSingle();
+    setName(getProfileName(profile, fallback));
+  };
+
   const loadStats = async () => {
     try {
-      // Count pending for department head (status = 'faculty_head_review')
-      const { count: pending } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "faculty_head_review");
-
-      // Count approved by department head
-      const { count: approved } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "faculty_head_approved");
-
-      setPendingApprovals(pending || 0);
-      setApprovedCount(approved || 0);
+      // Same per-chain counting as the Quiz Approvals list and sidebar badge
+      const submissions = await loadHeadSubmissions();
+      const counts = countHeadSubmissions(submissions);
+      setPendingApprovals(counts[HEAD_STATUSES.PENDING]);
+      setApprovedCount(counts[HEAD_STATUSES.APPROVED]);
 
       // Count pending subject requests
       try {
@@ -52,44 +58,14 @@ export const FacultyHeadDashboard = () => {
         console.warn("Could not load subject requests count:", e);
       }
 
-      // Recent submissions for department head
-      const { data } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("id, quiz_id, instructor_id, status, created_at, reviewed_at")
-        .in("status", ["faculty_head_review", "faculty_head_approved"])
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (data && data.length > 0) {
-        const quizIds = [...new Set(data.map((s) => s.quiz_id))];
-        const instructorIds = [...new Set(data.map((s) => s.instructor_id))];
-
-        const [quizRes, profileRes] = await Promise.all([
-          supabase.from("quizzes").select("id, title").in("id", quizIds),
-          supabase
-            .from("profiles")
-            .select("id, first_name, last_name, username, email")
-            .in("id", instructorIds),
-        ]);
-
-        const quizMap = new Map(
-          (quizRes.data || []).map((q) => [q.id, q.title])
-        );
-        const profileMap = new Map(
-          (profileRes.data || []).map((p) => {
-            const pName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
-            return [p.id, pName || p.username || p.email || "Unknown"];
-          })
-        );
-
-        setRecentSubmissions(
-          data.map((s) => ({
-            ...s,
-            quizTitle: quizMap.get(s.quiz_id) || "Untitled Quiz",
-            instructorName: profileMap.get(s.instructor_id) || "Unknown",
-          }))
-        );
-      }
+      // Recent submissions — one row per quiz (revisions grouped)
+      setRecentSubmissions(
+        submissions.slice(0, 5).map((s) => ({
+          ...s,
+          quizTitle: cleanQuizTitle(s.quizzes?.title),
+          instructorName: getProfileName(s.profiles),
+        })),
+      );
     } catch (err) {
       console.error("Error loading department head stats:", err);
     } finally {
@@ -108,6 +84,11 @@ export const FacultyHeadDashboard = () => {
         bg: "bg-emerald-50 text-emerald-800 border-emerald-200/80",
         label: "Approved",
         dot: "bg-emerald-500",
+      },
+      revision_requested: {
+        bg: "bg-orange-50 text-orange-800 border-orange-200/80",
+        label: "Returned",
+        dot: "bg-orange-500",
       },
     };
     const c = config[status] || {
@@ -192,7 +173,7 @@ export const FacultyHeadDashboard = () => {
               )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Review and approve quiz analyses forwarded by Senior Faculty, and manage curriculum subjects.
+              Review and approve quiz analyses forwarded by reviewers, and manage curriculum subjects.
             </p>
           </div>
         </div>
@@ -255,7 +236,13 @@ export const FacultyHeadDashboard = () => {
             )}
           </button>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.APPROVED}`)
+            }
+            className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -271,7 +258,7 @@ export const FacultyHeadDashboard = () => {
                 </p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Quick Action Cards */}
@@ -300,7 +287,7 @@ export const FacultyHeadDashboard = () => {
                 Review Quiz Approvals
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Evaluate and approve quizzes forwarded by the Senior Faculty.
+                Evaluate and approve quizzes forwarded by reviewers.
               </p>
             </button>
 
@@ -357,7 +344,7 @@ export const FacultyHeadDashboard = () => {
                 </div>
                 <p className="text-sm font-bold text-gray-700">No Submissions Yet</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Submissions forwarded by Senior Faculty will appear here.
+                  Submissions forwarded by reviewers will appear here.
                 </p>
               </div>
             ) : (

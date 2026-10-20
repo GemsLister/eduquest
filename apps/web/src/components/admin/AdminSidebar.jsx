@@ -165,6 +165,9 @@ export const AdminSidebar = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingQuizCount, setPendingQuizCount] = useState(0);
   const [mySubmissionsNotifCount, setMySubmissionsNotifCount] = useState(0);
+  // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
+  const [pinned, setPinned] = useState(false);
+  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
 
   useEffect(() => {
     const fetchPendingCount = async () => {
@@ -240,18 +243,24 @@ export const AdminSidebar = () => {
   };
 
   return (
-    <aside className="group static flex flex-col bg-brand-navy w-[68px] hover:w-[220px] transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10">
-      {/* Logo */}
-      <div className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10">
+    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[220px]" : "w-[68px] hover:w-[220px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10`}>
+      {/* Logo — tap to pin the sidebar open */}
+      <button
+        type="button"
+        onClick={() => setPinned((p) => !p)}
+        aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
+        aria-expanded={pinned}
+        className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
+      >
         <img
           src={citlLogo}
           alt="BUKSU CITL logo"
           className="h-9 w-9 shrink-0 rounded-full object-cover"
         />
-        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide">
+        <span className={`${labelVisibility} transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide`}>
           BUKSU CITL
         </span>
-      </div>
+      </button>
 
       {/* Nav items */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden">
@@ -262,6 +271,7 @@ export const AdminSidebar = () => {
                 to={nav.path}
                 end={nav.end}
                 onClick={nav.isLogout ? handleLogout : undefined}
+                title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm transition-all duration-200 outline-none focus:outline-none ${
                     isActive && !nav.isLogout
@@ -288,7 +298,7 @@ export const AdminSidebar = () => {
                     </span>
                   )}
                 </span>
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm">
+                <span className={`${labelVisibility} transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm`}>
                   {nav.name}
                 </span>
               </NavLink>
@@ -299,7 +309,7 @@ export const AdminSidebar = () => {
 
       {/* Bottom accent */}
       <div className="px-2 pb-4">
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap">
+        <div className={`${labelVisibility} transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap`}>
           © 2026 BUKSU CITL
         </div>
       </div>

@@ -63,6 +63,42 @@ export const subjectService = {
       .eq("id", subjectId);
   },
 
+  /**
+   * Find an active subject with the same name or code (case-insensitive).
+   * @param {{name?: string, code?: string, excludeId?: string}} params
+   * @returns {Promise<object|null>} the conflicting subject, if any
+   */
+  findDuplicateSubject: async ({ name, code, excludeId = null }) => {
+    const { data, error } = await supabase
+      .from("subjects")
+      .select("id, name, code, grade_level")
+      .eq("is_archived", false);
+    if (error) throw error;
+
+    const norm = (v) => String(v || "").trim().toLowerCase();
+    const n = norm(name);
+    const c = norm(code);
+    return (
+      (data || []).find(
+        (s) =>
+          s.id !== excludeId &&
+          ((n && norm(s.name) === n) || (c && norm(s.code) === c)),
+      ) || null
+    );
+  },
+
+  /**
+   * Restore an archived subject
+   * @param {string} subjectId - Subject ID
+   * @returns {Promise<{error}>}
+   */
+  restoreSubject: async (subjectId) => {
+    return await supabase
+      .from("subjects")
+      .update({ is_archived: false })
+      .eq("id", subjectId);
+  },
+
   // ============ INSTRUCTOR-SUBJECT OPERATIONS ============
 
   /**

@@ -70,7 +70,7 @@ export const useFetchInstructorQuizzes = () => {
       try {
         const { data: subData, error: submissionsError } = await supabase
           .from("quiz_analysis_submissions")
-          .select("quiz_id, status, admin_feedback, analysis_results, created_at")
+          .select("*")
           .eq("instructor_id", user.id)
           .order("created_at", { ascending: false });
 
@@ -324,7 +324,8 @@ export const useFetchInstructorQuizzes = () => {
             attempts: totalAttempts,
             questions_count: resolvedQuestionsCount,
             admin_review_status: latestSubmission?.status || null,
-            admin_review_feedback: latestSubmission?.admin_feedback || "",
+            admin_review_feedback:
+              latestSubmission?.faculty_head_feedback || latestSubmission?.admin_feedback || "",
             hasNewerVersion:
               (quiz.version_number || 1) <
               (maxVersionByRoot.get(quiz.parent_quiz_id || quiz.id) ||
