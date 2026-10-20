@@ -7,22 +7,32 @@ export const useRegistrationRequests = () => {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null); // { id, action } or null
 
-  const fetchRequests = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const { data, error: fetchError } =
-      await adminService.getRegistrationRequests();
+  const applyRequests = useCallback(({ data, error: fetchError }) => {
     if (fetchError) {
       setError(fetchError.message);
     } else {
+      setError("");
       setRequests(data || []);
     }
     setLoading(false);
   }, []);
 
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    applyRequests(await adminService.getRegistrationRequests());
+  }, [applyRequests]);
+
+  // Initial load; `loading` already starts out true
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    let cancelled = false;
+    adminService.getRegistrationRequests().then((result) => {
+      if (!cancelled) applyRequests(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRequests]);
 
   const approveRequest = async (userId) => {
     setActionLoading({ id: userId, action: "approve" });

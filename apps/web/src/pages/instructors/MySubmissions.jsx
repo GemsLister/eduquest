@@ -46,6 +46,17 @@ export const MySubmissions = () => {
     if (!isSeniorFaculty && user?.id) loadPeerReviews();
   }, [user?.id, isSeniorFaculty]);
 
+  // A reviewer's decision or a new peer-review assignment arrives as a
+  // notification; refresh so the open page doesn't show the old status
+  useEffect(() => {
+    const refresh = () => {
+      loadSubmissions();
+      if (!isSeniorFaculty && user?.id) loadPeerReviews();
+    };
+    window.addEventListener("submissions-changed", refresh);
+    return () => window.removeEventListener("submissions-changed", refresh);
+  }, [user?.id, isSeniorFaculty]);
+
   // Filtering happens on the client so switching tabs doesn't refetch
   const submissions = useMemo(
     () =>

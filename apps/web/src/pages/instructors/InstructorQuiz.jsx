@@ -11,6 +11,7 @@ import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModa
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { analyzeGADQuestion, detectGenderBias, replaceGenderBiasedTerm } from "../../services/gadAnalysisService.js";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 // Review states during which the quiz content must not change
 const REVIEW_LOCKED_STATUSES = ["pending", "faculty_head_review", "approved", "faculty_head_approved"];
@@ -436,6 +437,8 @@ export const InstructorQuiz = () => {
   useEscapeKey(() => {
     if (!saveSectionsLoading) handleCloseSectionModal();
   }, showSectionModal);
+  const addQuestionTrapRef = useFocusTrap(showAddQuestionPopup);
+  const sectionTrapRef = useFocusTrap(showSectionModal);
 
   const leaveEditor = async () => {
     if (hasUnsavedChanges) {
@@ -1806,8 +1809,14 @@ export const InstructorQuiz = () => {
 
       {showAddQuestionPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-[340px]">
-            <h3 className="text-lg font-bold text-brand-navy mb-4">
+          <div
+            ref={addQuestionTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-question-count-title"
+            className="bg-white rounded-xl shadow-2xl p-6 w-[340px]"
+          >
+            <h3 id="add-question-count-title" className="text-lg font-bold text-brand-navy mb-4">
               How many questions do you want to add?
             </h3>
             <input
@@ -1859,6 +1868,7 @@ export const InstructorQuiz = () => {
             }}
           />
           <div
+            ref={sectionTrapRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="section-modal-title"

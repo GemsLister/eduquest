@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../../hooks/useFocusTrap.jsx";
 
 export const CreateQuizFormButton = ({
   onCreateQuiz,
@@ -40,6 +41,7 @@ export const CreateQuizFormButton = ({
   useEscapeKey(() => {
     if (!isSubmitting) setShowQuizForm(false);
   }, showQuizForm);
+  const trapRef = useFocusTrap(showQuizForm);
 
   return (
     <>
@@ -57,6 +59,7 @@ export const CreateQuizFormButton = ({
             onClick={() => setShowQuizForm(false)}
           />
           <div
+            ref={trapRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-quiz-title"

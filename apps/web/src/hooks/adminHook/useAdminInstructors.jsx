@@ -8,21 +8,32 @@ export const useAdminInstructors = () => {
   const [createLoading, setCreateLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(null); // stores id being updated
 
-  const fetchInstructors = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const { data, error: fetchError } = await adminService.getInstructors();
+  const applyInstructors = useCallback(({ data, error: fetchError }) => {
     if (fetchError) {
       setError(fetchError.message);
     } else {
+      setError("");
       setInstructors(data || []);
     }
     setLoading(false);
   }, []);
 
+  const fetchInstructors = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    applyInstructors(await adminService.getInstructors());
+  }, [applyInstructors]);
+
+  // Initial load; `loading` already starts out true
   useEffect(() => {
-    fetchInstructors();
-  }, [fetchInstructors]);
+    let cancelled = false;
+    adminService.getInstructors().then((result) => {
+      if (!cancelled) applyInstructors(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyInstructors]);
 
   const createInstructor = async (formData) => {
     setCreateLoading(true);

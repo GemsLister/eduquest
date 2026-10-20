@@ -8,6 +8,7 @@ import { logAudit } from "../services/auditService";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
 import { QuizSuggestions } from "./QuizSuggestions";
 import { analyzeGADQuestion } from "../services/gadAnalysisService";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 /**
  * Progress Stepper — shows 3 workflow steps
@@ -118,6 +119,7 @@ export const QuizAnalysisResults = ({
   useEscapeKey(() => {
     if (!forwardLoading) onClose();
   });
+  const trapRef = useFocusTrap();
 
   // Load all active instructor + admin profiles for reviewer selection
   // Exclude the submitting instructor AND exclude Department Heads (is_faculty_head = true)
@@ -352,9 +354,11 @@ export const QuizAnalysisResults = ({
         assigned_reviewer_id: selectedReviewerId || null,
       };
 
-      let { error: insertError } = await supabase
+      let { data: inserted, error: insertError } = await supabase
         .from("quiz_analysis_submissions")
-        .insert(insertPayload);
+        .insert(insertPayload)
+        .select("id")
+        .maybeSingle();
 
       // If column assigned_reviewer_id doesn't exist in Supabase yet, fallback gracefully
       if (
@@ -368,10 +372,13 @@ export const QuizAnalysisResults = ({
           insertError,
         );
         delete insertPayload.assigned_reviewer_id;
-        const { error: retryErr } = await supabase
+        const { data: retried, error: retryErr } = await supabase
           .from("quiz_analysis_submissions")
-          .insert(insertPayload);
+          .insert(insertPayload)
+          .select("id")
+          .maybeSingle();
         if (retryErr) throw retryErr;
+        inserted = retried;
       } else if (insertError) {
         throw insertError;
       }
@@ -411,7 +418,9 @@ export const QuizAnalysisResults = ({
             title: "Peer Review Request",
             message: `You have been assigned to peer-review the quiz "${quizTitle || "Quiz"}".`,
             type: "info",
-            link: "/instructor-dashboard/my-submissions?tab=peer_reviews",
+            link: inserted?.id
+              ? `/instructor-dashboard/peer-reviews/${inserted.id}`
+              : "/instructor-dashboard/my-submissions?tab=peer_reviews",
           });
         } catch (notifErr) {
           console.warn("Could not send peer review notification:", notifErr);
@@ -457,12 +466,18 @@ export const QuizAnalysisResults = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="blooms-analysis-title"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo">
           <div className="p-5 flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-bold text-white">
+              <h2 id="blooms-analysis-title" className="text-xl font-bold text-white">
                 Bloom's Taxonomy Analysis
               </h2>
               <p className="text-white/60 text-sm mt-0.5">
@@ -872,7 +887,6 @@ export const QuizAnalysisResults = ({
                 const lotsPct = results.summary.lotsPercentage || 0;
                 const hotsPct = results.summary.hotsPercentage || 0;
                 const lotsTarget = 30;
-                const hotsTarget = 70;
 
                 return (
                   <div className="mb-6 p-5 bg-white rounded-xl border border-gray-200">

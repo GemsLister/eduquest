@@ -12,8 +12,6 @@ const pageTitles = {
   "/instructor-dashboard/question-bank": "Question Bank",
   "/instructor-dashboard/instructor-questions": "Questions",
   "/instructor-dashboard/item-difficulty-analysis": "Item Analysis",
-  "/instructor-dashboard/quiz-versions": "Quiz Versions",
-  "/instructor-dashboard/saved-analysis": "Saved Analysis",
   "/instructor-dashboard/peer-reviews": "Peer Review",
   "/instructor-dashboard/student-profiles": "Student Profiles",
   "/instructor-dashboard/my-submissions": "Submissions & Reviews",

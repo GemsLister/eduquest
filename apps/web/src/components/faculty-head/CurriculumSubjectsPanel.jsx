@@ -4,6 +4,8 @@ import { notify } from "../../utils/notify.jsx";
 import { subjectService } from "../../services/subjectService.js";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
 import { Skeleton } from "../ui/Skeleton.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 const GRADE_LEVELS = ["1st", "2nd", "3rd", "4th"];
 const PAGE_SIZE = 10;
@@ -74,14 +76,10 @@ export const CurriculumSubjectsPanel = () => {
   }, [currentPage, totalPages]);
 
   // Esc closes the edit modal
-  useEffect(() => {
-    if (!editing) return;
-    const onKey = (e) => {
-      if (e.key === "Escape" && !saving) setEditing(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [editing, saving]);
+  useEscapeKey(() => {
+    if (!saving) setEditing(null);
+  }, Boolean(editing));
+  const editTrapRef = useFocusTrap(Boolean(editing));
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
@@ -346,6 +344,7 @@ export const CurriculumSubjectsPanel = () => {
         >
           <form
             onSubmit={handleSaveEdit}
+            ref={editTrapRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-subject-title"

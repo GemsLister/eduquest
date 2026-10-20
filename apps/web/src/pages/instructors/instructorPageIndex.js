@@ -8,7 +8,5 @@ export { QuizResultDetail } from "./QuizResultDetail.jsx";
 export { QuizzesPageMain } from "./quizzes/QuizzesPageMain.jsx";
 export { MySubmissions } from "./MySubmissions.jsx";
 export { StudentProfiles } from "./StudentProfiles.jsx";
-export { QuizVersions } from "./QuizVersions.jsx";
-export { SavedAnalysisPage } from "./SavedAnalysis.jsx";
 export { History } from "./History.jsx";
 export { PeerReviewDetail } from "./PeerReviewDetail.jsx";

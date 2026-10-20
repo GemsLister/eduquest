@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { adminService } from "../../services/adminService.js";
 import { supabase } from "../../supabaseClient.js";
 import { notify } from "../../utils/notify.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 export const InstructorTable = ({
   instructors,
@@ -9,6 +11,8 @@ export const InstructorTable = ({
   onToggleStatus,
 }) => {
   const [changePwdTarget, setChangePwdTarget] = useState(null);
+  useEscapeKey(() => setChangePwdTarget(null), Boolean(changePwdTarget));
+  const changePwdTrapRef = useFocusTrap(Boolean(changePwdTarget));
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -374,7 +378,13 @@ export const InstructorTable = ({
       {/* Change Password Modal */}
       {changePwdTarget && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-slate-200">
+          <div
+            ref={changePwdTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Change password"
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-slate-200"
+          >
             <div className="w-12 h-12 rounded-xl bg-brand-navy/10 flex items-center justify-center mb-4 text-brand-navy">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

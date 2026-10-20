@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { ConfirmProvider } from "./components/ui/ConfirmModal.jsx";
-import { AuthProvider } from "./context/AuthContext.jsx";
+import { ConfirmProvider } from "./components/ui/ConfirmProvider.jsx";
+import { AuthProvider } from "./context/AuthProvider.jsx";
 
 function App() {
   return (

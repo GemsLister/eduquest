@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
 
 /**
@@ -6,8 +6,6 @@ import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/
  * Provides complete revision history and version audit trail for an examination.
  */
 export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null }) => {
-  const [selectedRevision, setSelectedRevision] = useState(null);
-
   if (!revisions || revisions.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 text-center">

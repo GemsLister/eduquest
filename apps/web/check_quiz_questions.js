@@ -14,6 +14,7 @@ async function checkTargetQuizzes() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  if (qErr) console.error("Quizzes query failed:", qErr);
   console.log("Quizzes count:", quizzes?.length);
   quizzes?.forEach((q) => {
     console.log(`Quiz: "${q.title}" (ID: ${q.id})`);

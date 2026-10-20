@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
 import { formatTimeSpent } from "../../../utils/timeSpent.js";
-import { useAuth } from "../../../context/AuthContext.jsx";
 import { Skeleton, SkeletonTableRow } from "../../../components/ui/Skeleton.jsx";
 
 export const QuizResults = () => {
@@ -10,7 +9,6 @@ export const QuizResults = () => {
   const [searchParams] = useSearchParams();
   const sectionId = searchParams.get("section");
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [quiz, setQuiz] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [questions, setQuestions] = useState([]);

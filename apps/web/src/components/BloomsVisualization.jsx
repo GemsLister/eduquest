@@ -51,7 +51,6 @@ const CustomPieLabel = ({
   innerRadius,
   outerRadius,
   percent,
-  name,
 }) => {
   if (percent < 0.05) return null;
   const RADIAN = Math.PI / 180;
@@ -202,7 +201,6 @@ export const BloomsPyramid = ({ distribution }) => {
         const count = distribution[level] || 0;
         const pct = total > 0 ? Math.round((count / total) * 100) : 0;
         const widthPct = 40 + idx * 10; // Pyramid gets wider as we go down
-        const isHots = ["Analyzing", "Evaluating", "Creating"].includes(level);
 
         return (
           <div

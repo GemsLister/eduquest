@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { exportItemRevisionPdf } from "../../../utils/exportItemRevisionPdf";
 import { notify } from "../../../utils/notify.jsx";
+import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../../hooks/useFocusTrap.jsx";
 
 /**
  * ItemRevisionComparisonModal
@@ -213,7 +215,15 @@ export const ItemRevisionComparisonModal = ({
     };
   }, [activeOldRevision, currentVersion]);
 
-  if (!isOpen || !item) return null;
+  const open = Boolean(isOpen && item);
+  useEscapeKey(onClose, open);
+  useEscapeKey(() => {
+    if (!exporting) setShowExportModal(false);
+  }, open && showExportModal);
+  const trapRef = useFocusTrap(open);
+  const exportTrapRef = useFocusTrap(open && showExportModal);
+
+  if (!open) return null;
 
   const itemNumberDisplay =
     itemIndex !== undefined ? `Q${itemIndex + 1}` : item.question_id || "Item";
@@ -227,7 +237,13 @@ export const ItemRevisionComparisonModal = ({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Revision comparison for ${itemNumberDisplay}`}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]"
+      >
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 text-white shrink-0 flex items-center justify-between">
           <div>
@@ -774,10 +790,16 @@ export const ItemRevisionComparisonModal = ({
       {/* Export Options Modal Dialog */}
       {showExportModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 border border-slate-200">
+          <div
+            ref={exportTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-revision-title"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 border border-slate-200"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-lg font-black text-brand-navy flex items-center gap-2">
+                <h3 id="export-revision-title" className="text-lg font-black text-brand-navy flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3 3m0 0l-3-3m3 3V8" />
                   </svg>

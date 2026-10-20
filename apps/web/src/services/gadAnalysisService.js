@@ -150,7 +150,7 @@ export const detectGenderBias = (text = "") => {
   const foundBiases = [];
 
   for (const item of GENDER_FAIR_DICTIONARY) {
-    const escaped = item.biased.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const escaped = item.biased.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
     const regex = new RegExp(`\\b${escaped}\\b`, "gi");
     let match;
     while ((match = regex.exec(text)) !== null) {
@@ -177,7 +177,7 @@ export const detectGenderBias = (text = "") => {
 export const replaceGenderBiasedTerm = (text = "", biasedTerm = "", neutralTerm = "") => {
   if (!text || !biasedTerm || !neutralTerm) return text;
 
-  const escaped = biasedTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const escaped = biasedTerm.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const regex = new RegExp(`\\b${escaped}\\b`, "gi");
 
   return text.replace(regex, (match) => {
@@ -229,7 +229,7 @@ export const analyzeGADQuestion = (text = "", options = []) => {
   // 2. Check direct keyword matches
   const lowerContent = fullContent.toLowerCase();
   const matchedKeywords = GAD_KEYWORDS.filter((kw) => {
-    const regex = new RegExp(`\\b${kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i");
+    const regex = new RegExp(`\\b${kw.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i");
     return regex.test(lowerContent);
   });
 

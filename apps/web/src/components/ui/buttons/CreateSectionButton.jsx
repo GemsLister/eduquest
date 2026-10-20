@@ -3,6 +3,7 @@ import { sectionService } from "../../../services/sectionService.js";
 import { notify } from "../../../utils/notify.jsx";
 import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
 import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
+import { useFocusTrap } from "../../../hooks/useFocusTrap.jsx";
 
 export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubject, isOpen: externalIsOpen, onClose: externalOnClose }) => {
   const [internalShowForm, setInternalShowForm] = useState(false);
@@ -20,6 +21,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
   useEscapeKey(() => {
     if (!loading) setShowForm(false);
   }, showForm);
+  const trapRef = useFocusTrap(showForm);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,12 +93,18 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
             onClick={() => setShowForm(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+          <div
+            ref={trapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-section-title"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 shrink-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-black text-white">
+                  <h3 id="create-section-title" className="text-xl font-black text-white">
                     {preselectedSubject
                       ? `Add Section to ${preselectedSubject.name}`
                       : "Add Section"}

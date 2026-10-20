@@ -13,6 +13,7 @@ import { SubjectSectionModal } from "../../components/SubjectSectionModal.jsx";
 import { SubjectRequestForm } from "../../components/SubjectRequestForm.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -62,6 +63,7 @@ export const InstructorDashboard = () => {
   const [curriculumSubjects, setCurriculumSubjects] = useState([]);
   const confirm = useConfirm();
   useEscapeKey(() => setEditModal(null), Boolean(editModal));
+  const editTrapRef = useFocusTrap(Boolean(editModal));
 
   // Load approved curriculum subjects and requested subjects for this instructor
   const fetchCurriculumSubjects = useCallback(async () => {
@@ -904,7 +906,7 @@ export const InstructorDashboard = () => {
       {/* Modal for editing section */}
       {editModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div role="dialog" aria-modal="true" aria-labelledby="edit-section-title" className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+          <div ref={editTrapRef} role="dialog" aria-modal="true" aria-labelledby="edit-section-title" className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <h3 id="edit-section-title" className="text-lg font-bold text-brand-navy mb-4">
               Edit Section
             </h3>

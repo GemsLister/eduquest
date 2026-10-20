@@ -2,6 +2,8 @@
 import { useQuestionBank } from "../hooks/questionHook/useQuestionBank.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { analyzeGADQuestion } from "../services/gadAnalysisService.js";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 /**
  * ImportQuestionBankModal
@@ -22,6 +24,9 @@ export const ImportQuestionBankModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [privacyFilter, setPrivacyFilter] = useState("all"); // "all", "my_private", "my_public", "others_public", "gad_only"
+
+  useEscapeKey(onClose, isOpen);
+  const trapRef = useFocusTrap(isOpen);
 
   if (!isOpen) return null;
 
@@ -159,7 +164,13 @@ export const ImportQuestionBankModal = ({
       />
 
       {/* Modal Dialog */}
-      <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select question from Question Bank"
+        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10"
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo text-white p-5 flex items-center justify-between">
           <div>

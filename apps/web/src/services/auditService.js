@@ -43,7 +43,7 @@ export const logAudit = async ({
         } else {
           role = "instructor";
         }
-      } catch (err) {
+      } catch {
         role = "user";
       }
     }

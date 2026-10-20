@@ -33,7 +33,7 @@ export const useRecover = () => {
           resetOptions.captchaToken = userData.captchaToken;
         }
 
-        const { data, error } = await supabase.auth.resetPasswordForEmail(
+        const { error } = await supabase.auth.resetPasswordForEmail(
           email,
           resetOptions,
         );

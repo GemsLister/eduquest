@@ -81,8 +81,6 @@ export const exportBloomsPdf = async ({
   reviewerName,
   approverName,
   submittedAt,
-  adminFeedback,
-  status,
   subjectCode,
   courseName,
   semesterOverride,
@@ -231,7 +229,6 @@ export const exportBloomsPdf = async ({
 
     // ── Prepare TOS Table Data ──
     const analysis = results?.analysis || [];
-    const summary = results?.summary || {};
     const totalItems = analysis.length;
 
     // Group item numbers by Bloom's level

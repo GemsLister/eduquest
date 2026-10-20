@@ -41,10 +41,15 @@ export const AdminInstructors = () => {
     return list;
   }, [instructors, statusFilter, search]);
 
-  // Reset to page 1 when search or filter changes
-  useEffect(() => {
+  // Changing the search or filter goes back to page 1
+  const changeSearch = (value) => {
+    setSearch(value);
     setCurrentPage(1);
-  }, [search, statusFilter]);
+  };
+  const changeStatusFilter = (value) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(
@@ -139,13 +144,13 @@ export const AdminInstructors = () => {
               type="text"
               placeholder="Search by name, email, or username..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => changeSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all shadow-xs"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => changeSearch("")}
                 aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
@@ -172,7 +177,7 @@ export const AdminInstructors = () => {
             {filters.map((f) => (
               <button
                 key={f.key}
-                onClick={() => setStatusFilter(f.key)}
+                onClick={() => changeStatusFilter(f.key)}
                 aria-pressed={statusFilter === f.key}
                 className={`px-4 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs flex items-center gap-1.5 cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   statusFilter === f.key

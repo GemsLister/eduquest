@@ -1,42 +1,10 @@
-import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import { supabase } from "../supabaseClient.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useProfileFlagGate } from "../hooks/useProfileFlagGate.jsx";
 
 export const FacultyHeadProtectedRoute = ({ children }) => {
-  const { user, loading: authLoading } = useAuth();
-  const [status, setStatus] = useState("loading");
+  const status = useProfileFlagGate("is_faculty_head");
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      setStatus("unauthorized");
-      return;
-    }
-
-    const checkFacultyHead = async () => {
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("is_faculty_head")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profileError || !profile?.is_faculty_head) {
-          setStatus("unauthorized");
-          return;
-        }
-
-        setStatus("authorized");
-      } catch {
-        setStatus("unauthorized");
-      }
-    };
-
-    checkFacultyHead();
-  }, [user, authLoading]);
-
-  if (authLoading || status === "loading") {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-screen flex-1">
         <div className="text-center">

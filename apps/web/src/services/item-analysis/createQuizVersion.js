@@ -34,7 +34,6 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
 
     if (rootError || !rootQuiz) throw new Error("Failed to fetch root quiz");
 
-    const instructorId = rootQuiz.instructor_id;
     const baseTitle = rootQuiz.title.replace(
       /\s*\(Revised(?:\s+\d+)?\)\s*$/,
       "",

@@ -9,7 +9,6 @@ export const ItemAnalysisTable = ({
   studentSearchTerm,
   expandedQuestion,
   toggleDetails,
-  onFlagClick,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedComparisonItem, setSelectedComparisonItem] = useState(null);

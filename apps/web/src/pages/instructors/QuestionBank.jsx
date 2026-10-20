@@ -8,6 +8,7 @@ import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -32,6 +33,7 @@ export const QuestionBank = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   useEscapeKey(() => setShowSortDropdown(false), showSortDropdown);
   useEscapeKey(() => setShowAddForm(false), showAddForm);
+  const addFormTrapRef = useFocusTrap(showAddForm);
   const [importProcessing, setImportProcessing] = useState(false);
 
   // Subject, Quiz, and GAD filter state
@@ -779,7 +781,7 @@ export const QuestionBank = () => {
   };
 
   // ---------------- Import Functions ----------------
-  const processImport = async (parsedQuestions, fileName = "") => {
+  const processImport = async (parsedQuestions) => {
     if (!parsedQuestions || parsedQuestions.length === 0) {
       notify.warning("No questions found in file");
       return;
@@ -838,7 +840,7 @@ export const QuestionBank = () => {
         return;
       }
 
-      const res = await addBulkToBank(preparedQuestions, null, null, selectedSubjectId);
+      const res = await addBulkToBank(preparedQuestions, null, selectedSubjectId);
       if (res.success) {
         notify.success(`Successfully imported ${preparedQuestions.length} question(s) to question bank!`);
         await fetchQuestions();
@@ -881,7 +883,7 @@ export const QuestionBank = () => {
           notify.warning("Only .json and .csv files are supported");
           return;
         }
-        await processImport(parsed, file.name);
+        await processImport(parsed);
       } catch (err) {
         console.error(err);
         notify.error("Failed to parse file: " + err.message);
@@ -1996,10 +1998,16 @@ export const QuestionBank = () => {
       {/* Add Question Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div
+            ref={addFormTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-question-title"
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+          >
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-4 rounded-t-2xl flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">
+              <h2 id="add-question-title" className="text-xl font-bold text-white">
                 Add Question to Bank
               </h2>
               <button

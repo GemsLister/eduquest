@@ -7,9 +7,14 @@ import {
 import { Turnstile } from "../../components/Turnstile.jsx";
 import citlLogo from "../../assets/BUKSU_CITL.jpg";
 
+const NOT_REGISTERED_MESSAGE =
+  "This Google account isn't registered as an instructor. Please contact your Senior Faculty to request access.";
+
 export const Login = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [authError, setAuthError] = useState("");
+  const [authError, setAuthError] = useState(() =>
+    searchParams.get("error") === "not_registered" ? NOT_REGISTERED_MESSAGE : "",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,11 +22,9 @@ export const Login = () => {
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [captchaStatus, setCaptchaStatus] = useState("checking");
 
+  // The message is read once on mount (above); drop the param from the URL
   useEffect(() => {
     if (searchParams.get("error") === "not_registered") {
-      setAuthError(
-        "This Google account isn't registered as an instructor. Please contact your Senior Faculty to request access."
-      );
       searchParams.delete("error");
       setSearchParams(searchParams, { replace: true });
     }

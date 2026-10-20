@@ -4,7 +4,6 @@ import { supabase } from "../supabaseClient.js";
 export const StudentPerformanceAnalysis = ({ 
   sectionId, 
   quizId, 
-  instructorId 
 }) => {
   const [studentsData, setStudentsData] = useState([]);
   const [loading, setLoading] = useState(false);

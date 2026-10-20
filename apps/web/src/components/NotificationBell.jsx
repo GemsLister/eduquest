@@ -53,6 +53,48 @@ const formatNotificationMessage = (message) => {
   }
 };
 
+// Subject requests keep a copy of the request in the requester's own
+// notifications ("My Subject Request: ...") so they can track it. That row is
+// storage, not news, so it stays out of the bell.
+const SELF_TRACKING_PREFIX = "My Subject Request:";
+const isSelfTracking = (n) => typeof n?.title === "string" && n.title.startsWith(SELF_TRACKING_PREFIX);
+
+// Pages and sidebar badges refresh on these; a new notification usually means
+// one of them is out of date (a review decision, an assignment, a subject request)
+const REFRESH_EVENTS = [
+  "submissions-changed",
+  "pending-peer-reviews-changed",
+  "pending-quiz-reviews-changed",
+  "pending-quiz-approvals-changed",
+  "pending-subject-requests-changed",
+  "pending-requests-changed",
+  "subject-requests-changed",
+  "subjects-changed",
+];
+
+const fetchNotifications = async (userId) => {
+  const { data } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .not("title", "ilike", `${SELF_TRACKING_PREFIX}%`)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  // Unread total across all notifications, not only the 20 shown
+  const { count } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false)
+    .not("title", "ilike", `${SELF_TRACKING_PREFIX}%`);
+
+  return {
+    list: data || null,
+    unread: count ?? (data || []).filter((n) => !n.is_read).length,
+  };
+};
+
 export const NotificationBell = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -61,6 +103,8 @@ export const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [syncKey, setSyncKey] = useState(0);
   const dropdownRef = useRef(null);
 
   useEscapeKey(() => {
@@ -68,24 +112,45 @@ export const NotificationBell = () => {
     setMenuOpenId(null);
   }, open);
 
+  const userId = user?.id;
+
+  // Load on sign-in and re-sync whenever the dropdown opens (covers missed
+  // realtime events and changes made in another tab)
   useEffect(() => {
-    if (!user?.id) return;
-    loadNotifications();
+    if (!userId) return;
+    let cancelled = false;
+    fetchNotifications(userId).then(({ list, unread }) => {
+      if (cancelled) return;
+      if (list) setNotifications(list);
+      setUnreadCount(unread);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, syncKey]);
+
+  useEffect(() => {
+    if (!userId) return;
 
     // Subscribe to this user's real-time notifications only
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${userId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotifications((prev) => [payload.new, ...prev]);
-          setUnreadCount((prev) => prev + 1);
+          const incoming = payload.new;
+          if (isSelfTracking(incoming)) return;
+          setNotifications((prev) =>
+            prev.some((n) => n.id === incoming.id) ? prev : [incoming, ...prev],
+          );
+          if (!incoming.is_read) setUnreadCount((prev) => prev + 1);
+          REFRESH_EVENTS.forEach((name) => window.dispatchEvent(new Event(name)));
         },
       )
       .subscribe();
@@ -93,7 +158,22 @@ export const NotificationBell = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [userId]);
+
+  // Keep the relative times current while the list is showing
+  useEffect(() => {
+    if (!open) return;
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, [open]);
+
+  const toggleOpen = () => {
+    if (!open) {
+      setNow(Date.now());
+      setSyncKey((k) => k + 1);
+    }
+    setOpen(!open);
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -106,29 +186,6 @@ export const NotificationBell = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const loadNotifications = async () => {
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (data) {
-      setNotifications(data);
-    }
-
-    // Unread total across all notifications, not only the 20 shown
-    const { count } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-    setUnreadCount(count ?? (data || []).filter((n) => !n.is_read).length);
-  };
 
   const markAsRead = async (id) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
@@ -145,7 +202,8 @@ export const NotificationBell = () => {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .not("title", "ilike", `${SELF_TRACKING_PREFIX}%`);
 
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
@@ -182,7 +240,7 @@ export const NotificationBell = () => {
   };
 
   const timeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Math.max(0, now - new Date(dateStr).getTime());
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return "Just now";
     if (minutes < 60) return `${minutes}m ago`;
@@ -196,7 +254,7 @@ export const NotificationBell = () => {
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={toggleOpen}
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
         aria-expanded={open}
         className="relative p-2 text-gray-500 hover:text-brand-navy transition-colors rounded-lg hover:bg-brand-gold/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -224,7 +282,7 @@ export const NotificationBell = () => {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <div className="fixed left-4 right-4 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-brand-navy">
             <h3 className="font-bold text-white text-sm">Notifications</h3>

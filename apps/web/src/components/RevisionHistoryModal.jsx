@@ -1,4 +1,3 @@
-import { useState } from 'react';
 
 export const RevisionHistoryModal = ({ isOpen, onClose, revisions, questionId }) => {
   if (!isOpen) return null;

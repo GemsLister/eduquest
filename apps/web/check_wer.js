@@ -12,6 +12,7 @@ async function findQuizzes() {
     .select("*")
     .or("title.ilike.%123r%,title.ilike.%wer%,title.ilike.%erter%");
 
+  if (qErr) console.error("Quizzes query failed:", qErr);
   console.log("Quizzes found:", qData?.map(q => ({ id: q.id, title: q.title, parent_quiz_id: q.parent_quiz_id })));
 
   if (qData) {

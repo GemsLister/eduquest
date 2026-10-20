@@ -2,7 +2,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useNavigate } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 
-const STRONG_PASSWORD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
+const STRONG_PASSWORD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
 
 export const useChangePassword = () => {
   const navigate = useNavigate();

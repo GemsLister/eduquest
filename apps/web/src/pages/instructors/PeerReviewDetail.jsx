@@ -4,12 +4,15 @@ import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { logAudit } from "../../services/auditService.js";
+import { notifyDepartmentHeads } from "../../services/notificationService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 const PEER_REVIEWS_PATH = "/instructor-dashboard/my-submissions?tab=peer_reviews";
 
@@ -37,6 +40,8 @@ export const PeerReviewDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  useEscapeKey(() => setShowFeedbackModal(false), showFeedbackModal);
+  const feedbackTrapRef = useFocusTrap(showFeedbackModal);
   const [pendingAction, setPendingAction] = useState(null);
   const [questionFeedback, setQuestionFeedback] = useState({});
   const [questionMetaById, setQuestionMetaById] = useState({});
@@ -243,21 +248,12 @@ export const PeerReviewDetail = () => {
       // If approved/forwarded, also notify Department Heads for final approval
       if (status === "approved") {
         try {
-          const { data: deptHeads } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("is_faculty_head", true);
-
-          if (deptHeads && deptHeads.length > 0) {
-            const headNotifs = deptHeads.map((h) => ({
-              user_id: h.id,
-              title: "New Exam Awaiting Final Approval",
-              message: `Quiz "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
-              type: "info",
-              link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
-            }));
-            await supabase.from("notifications").insert(headNotifs);
-          }
+          await notifyDepartmentHeads(submission.instructor_id, {
+            title: "New Exam Awaiting Final Approval",
+            message: `Quiz "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
+            type: "info",
+            link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
+          });
         } catch (nErr) {
           console.warn("Could not notify department heads:", nErr);
         }
@@ -905,8 +901,14 @@ export const PeerReviewDetail = () => {
       {/* Feedback Modal */}
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Revision Request Feedback</h3>
+          <div
+            ref={feedbackTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedback-modal-title"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"
+          >
+            <h3 id="feedback-modal-title" className="text-lg font-bold text-gray-800 mb-4">Revision Request Feedback</h3>
             <p className="text-sm text-gray-500 mb-4">
               Please provide overall feedback or per-question feedback to help the instructor understand what to revise.
             </p>

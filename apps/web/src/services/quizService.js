@@ -184,7 +184,7 @@ export const quizService = {
           .filter((q) => q !== null);
         return { data: questions, error: null };
       }
-    } catch (e) {
+    } catch {
       // Ignore errors from junction table
     }
 
@@ -212,7 +212,7 @@ export const quizService = {
       if (!isMissingTableError(junctionError) && junctionCount && junctionCount > 0) {
         return { count: junctionCount, error: null };
       }
-    } catch (e) {
+    } catch {
       // Ignore
     }
 
@@ -375,12 +375,6 @@ export const quizService = {
       return { data: [], error: null };
     }
 
-    // Generate tokens for each section
-    const tokenUpdates = sectionsWithoutTokens.map(section => ({
-      id: section.id,
-      share_token: null // Trigger auto-generation
-    }));
-
     // Update each section (this will trigger the database function)
     for (const section of sectionsWithoutTokens) {
       await supabase
@@ -390,7 +384,7 @@ export const quizService = {
     }
 
     // Return the updated tokens
-    return await this.getQuizSectionShareTokens(quizId);
+    return await quizService.getQuizSectionShareTokens(quizId);
   },
 
   // ============ QUIZ ATTEMPT OPERATIONS ============
@@ -518,17 +512,6 @@ export const quizService = {
     return await supabase.rpc("share_quiz_with_subject_sections", {
       p_quiz_id: quizId,
       p_subject_id: subjectId,
-    });
-  },
-
-  /**
-   * Automatically share a quiz with all sections in the same subject
-   * @param {string} quizId - Quiz ID
-   * @returns {Promise<{data, error}>}
-   */
-  autoShareQuizWithSubjectSections: async (quizId) => {
-    return await supabase.rpc("auto_share_quiz_with_subject_sections", {
-      p_quiz_id: quizId,
     });
   },
 

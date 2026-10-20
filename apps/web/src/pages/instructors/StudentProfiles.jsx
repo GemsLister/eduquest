@@ -7,13 +7,11 @@ export const StudentProfiles = () => {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith("/admin-dashboard");
   const [subjects, setSubjects] = useState([]);
-  const [students, setStudents] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [userId, setUserId] = useState(null);
   const [performanceFilter, setPerformanceFilter] = useState("all"); // all, strong, average, weak
 
   // Pagination state
@@ -41,8 +39,6 @@ export const StudentProfiles = () => {
           setLoading(false);
           return;
         }
-        setUserId(user.id);
-
         setLoading(true);
 
         const { data: sectionsData, error: sectionsError } = await supabase
@@ -55,7 +51,6 @@ export const StudentProfiles = () => {
         if (sectionsError) throw sectionsError;
 
         setSubjects(sectionsData || []);
-        setStudents([]);
       } catch (err) {
         setError(err.message || "Failed to load data");
       } finally {
@@ -64,25 +59,6 @@ export const StudentProfiles = () => {
     };
     fetchData();
   }, []);
-
-  // Calculate percentile for a score
-  const calculatePercentile = (score, allScores) => {
-    if (!allScores || allScores.length === 0) return 0;
-
-    const sortedScores = [...allScores].sort((a, b) => a - b);
-
-    // Count how many scores are less than the current score
-    const lowerScores = sortedScores.filter((s) => s < score);
-    // Count how many scores are equal to the current score
-    const equalScores = sortedScores.filter((s) => s === score);
-
-    // Calculate percentile: (lower scores + half of equal scores) / total scores
-    const percentile =
-      ((lowerScores.length + equalScores.length * 0.5) / sortedScores.length) *
-      100;
-
-    return Math.round(percentile);
-  };
 
   // Get color based on score percentage
   const getPercentileColor = (percentile) => {

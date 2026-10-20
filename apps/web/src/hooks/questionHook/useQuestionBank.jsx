@@ -117,15 +117,6 @@ export const useQuestionBank = () => {
         )
       );
 
-      // Get instructor's sections for standalone questions
-      const { data: sectionsData } = await supabase
-        .from("sections")
-        .select("id")
-        .eq("instructor_id", user.id)
-        .or("is_archived.is.null,is_archived.eq.false");
-
-      const sectionIds = sectionsData?.map((s) => s.id) || [];
-
       // Fetch questions from instructor's quizzes (including co-instructors)
       // Build in-memory quiz map from accessible quizzes
       const accessibleQuizMap = new Map();
@@ -584,7 +575,7 @@ export const useQuestionBank = () => {
   };
 
   // Add multiple questions to the bank as standalone questions (no quiz container)
-  const addBulkToBank = async (questionsArray, containerTitle = "Question Bank - Draft", sectionId = null, subjectId = null) => {
+  const addBulkToBank = async (questionsArray, sectionId = null, subjectId = null) => {
     try {
       if (!user) return { success: false, error: "Not authenticated" };
       if (!Array.isArray(questionsArray) || questionsArray.length === 0) {

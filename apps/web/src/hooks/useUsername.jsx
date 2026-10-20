@@ -2,20 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
+const EMPTY = { googleName: "", dbName: "", avatarUrl: "" };
+
 export const useUsername = () => {
   const { user } = useAuth();
-  const [userData, setUserData] = useState({
-    googleName: "",
-    dbName: "",
-    avatarUrl: "",
-    loading: true,
-  });
+  // Tagged with the user it was loaded for, so a stale profile is never shown
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    if (!user) {
-      setUserData({ googleName: "", dbName: "", avatarUrl: "", loading: false });
-      return;
-    }
+    if (!user) return;
 
     const getUserData = async () => {
       const googleName =
@@ -32,10 +27,10 @@ export const useUsername = () => {
           : null;
 
       setUserData({
+        userId: user.id,
         googleName: fullName || googleName,
         dbName: dbRecord ? dbRecord.username : "",
         avatarUrl: dbRecord?.avatar_url || "",
-        loading: false,
       });
     };
     getUserData();
@@ -45,5 +40,7 @@ export const useUsername = () => {
     return () => window.removeEventListener("profile-updated", getUserData);
   }, [user]);
 
-  return userData;
+  if (!user) return { ...EMPTY, loading: false };
+  if (userData?.userId !== user.id) return { ...EMPTY, loading: true };
+  return { ...userData, loading: false };
 };

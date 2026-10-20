@@ -16,7 +16,6 @@ export const QuizzesPageMain = () => {
 
   const {
     quizFormData,
-    showQuizForm,
     handleCreateQuiz,
     setQuizFormData,
     isSubmitting,
@@ -26,7 +25,6 @@ export const QuizzesPageMain = () => {
   const {
     quizzes,
     loading,
-    fetchQuizzes,
     handleRestoreQuiz,
     handleArchiveQuiz,
     handlePublishQuiz,

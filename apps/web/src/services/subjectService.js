@@ -481,7 +481,7 @@ export const subjectService = {
           let parsed = {};
           try {
             parsed = JSON.parse(n.message);
-          } catch (e) {
+          } catch {
             parsed = {
               subject_name: n.title.replace("Subject Request:", "").trim(),
               description: n.message,
@@ -579,7 +579,7 @@ export const subjectService = {
           let parsed = {};
           try {
             parsed = JSON.parse(n.message);
-          } catch (e) {
+          } catch {
             parsed = {};
           }
 
@@ -781,7 +781,7 @@ export const subjectService = {
             is_read: true,
           })
           .eq("id", targetReq.notification_id);
-      } catch (e) {}
+      } catch { /* best effort; the request itself already succeeded */ }
     }
 
     // 4. Send approval notification to requesting instructor
@@ -797,7 +797,7 @@ export const subjectService = {
             is_read: false,
           },
         ]);
-      } catch (e) {}
+      } catch { /* best effort; the request itself already succeeded */ }
     }
 
     return { success: true, subject: createdSubject };
@@ -862,7 +862,7 @@ export const subjectService = {
             is_read: true,
           })
           .eq("id", targetReq.notification_id);
-      } catch (e) {}
+      } catch { /* best effort; the request itself already succeeded */ }
     }
 
     // 4. Send rejection notification to requesting instructor
@@ -878,7 +878,7 @@ export const subjectService = {
             is_read: false,
           },
         ]);
-      } catch (e) {}
+      } catch { /* best effort; the request itself already succeeded */ }
     }
 
     return { success: true };

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { notify } from "../utils/notify.jsx";
 import { sectionService } from "../services/sectionService.js";
 import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 // Sections are stored as "<Subject> - <Section code>"; show just the code
 const getSectionCode = (sec) => {
@@ -31,6 +32,7 @@ export const SubjectSectionModal = ({
   const [formError, setFormError] = useState("");
 
   useEscapeKey(onClose, isOpen && !!subject);
+  const trapRef = useFocusTrap(isOpen && !!subject);
 
   if (!isOpen || !subject) return null;
 
@@ -78,6 +80,7 @@ export const SubjectSectionModal = ({
 
       {/* Modal Container */}
       <div
+        ref={trapRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="subject-section-modal-title"

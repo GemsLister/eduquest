@@ -1,4 +1,4 @@
-export const DockLeftIcon = ({ resize }) => {
+export const DockLeftIcon = () => {
   return (
     <div className="flex items-center">
       <svg

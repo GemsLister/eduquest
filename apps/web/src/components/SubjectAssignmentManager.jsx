@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
 import { subjectService } from "../services/subjectService";
 import { notify } from "../utils/notify.jsx";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
@@ -89,7 +88,7 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
 
     setIsCreating(true);
     try {
-      const { data, error } = await subjectService.createSubject({
+      const { error } = await subjectService.createSubject({
         name: newSubject.name.trim(),
         code: newSubject.code.trim(),
         description: newSubject.description.trim(),

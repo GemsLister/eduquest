@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { studentService } from "../services/studentService.js";
 import { quizService } from "../services/quizService.js";
 import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
 import { useSearchParams } from "react-router-dom";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 const isMissingTableError = (error) => {
   if (!error) return false;
@@ -20,7 +22,6 @@ const isMissingTableError = (error) => {
 
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedSectionId = searchParams.get("section");
 
@@ -28,8 +29,6 @@ export const PublicQuizPage = () => {
     title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || "";
 
   // --- STATES ---
-  const [studentName, setStudentName] = useState("");
-  const [studentEmail, setStudentEmail] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -45,10 +44,11 @@ export const PublicQuizPage = () => {
   const [session, setSession] = useState(null);
   const [authenticating, setAuthenticating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  useEscapeKey(() => setShowConfirmModal(false), showConfirmModal);
+  const confirmTrapRef = useFocusTrap(showConfirmModal);
   const [hasExited, setHasExited] = useState(false);
   const [alreadyTaken, setAlreadyTaken] = useState(false);
   const [sectionName, setSectionName] = useState("");
-  const [quizSectionData, setQuizSectionData] = useState(null);
   const [targetSectionId, setTargetSectionId] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(null);
@@ -213,8 +213,8 @@ export const PublicQuizPage = () => {
     // Load saved answers
     const { data: savedResponses } =
       await quizService.getResponsesDetailsByAttempt(existingAttemptId);
+    const restoredAnswers = {};
     if (savedResponses && savedResponses.length > 0) {
-      const restoredAnswers = {};
       savedResponses.forEach((r) => {
         restoredAnswers[r.question_id] = r.answer;
       });
@@ -320,7 +320,6 @@ export const PublicQuizPage = () => {
           quizData = sectionQuizData.quizzes;
           effectiveSectionId = sectionQuizData.section_id;
           setTargetSectionId(sectionQuizData.section_id);
-          setQuizSectionData(sectionQuizData);
           console.log("Loaded quiz via section-specific share token");
         } else {
           // Fall back to regular quiz share token
@@ -421,7 +420,7 @@ export const PublicQuizPage = () => {
               .filter((q) => q !== null);
             if (mapped.length === 0) return { ok: false, error: null };
             return { ok: true, data: mapped };
-          } catch (e) {
+          } catch {
             return { ok: false, error: null };
           }
         };
@@ -813,147 +812,6 @@ export const PublicQuizPage = () => {
       setError(err.message || "Failed to start quiz");
     } finally {
       setAuthenticating(false);
-    }
-  };
-
-  // --- Manual start (deprecated but keep for fallback) ---
-  const handleStartQuiz = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!studentName || !studentEmail) {
-      setError("Please provide your name and email.");
-      return;
-    }
-
-    if (!studentEmail.endsWith("@student.buksu.edu.ph")) {
-      setError("Only @student.buksu.edu.ph email addresses are allowed.");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const currentExamCode = await resolveExamCode();
-
-      let { data: student, error: fetchError } = await supabase
-        .from("student_profile")
-        .select("id, student_name")
-        .eq("student_email", studentEmail)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      if (!student) {
-        const { data: newStudent, error: createError } = await supabase
-          .from("student_profile")
-          .insert([
-            {
-              student_email: studentEmail,
-              student_name: studentName,
-              exam_code: currentExamCode,
-            },
-          ])
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        student = newStudent;
-      } else {
-        // Update existing student's exam_code to match THIS quiz's section
-        const { error: updateError } = await supabase
-          .from("student_profile")
-          .update({
-            exam_code: currentExamCode,
-          })
-          .eq("id", student.id);
-
-        if (updateError) throw updateError;
-      }
-
-      // Check for existing attempt
-      let attemptsQuery = supabase
-        .from("quiz_attempts")
-        .select("id, status")
-        .eq("quiz_id", quiz.id)
-        .eq("user_id", student.id)
-        .in("status", ["in_progress", "completed"]);
-
-      const finalSectionId = targetSectionId || requestedSectionId || null;
-
-      attemptsQuery = finalSectionId
-        ? attemptsQuery.eq("section_id", finalSectionId)
-        : attemptsQuery.is("section_id", null);
-
-      const { data: existingAttempts, error: checkError } = await attemptsQuery;
-
-      if (checkError) throw new Error(checkError.message);
-
-      if (existingAttempts && existingAttempts.length > 0) {
-        const completedAttempt = existingAttempts.find(
-          (a) => a.status === "completed",
-        );
-        if (completedAttempt) {
-          setAlreadyTaken(true);
-          setAuthenticating(false);
-          return;
-        }
-        // Resume in-progress attempt
-        const inProgressAttempt = existingAttempts.find(
-          (a) => a.status === "in_progress",
-        );
-        if (inProgressAttempt) {
-          setAttemptId(inProgressAttempt.id);
-          await restoreAttemptState(inProgressAttempt.id, questions);
-          setHasStarted(true);
-          return;
-        }
-      }
-
-      // Create new attempt only if none exists
-      const { data: attempt, error: attemptError } = await supabase
-        .from("quiz_attempts")
-        .insert([
-          {
-            quiz_id: quiz.id,
-            section_id: finalSectionId,
-            student_id: student.id,
-            student_name: studentName,
-            student_email: studentEmail,
-            status: "in_progress",
-          },
-        ])
-        .select()
-        .single();
-
-      if (attemptError) throw attemptError;
-      setAttemptId(attempt.id);
-      await shuffleAndSaveOrder(questions, attempt.id);
-      
-      // Auto-answer questions with auto_answer flag
-      const autoAnswers = {};
-      questions.forEach(question => {
-        if (question.auto_answer && question.correct_answer !== undefined) {
-          autoAnswers[question.id] = String(question.correct_answer);
-        }
-      });
-
-      if (Object.keys(autoAnswers).length > 0) {
-        setAnswers(prev => ({ ...prev, ...autoAnswers }));
-
-        // Save auto-answers to server
-        for (const [questionId, answer] of Object.entries(autoAnswers)) {
-          supabase.rpc("save_quiz_response", {
-            p_attempt_id: attempt.id,
-            p_question_id: questionId,
-            p_answer: answer,
-            p_time_spent: 0 // Auto-answers have no time spent
-          }).catch(err => console.error("Error saving auto-answer:", err));
-        }
-      }
-
-      setHasStarted(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -1617,8 +1475,14 @@ export const PublicQuizPage = () => {
         {/* Confirmation Modal */}
         {showConfirmModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-bold text-brand-navy mb-2">
+            <div
+              ref={confirmTrapRef}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="submit-confirm-title"
+              className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
+            >
+              <h3 id="submit-confirm-title" className="text-lg font-bold text-brand-navy mb-2">
                 Submit Assessment?
               </h3>
               <p className="text-gray-600 text-sm mb-1">

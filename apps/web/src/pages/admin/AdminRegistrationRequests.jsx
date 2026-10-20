@@ -15,6 +15,7 @@ export const AdminRegistrationRequests = () => {
 
   const [bulkLoading, setBulkLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [now] = useState(() => Date.now());
   const PAGE_SIZE = 9;
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export const AdminRegistrationRequests = () => {
 
   const timeAgo = (dateStr) => {
     if (!dateStr) return "—";
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Math.max(0, now - new Date(dateStr).getTime());
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "Just now";
     if (mins < 60) return `${mins}m ago`;

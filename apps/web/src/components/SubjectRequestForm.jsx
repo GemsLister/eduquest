@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { subjectService } from "../services/subjectService.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { notify } from "../utils/notify.jsx";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
   const { user } = useAuth();
@@ -96,6 +98,9 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
     }
   };
 
+  useEscapeKey(onClose, isOpen);
+  const trapRef = useFocusTrap(isOpen);
+
   if (!isOpen) return null;
 
   const modalContent = (
@@ -108,6 +113,10 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
         onClick={onClose}
       />
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subject-request-title"
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -115,7 +124,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-xl font-black text-white">
+              <h3 id="subject-request-title" className="text-xl font-black text-white">
                 Request New Subject
               </h3>
               <p className="text-white/70 text-xs mt-1">

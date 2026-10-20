@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "./ui/Skeleton.jsx";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 // Clean SVG Icons for Timeline Actions
 const ActionIcon = ({ type }) => {
@@ -105,6 +107,8 @@ export const SystemActivityTimeline = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [activeDetailLog, setActiveDetailLog] = useState(null);
+  useEscapeKey(() => setActiveDetailLog(null), Boolean(activeDetailLog));
+  const detailTrapRef = useFocusTrap(Boolean(activeDetailLog));
 
   useEffect(() => {
     fetchSystemActivityLogs();
@@ -674,14 +678,20 @@ export const SystemActivityTimeline = () => {
       {/* Structured Details Modal / Drawer */}
       {activeDetailLog && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div
+            ref={detailTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audit-detail-title"
+            className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-brand-navy to-brand-indigo text-white p-5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold tracking-widest text-brand-gold uppercase block mb-0.5">
                   Audit Entry Details
                 </span>
-                <h3 className="text-lg font-extrabold">{getActionInfo(activeDetailLog.action).label}</h3>
+                <h3 id="audit-detail-title" className="text-lg font-extrabold">{getActionInfo(activeDetailLog.action).label}</h3>
               </div>
               <button
                 onClick={() => setActiveDetailLog(null)}

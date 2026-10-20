@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
 import { subjectService } from "../services/subjectService";
 import { notify } from "../utils/notify.jsx";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
@@ -50,7 +49,7 @@ export const InstructorSubjectAssignmentManager = () => {
 
     setIsAssigning(true);
     try {
-      const { data, error } = await subjectService.assignSubjectToInstructor(
+      const { error } = await subjectService.assignSubjectToInstructor(
         selectedSubject,
         selectedInstructor
       );

@@ -19,6 +19,8 @@ import {
   exportSubmissionTosPdf,
   exportSubmissionQuizPaper,
 } from "../../services/facultyHeadService.js";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
@@ -292,14 +294,8 @@ export const FacultyHeadApprovalDetail = () => {
   };
 
   // Esc closes the revision modal
-  useEffect(() => {
-    if (!showRevisionModal) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") closeRevisionModal();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+  useEscapeKey(() => closeRevisionModal(), showRevisionModal);
+  const revisionTrapRef = useFocusTrap(showRevisionModal);
 
   const runExport = async (kind) => {
     if (exporting) return;
@@ -925,6 +921,7 @@ export const FacultyHeadApprovalDetail = () => {
             }}
           >
             <div
+              ref={revisionTrapRef}
               role="dialog"
               aria-modal="true"
               aria-labelledby="revision-modal-title"

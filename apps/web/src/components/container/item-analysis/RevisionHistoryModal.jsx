@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import { useEscapeKey } from '../../../hooks/useEscapeKey.jsx';
+import { useFocusTrap } from "../../../hooks/useFocusTrap.jsx";
 
 export const RevisionHistoryModal = ({ isOpen, onClose, revision, revisionIndex, totalRevisions }) => {
-  if (!isOpen || !revision) return null;
+  const active = Boolean(isOpen && revision);
+  useEscapeKey(onClose, active);
+  const trapRef = useFocusTrap(active);
+
+  if (!active) return null;
 
   const formatFullDate = (dateStr) => {
     if (!dateStr) return "Date not available";
@@ -35,13 +40,19 @@ export const RevisionHistoryModal = ({ isOpen, onClose, revision, revisionIndex,
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-md">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="revision-detail-title"
+        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200"
+      >
         {/* Header */}
         <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-blue-50 flex justify-between items-center shrink-0">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">📜</span>
-              <h2 className="text-2xl font-bold text-gray-800">Revision #{totalRevisions - revisionIndex}</h2>
+              <h2 id="revision-detail-title" className="text-2xl font-bold text-gray-800">Revision #{totalRevisions - revisionIndex}</h2>
             </div>
             <p className="text-sm text-gray-600">
               {formatRelativeTime(revision.revised_at)} 

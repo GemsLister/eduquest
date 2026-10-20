@@ -246,6 +246,7 @@ export const ItemAnalysisPage = () => {
         .eq("quiz_id", quizId)
         .order("created_at", { ascending: true });
 
+      if (qError) throw qError;
       if (directQs && directQs.length > 0) {
         questions = directQs;
       } else if (qInfo?.parent_quiz_id) {

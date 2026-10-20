@@ -5,6 +5,8 @@ import { subjectService } from "../../services/subjectService.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CurriculumSubjectsPanel } from "../../components/faculty-head/CurriculumSubjectsPanel.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 
 export const FacultyHeadSubjectRequests = () => {
   const { user } = useAuth();
@@ -126,16 +128,12 @@ export const FacultyHeadSubjectRequests = () => {
   };
 
   // Esc closes whichever modal is open
-  useEffect(() => {
-    if (!rejectModalTarget && !showCreateForm) return;
-    const onKey = (e) => {
-      if (e.key !== "Escape") return;
-      if (rejectModalTarget) closeRejectModal();
-      else closeCreateForm();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+  useEscapeKey(() => {
+    if (rejectModalTarget) closeRejectModal();
+    else closeCreateForm();
+  }, Boolean(rejectModalTarget) || showCreateForm);
+  const createTrapRef = useFocusTrap(showCreateForm);
+  const rejectTrapRef = useFocusTrap(Boolean(rejectModalTarget));
 
   const handleApprove = async (requestId) => {
     const targetReq = allRequests.find((r) => r.id === requestId);
@@ -723,6 +721,7 @@ export const FacultyHeadSubjectRequests = () => {
           }}
         >
           <div
+            ref={createTrapRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-subject-title"
@@ -850,6 +849,7 @@ export const FacultyHeadSubjectRequests = () => {
           }}
         >
           <div
+            ref={rejectTrapRef}
             role="dialog"
             aria-modal="true"
             aria-label={`Reject ${rejectModalTarget.subject_name}`}

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { Skeleton } from "./ui/Skeleton.jsx";
 import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.jsx";
 
 /**
  * Asks which section an archived question should be filed under in the
@@ -13,6 +14,7 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
   const [loading, setLoading] = useState(true);
 
   useEscapeKey(onClose, isOpen);
+  const trapRef = useFocusTrap(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +69,7 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div
+        ref={trapRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="archive-section-title"

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useGeminiSuggest } from '../../../hooks/analysisHook/useGeminiSuggest';
 import { RevisionHistoryModal } from './RevisionHistoryModal';
 import { notify } from '../../../utils/notify.jsx';
+import { useEscapeKey } from '../../../hooks/useEscapeKey.jsx';
+import { useFocusTrap } from '../../../hooks/useFocusTrap.jsx';
 
 export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) => {
-  const { generateSuggestion, updateQuestion, saveRevision, loading, suggestion, error } = useGeminiSuggest();
+  const { generateSuggestion, saveRevision, loading } = useGeminiSuggest();
   const [isManualEdit, setIsManualEdit] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState(null);
@@ -16,8 +18,12 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
     correctAnswer: 0
   });
 
-  // Load either revised content (draft) or original content
-  useEffect(() => {
+  // Load either revised content (draft) or original content each time the
+  // modal opens or switches question (state adjusted during render, not in an effect)
+  const syncKey = isOpen ? questionData : null;
+  const [syncedFor, setSyncedFor] = useState(null);
+  if (syncKey !== syncedFor) {
+    setSyncedFor(syncKey);
     if (isOpen && questionData) {
       // For REJECTED items, start with blank fields to encourage new question creation
       if (questionData.autoFlag === 'reject') {
@@ -57,7 +63,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
         });
       }
     }
-  }, [isOpen, questionData]);
+  }
 
   const handleAIGenerate = async () => {
     const result = await generateSuggestion(questionData);
@@ -108,6 +114,9 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
     setFormData(prev => ({ ...prev, options: newOptions }));
   };
 
+  useEscapeKey(onClose, isOpen);
+  const trapRef = useFocusTrap(isOpen);
+
   if (!isOpen) return null;
 
   const hasDraft = !!(questionData?.revised_content || questionData?.revised_options);
@@ -137,7 +146,13 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-choice-title"
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      >
         {/* Revision History Modal */}
         {selectedRevision && (
           <RevisionHistoryModal
@@ -151,7 +166,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
         {/* Header */}
         <div className="p-6 border-b flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 id="edit-choice-title" className="text-2xl font-bold text-gray-800">
               {questionData?.autoFlag === 'reject' ? 'Replace Question Q' : 'Edit Question Q'}{questionData?.index + 1}
             </h2>
             <div className="flex flex-wrap gap-2 mt-1">

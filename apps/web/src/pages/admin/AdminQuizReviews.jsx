@@ -5,7 +5,6 @@ import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 export const AdminQuizReviews = () => {
   const navigate = useNavigate();
-  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [search, setSearch] = useState("");

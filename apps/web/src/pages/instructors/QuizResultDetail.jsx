@@ -85,7 +85,7 @@ export const QuizResultDetail = () => {
           questionsData = direct.data || [];
           questionsError = direct.error;
         }
-      } catch (e) {
+      } catch {
         const direct = await supabase
           .from("questions")
           .select("*")
@@ -121,11 +121,6 @@ export const QuizResultDetail = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "Not completed";
     return new Date(dateString).toLocaleString();
-  };
-
-  const getQuestionPoints = (questionId) => {
-    const question = questions.find((q) => q.id === questionId);
-    return question?.points || 0;
   };
 
   const formatTimeSpent = (seconds) => {

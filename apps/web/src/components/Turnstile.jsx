@@ -64,7 +64,7 @@ export const Turnstile = ({
       if (widgetIdRef.current !== null) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {}
+        } catch { /* widget was already removed */ }
         widgetIdRef.current = null;
       }
 
@@ -104,7 +104,7 @@ export const Turnstile = ({
       if (widgetIdRef.current !== null && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {}
+        } catch { /* widget was already removed */ }
         widgetIdRef.current = null;
       }
     };

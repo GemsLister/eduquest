@@ -34,7 +34,7 @@ export const CentralizedSubjectDropdown = ({
         if (!rpcError && data) {
           loadedSubjects = data;
         }
-      } catch (rpcErr) {}
+      } catch { /* fall through to the next source */ }
 
       // 2. Direct table fallback if RPC returns empty or fails
       if (loadedSubjects.length === 0) {
@@ -48,7 +48,7 @@ export const CentralizedSubjectDropdown = ({
           if (subData) {
             loadedSubjects = subData;
           }
-        } catch (e) {}
+        } catch { /* fall through to the next source */ }
       }
 
       // Filter out any pending or rejected subject requests
@@ -118,7 +118,7 @@ export const CentralizedSubjectDropdown = ({
     onSubjectSelect(returnFullObject ? subject : subjectId);
   };
 
-  const handleRequestSubmitted = (result) => {
+  const handleRequestSubmitted = () => {
     // Refresh subjects list and notify dashboard listeners
     fetchSubjects();
     window.dispatchEvent(new CustomEvent("subject-requests-changed"));
