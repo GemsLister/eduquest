@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -12,6 +12,8 @@ const ITEMS_PER_PAGE = 10;
 
 export const QuestionBank = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
   const { quizId } = useParams();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -597,7 +599,11 @@ export const QuestionBank = () => {
         `Successfully imported ${selectedQuestions.length} question(s) with correct answers to the quiz!`,
       );
       setSelectedQuestions([]);
-      navigate(`/instructor-dashboard/instructor-quiz/${quizId}`);
+      navigate(
+        isAdminPath
+          ? `/admin-dashboard/create-quiz/${quizId}`
+          : `/instructor-dashboard/instructor-quiz/${quizId}`,
+      );
     } catch (error) {
       console.error("Error importing questions:", error);
       notify.error("Error importing questions: " + error.message);
@@ -965,7 +971,7 @@ export const QuestionBank = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-          Instructor Dashboard
+          {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
         </p>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -1376,7 +1382,6 @@ export const QuestionBank = () => {
             onClick={() => {
               setSearchTerm("");
               setSortBy("newest");
-              setSelectedSectionId(null);
               setSelectedQuizIdFilter(null);
             }}
             className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"

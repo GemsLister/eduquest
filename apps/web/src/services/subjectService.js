@@ -648,6 +648,7 @@ export const subjectService = {
    */
   approveSubjectRequest: async (requestId, targetReq, reviewerId) => {
     let approvedViaRpc = false;
+    let rpcRefusal = null;
     let createdSubject = null;
 
     // 1. Try RPC approve_subject_request first if this is a table UUID
@@ -662,11 +663,17 @@ export const subjectService = {
           if (rpcData.subject_id) {
             createdSubject = { id: rpcData.subject_id, name: targetReq.subject_name };
           }
+        } else if (!rpcErr && rpcData?.success === false) {
+          rpcRefusal = rpcData.error || "Could not approve subject request";
         }
       } catch (e) {
         console.warn("approve_subject_request RPC note:", e);
       }
     }
+
+    // The RPC ran but refused (already processed, not authorized, ...).
+    // Falling back to a direct insert here would create a duplicate subject.
+    if (rpcRefusal) throw new Error(rpcRefusal);
 
     // 2. If not approved via RPC, perform direct database operations
     if (!approvedViaRpc) {
@@ -773,6 +780,7 @@ export const subjectService = {
 
     // 1. Try RPC approve_subject_request with rejection reason
     let rejectedViaRpc = false;
+    let rpcRefusal = null;
     if (requestId && typeof requestId === "string" && !requestId.startsWith("req_")) {
       try {
         const { data: rpcData, error: rpcErr } = await supabase.rpc(
@@ -784,27 +792,28 @@ export const subjectService = {
         );
         if (!rpcErr && rpcData?.success) {
           rejectedViaRpc = true;
+        } else if (!rpcErr && rpcData?.success === false) {
+          rpcRefusal = rpcData.error || "Could not reject subject request";
         }
       } catch (e) {
         console.warn("reject via approve_subject_request RPC note:", e);
       }
     }
 
+    if (rpcRefusal) throw new Error(rpcRefusal);
+
     // 2. If not rejected via RPC, perform direct table update
     if (!rejectedViaRpc && requestId && !requestId.startsWith("req_")) {
-      try {
-        await supabase
-          .from("subject_requests")
-          .update({
-            request_status: "rejected",
-            rejection_reason: reason.trim(),
-            reviewed_by: reviewerId,
-            reviewed_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
-      } catch (e) {
-        console.warn("Could not update subject_requests row:", e);
-      }
+      const { error: updateErr } = await supabase
+        .from("subject_requests")
+        .update({
+          request_status: "rejected",
+          rejection_reason: reason.trim(),
+          reviewed_by: reviewerId,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", requestId);
+      if (updateErr) throw updateErr;
     }
 
     // 3. Update notification record

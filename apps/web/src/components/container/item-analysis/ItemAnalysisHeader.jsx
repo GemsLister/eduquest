@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 
 export const ItemAnalysisHeader = ({
   sections,
@@ -15,6 +16,9 @@ export const ItemAnalysisHeader = ({
   cohortOptions,
   searchedStudent,
 }) => {
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
+
   return (
     <div>
       {/* Hero Banner */}
@@ -22,7 +26,7 @@ export const ItemAnalysisHeader = ({
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              Instructor Dashboard
+              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               Item Analysis Report

@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { itemAnalysisService } from "../../services/itemAnalysisService";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const StudentProfiles = () => {
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
   const [subjects, setSubjects] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -794,7 +797,7 @@ export const StudentProfiles = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              Instructor Dashboard
+              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
               Student Profiles

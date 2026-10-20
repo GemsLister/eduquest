@@ -388,7 +388,7 @@ export const InstructorProfile = () => {
                     : profile.username || "No Name"}
                 </h1>
                 <span className="px-2.5 py-0.5 bg-brand-gold/15 border border-brand-gold/30 text-brand-navy text-xs font-bold rounded-full">
-                  Instructor
+                  {profile.isAdmin ? "Senior Faculty" : "Instructor"}
                 </span>
               </div>
               <p className="text-gray-500 text-sm mt-1">@{profile.username}</p>
@@ -683,7 +683,7 @@ export const InstructorProfile = () => {
                   Role
                 </p>
                 <p className="text-sm font-semibold text-gray-700">
-                  Instructor
+                  {profile.isAdmin ? "Senior Faculty" : "Instructor"}
                 </p>
               </div>
             </div>

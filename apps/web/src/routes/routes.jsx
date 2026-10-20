@@ -223,6 +223,18 @@ export const router = createBrowserRouter(
               path: "question-bank/:quizId",
               element: <InstructorIndex.QuestionBank />,
             },
+            {
+              path: "item-difficulty-analysis",
+              element: <ItemAnalysisPage />,
+            },
+            {
+              path: "student-profiles",
+              element: <InstructorIndex.StudentProfiles />,
+            },
+            {
+              path: "profile",
+              element: <InstructorIndex.InstructorProfile />,
+            },
           ],
         },
         // Department Head dashboard routing
