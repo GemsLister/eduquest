@@ -673,6 +673,7 @@ export const useQuestionBank = () => {
         points: questionData.points || 1,
         is_archived: false,
         blooms_level: visVal,
+        ai_generated: Boolean(questionData.ai_generated),
       };
 
       // Assign to section if provided (metadata only)
@@ -819,6 +820,7 @@ export const useQuestionBank = () => {
           points: q.points || 1,
           is_archived: false,
           blooms_level: visVal,
+          ai_generated: Boolean(q.ai_generated),
           created_at: new Date(baseBulkTime + idx * 100).toISOString(),
         };
 

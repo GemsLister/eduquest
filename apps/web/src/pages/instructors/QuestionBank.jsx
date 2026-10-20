@@ -6,6 +6,7 @@ import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
+import { useGeminiSuggest } from "../../hooks/analysisHook/useGeminiSuggest.jsx";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { ReuseQuestionModal } from "../../components/ReuseQuestionModal.jsx";
 
@@ -67,6 +68,8 @@ export const QuestionBank = () => {
     addBulkToBank,
     fetchQuestions,
   } = useQuestionBank();
+
+  const { generateSuggestion: generateAISuggestion, loading: aiSuggestLoading } = useGeminiSuggest();
 
   const [addFormStep, setAddFormStep] = useState(1); // 1: Select Count, 2: Question Builder
   const [questionCountInput, setQuestionCountInput] = useState(1);
@@ -770,6 +773,56 @@ export const QuestionBank = () => {
     );
   };
 
+  const handleAISuggestForActiveQuestion = async () => {
+    const targetSubjId = batchSubjectId || selectedSubjectId;
+    const selectedSubjObj = subjects.find((s) => String(s.id) === String(targetSubjId));
+
+    if (!selectedSubjObj && !batchSubjectId) {
+      notify.warning("Please select a Subject first so Gemini can suggest a question related to it.");
+      return;
+    }
+
+    const currentQ = questionsBatch[activeBatchIndex];
+    const subjectLabel = selectedSubjObj ? formatSubjectLabel(selectedSubjObj) : "";
+
+    try {
+      notify.info(`Generating question with Gemini for ${subjectLabel || "the subject"}...`);
+      const result = await generateAISuggestion({
+        isNew: true,
+        subject_id: targetSubjId,
+        subject_name: subjectLabel,
+        quiz_id: batchQuizId || null,
+        topic: currentQ?.text?.trim() || "",
+        currentText: currentQ?.text?.trim() || "",
+        iteration: Date.now(),
+      });
+
+      if (result && result.text) {
+        const correctIdx = typeof result.correct_answer === "number"
+          ? result.correct_answer
+          : (Array.isArray(result.options) && result.options.indexOf(result.correct_answer) !== -1
+              ? result.options.indexOf(result.correct_answer)
+              : 0);
+
+        setQuestionsBatch((prev) => {
+          const next = [...prev];
+          next[activeBatchIndex] = {
+            ...next[activeBatchIndex],
+            text: result.text,
+            options: Array.isArray(result.options) && result.options.length >= 2 ? result.options : ["Option A", "Option B", "Option C", "Option D"],
+            correctAnswer: correctIdx,
+            ai_generated: true,
+          };
+          return next;
+        });
+
+        notify.success("Question and options suggested by Gemini!");
+      }
+    } catch (err) {
+      notify.error("Failed to generate question with AI: " + err.message);
+    }
+  };
+
   const handleSaveBatchToBank = async () => {
     if (!batchSubjectId) {
       notify.warning("Please select a subject to assign questions to.");
@@ -808,6 +861,7 @@ export const QuestionBank = () => {
           is_private: visVal === "private",
           is_shared: visVal === "shared",
           visibility: visVal,
+          ai_generated: Boolean(q.ai_generated),
         };
       });
 
@@ -2745,13 +2799,29 @@ export const QuestionBank = () => {
 
                   {/* Question Text */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Question Text <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Question Text <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAISuggestForActiveQuestion}
+                        disabled={aiSuggestLoading}
+                        className="text-xs font-bold text-brand-navy bg-brand-gold/20 hover:bg-brand-gold/35 border border-brand-gold/60 px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+                        title="Generate question & options related to the assigned subject with Gemini"
+                      >
+                        <span className={aiSuggestLoading ? "animate-spin inline-block" : ""}>
+                          {aiSuggestLoading ? "⏳" : "✨"}
+                        </span>
+                        <span>
+                          {aiSuggestLoading ? "Gemini Generating..." : "AI Suggest for Subject"}
+                        </span>
+                      </button>
+                    </div>
                     <textarea
                       value={questionsBatch[activeBatchIndex]?.text || ""}
                       onChange={(e) => handleUpdateBatchQuestion(activeBatchIndex, "text", e.target.value)}
-                      placeholder={`Enter text for Question #${activeBatchIndex + 1}...`}
+                      placeholder={`Enter question text, or enter a topic (e.g. 'Binary Search Trees') and click 'AI Suggest for Subject'...`}
                       rows={3}
                       className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-gold"
                     />

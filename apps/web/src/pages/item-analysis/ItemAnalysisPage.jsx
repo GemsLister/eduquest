@@ -279,7 +279,7 @@ export const ItemAnalysisPage = () => {
       // 0. Fetch Quiz Info to get parent_quiz_id & sibling versions
       const { data: qInfo } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id")
+        .select("id, title, subject_id, parent_quiz_id, subjects(id, name, code)")
         .eq("id", quizId)
         .maybeSingle();
 
@@ -609,6 +609,12 @@ export const ItemAnalysisPage = () => {
 
         return {
           question_id: q.id,
+          quiz_id: quizId,
+          quiz_title: qInfo?.title || "",
+          subject_id: q.subject_id || qInfo?.subject_id || null,
+          subject_name: qInfo?.subjects?.name
+            ? `${qInfo.subjects.name}${qInfo.subjects.code ? ` (${qInfo.subjects.code})` : ''}`
+            : "",
           text: q.text,
           type: q.type,
           options: q.options,

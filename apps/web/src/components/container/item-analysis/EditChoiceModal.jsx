@@ -60,7 +60,14 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
   }, [isOpen, questionData]);
 
   const handleAIGenerate = async () => {
-    const result = await generateSuggestion(questionData);
+    const queryData = {
+      ...questionData,
+      originalText: questionData?.original_text || questionData?.text || '',
+      currentText: formData.text?.trim() || '',
+      isRegenerate: isManualEdit || Boolean(formData.text?.trim()),
+      iteration: Date.now(),
+    };
+    const result = await generateSuggestion(queryData);
     if (result) {
       const correctIdx = typeof result.correct_answer === 'string'
         ? (result.options?.indexOf(result.correct_answer) !== -1 ? result.options.indexOf(result.correct_answer) : 0)
@@ -74,6 +81,7 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
       });
       // Switch to manual edit view so they see the changes in the form
       setIsManualEdit(true);
+      notify.success('AI suggestion generated successfully!');
     }
   };
 
@@ -172,6 +180,11 @@ export const EditChoiceModal = ({ isOpen, onClose, questionData, questionId }) =
               {hasDraft && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-bold uppercase">
                   Revision Draft Active
+                </span>
+              )}
+              {(questionData?.subject_name || questionData?.quiz_title) && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+                  📚 {questionData.subject_name || questionData.quiz_title}
                 </span>
               )}
             </div>
