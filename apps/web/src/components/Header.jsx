@@ -4,19 +4,19 @@ import { Link, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 
 const pageTitles = {
-  "/instructor-dashboard/section": "Subjects",
+  "/instructor-dashboard/section": "Section",
   "/instructor-dashboard/subject": "Subjects",
   "/instructor-dashboard/quizzes": "Quizzes",
-  "/instructor-dashboard/instructor-quiz": "Quizzes",
+  "/instructor-dashboard/instructor-quiz": "Quiz Editor",
   "/instructor-dashboard/quiz-results": "Quiz Results",
   "/instructor-dashboard/question-bank": "Question Bank",
   "/instructor-dashboard/instructor-questions": "Questions",
   "/instructor-dashboard/item-difficulty-analysis": "Item Analysis",
   "/instructor-dashboard/quiz-versions": "Quiz Versions",
   "/instructor-dashboard/saved-analysis": "Saved Analysis",
-  "/instructor-dashboard/peer-reviews": "Peer Reviews",
+  "/instructor-dashboard/peer-reviews": "Peer Review",
   "/instructor-dashboard/student-profiles": "Student Profiles",
-  "/instructor-dashboard/my-submissions": "My Submissions",
+  "/instructor-dashboard/my-submissions": "Submissions & Reviews",
   "/instructor-dashboard/history": "History",
   "/instructor-dashboard/instructor-profile": "Profile",
   "/instructor-dashboard": "Subjects",
@@ -87,10 +87,10 @@ export const Header = () => {
 
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-100 shadow-sm">
-      {/* Page title */}
-      <h1 className="text-lg font-bold text-brand-navy tracking-tight">
+      {/* Page title (each page renders its own h1 in the hero banner) */}
+      <p className="text-lg font-bold text-brand-navy tracking-tight">
         {pageTitle}
-      </h1>
+      </p>
 
       {/* Right side */}
       <div className="flex items-center gap-3">

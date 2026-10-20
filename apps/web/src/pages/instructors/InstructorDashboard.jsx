@@ -12,6 +12,7 @@ import * as ClassCard from "../../pages/instructors/ClassSections/classIndex.js"
 import { SubjectSectionModal } from "../../components/SubjectSectionModal.jsx";
 import { SubjectRequestForm } from "../../components/SubjectRequestForm.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -56,11 +57,11 @@ export const InstructorDashboard = () => {
   const [editName, setEditName] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editSaving, setEditSaving] = useState(false);
-  const [selectedSubjectForModal, setSelectedSubjectForModal] = useState(null);
-  const [addSectionSubject, setAddSectionSubject] = useState(null);
+  const [selectedSubjectKey, setSelectedSubjectKey] = useState(null);
   const [showSubjectRequestModal, setShowSubjectRequestModal] = useState(false);
   const [curriculumSubjects, setCurriculumSubjects] = useState([]);
   const confirm = useConfirm();
+  useEscapeKey(() => setEditModal(null), Boolean(editModal));
 
   // Load approved curriculum subjects and requested subjects for this instructor
   const fetchCurriculumSubjects = useCallback(async () => {
@@ -70,18 +71,24 @@ export const InstructorDashboard = () => {
       const res = await subjectService.getInstructorApprovedSubjects(user.id);
       const approvedList = Array.isArray(res) ? res : res?.data || [];
 
-      // 2. User's requested subjects (auto add requested subject to subject cards)
+      // 2. The user's pending subject requests, shown as "awaiting approval".
+      //    Approved requests already come back as real subjects above.
       const reqRes = await subjectService.getMySubjectRequests(user.id);
       const reqList = Array.isArray(reqRes) ? reqRes : reqRes?.data || [];
+      const approvedNames = new Set(
+        approvedList.map((sub) => (sub.name || sub.subject_name || "").toLowerCase().trim()),
+      );
       const requestedFormatted = reqList
-        .filter((r) => r.request_status !== "rejected")
+        .filter((r) => r.request_status === "pending")
+        .filter((r) => !approvedNames.has((r.subject_name || "").toLowerCase().trim()))
         .map((r) => ({
-          id: r.id,
-          subject_id: r.id,
+          id: `request-${r.id}`,
+          subject_id: null,
           name: r.subject_name,
           code: r.subject_code || "",
           grade_level: r.grade_level || "",
           description: r.description || "",
+          is_pending_request: true,
         }));
 
       setCurriculumSubjects([...approvedList, ...requestedFormatted]);
@@ -115,7 +122,7 @@ export const InstructorDashboard = () => {
       try {
         const { data } = await supabase
           .from("sections")
-          .select("*")
+          .select("*, subjects(id, name, code, description)")
           .eq("instructor_id", user.id)
           .eq("is_archived", true)
           .order("created_at", { ascending: false });
@@ -136,7 +143,7 @@ export const InstructorDashboard = () => {
   const handleArchiveSection = async (sectionId, sectionName) => {
     const confirmed = await confirm({
       title: "Archive Section",
-      message: `Archive "${sectionName}"? You can restore it later from the Archived tab.`,
+      message: `Archive "${sectionName}"? Its quizzes stay as they are. You can restore the section later from the Archived view.`,
       confirmText: "Archive",
       cancelText: "Cancel",
       variant: "warning",
@@ -170,7 +177,7 @@ export const InstructorDashboard = () => {
       if (restored) {
         setSections((prev) => [restored, ...prev]);
       }
-      notify.success("Subject restored!");
+      notify.success("Section restored!");
     } catch (err) {
       notify.error("Failed to restore section: " + err.message);
     }
@@ -184,7 +191,7 @@ export const InstructorDashboard = () => {
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) {
-      notify.error("Subject name is required");
+      notify.error("Section name is required");
       return;
     }
 
@@ -203,7 +210,7 @@ export const InstructorDashboard = () => {
             : s,
         ),
       );
-      notify.success("Subject updated!");
+      notify.success("Section updated!");
       setEditModal(null);
     } catch (err) {
       notify.error("Failed to update section: " + err.message);
@@ -273,9 +280,8 @@ export const InstructorDashboard = () => {
       let subDesc = subjectObj.description || sec.description || "";
 
       if (!subName) {
-        if (sec.name && sec.name.includes("-")) {
-          const parts = sec.name.split("-");
-          subName = parts[0].trim();
+        if (sec.name && sec.name.includes(" - ")) {
+          subName = sec.name.split(" - ")[0].trim();
         } else {
           subName = sec.name || "Untitled Subject";
         }
@@ -310,6 +316,15 @@ export const InstructorDashboard = () => {
 
     return list;
   }, [curriculumSubjects, sections]);
+
+  const selectedSubjectForModal = useMemo(
+    () => groupedSubjects.find((sub) => (sub.id || sub.name) === selectedSubjectKey) || null,
+    [groupedSubjects, selectedSubjectKey],
+  );
+  const openSubject = (sub) => {
+    if (sub.is_pending_request) return;
+    setSelectedSubjectKey(sub.id || sub.name);
+  };
 
   // Filter grouped subjects by search
   const filteredSubjects = useMemo(() => {
@@ -398,7 +413,7 @@ export const InstructorDashboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
+              {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               Subjects
@@ -509,8 +524,8 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              <span>Archived</span>
-              {archivedSections.length > 0 && (
+              <span>{showArchived ? "Show Active Subjects" : "Archived Sections"}</span>
+              {!showArchived && archivedSections.length > 0 && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                     showArchived
@@ -526,7 +541,7 @@ export const InstructorDashboard = () => {
         </div>
 
         {/* Normalized Subject Cards */}
-        {filteredSubjects.length === 0 && !showArchived ? (
+        {showArchived ? null : filteredSubjects.length === 0 ? (
           <ClassCard.EmptyClassSection
             title={search.trim() ? "No Subjects Found" : "No Subjects Assigned Yet"}
             description={
@@ -576,8 +591,13 @@ export const InstructorDashboard = () => {
                       <button
                         type="button"
                         className={`relative h-28 w-full bg-gradient-to-br ${theme.gradient} flex items-end p-5 text-white text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold`}
-                        onClick={() => setSelectedSubjectForModal(sub)}
-                        aria-label={`View sections for ${sub.name}`}
+                        onClick={() => openSubject(sub)}
+                        aria-label={
+                          sub.is_pending_request
+                            ? `${sub.name} (awaiting Department Head approval)`
+                            : `View sections for ${sub.name}`
+                        }
+                        aria-disabled={sub.is_pending_request || undefined}
                       >
                         <div
                           className="absolute inset-0 opacity-10"
@@ -593,9 +613,15 @@ export const InstructorDashboard = () => {
                                 {sub.code}
                               </span>
                             )}
-                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-brand-gold text-brand-navy shadow-xs">
-                              {sub.sections.length} Section{sub.sections.length === 1 ? "" : "s"}
-                            </span>
+                            {sub.is_pending_request ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-white/90 text-brand-navy shadow-xs">
+                                Awaiting Approval
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-brand-gold text-brand-navy shadow-xs">
+                                {sub.sections.length} Section{sub.sections.length === 1 ? "" : "s"}
+                              </span>
+                            )}
                           </div>
                           <h2 className="text-xl font-bold leading-tight drop-shadow line-clamp-1">
                             {sub.name}
@@ -611,7 +637,11 @@ export const InstructorDashboard = () => {
                             Assigned Sections
                           </p>
                           <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
-                            {sub.sections.length === 0 ? (
+                            {sub.is_pending_request ? (
+                              <span className="text-xs text-slate-500 py-1">
+                                Requested subject. You can add sections once the Department Head approves it.
+                              </span>
+                            ) : sub.sections.length === 0 ? (
                               <span className="text-xs text-slate-400 italic py-1">
                                 No sections assigned
                               </span>
@@ -619,8 +649,8 @@ export const InstructorDashboard = () => {
                               sub.sections.map((sec) => {
                                 const sectionCode = sec.description || sec.section_code || "";
                                 let secDisplayName = sec.name || "";
-                                if (secDisplayName.includes("-")) {
-                                  const parts = secDisplayName.split("-");
+                                if (secDisplayName.includes(" - ")) {
+                                  const parts = secDisplayName.split(" - ");
                                   secDisplayName = parts[parts.length - 1].trim();
                                 }
                                 const label = sectionCode || secDisplayName;
@@ -629,7 +659,7 @@ export const InstructorDashboard = () => {
                                   <button
                                     type="button"
                                     key={sec.id}
-                                    onClick={() => setSelectedSubjectForModal(sub)}
+                                    onClick={() => openSubject(sub)}
                                     className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 hover:bg-brand-navy hover:text-white transition-colors border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                                     title={`Section: ${sectionCode || secDisplayName}`}
                                   >
@@ -666,10 +696,15 @@ export const InstructorDashboard = () => {
 
                         {/* Action Button */}
                         <button
-                          onClick={() => setSelectedSubjectForModal(sub)}
-                          className={`w-full py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${theme.button}`}
+                          onClick={() => openSubject(sub)}
+                          disabled={sub.is_pending_request}
+                          className={`w-full py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${theme.button}`}
                         >
-                          <span>View Sections ({sub.sections.length})</span>
+                          <span>
+                            {sub.is_pending_request
+                              ? "Pending Approval"
+                              : `View Sections (${sub.sections.length})`}
+                          </span>
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                           </svg>
@@ -735,7 +770,7 @@ export const InstructorDashboard = () => {
 
         {/* Archived Sections */}
         {showArchived && (
-          <div className="mt-8">
+          <div>
             <h2 className="text-lg font-bold text-gray-600 mb-4 flex items-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -751,10 +786,10 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              Archived Subjects
+              Archived Sections
             </h2>
             {archivedLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading archived subjects">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading archived sections">
                 <Skeleton className="h-20 w-full rounded-xl" />
                 <Skeleton className="h-20 w-full rounded-xl" />
                 <Skeleton className="h-20 w-full rounded-xl" />
@@ -763,8 +798,8 @@ export const InstructorDashboard = () => {
               <div className="bg-white rounded-2xl p-8 text-center shadow-xs border border-slate-200">
                 <p className="text-gray-500 text-sm">
                   {search.trim()
-                    ? "No archived subjects match your search."
-                    : "No archived subjects."}
+                    ? "No archived sections match your search."
+                    : "No archived sections."}
                 </p>
               </div>
             ) : (
@@ -780,7 +815,7 @@ export const InstructorDashboard = () => {
                           {section.name}
                         </h3>
                         <p className="text-xs text-gray-500">
-                          {section.description || "No subject"}
+                          {section.subjects?.name || section.description || "No subject"}
                         </p>
                       </div>
                       <button
@@ -854,7 +889,7 @@ export const InstructorDashboard = () => {
       {/* Modal to view assigned sections when subject card is clicked */}
       <SubjectSectionModal
         isOpen={!!selectedSubjectForModal}
-        onClose={() => setSelectedSubjectForModal(null)}
+        onClose={() => setSelectedSubjectKey(null)}
         subject={selectedSubjectForModal}
         sections={selectedSubjectForModal?.sections || []}
         sectionQuizzes={sectionQuizzes}
@@ -862,37 +897,21 @@ export const InstructorDashboard = () => {
         onSectionCreated={(newSec) => {
           setSections((prev) => [newSec, ...prev]);
         }}
-        onAddSection={(sub) => {
-          setAddSectionSubject(sub);
-        }}
+        onArchiveSection={(sec) => handleArchiveSection(sec.id, sec.name)}
+        onEditSection={(sec) => handleEditSection(sec)}
       />
-
-      {/* Modal to add a new section to an existing subject */}
-      {addSectionSubject && (
-        <CreateSectionButton
-          userId={user?.id}
-          preselectedSubject={addSectionSubject}
-          isOpen={!!addSectionSubject}
-          onClose={() => setAddSectionSubject(null)}
-          onSectionCreated={(newSec) => {
-            setSections((prev) => [newSec, ...prev]);
-            setAddSectionSubject(null);
-            fetchCurriculumSubjects();
-          }}
-        />
-      )}
 
       {/* Modal for editing section */}
       {editModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-brand-navy mb-4">
-              Edit Subject
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-section-title" className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 id="edit-section-title" className="text-lg font-bold text-brand-navy mb-4">
+              Edit Section
             </h3>
             <div className="space-y-4">
               <div>
                 <label htmlFor="edit-subject-name" className="block text-xs font-semibold text-gray-600 mb-1">
-                  Subject Name
+                  Section Name
                 </label>
                 <input
                   id="edit-subject-name"
@@ -904,7 +923,7 @@ export const InstructorDashboard = () => {
               </div>
               <div>
                 <label htmlFor="edit-subject-description" className="block text-xs font-semibold text-gray-600 mb-1">
-                  Description
+                  Section Code (e.g., BSIT 3A)
                 </label>
                 <input
                   id="edit-subject-description"

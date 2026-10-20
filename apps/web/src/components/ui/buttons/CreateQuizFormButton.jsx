@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
+import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
 
 export const CreateQuizFormButton = ({
   onCreateQuiz,
@@ -30,11 +30,16 @@ export const CreateQuizFormButton = ({
     }
   };
 
-  const handleSubmit = (e) => {
+  // Keep the form open (with the user's input) if creation fails validation
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onCreateQuiz(e);
-    setShowQuizForm(false);
+    const created = await onCreateQuiz(e);
+    if (created) setShowQuizForm(false);
   };
+
+  useEscapeKey(() => {
+    if (!isSubmitting) setShowQuizForm(false);
+  }, showQuizForm);
 
   return (
     <>
@@ -51,12 +56,17 @@ export const CreateQuizFormButton = ({
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowQuizForm(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-quiz-title"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col"
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5 shrink-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 id="create-quiz-title" className="text-xl font-bold text-white">
                     Create New Quiz
                   </h3>
                   <p className="text-white/70 text-sm mt-1">
@@ -80,9 +90,9 @@ export const CreateQuizFormButton = ({
             >
               {/* Subject / Section multi-select */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Assign to Subject(s) <span className="text-red-500">*</span>
-                </label>
+                <p className="block text-sm font-semibold text-gray-700 mb-2">
+                  Assign to Section(s) <span className="text-red-500">*</span>
+                </p>
                 {availableSections && availableSections.length > 0 ? (
                   <div className="border border-gray-300 rounded-lg overflow-hidden">
                     {/* Select All header */}
@@ -143,7 +153,7 @@ export const CreateQuizFormButton = ({
                 ) : (
                   <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-xs text-yellow-700">
-                      No sections found. Please create a section with an assigned subject first from the dashboard before creating a quiz.
+                      No sections found. Add a section to one of your subjects on the Subjects page before creating a quiz.
                     </p>
                   </div>
                 )}
@@ -207,9 +217,9 @@ export const CreateQuizFormButton = ({
 
               {/* Visibility Setting */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <p className="block text-sm font-semibold text-gray-700 mb-2">
                   Quiz Visibility
-                </label>
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                   <label
                     className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -236,7 +246,7 @@ export const CreateQuizFormButton = ({
                         Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
                       </span>
                       <span className="block text-xs text-gray-500 mt-0.5">
-                        Only you can see this quiz and its questions.
+                        Only you can see this quiz and its questions in the Question Bank.
                       </span>
                     </div>
                   </label>

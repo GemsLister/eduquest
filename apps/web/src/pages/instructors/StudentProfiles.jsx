@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
-import { itemAnalysisService } from "../../services/itemAnalysisService";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 
 export const StudentProfiles = () => {
@@ -12,6 +11,7 @@ export const StudentProfiles = () => {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resultsLoading, setResultsLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState(null);
   const [performanceFilter, setPerformanceFilter] = useState("all"); // all, strong, average, weak
@@ -20,11 +20,6 @@ export const StudentProfiles = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const studentsPerPage = 10;
 
-  // Item analysis states
-  const [quizzes, setQuizzes] = useState([]);
-  const [selectedQuiz, setSelectedQuiz] = useState("");
-  const [analysis, setAnalysis] = useState([]);
-  const [analysisSaved, setAnalysisSaved] = useState(false);
 
   const formatSubjectLabel = (subject) => {
     if (!subject) return "";
@@ -34,7 +29,7 @@ export const StudentProfiles = () => {
     return code ? `${name} ${code}`.trim() : name;
   };
 
-  // Fetch subjects and students on mount
+  // Fetch the instructor's sections on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -50,7 +45,6 @@ export const StudentProfiles = () => {
 
         setLoading(true);
 
-        // Fetch instructor's active sections (subjects)
         const { data: sectionsData, error: sectionsError } = await supabase
           .from("sections")
           .select("id, name, description")
@@ -61,22 +55,7 @@ export const StudentProfiles = () => {
         if (sectionsError) throw sectionsError;
 
         setSubjects(sectionsData || []);
-
-        // Don't load students initially - load them when subject is selected
         setStudents([]);
-
-        // Fetch quizzes for item analysis
-        if (sectionsData && sectionsData.length > 0) {
-          const { data: quizzesData } = await supabase
-            .from("quizzes")
-            .select("id, title")
-            .eq("section_id", sectionsData[0].id)
-            .eq("is_published", true)
-            .eq("is_archived", false)
-            .order("created_at", { ascending: true });
-
-          setQuizzes(quizzesData || []);
-        }
       } catch (err) {
         setError(err.message || "Failed to load data");
       } finally {
@@ -85,31 +64,6 @@ export const StudentProfiles = () => {
     };
     fetchData();
   }, []);
-
-  // Fetch item analysis when quiz is selected
-  useEffect(() => {
-    if (selectedQuiz) {
-      fetchItemAnalysis(selectedQuiz);
-    }
-  }, [selectedQuiz]);
-
-  const fetchItemAnalysis = async (quizId) => {
-    try {
-      setLoading(true);
-      const { data: analysisData } = await supabase
-        .from("item_analysis")
-        .select("*")
-        .eq("quiz_id", quizId)
-        .order("question_id", { ascending: true });
-
-      setAnalysis(analysisData || []);
-      setAnalysisSaved(false);
-    } catch (err) {
-      setError(err.message || "Failed to fetch item analysis");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Calculate percentile for a score
   const calculatePercentile = (score, allScores) => {
@@ -183,575 +137,198 @@ export const StudentProfiles = () => {
 
   const totalPages = Math.ceil(filteredResults.length / studentsPerPage);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when the search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [studentSearch]);
+  }, [studentSearch, performanceFilter, selectedSubject]);
 
-  // Update results when subject changes
+  // Total possible points per quiz (sum of active question points)
+  const fetchQuizPoints = async (quizIds) => {
+    const pointsByQuiz = new Map();
+    if (quizIds.length === 0) return pointsByQuiz;
+    const { data: questionRows } = await supabase
+      .from("questions")
+      .select("quiz_id, points")
+      .in("quiz_id", quizIds)
+      .or("is_archived.is.null,is_archived.eq.false");
+    (questionRows || []).forEach((q) => {
+      pointsByQuiz.set(q.quiz_id, (pointsByQuiz.get(q.quiz_id) || 0) + (q.points || 1));
+    });
+    return pointsByQuiz;
+  };
+
+  // Update results when the section changes
   useEffect(() => {
-    if (selectedSubject) {
-      const fetchResults = async () => {
-        setLoading(true);
-        try {
-          // Fetch quizzes for this subject first to see which quizzes have results
-          const { data: attemptsData, error: attemptsError } = await supabase
-            .from("quiz_attempts")
-            .select("quiz_id")
-            .eq("section_id", selectedSubject);
-
-          if (attemptsError) throw attemptsError;
-
-          // Get unique quiz IDs that have attempts in this subject
-          const quizIdsWithAttempts = [
-            ...new Set(
-              attemptsData?.map((a) => a.quiz_id).filter((id) => id != null),
-            ),
-          ];
-
-          let allQuizzes = [];
-          if (quizIdsWithAttempts.length > 0) {
-            // Fetch these quizzes, but only if they are not archived and are published
-            const { data: quizzesData, error: quizzesError } = await supabase
-              .from("quizzes")
-              .select("id, title, is_archived, is_published, created_at")
-              .in("id", quizIdsWithAttempts)
-              .eq("is_published", true)
-              .neq("is_archived", true);
-
-            if (quizzesError) throw quizzesError;
-
-            // Get question counts for each quiz to use as total_items
-            const quizzesWithCounts = await Promise.all(
-              (quizzesData || []).map(async (quiz) => {
-                const { count } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.id);
-                return { ...quiz, total_items: count || 0 };
-              }),
-            );
-
-            allQuizzes = quizzesWithCounts;
-          }
-
-          // Also check for any active quizzes assigned to this section that might not have attempts yet
-          // 1. Direct assignment
-          const { data: directQuizzesData } = await supabase
-            .from("quizzes")
-            .select("id, title, is_archived, is_published, created_at")
-            .eq("section_id", selectedSubject)
-            .neq("is_archived", true);
-          
-          if (directQuizzesData) {
-            const directWithCounts = await Promise.all(
-              directQuizzesData.map(async (quiz) => {
-                const { count } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.id);
-                return { ...quiz, total_items: count || 0 };
-              }),
-            );
-
-            directWithCounts.forEach((dq) => {
-              if (!allQuizzes.find((aq) => aq.id === dq.id)) {
-                allQuizzes.push(dq);
-              }
-            });
-          }
-
-          // 2. Mapped assignment
-          const { data: mappedQuizIds } = await supabase
-            .from("quiz_sections")
-            .select("quiz_id")
-            .eq("section_id", selectedSubject);
-
-          if (mappedQuizIds && mappedQuizIds.length > 0) {
-            const mIds = mappedQuizIds.map((mq) => mq.quiz_id);
-            const { data: mappedQuizzesData } = await supabase
-              .from("quizzes")
-              .select("id, title, is_archived, is_published, created_at")
-              .in("id", mIds)
-              .neq("is_archived", true);
-            
-            if (mappedQuizzesData) {
-              const mappedWithCounts = await Promise.all(
-                mappedQuizzesData.map(async (quiz) => {
-                  const { count } = await supabase
-                    .from("questions")
-                    .select("*", { count: "exact", head: true })
-                    .eq("quiz_id", quiz.id);
-                  return { ...quiz, total_items: count || 0 };
-                }),
-              );
-
-              mappedWithCounts.forEach((mq) => {
-                if (!allQuizzes.find((aq) => aq.id === mq.id)) {
-                  allQuizzes.push(mq);
-                }
-              });
-            }
-          }
-
-          allQuizzes.sort(
-            (a, b) => new Date(a.created_at) - new Date(b.created_at),
-          );
-
-          console.log("Unified active quizzes for subject:", allQuizzes);
-          setSubjectQuizzes(allQuizzes);
-
-          const results = await getSubjectResultsForStudents([], allQuizzes);
-          setSubjectResults(results);
-
-          // Auto-select first quiz for item analysis if available
-          if (allQuizzes.length > 0) {
-            setSelectedQuiz(allQuizzes[0].id);
-          }
-        } catch (err) {
-          setError(err.message || "Failed to load results");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchResults();
-    } else {
+    if (!selectedSubject) {
       setSubjectResults([]);
       setSubjectQuizzes([]);
-      setSelectedQuiz("");
-      setAnalysis([]);
+      return;
     }
+
+    const fetchResults = async () => {
+      setResultsLoading(true);
+      setError("");
+      try {
+        // Published, non-archived quizzes assigned to this section
+        const [{ data: directQuizzes }, { data: mappedRows }] = await Promise.all([
+          supabase
+            .from("quizzes")
+            .select("id")
+            .eq("section_id", selectedSubject),
+          supabase
+            .from("quiz_sections")
+            .select("quiz_id")
+            .eq("section_id", selectedSubject),
+        ]);
+
+        const candidateIds = [
+          ...new Set([
+            ...(directQuizzes || []).map((q) => q.id),
+            ...(mappedRows || []).map((r) => r.quiz_id),
+          ]),
+        ].filter(Boolean);
+
+        let allQuizzes = [];
+        if (candidateIds.length > 0) {
+          const { data: quizzesData, error: quizzesError } = await supabase
+            .from("quizzes")
+            .select("id, title, created_at")
+            .in("id", candidateIds)
+            .eq("is_published", true)
+            .or("is_archived.is.null,is_archived.eq.false");
+          if (quizzesError) throw quizzesError;
+
+          const pointsByQuiz = await fetchQuizPoints((quizzesData || []).map((q) => q.id));
+          allQuizzes = (quizzesData || []).map((quiz) => ({
+            ...quiz,
+            total_items: pointsByQuiz.get(quiz.id) || 0,
+          }));
+        }
+
+        allQuizzes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setSubjectQuizzes(allQuizzes);
+
+        const results = await getSubjectResultsForStudents(allQuizzes);
+        setSubjectResults(results);
+      } catch (err) {
+        setError(err.message || "Failed to load results");
+      } finally {
+        setResultsLoading(false);
+      }
+    };
+
+    fetchResults();
   }, [selectedSubject]);
 
-  // Helper function to get results for specific students
-  const getSubjectResultsForStudents = async (
-    studentsToProcess,
-    quizzesData,
-  ) => {
+  // Builds one row per student with their best score on each published quiz.
+  // The overall percentage is earned points / total possible points across
+  // every published quiz in the section (a missed quiz counts as 0).
+  const getSubjectResultsForStudents = async (quizzesData) => {
     if (selectedSubject === "") return [];
 
-    try {
-      // Debug: Log the incoming quizzes data
-      console.log("DEBUG - getSubjectResultsForStudents called with:");
-      console.log("studentsToProcess:", studentsToProcess);
-      console.log("quizzesData:", quizzesData);
-      console.log("Number of quizzes:", quizzesData?.length);
+    const quizMap = new Map(quizzesData.map((q) => [q.id, q]));
+    if (quizMap.size === 0) return [];
 
-      // Fetch quiz attempts for this specific subject - remove status filter to get all attempts
-      const { data: attemptsData, error: attemptsError } = await supabase
-        .from("quiz_attempts")
-        .select(
-          `
-          user_id,
-          student_id,
-          student_name,
-          quiz_id, 
-          score,
-          sections!inner(name)
-        `,
-        )
-        .eq("section_id", selectedSubject);
+    const { data: attemptsData, error: attemptsError } = await supabase
+      .from("quiz_attempts")
+      .select("user_id, student_id, student_name, quiz_id, score, status, sections!inner(name)")
+      .eq("section_id", selectedSubject)
+      .eq("status", "completed")
+      .in("quiz_id", [...quizMap.keys()]);
 
-      if (attemptsError) throw attemptsError;
+    if (attemptsError) throw attemptsError;
 
-      console.log("All quiz attempts for subject:", attemptsData);
-      console.log("Total attempts count:", attemptsData?.length);
+    const getStudentId = (attempt) => attempt.user_id || attempt.student_id;
 
-      // Unified helper to get a student's identification
-      const getStudentId = (attempt) => attempt.user_id || attempt.student_id;
+    const uniqueStudentIds = [
+      ...new Set((attemptsData || []).map(getStudentId).filter((id) => id != null)),
+    ];
 
-      // Check for duplicate attempts
-      const duplicateCheck = new Map();
-      attemptsData?.forEach((attempt) => {
-        const key = `${getStudentId(attempt)}-${attempt.quiz_id}`;
-        if (duplicateCheck.has(key)) {
-          console.warn(`DUPLICATE ATTEMPT FOUND: ${key}`);
-        }
-        duplicateCheck.set(key, (duplicateCheck.get(key) || 0) + 1);
-      });
-
-      // Special debug for Marf's attempts
-      const marfAttempts = attemptsData?.filter(
-        (a) =>
-          a.student_name?.toLowerCase().includes("marf") ||
-          a.user_id?.toString().includes("marf"),
-      );
-      if (marfAttempts && marfAttempts.length > 0) {
-        console.log("=== MARF'S RAW ATTEMPTS DATA ===");
-        marfAttempts.forEach((attempt, index) => {
-          console.log(`Marf Attempt ${index + 1}:`, {
-            quiz_id: attempt.quiz_id,
-            score: attempt.score,
-            student_name: attempt.student_name,
-            user_id: attempt.user_id,
-          });
-        });
-        console.log("=== END MARF RAW DATA ===");
+    const studentNameMap = new Map();
+    (attemptsData || []).forEach((attempt) => {
+      const id = getStudentId(attempt);
+      if (id && !studentNameMap.has(id) && attempt.student_name) {
+        studentNameMap.set(id, attempt.student_name);
       }
+    });
 
-      // Special debug for James Lester Lopez's attempts
-      const jamesAttempts = attemptsData?.filter((a) =>
-        a.student_name?.toLowerCase().includes("james lester lopez"),
-      );
-      if (jamesAttempts && jamesAttempts.length > 0) {
-        console.log("=== JAMES LESTER LOPEZ'S RAW ATTEMPTS DATA ===");
-        jamesAttempts.forEach((attempt, index) => {
-          console.log(`James Attempt ${index + 1}:`, {
-            quiz_id: attempt.quiz_id,
-            score: attempt.score,
-            student_name: attempt.student_name,
-            user_id: attempt.user_id,
-            section_name: attempt.sections?.name,
-          });
-        });
-        console.log("=== END JAMES RAW DATA ===");
-      }
-
-      // Get unique student IDs from attempts in this subject
-      const uniqueStudentIds = [
-        ...new Set(
-          attemptsData
-            ?.map((attempt) => getStudentId(attempt))
-            .filter((id) => id != null),
-        ),
-      ];
-      console.log("Unique student IDs from attempts:", uniqueStudentIds);
-
-      // Create a map of student ID to name from quiz attempts
-      const studentNameMap = new Map();
-      attemptsData?.forEach((attempt) => {
-        const id = getStudentId(attempt);
-        if (id && !studentNameMap.has(id) && attempt.student_name) {
-          studentNameMap.set(id, attempt.student_name);
-        }
-      });
-
-      console.log("Student name map:", studentNameMap);
-
-      // Fetch profiles for these students from student_profile table
-      let profilesData = [];
-      if (uniqueStudentIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from("student_profile")
-          .select(
-            "id, student_name, student_email, avg_score, exam_code, student_id",
-          )
-          .in("id", uniqueStudentIds);
-
-        if (profilesError) throw profilesError;
-        profilesData = profiles || [];
-        console.log("Unique profiles:", profilesData);
-      }
-
-      // Create a map of student ID to profile data
-      const profileMap = new Map();
-      profilesData?.forEach((profile) => {
-        profileMap.set(profile.id, profile);
-      });
-
-      // Group attempts by student ID and quiz ID, keeping only the highest score for each quiz
-      const studentAttemptsMap = new Map();
-      attemptsData?.forEach((attempt) => {
-        const id = getStudentId(attempt);
-        if (!id) return;
-
-        const currentScores = studentAttemptsMap.get(id) || [];
-
-        // Check if this quiz already has an attempt for this student
-        const existingQuizIndex = currentScores.findIndex(
-          (s) => s.quiz_id === attempt.quiz_id,
-        );
-
-        if (existingQuizIndex >= 0) {
-          // Update with higher score if this attempt is better
-          if (attempt.score > currentScores[existingQuizIndex].score) {
-            currentScores[existingQuizIndex].score = attempt.score;
-          }
-        } else {
-          // Add new quiz attempt
-          currentScores.push({
-            score: attempt.score,
-            quiz_id: attempt.quiz_id,
-          });
-        }
-
-        studentAttemptsMap.set(id, currentScores);
-      });
-
-      // Debug: Log the grouped attempts to verify correct aggregation
-      console.log("=== GROUPED ATTEMPTS BY STUDENT ===");
-      studentAttemptsMap.forEach((scores, studentId) => {
-        const studentName = studentNameMap.get(studentId);
-        console.log(`Student: ${studentName} (${studentId})`);
-        scores.forEach((score) => {
-          console.log(`  Quiz ${score.quiz_id}: ${score.score}`);
-        });
-        const total = scores.reduce((sum, s) => sum + s.score, 0);
-        console.log(`  Total: ${total}`);
-      });
-      console.log("=== END GROUPED ATTEMPTS ===");
-
-      // Calculate final percentages and store fraction data
-      const finalPercentages = new Map();
-      const studentFractions = new Map();
-
-      // Calculate total items from ALL quizzes in this subject (not just attempted ones)
-      // Ensure we have valid quiz data before calculating
-      let overallTotalItems = 0;
-      if (quizzesData && quizzesData.length > 0) {
-        overallTotalItems = quizzesData.reduce((sum, quiz) => {
-          const items = quiz.total_items || 0;
-          console.log(`Quiz ${quiz.title} (${quiz.id}): ${items} items`);
-          return sum + items;
-        }, 0);
-      }
-
-      // Debug logging to understand the issue
-      console.log("DEBUG - Quizzes Data for total items calculation:");
-      console.log("quizzesData:", quizzesData);
-      console.log(
-        "Quiz details:",
-        quizzesData?.map((q) => ({
-          id: q.id,
-          title: q.title,
-          total_items: q.total_items,
-        })),
-      );
-      console.log("Calculated overallTotalItems:", overallTotalItems);
-
-      // If overallTotalItems seems too low, there might be an issue with quiz data
-      if (overallTotalItems < 50) {
-        console.warn("WARNING: overallTotalItems seems low, check quiz data!");
-      }
-
-      studentAttemptsMap.forEach((scores, studentId) => {
-        let totalScore = 0;
-
-        // Sum scores from attempted quizzes only, ensuring no duplicates
-        scores.forEach((scoreData) => {
-          // Validate score is reasonable
-          if (
-            scoreData.score < 0 ||
-            scoreData.score > 100 ||
-            isNaN(scoreData.score)
-          ) {
-            console.warn(
-              `Invalid score detected: ${scoreData.score} for quiz ${scoreData.quiz_id}`,
-            );
-            return;
-          }
-          console.log(
-            `Adding score: ${scoreData.score} for quiz ${scoreData.quiz_id}`,
-          );
-          totalScore += scoreData.score;
-        });
-
-        // Debug: Check if totalScore is unexpectedly high
-        if (totalScore > overallTotalItems) {
-          console.warn(
-            `WARNING: totalScore (${totalScore}) > overallTotalItems (${overallTotalItems}) for student ${studentId}`,
-          );
-          console.warn("Individual scores:", scores);
-
-          // Instead of capping, let's recalculate properly by only counting valid quiz attempts
-          // that match the quizzes in quizzesData
-          totalScore = 0;
-          scores.forEach((scoreData) => {
-            const quiz = quizzesData?.find((q) => q.id === scoreData.quiz_id);
-            if (quiz && quiz.total_items > 0) {
-              // Ensure the score doesn't exceed the quiz's total items
-              const validScore = Math.min(scoreData.score, quiz.total_items);
-              totalScore += validScore;
-              console.log(
-                `Recalculated: Adding valid score ${validScore} for quiz ${quiz.title} (max: ${quiz.total_items})`,
-              );
-            } else {
-              console.warn(
-                `Skipping invalid quiz attempt: quiz_id ${scoreData.quiz_id} not found in quizzesData`,
-              );
-            }
-          });
-
-          console.log(`Recalculated totalScore: ${totalScore}`);
-        }
-
-        // Use ALL quiz items for denominator (test1 + test2 total items)
-        const percentage =
-          overallTotalItems > 0
-            ? Math.round((totalScore / overallTotalItems) * 100)
-            : 0;
-        finalPercentages.set(studentId, percentage);
-        studentFractions.set(studentId, {
-          totalScore,
-          totalItems: overallTotalItems,
-        });
-
-        // Debug logging for all students to understand the data
-        const studentName = studentNameMap.get(studentId);
-        console.log(`DEBUG - Student: ${studentName}`);
-        console.log("Scores:", scores);
-        console.log("Total Score (test1 + test2 scores):", totalScore);
-        console.log(
-          "Overall Total Items (test1 + test2 total items):",
-          overallTotalItems,
-        );
-        console.log("Percentage:", percentage);
-        console.log(
-          "Quizzes Data:",
-          quizzesData?.map((q) => ({
-            id: q.id,
-            title: q.title,
-            total_items: q.total_items,
-          })),
-        );
-
-        // Special debugging for Marf's case
-        if (studentName && studentName.toLowerCase().includes("marf")) {
-          console.log("=== MARF SPECIAL DEBUG ===");
-          console.log("Marf's individual quiz attempts:");
-          scores.forEach((scoreData, index) => {
-            const quiz = quizzesData?.find((q) => q.id === scoreData.quiz_id);
-            console.log(
-              `  Quiz ${index + 1}: ${quiz?.title} - Score: ${scoreData.score}, Quiz ID: ${scoreData.quiz_id}`,
-            );
-          });
-          console.log("Marf's total calculated score:", totalScore);
-          console.log("Marf's total items for denominator:", overallTotalItems);
-          console.log(
-            "Expected calculation:",
-            `${totalScore}/${overallTotalItems} = ${percentage}%`,
-          );
-          console.log("=== END MARF DEBUG ===");
-        }
-
-        // Special debugging for James Lester Lopez's case
-        if (
-          studentName &&
-          studentName.toLowerCase().includes("james lester lopez")
-        ) {
-          console.log("=== JAMES LESTER LOPEZ SPECIAL DEBUG ===");
-          console.log("James's individual quiz attempts:");
-          console.log("Raw scores array:", scores);
-          scores.forEach((scoreData, index) => {
-            const quiz = quizzesData?.find((q) => q.id === scoreData.quiz_id);
-            console.log(
-              `  Quiz ${index + 1}: ${quiz?.title} - Score: ${scoreData.score}, Quiz ID: ${scoreData.quiz_id}`,
-            );
-          });
-          console.log("James's total calculated score:", totalScore);
-          console.log(
-            "James's total items for denominator:",
-            overallTotalItems,
-          );
-          console.log(
-            "Expected calculation:",
-            `${totalScore}/${overallTotalItems} = ${percentage}%`,
-          );
-
-          // Check if there are any issues with the calculation
-          const expectedTotal = scores.reduce((sum, s) => sum + s.score, 0);
-          console.log("Manual total calculation:", expectedTotal);
-          if (expectedTotal !== totalScore) {
-            console.error(
-              "ERROR: Manual calculation doesn't match totalScore!",
-            );
-          }
-
-          console.log("=== END JAMES DEBUG ===");
-        }
-        console.log("---");
-      });
-
-      // Create student data map
-      const studentMap = new Map();
-
-      // Process each unique student ID
-      uniqueStudentIds.forEach((studentId) => {
-        const profile = profileMap.get(studentId);
-        const attempts = studentAttemptsMap.get(studentId) || [];
-        const percentage = finalPercentages.get(studentId) || 0;
-        const fraction = studentFractions.get(studentId) || {
-          totalScore: 0,
-          totalItems: 0,
-        };
-
-        // Use student_name from profile first, then from attempts, then fallback
-        const studentName =
-          profile?.student_name ||
-          studentNameMap.get(studentId) ||
-          `Student ${studentId}`;
-
-        // Get section name from any attempt for this student
-        const sectionName =
-          attemptsData?.find((a) => getStudentId(a) === studentId)?.sections
-            ?.name || "Unknown";
-
-        studentMap.set(studentId, {
-          id: studentId,
-          student_name: studentName,
-          section: sectionName,
-          percentageScore: percentage,
-          totalScore: fraction.totalScore,
-          totalItems: fraction.totalItems,
-          quizzes: {},
-        });
-      });
-
-      // Process quiz results for each student
-      studentMap.forEach((studentData, studentId) => {
-        const attempts = studentAttemptsMap.get(studentId) || [];
-
-        attempts.forEach((attempt) => {
-          const quiz = quizzesData?.find((q) => q.id === attempt.quiz_id);
-          if (quiz) {
-            const percentage =
-              quiz.total_items > 0
-                ? Math.round((attempt.score / quiz.total_items) * 100)
-                : 0;
-            studentData.quizzes[attempt.quiz_id] = {
-              name: quiz.title,
-              score: attempt.score,
-              totalItems: quiz.total_items,
-              percentage: percentage,
-              hasAttempt: true,
-            };
-          }
-        });
-      });
-
-      // Convert to array and sort by student name
-      const results = Array.from(studentMap.values()).sort((a, b) =>
-        a.student_name.localeCompare(b.student_name),
-      );
-
-      console.log("Final processed results:", results);
-      console.log("Calculation example - Student with partial attempts:");
-      results.forEach((student) => {
-        const attemptedQuizzes = Object.values(student.quizzes).filter(
-          (q) => q.hasAttempt,
-        ).length;
-        const totalQuizzes = subjectQuizzes.length;
-        console.log(
-          `${student.student_name}: Attempted ${attemptedQuizzes}/${totalQuizzes} quizzes, Overall: ${student.percentageScore}%`,
-        );
-      });
-      return results;
-    } catch (err) {
-      console.error("Error in getSubjectResultsForStudents:", err);
-      throw err;
+    const profileMap = new Map();
+    if (uniqueStudentIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from("student_profile")
+        .select("id, student_name, student_email, avg_score, exam_code, student_id")
+        .in("id", uniqueStudentIds);
+      if (profilesError) throw profilesError;
+      (profiles || []).forEach((profile) => profileMap.set(profile.id, profile));
     }
+
+    // Best score per student per quiz
+    const bestScores = new Map();
+    (attemptsData || []).forEach((attempt) => {
+      const id = getStudentId(attempt);
+      if (!id) return;
+      const perQuiz = bestScores.get(id) || new Map();
+      const score = Number(attempt.score) || 0;
+      if (!perQuiz.has(attempt.quiz_id) || score > perQuiz.get(attempt.quiz_id)) {
+        perQuiz.set(attempt.quiz_id, score);
+      }
+      bestScores.set(id, perQuiz);
+    });
+
+    const overallTotalPoints = quizzesData.reduce((sum, q) => sum + (q.total_items || 0), 0);
+
+    const results = uniqueStudentIds.map((studentId) => {
+      const perQuiz = bestScores.get(studentId) || new Map();
+      let totalScore = 0;
+      const quizzes = {};
+
+      perQuiz.forEach((score, quizId) => {
+        const quiz = quizMap.get(quizId);
+        if (!quiz) return;
+        const capped = quiz.total_items > 0 ? Math.min(score, quiz.total_items) : score;
+        totalScore += capped;
+        quizzes[quizId] = {
+          name: quiz.title,
+          score: capped,
+          totalItems: quiz.total_items,
+          percentage: quiz.total_items > 0 ? Math.round((capped / quiz.total_items) * 100) : 0,
+          hasAttempt: true,
+        };
+      });
+
+      const profile = profileMap.get(studentId);
+      const sectionName =
+        (attemptsData || []).find((a) => getStudentId(a) === studentId)?.sections?.name || "Unknown";
+
+      return {
+        id: studentId,
+        student_name: profile?.student_name || studentNameMap.get(studentId) || "Unnamed student",
+        section: sectionName,
+        percentageScore:
+          overallTotalPoints > 0 ? Math.round((totalScore / overallTotalPoints) * 100) : 0,
+        totalScore,
+        totalItems: overallTotalPoints,
+        quizzes,
+      };
+    });
+
+    return results.sort((a, b) => a.student_name.localeCompare(b.student_name));
   };
 
   // Calculate summary statistics based on filtered results
   const summary = useMemo(() => {
-    if (filteredResults.length === 0) return { strong: 0, average: 0, weak: 0 };
+    const searched = studentSearch
+      ? subjectResults.filter((student) =>
+          student.student_name.toLowerCase().includes(studentSearch.toLowerCase()),
+        )
+      : subjectResults;
+    if (searched.length === 0) return { strong: 0, average: 0, weak: 0 };
 
     let strong = 0;
     let average = 0;
     let weak = 0;
 
-    filteredResults.forEach((student) => {
+    searched.forEach((student) => {
       const overallPercentage = student.percentageScore;
       if (overallPercentage >= 80) {
         strong++;
@@ -763,7 +340,7 @@ export const StudentProfiles = () => {
     });
 
     return { strong, average, weak };
-  }, [filteredResults]);
+  }, [subjectResults, studentSearch]);
 
   if (loading) {
     return (
@@ -797,7 +374,7 @@ export const StudentProfiles = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
+              {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
               Student Profiles
@@ -815,19 +392,16 @@ export const StudentProfiles = () => {
           {/* Subject Selection */}
           <div className="mb-6">
             <label htmlFor="sp-subject" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Select Subject
+              Select Section
             </label>
             <div className="w-full sm:w-96">
               <select
                 id="sp-subject"
                 value={selectedSubject}
-                onChange={(e) => {
-                  setSelectedSubject(e.target.value);
-                  setSelectedQuiz("");
-                }}
+                onChange={(e) => setSelectedSubject(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 bg-white text-slate-800 shadow-2xs font-semibold text-sm transition-all"
               >
-                <option value="">-- Select a Subject --</option>
+                <option value="">-- Select a Section --</option>
                 {subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {formatSubjectLabel(subject)}
@@ -939,8 +513,16 @@ export const StudentProfiles = () => {
           </div>
         )}
 
+        {resultsLoading && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden" aria-label="Loading student results">
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+            <SkeletonTableRow cells={5} />
+          </div>
+        )}
+
         {/* Student Profiles Table & Summary */}
-        {!loading && selectedSubject && subjectResults.length > 0 && (
+        {!loading && !resultsLoading && selectedSubject && subjectResults.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-6 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
@@ -948,7 +530,7 @@ export const StudentProfiles = () => {
                   {formatSubjectLabel(subjects.find((s) => s.id === selectedSubject))} — Student Performance Matrix
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Overview of scores per assessment and weighted class performance
+                  Best score per quiz (points) and overall score across all published quizzes in this section
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 shadow-2xs">
@@ -1173,15 +755,15 @@ export const StudentProfiles = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h3 className="text-base font-bold text-brand-navy mb-1">Select a Subject</h3>
+            <h3 className="text-base font-bold text-brand-navy mb-1">Select a Section</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Please choose a subject from the dropdown above to view student profiles and performance statistics.
+              Choose one of your sections above to view student profiles and performance statistics.
             </p>
           </div>
         )}
 
         {/* Empty State when subject selected but no results */}
-        {!loading && selectedSubject && subjectResults.length === 0 && (
+        {!loading && !resultsLoading && selectedSubject && subjectResults.length === 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
               <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1190,7 +772,7 @@ export const StudentProfiles = () => {
             </div>
             <h3 className="text-base font-bold text-brand-navy mb-1">No Student Records Found</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              There are no student attempts or quiz records available for the selected subject yet.
+              There are no completed attempts on published quizzes for this section yet.
             </p>
           </div>
         )}

@@ -7,6 +7,11 @@ import { logAudit } from "../../services/auditService.js";
 import { BloomsVisualizationPanel } from "../../components/BloomsVisualization";
 import { QuizSuggestions } from "../../components/QuizSuggestions";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
+
+const PEER_REVIEWS_PATH = "/instructor-dashboard/my-submissions?tab=peer_reviews";
 
 /**
  * Revision suggestion templates for F7.
@@ -24,6 +29,7 @@ const REVISION_TEMPLATES = [
 export const PeerReviewDetail = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
   const [chain, setChain] = useState([]);
@@ -140,10 +146,25 @@ export const PeerReviewDetail = () => {
   };
 
   const handleAction = async (status) => {
+    if (!isAssignedReviewer) {
+      notify.error("Only the assigned reviewer can act on this submission.");
+      return;
+    }
     if (status !== "approved" && !hasAnyFeedback()) {
       setPendingAction(status);
       setShowFeedbackModal(true);
       return;
+    }
+    if (status === "approved") {
+      const confirmed = await confirm({
+        title: "Forward to Department Head",
+        message:
+          "Forward this quiz to the Department Head for final approval? You won't be able to change your review afterwards.",
+        confirmText: "Forward",
+        cancelText: "Cancel",
+        variant: "info",
+      });
+      if (!confirmed) return;
     }
 
     setActionLoading(true);
@@ -175,7 +196,7 @@ export const PeerReviewDetail = () => {
         try {
           await supabase.rpc("log_quiz_status_change", {
             p_quiz_id: targetQuizId,
-            p_new_status: status === "approved" ? "forwarded_to_head" : "rejected",
+            p_new_status: status === "approved" ? "forwarded_to_head" : "revision_requested",
             p_reason: feedback || (status === "approved" ? "Forwarded to Department Head by Peer Reviewer" : "Revision requested by Peer Reviewer"),
           });
 
@@ -249,7 +270,7 @@ export const PeerReviewDetail = () => {
           ? "Quiz forwarded to Department Head for final approval!"
           : "Revision request sent to instructor."
       );
-      navigate("/instructor-dashboard/my-submissions?tab=peer_reviews");
+      navigate(PEER_REVIEWS_PATH);
     } catch (err) {
       console.error("Error updating submission:", err);
       notify.error("Failed to update submission");
@@ -275,34 +296,23 @@ export const PeerReviewDetail = () => {
   const getThinkingOrderStyle = (order) =>
     order === "HOTS" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white";
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
-      approved: "bg-green-100 text-green-700 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
-      faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
-    };
-    const labels = {
-      pending: "Pending Review",
-      approved: "Approved",
-      revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Dept. Head",
-      faculty_head_approved: "Dept. Head Approved",
-    };
-    return (
-      <span className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status]}`}>
-        {labels[status]}
-      </span>
-    );
-  };
+  const getStatusBadge = (status) => (
+    <span className={`px-3 py-1 rounded-full text-sm font-bold border whitespace-nowrap ${getSubmissionStatusStyle(status)}`}>
+      {getSubmissionStatusLabel(status)}
+    </span>
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-          <p className="mt-4 text-gray-600 font-semibold">Loading review...</p>
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading review">
+        <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
+          <Skeleton tone="bg-white/20" className="h-4 w-40 rounded-md mb-4" />
+          <Skeleton tone="bg-white/20" className="h-8 w-80 max-w-full rounded-md mb-2" />
+          <Skeleton tone="bg-white/20" className="h-4 w-56 rounded-md" />
+        </div>
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
         </div>
       </div>
     );
@@ -313,8 +323,8 @@ export const PeerReviewDetail = () => {
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <p className="text-red-600">Submission not found.</p>
-          <button onClick={() => navigate("/instructor-dashboard/peer-reviews")} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg">
-            Go Back
+          <button onClick={() => navigate(PEER_REVIEWS_PATH)} className="mt-4 px-4 py-2 bg-brand-navy text-white rounded-lg">
+            Back to Peer Reviews
           </button>
         </div>
       </div>
@@ -322,6 +332,11 @@ export const PeerReviewDetail = () => {
   }
 
   const results = submission.analysis_results;
+  const assignedReviewerId =
+    submission.assigned_reviewer_id || submission.analysis_results?.assigned_reviewer_id;
+  const isAssignedReviewer =
+    Boolean(user?.id) && assignedReviewerId === user.id && submission.instructor_id !== user.id;
+  const canReview = submission.status === "pending" && isAssignedReviewer;
   const snapshotById = (results?.questionSnapshots || []).reduce((acc, item) => {
     acc[String(item.questionId)] = item;
     return acc;
@@ -342,10 +357,11 @@ export const PeerReviewDetail = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
-          onClick={() => navigate("/instructor-dashboard/peer-reviews")}
-          className="text-brand-gold hover:text-white font-semibold mb-4 flex items-center gap-1"
+          onClick={() => navigate(PEER_REVIEWS_PATH)}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold rounded-lg transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
-          ← Back to Peer Reviews
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back to Peer Reviews
         </button>
         <div className="flex items-center gap-4">
           <div>
@@ -358,8 +374,7 @@ export const PeerReviewDetail = () => {
               )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Submitted by {getInstructorName(submission.profiles)}
-              "Peer Review"
+              Peer review · Submitted by {getInstructorName(submission.profiles)}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
@@ -424,6 +439,12 @@ export const PeerReviewDetail = () => {
           }
           return null;
         })()}
+
+        {submission.status === "pending" && !isAssignedReviewer && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+            You are not the assigned reviewer for this submission, so it is shown read-only.
+          </div>
+        )}
 
         {/* Instructor Message */}
         {submission.instructor_message && (
@@ -756,7 +777,7 @@ export const PeerReviewDetail = () => {
 
                     {/* F7 — Per-Question Feedback + Revision Suggestion Templates */}
                     {item && (
-                      submission.status === "pending" ? (
+                      canReview ? (
                         <div className="mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs font-semibold text-gray-500">Feedback for Q{idx + 1}</label>
@@ -775,17 +796,23 @@ export const PeerReviewDetail = () => {
                                 <div className="absolute right-0 top-full mt-1 z-20 w-72 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                                   <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
                                     <p className="text-xs font-bold text-gray-600">Quick Revision Templates</p>
-                                    <p className="text-[10px] text-gray-400">Click a template to pre-fill the feedback field</p>
+                                    <p className="text-[10px] text-gray-400">Click a template to add it to the feedback field</p>
                                   </div>
                                   <ul className="py-1">
                                     {REVISION_TEMPLATES.map((template) => (
                                       <li key={template.label}>
                                         <button
                                           onClick={() => {
-                                            setQuestionFeedback((prev) => ({
-                                              ...prev,
-                                              [item.questionId]: template.text,
-                                            }));
+                                            setQuestionFeedback((prev) => {
+                                              const existing = (prev[item.questionId] || "").trim();
+                                              if (existing.includes(template.text)) return prev;
+                                              return {
+                                                ...prev,
+                                                [item.questionId]: existing
+                                                  ? `${existing}\n${template.text}`
+                                                  : template.text,
+                                              };
+                                            });
                                             setOpenTemplateFor(null);
                                           }}
                                           className="w-full text-left px-3 py-2 text-xs hover:bg-brand-navy/5 transition-colors"
@@ -829,7 +856,7 @@ export const PeerReviewDetail = () => {
         </div>
 
         {/* Overall Feedback */}
-        {submission.status === "pending" && (
+        {canReview && (
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Overall Feedback <span className="text-gray-400 font-normal">(optional if per-question feedback provided)</span>
@@ -855,7 +882,7 @@ export const PeerReviewDetail = () => {
         )}
 
         {/* Action Buttons */}
-        {submission.status === "pending" && (
+        {canReview && (
           <div className="flex flex-wrap gap-4 justify-end">
             <button
               onClick={() => handleAction("revision_requested")}

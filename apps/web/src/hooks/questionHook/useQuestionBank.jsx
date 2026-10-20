@@ -305,6 +305,18 @@ export const useQuestionBank = () => {
     }
   };
 
+  // Find a question in either list
+  const findQuestion = (questionId) =>
+    activeQuestions.find((q) => q.id === questionId) ||
+    archivedQuestions.find((q) => q.id === questionId);
+
+  // The bank merges identical questions from several quizzes; only the
+  // instructor's own copies may be changed.
+  const isOwnedByUser = (question) =>
+    question?.quiz_id
+      ? question.quizzes?.instructor_id === user?.id
+      : Boolean(question?.is_own);
+
   // Archive a question with optional section assignment
   const archiveQuestion = async (questionId, sectionId = null) => {
     try {
@@ -312,9 +324,49 @@ export const useQuestionBank = () => {
         return { success: false, error: "Question ID is required" };
       }
 
-      const updateData = { 
-        is_archived: true, 
-        updated_at: new Date().toISOString() 
+      const question = findQuestion(questionId);
+      if (question && !isOwnedByUser(question)) {
+        return {
+          success: false,
+          error: "This question belongs to another instructor's quiz and can't be archived by you.",
+        };
+      }
+
+      // Archiving removes the question from its quiz, so never touch a live
+      // quiz or one that is in the review pipeline.
+      if (question?.quiz_id) {
+        const { data: quiz } = await supabase
+          .from("quizzes")
+          .select("id, title, is_published")
+          .eq("id", question.quiz_id)
+          .maybeSingle();
+
+        if (quiz?.is_published) {
+          return {
+            success: false,
+            error: `This question is part of the published quiz "${quiz.title}". Archive the quiz instead.`,
+          };
+        }
+
+        const { data: latestSub } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("status")
+          .eq("quiz_id", question.quiz_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (["pending", "faculty_head_review", "approved", "faculty_head_approved"].includes(latestSub?.status)) {
+          return {
+            success: false,
+            error: `This question is part of "${quiz?.title || "a quiz"}", which is in the review process and can't be changed.`,
+          };
+        }
+      }
+
+      const updateData = {
+        is_archived: true,
+        updated_at: new Date().toISOString(),
       };
 
       // Include section_id if provided
@@ -322,26 +374,26 @@ export const useQuestionBank = () => {
         updateData.section_id = sectionId;
       }
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("questions")
         .update(updateData)
-        .eq("id", questionId);
+        .eq("id", questionId)
+        .select("id");
 
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        return { success: false, error: "You don't have permission to archive this question." };
+      }
 
       // Move from active to archived
-      const question = activeQuestions.find((q) => q.id === questionId);
       if (question) {
-        const updatedQuestion = { 
-          ...question, 
+        const updatedQuestion = {
+          ...question,
           is_archived: true,
-          section_id: sectionId || question.section_id
+          section_id: sectionId || question.section_id,
         };
         setActiveQuestions((prev) => prev.filter((q) => q.id !== questionId));
-        setArchivedQuestions((prev) => [
-          ...prev,
-          updatedQuestion,
-        ]);
+        setArchivedQuestions((prev) => [...prev, updatedQuestion]);
       }
 
       return { success: true };
@@ -354,15 +406,26 @@ export const useQuestionBank = () => {
   // Restore an archived question
   const restoreQuestion = async (questionId) => {
     try {
-      const { error } = await supabase
+      const question = findQuestion(questionId);
+      if (question && !isOwnedByUser(question)) {
+        return {
+          success: false,
+          error: "This question belongs to another instructor and can't be restored by you.",
+        };
+      }
+
+      const { data: updated, error } = await supabase
         .from("questions")
         .update({ is_archived: false, updated_at: new Date().toISOString() })
-        .eq("id", questionId);
+        .eq("id", questionId)
+        .select("id");
 
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        return { success: false, error: "You don't have permission to restore this question." };
+      }
 
       // Move from archived to active
-      const question = archivedQuestions.find((q) => q.id === questionId);
       if (question) {
         setArchivedQuestions((prev) => prev.filter((q) => q.id !== questionId));
         setActiveQuestions((prev) => [
@@ -378,71 +441,75 @@ export const useQuestionBank = () => {
     }
   };
 
-  // Delete a question permanently (only if its quiz is unpublished and has no attempts)
+  // Permanently delete an archived question. Only the user's own archived
+  // copies are removed, and never a copy that has student responses.
   const deleteQuestion = async (questionId) => {
     try {
-      // 1. Identify all versions of this question (including duplicates across quizzes)
-      const questionToDelete =
-        activeQuestions.find((q) => q.id === questionId) ||
-        archivedQuestions.find((q) => q.id === questionId);
-
+      const questionToDelete = findQuestion(questionId);
       if (!questionToDelete) return { success: false, error: "Question not found" };
 
-      // Check if the quiz is published or has attempts
-      const { data: quiz } = await supabase
-        .from("quizzes")
-        .select("id, is_published")
-        .eq("id", questionToDelete.quiz_id)
-        .single();
-
-      if (quiz?.is_published) {
+      if (!isOwnedByUser(questionToDelete)) {
         return {
           success: false,
-          error:
-            "Cannot permanently delete this question because it belongs to a published quiz. You can archive it instead.",
+          error: "You can only remove questions you created.",
         };
       }
 
-      const { count: attemptCount } = await supabase
-        .from("quiz_attempts")
-        .select("*", { count: "exact", head: true })
-        .eq("quiz_id", questionToDelete.quiz_id);
-
-      if (attemptCount > 0) {
+      if (!questionToDelete.is_archived) {
         return {
           success: false,
-          error:
-            "Cannot permanently delete this question because its quiz already has student attempts. You can archive it instead.",
+          error: "Archive the question first before removing it permanently.",
         };
       }
 
-      // Use the stored all_quiz_ids to find all instances
-      const allIds = questionToDelete.all_quiz_ids || [questionToDelete.quiz_id];
+      // Identical archived copies of this question in the user's own quizzes
+      const ownQuizIds = (questionToDelete.all_quiz_ids || []).filter(Boolean);
+      let candidateIds = [questionId];
+      if (ownQuizIds.length > 0) {
+        const { data: copies } = await supabase
+          .from("questions")
+          .select("id, quiz_id, is_archived, quizzes(instructor_id)")
+          .in("quiz_id", ownQuizIds)
+          .eq("text", questionToDelete.text);
 
-      // 2. Delete responses for all identified question instances first
-      const { data: dbVersions } = await supabase
-        .from("questions")
-        .select("id")
-        .in("quiz_id", allIds)
-        .eq("text", questionToDelete.text);
+        (copies || []).forEach((c) => {
+          if (c.is_archived === true && c.quizzes?.instructor_id === user?.id) {
+            candidateIds.push(c.id);
+          }
+        });
+      }
+      candidateIds = [...new Set(candidateIds)];
 
-      const dbIds = dbVersions?.map((v) => v.id) || [questionId];
-
-      // Safe to delete — quiz is unpublished with no attempts
-      await supabase
+      // Keep any copy that students have already answered
+      const { data: answered } = await supabase
         .from("quiz_responses")
-        .delete()
-        .in("question_id", dbIds);
+        .select("question_id")
+        .in("question_id", candidateIds);
+      const answeredIds = new Set((answered || []).map((r) => r.question_id));
 
-      // 3. Delete all identified versions of the question
+      if (answeredIds.has(questionId)) {
+        return {
+          success: false,
+          error:
+            "This question has student responses, so it can't be removed permanently. It stays archived to preserve results.",
+        };
+      }
+
+      const idsToDelete = candidateIds.filter((id) => !answeredIds.has(id));
+
+      try {
+        await supabase.from("quiz_questions").delete().in("question_id", idsToDelete);
+      } catch (juncErr) {
+        console.warn("quiz_questions cleanup skipped:", juncErr);
+      }
+
       const { error } = await supabase
         .from("questions")
         .delete()
-        .in("id", dbIds);
+        .in("id", idsToDelete);
 
       if (error) throw error;
 
-      // 4. Refresh local state
       await fetchQuestions();
 
       return { success: true };

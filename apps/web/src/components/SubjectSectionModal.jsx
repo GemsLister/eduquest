@@ -1,7 +1,16 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../supabaseClient.js";
 import { notify } from "../utils/notify.jsx";
+import { sectionService } from "../services/sectionService.js";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+
+// Sections are stored as "<Subject> - <Section code>"; show just the code
+const getSectionCode = (sec) => {
+  if (sec.description) return sec.description;
+  if (sec.section_code) return sec.section_code;
+  const name = sec.name || "";
+  return name.includes(" - ") ? name.split(" - ").pop().trim() : name;
+};
 
 export const SubjectSectionModal = ({
   isOpen,
@@ -11,6 +20,8 @@ export const SubjectSectionModal = ({
   sectionQuizzes = {},
   userId,
   onSectionCreated,
+  onArchiveSection,
+  onEditSection,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -18,14 +29,12 @@ export const SubjectSectionModal = ({
   const [newSectionName, setNewSectionName] = useState("");
   const [adding, setAdding] = useState(false);
   const [formError, setFormError] = useState("");
-  const [localSections, setLocalSections] = useState(sections);
 
-  // Sync localSections when sections prop changes
-  React.useEffect(() => {
-    setLocalSections(sections);
-  }, [sections]);
+  useEscapeKey(onClose, isOpen && !!subject);
 
   if (!isOpen || !subject) return null;
+
+  const isAdminPath = location.pathname.startsWith("/admin-dashboard");
 
   const handleAddSectionSubmit = async (e) => {
     e.preventDefault();
@@ -39,67 +48,17 @@ export const SubjectSectionModal = ({
 
     try {
       const trimmedName = newSectionName.trim();
-      const fullSectionName = `${subject.name} - ${trimmedName}`;
-      const subjectIdToUse = subject.subject_id || subject.id;
+      const { data: createdSection, error } = await sectionService.createSectionForSubject({
+        instructorId: userId,
+        subjectId: subject.subject_id || subject.id,
+        subjectName: subject.name,
+        sectionCode: trimmedName,
+      });
+      if (error) throw error;
 
-      // 1. Duplicate check: Check if section with this full name is already assigned to this subject
-      const { data: existingSection } = await supabase
-        .from("sections")
-        .select("id, name")
-        .eq("instructor_id", userId)
-        .eq("subject_id", subjectIdToUse)
-        .ilike("name", fullSectionName)
-        .maybeSingle();
-
-      if (existingSection) {
-        setFormError(`Section "${trimmedName}" is already assigned to ${subject.name}.`);
-        setAdding(false);
-        return;
-      }
-
-      const examCode = () =>
-        Math.random().toString(36).substring(2, 8).toUpperCase();
-
-      // 2. Create section record
-      const { data, error: insertError } = await supabase
-        .from("sections")
-        .insert([
-          {
-            instructor_id: userId,
-            name: fullSectionName,
-            description: trimmedName,
-            subject_id: subjectIdToUse,
-            exam_code: examCode(),
-          },
-        ])
-        .select();
-
-      if (insertError) throw insertError;
-      const createdSection = data[0];
-
-      // 3. Create teaching_assignments record
-      try {
-        await supabase.from("teaching_assignments").insert([
-          {
-            instructor_id: userId,
-            subject_id: subjectIdToUse,
-            section_id: createdSection.id,
-          },
-        ]);
-      } catch (taErr) {
-        console.warn("Could not insert teaching assignment:", taErr);
-      }
-
-      // Update local state instantly
-      const updatedList = [createdSection, ...localSections];
-      setLocalSections(updatedList);
       setNewSectionName("");
       setShowAddForm(false);
-
-      if (onSectionCreated) {
-        onSectionCreated(createdSection);
-      }
-
+      onSectionCreated?.(createdSection);
       notify.success(`Section "${trimmedName}" added to ${subject.name}!`);
     } catch (err) {
       console.error("Error adding section:", err);
@@ -118,12 +77,17 @@ export const SubjectSectionModal = ({
       />
 
       {/* Modal Container */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subject-section-modal-title"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo p-6 text-white shrink-0 relative">
           <button
             onClick={onClose}
-            aria-label="Close modal"
+            aria-label="Close"
             className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             <svg
@@ -145,11 +109,10 @@ export const SubjectSectionModal = ({
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-brand-gold text-brand-navy uppercase tracking-wider">
               {subject.code || "SUBJECT"}
             </span>
-            <span className="text-white/60 text-xs font-semibold">
-              {localSections.length} Assigned Section{localSections.length === 1 ? "" : "s"}
-            </span>
           </div>
-          <h2 className="text-2xl font-black text-white">{subject.name}</h2>
+          <h2 id="subject-section-modal-title" className="text-2xl font-black text-white">
+            {subject.name}
+          </h2>
           {subject.description && (
             <p className="text-white/80 text-sm mt-1 line-clamp-2">
               {subject.description}
@@ -161,7 +124,7 @@ export const SubjectSectionModal = ({
         <div className="p-6 overflow-y-auto space-y-4 flex-1 bg-gray-50/50">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-              Assigned Sections ({localSections.length})
+              Assigned Sections ({sections.length})
             </h3>
             <button
               onClick={() => {
@@ -182,7 +145,7 @@ export const SubjectSectionModal = ({
             >
               <div>
                 <label htmlFor="subject-modal-section-name" className="block text-xs font-bold text-brand-navy uppercase tracking-wider mb-1">
-                  New Section Name for {subject.name}
+                  New Section for {subject.name}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -199,22 +162,19 @@ export const SubjectSectionModal = ({
                     disabled={adding}
                     className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
-                    {adding ? "Saving..." : "Save Assignment"}
+                    {adding ? "Saving..." : "Add Section"}
                   </button>
                 </div>
                 {formError && (
-                  <p className="text-xs text-red-600 font-semibold mt-1">
+                  <p className="text-xs text-red-600 font-semibold mt-1" role="alert">
                     {formError}
                   </p>
                 )}
-                <p className="text-[11px] text-gray-500 mt-1">
-                  This will assign section <strong>{newSectionName.trim() || "..."}</strong> to <strong>{subject.name}</strong> without creating duplicate subject records.
-                </p>
               </div>
             </form>
           )}
 
-          {localSections.length === 0 ? (
+          {sections.length === 0 ? (
             <div className="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center">
               <p className="text-gray-500 font-medium text-sm">
                 No sections assigned to this subject yet.
@@ -223,58 +183,65 @@ export const SubjectSectionModal = ({
                 onClick={() => setShowAddForm(true)}
                 className="mt-3 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
-                Assign First Section
+                Add First Section
               </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {localSections.map((sec) => {
+              {sections.map((sec) => {
                 const quizzes = sectionQuizzes[sec.id] || [];
                 const totalQuizzes = quizzes.length;
-                const openQuizzes = quizzes.filter(
-                  (q) => q.is_open !== false
-                ).length;
-                const totalAttempts = quizzes.reduce(
-                  (sum, q) => sum + (q.attempts || 0),
-                  0
-                );
-
-                // Extract clean display section code (e.g., "T350", "BSIT 3A")
-                let displayName = sec.name || "";
-                if (displayName.includes("-")) {
-                  const parts = displayName.split("-");
-                  displayName = parts[parts.length - 1].trim();
-                }
-
-                const sectionCode = sec.description || sec.section_code || displayName;
+                const openQuizzes = quizzes.filter((q) => q.is_open !== false).length;
+                const totalAttempts = quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0);
+                const sectionCode = getSectionCode(sec);
+                const openSection = () => {
+                  onClose();
+                  navigate(isAdminPath ? `/admin-dashboard/section/${sec.id}` : `/instructor-dashboard/section/${sec.id}`);
+                };
 
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={sec.id}
-                    onClick={() => {
-                      onClose();
-                      const isAdminPath = location.pathname.startsWith("/admin-dashboard");
-                      navigate(isAdminPath ? `/admin-dashboard/section/${sec.id}` : `/instructor-dashboard/section/${sec.id}`);
-                    }}
-                    aria-label={`Open ${sectionCode}`}
-                    className="bg-white border border-gray-200 hover:border-brand-gold/60 rounded-2xl p-4 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                    className="bg-white border border-gray-200 hover:border-brand-gold/60 rounded-2xl p-4 shadow-xs hover:shadow-lg transition-all duration-200 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <span className="text-base font-black text-brand-navy group-hover:text-brand-indigo transition-colors block">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <span className="text-base font-black text-brand-navy block truncate">
                             {sectionCode}
                           </span>
-                          {sec.name && (
-                            <p className="text-xs text-gray-500 font-medium">
-                              {sec.name}
-                            </p>
+                          {sec.name && sec.name !== sectionCode && (
+                            <p className="text-xs text-gray-500 font-medium truncate">{sec.name}</p>
                           )}
                         </div>
-                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 bg-brand-gold/20 text-brand-navy border border-brand-gold/30 rounded-full">
-                          {sectionCode}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {onEditSection && (
+                            <button
+                              type="button"
+                              onClick={() => onEditSection(sec)}
+                              aria-label={`Edit section ${sectionCode}`}
+                              title="Edit section"
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-brand-navy hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
+                          {onArchiveSection && (
+                            <button
+                              type="button"
+                              onClick={() => onArchiveSection(sec)}
+                              aria-label={`Archive section ${sectionCode}`}
+                              title="Archive section"
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {sec.exam_code && (
                         <p className="text-xs text-gray-500 font-mono mb-3">
@@ -284,13 +251,13 @@ export const SubjectSectionModal = ({
                     </div>
 
                     {/* Stats summary */}
-                    <div className="grid grid-cols-3 gap-1 pt-3 border-t border-gray-100 text-center">
+                    <div className="grid grid-cols-3 gap-1 pt-3 border-t border-gray-100 text-center items-center">
                       <div>
                         <p className="text-xs font-extrabold text-brand-navy">
                           {openQuizzes}/{totalQuizzes}
                         </p>
                         <p className="text-[9px] text-gray-400 font-semibold uppercase">
-                          Quizzes
+                          Open Quizzes
                         </p>
                       </div>
                       <div>
@@ -302,15 +269,20 @@ export const SubjectSectionModal = ({
                         </p>
                       </div>
                       <div className="flex items-center justify-end">
-                        <span className="text-xs font-bold text-brand-navy group-hover:text-brand-indigo flex items-center gap-1 transition-colors">
+                        <button
+                          type="button"
+                          onClick={openSection}
+                          aria-label={`Open section ${sectionCode}`}
+                          className="text-xs font-bold text-brand-navy hover:text-brand-indigo flex items-center gap-1 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                        >
                           <span>Open</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
-                        </span>
+                        </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

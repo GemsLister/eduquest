@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { notify } from "../utils/notify.jsx";
 import { analyzeQuiz } from "../services/quizAnalysisService";
@@ -114,6 +115,10 @@ export const QuizAnalysisResults = ({
   const [reviewerSearch, setReviewerSearch] = useState("");
   const [showReviewerDropdown, setShowReviewerDropdown] = useState(false);
 
+  useEscapeKey(() => {
+    if (!forwardLoading) onClose();
+  });
+
   // Load all active instructor + admin profiles for reviewer selection
   // Exclude the submitting instructor AND exclude Department Heads (is_faculty_head = true)
   useEffect(() => {
@@ -122,6 +127,7 @@ export const QuizAnalysisResults = ({
         .from("profiles")
         .select("id, first_name, last_name, username, email, is_admin, is_faculty_head")
         .eq("is_approved", true)
+        .or("is_disabled.is.null,is_disabled.eq.false")
         .order("first_name", { ascending: true });
 
       // Reviewers must be active instructors or senior faculty, but NOT department heads
@@ -413,6 +419,7 @@ export const QuizAnalysisResults = ({
       }
 
       setForwarded(true);
+      window.dispatchEvent(new Event("submissions-changed"));
       notify.success(
         prevSubId
           ? "Revised quiz submitted for review!"
@@ -464,7 +471,8 @@ export const QuizAnalysisResults = ({
             </div>
             <button
               onClick={onClose}
-              className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors"
+              aria-label="Close analysis"
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -513,7 +521,7 @@ export const QuizAnalysisResults = ({
                           (lockedReviewer.is_admin ? " (Senior Faculty)" : " (Peer Reviewer)")
                         : "Reviewer"
                     }`
-                  : "Previously Rejected"}
+                  : "Previous Review"}
               </p>
               {existingSubmission.faculty_head_feedback && (
                 <p className="text-sm text-orange-600">
@@ -1341,8 +1349,9 @@ export const QuizAnalysisResults = ({
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    The Senior Faculty will review your quiz analysis and provide
-                    feedback.
+                    Your assigned reviewer has been notified. After the peer review,
+                    the Department Head gives final approval. Track progress in
+                    Submissions &amp; Reviews.
                   </p>
                 </div>
               )}
@@ -1362,7 +1371,11 @@ export const QuizAnalysisResults = ({
                 }
               }
               onClose();
-              navigate("/instructor-dashboard/quizzes");
+              navigate(
+                window.location.pathname.startsWith("/admin-dashboard")
+                  ? "/admin-dashboard/quizzes"
+                  : "/instructor-dashboard/quizzes",
+              );
             }}
             className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
           >
@@ -1377,7 +1390,7 @@ export const QuizAnalysisResults = ({
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                d="M15 19l-7-7 7-7"
               />
             </svg>
             Back to Quizzes

@@ -39,6 +39,10 @@ export const useUsername = () => {
       });
     };
     getUserData();
+
+    // Refresh when the profile page saves a new name or picture
+    window.addEventListener("profile-updated", getUserData);
+    return () => window.removeEventListener("profile-updated", getUserData);
   }, [user]);
 
   return userData;

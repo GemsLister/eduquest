@@ -1,7 +1,5 @@
-export { InstructorLayout } from "./InstructorLayout.jsx";
 export { InstructorDashboard } from "./InstructorDashboard.jsx";
 export { InstructorQuiz } from "./InstructorQuiz.jsx";
-export { InstructorQuestions } from "./InstructorQuestions.jsx";
 export { QuestionBank } from "./QuestionBank.jsx";
 export { InstructorProfile } from "./InstructorProfile.jsx";
 export { SectionDetail } from "./SectionDetail.jsx";
@@ -13,5 +11,4 @@ export { StudentProfiles } from "./StudentProfiles.jsx";
 export { QuizVersions } from "./QuizVersions.jsx";
 export { SavedAnalysisPage } from "./SavedAnalysis.jsx";
 export { History } from "./History.jsx";
-export { PeerReviews } from "./PeerReviews.jsx";
 export { PeerReviewDetail } from "./PeerReviewDetail.jsx";

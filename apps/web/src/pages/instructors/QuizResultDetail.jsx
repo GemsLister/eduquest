@@ -51,6 +51,10 @@ export const QuizResultDetail = () => {
       if (quizError) throw quizError;
       setQuiz(quizData);
 
+      // Load the questions of the quiz version the student actually took;
+      // results combine attempts from every version of a quiz.
+      const attemptQuizId = attemptData.quiz_id || quizId;
+
       // Load questions - junction table first, fallback direct
       let questionsData = [];
       let questionsError = null;
@@ -59,7 +63,7 @@ export const QuizResultDetail = () => {
         const { data: junc, error: juncErr } = await supabase
           .from("quiz_questions")
           .select("questions(*), order_index")
-          .eq("quiz_id", quizId)
+          .eq("quiz_id", attemptQuizId)
           .order("order_index", { ascending: true });
 
         if (!isMissingTableError(juncErr) && junc && junc.length > 0) {
@@ -68,7 +72,7 @@ export const QuizResultDetail = () => {
           const direct = await supabase
             .from("questions")
             .select("*")
-            .eq("quiz_id", quizId)
+            .eq("quiz_id", attemptQuizId)
             .order("created_at", { ascending: true });
           questionsData = direct.data || [];
           questionsError = direct.error;
@@ -76,7 +80,7 @@ export const QuizResultDetail = () => {
           const direct = await supabase
             .from("questions")
             .select("*")
-            .eq("quiz_id", quizId)
+            .eq("quiz_id", attemptQuizId)
             .order("created_at", { ascending: true });
           questionsData = direct.data || [];
           questionsError = direct.error;
@@ -85,7 +89,7 @@ export const QuizResultDetail = () => {
         const direct = await supabase
           .from("questions")
           .select("*")
-          .eq("quiz_id", quizId)
+          .eq("quiz_id", attemptQuizId)
           .order("created_at", { ascending: true });
         questionsData = direct.data || [];
         questionsError = direct.error;
@@ -115,6 +119,7 @@ export const QuizResultDetail = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "Not completed";
     return new Date(dateString).toLocaleString();
   };
 
@@ -194,7 +199,7 @@ export const QuizResultDetail = () => {
           <h1 className="text-3xl font-bold text-brand-navy mb-4">
             {quiz?.title}
           </h1>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-gray-600 text-sm">Student Name</p>
               <p className="text-lg font-semibold text-gray-900">
@@ -232,7 +237,7 @@ export const QuizResultDetail = () => {
             </div>
             <div>
               <p className="text-white text-opacity-90 mb-2">Status</p>
-              <p className="text-2xl font-bold capitalize">{attempt?.status}</p>
+              <p className="text-2xl font-bold capitalize">{(attempt?.status || "").replace(/_/g, " ")}</p>
             </div>
             <div>
               <p className="text-white text-opacity-90 mb-2">Total time</p>
@@ -287,7 +292,7 @@ export const QuizResultDetail = () => {
                   <p className="text-sm font-semibold text-gray-700 mb-3">
                     Options:
                   </p>
-                  {question.options.map((option, optIdx) => {
+                  {(question.options || []).map((option, optIdx) => {
                     const isStudentAnswer = response?.answer === String(optIdx);
                     const isCorrectAnswer = option === question.correct_answer;
 

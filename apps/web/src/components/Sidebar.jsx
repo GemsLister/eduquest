@@ -86,7 +86,7 @@ const navItems = [
     ),
   },
   {
-    name: "My Submissions",
+    name: "Submissions & Reviews",
     path: "/instructor-dashboard/my-submissions",
     hasBadge: true,
     icon: (
@@ -152,12 +152,18 @@ export const Sidebar = () => {
           .eq("assigned_reviewer_id", user.id)
           .eq("status", "pending");
 
-        // 2. Submissions created by this instructor that have status 'revision_requested'
-        const { count: revCount } = await supabase
+        // 2. Revision requests on this instructor's submissions that haven't
+        //    been resubmitted yet (a resubmission points back via previous_submission_id)
+        const { data: ownSubs } = await supabase
           .from("quiz_analysis_submissions")
-          .select("id", { count: "exact", head: true })
-          .eq("instructor_id", user.id)
-          .eq("status", "revision_requested");
+          .select("id, status, previous_submission_id")
+          .eq("instructor_id", user.id);
+        const resubmittedIds = new Set(
+          (ownSubs || []).map((s) => s.previous_submission_id).filter(Boolean),
+        );
+        const revCount = (ownSubs || []).filter(
+          (s) => s.status === "revision_requested" && !resubmittedIds.has(s.id),
+        ).length;
 
         setSubmissionNotifCount((peerCount || 0) + (revCount || 0));
       } catch (err) {
@@ -232,7 +238,7 @@ export const Sidebar = () => {
               >
                 <span className="relative shrink-0 flex items-center justify-center w-6 h-6 text-[22px]">
                   {nav.icon}
-                  {nav.name === "My Submissions" && submissionNotifCount > 0 && (
+                  {nav.hasBadge && submissionNotifCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full animate-pulse">
                       {submissionNotifCount}
                     </span>

@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useQuestionBank } from "../../hooks/questionHook/useQuestionBank.jsx";
 import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -29,8 +30,8 @@ export const QuestionBank = () => {
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [bulkSelected, setBulkSelected] = useState(new Set());
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
-  const [showQuizDropdown, setShowQuizDropdown] = useState(false);
+  useEscapeKey(() => setShowSortDropdown(false), showSortDropdown);
+  useEscapeKey(() => setShowAddForm(false), showAddForm);
   const [importProcessing, setImportProcessing] = useState(false);
 
   // Subject, Quiz, and GAD filter state
@@ -57,7 +58,7 @@ export const QuestionBank = () => {
   const [newQuestion, setNewQuestion] = useState({
     text: "",
     type: "mcq",
-    options: ["", ""],
+    options: ["", "", "", ""],
     correctAnswer: 0,
     points: 1,
   });
@@ -101,9 +102,23 @@ export const QuestionBank = () => {
           return;
         }
 
+        // Only the subjects this instructor teaches (via their sections)
+        const { data: mySections } = await supabase
+          .from("sections")
+          .select("subject_id")
+          .eq("instructor_id", user.id);
+        const mySubjectIds = [
+          ...new Set((mySections || []).map((s) => s.subject_id).filter(Boolean)),
+        ];
+        if (mySubjectIds.length === 0) {
+          setSubjects([]);
+          return;
+        }
+
         const { data, error } = await supabase
           .from("subjects")
           .select("id, name, code, description")
+          .in("id", mySubjectIds)
           .or("is_archived.is.null,is_archived.eq.false")
           .order("name", { ascending: true });
 
@@ -424,11 +439,16 @@ export const QuestionBank = () => {
       variant: "warning",
     });
     if (confirmed) {
+      let archived = 0;
+      const errors = new Set();
       for (const id of bulkSelected) {
-        await archiveQuestion(id);
+        const result = await archiveQuestion(id);
+        if (result.success) archived++;
+        else errors.add(result.error);
       }
       setBulkSelected(new Set());
-      notify.success(`Archived ${bulkSelected.size} question(s)`);
+      if (archived > 0) notify.success(`Archived ${archived} question(s)`);
+      errors.forEach((msg) => notify.error(msg));
     }
   };
 
@@ -441,11 +461,16 @@ export const QuestionBank = () => {
       variant: "info",
     });
     if (confirmed) {
+      let restored = 0;
+      const errors = new Set();
       for (const id of bulkSelected) {
-        await restoreQuestion(id);
+        const result = await restoreQuestion(id);
+        if (result.success) restored++;
+        else errors.add(result.error);
       }
       setBulkSelected(new Set());
-      notify.success(`Restored ${bulkSelected.size} question(s)`);
+      if (restored > 0) notify.success(`Restored ${restored} question(s)`);
+      errors.forEach((msg) => notify.error(msg));
     }
   };
 
@@ -527,12 +552,32 @@ export const QuestionBank = () => {
     }
     setImporting(true);
     try {
-      const { data: existingQuestions } = await supabase
-        .from("questions")
-        .select("id")
-        .eq("quiz_id", quizId);
-
-      let orderIndex = existingQuestions?.length || 0;
+      // Only import into the user's own editable quiz
+      const { data: targetQuiz, error: targetError } = await supabase
+        .from("quizzes")
+        .select("id, instructor_id, is_published")
+        .eq("id", quizId)
+        .maybeSingle();
+      if (targetError) throw targetError;
+      if (!targetQuiz || targetQuiz.instructor_id !== user?.id) {
+        notify.error("You can only import questions into your own quizzes.");
+        return;
+      }
+      if (targetQuiz.is_published) {
+        notify.error("This quiz is already published and can't be changed.");
+        return;
+      }
+      const { data: latestSub } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("status")
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (["pending", "faculty_head_review", "approved", "faculty_head_approved"].includes(latestSub?.status)) {
+        notify.error("This quiz is in the review process and can't be changed.");
+        return;
+      }
 
       for (const q of selectedQuestions) {
         const payload = {
@@ -551,7 +596,6 @@ export const QuestionBank = () => {
           error = retry.error;
         }
         if (error) throw error;
-        orderIndex++;
       }
 
       try {
@@ -623,7 +667,7 @@ export const QuestionBank = () => {
       ownershipFilter === "my_private"
         ? "private"
         : ownershipFilter === "mine"
-        ? "public"
+        ? "mine"
         : ownershipFilter === "others_public"
         ? "shared"
         : "all";
@@ -971,7 +1015,7 @@ export const QuestionBank = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-          {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
+          {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
         </p>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -1181,7 +1225,7 @@ export const QuestionBank = () => {
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Private Questions
+            My Private
           </button>
           <button
             type="button"
@@ -1192,7 +1236,7 @@ export const QuestionBank = () => {
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Public Questions
+            My Questions
           </button>
           <button
             type="button"
@@ -1203,7 +1247,7 @@ export const QuestionBank = () => {
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
-            Shared Questions
+            Shared by Others
           </button>
           <button
             type="button"
@@ -1359,6 +1403,7 @@ export const QuestionBank = () => {
               {filter.label}
               <button
                 onClick={filter.clear}
+                aria-label={`Remove filter ${filter.label}`}
                 className="hover:text-red-600 transition-colors"
               >
                 <svg
@@ -1382,6 +1427,7 @@ export const QuestionBank = () => {
             onClick={() => {
               setSearchTerm("");
               setSortBy("newest");
+              setSelectedSubjectId(null);
               setSelectedQuizIdFilter(null);
             }}
             className="text-sm text-gray-500 hover:text-red-500 font-medium px-2 transition-colors"
@@ -1610,7 +1656,7 @@ export const QuestionBank = () => {
                     {/* Top metadata row */}
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className="text-xs text-gray-500 font-medium">
-                        {question.quizzes?.title || "Draft Quiz"}
+                        {question.quizzes?.title || "Standalone question (no quiz)"}
                       </span>
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
@@ -1756,11 +1802,26 @@ export const QuestionBank = () => {
 
                   {/* 10. Hover Card Actions */}
                   {activeTab === "active" && (
-                    <div className="flex items-start gap-1 pt-4 pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-start gap-1 pt-4 pr-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                       <button
-                        onClick={() => archiveQuestion(question.id)}
-                        className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors"
+                        onClick={async () => {
+                          const confirmed = await confirm({
+                            title: "Archive Question",
+                            message: question.quiz_id
+                              ? `Archive this question? It will also be removed from the quiz "${question.quizzes?.title || "its quiz"}". You can restore it from the Archived tab.`
+                              : "Archive this question? You can restore it from the Archived tab.",
+                            confirmText: "Archive",
+                            cancelText: "Cancel",
+                            variant: "warning",
+                          });
+                          if (!confirmed) return;
+                          const result = await archiveQuestion(question.id);
+                          if (result.success) notify.success("Question archived");
+                          else notify.error(result.error);
+                        }}
+                        className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                         title="Archive"
+                        aria-label="Archive question"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -1783,8 +1844,9 @@ export const QuestionBank = () => {
                             setSelectedQuestions([question]);
                             setActiveTab("import");
                           }}
-                          className="p-2 rounded-lg text-brand-navy hover:bg-brand-navy/10 transition-colors"
-                          title="Import"
+                          className="p-2 rounded-lg text-brand-navy hover:bg-brand-navy/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                          title="Import into quiz"
+                          aria-label="Import into quiz"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1805,11 +1867,16 @@ export const QuestionBank = () => {
                     </div>
                   )}
                   {activeTab === "archived" && (
-                    <div className="flex items-start gap-1 pt-4 pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-start gap-1 pt-4 pr-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                       <button
-                        onClick={() => restoreQuestion(question.id)}
-                        className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
+                        onClick={async () => {
+                          const result = await restoreQuestion(question.id);
+                          if (result.success) notify.success("Question restored");
+                          else notify.error(result.error);
+                        }}
+                        className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                         title="Restore"
+                        aria-label="Restore question"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -1838,11 +1905,13 @@ export const QuestionBank = () => {
                           });
                           if (confirmed) {
                             const result = await deleteQuestion(question.id);
-                            if (!result.success) notify.error(result.error);
+                            if (result.success) notify.success("Question removed");
+                            else notify.error(result.error);
                           }
                         }}
-                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                         title="Remove permanently"
+                        aria-label="Remove question permanently"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

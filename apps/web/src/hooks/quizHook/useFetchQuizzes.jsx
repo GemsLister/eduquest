@@ -2,18 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
-
-const isMissingTableError = (error) => {
-  if (!error) return false;
-  const msg = (error.message || "").toLowerCase();
-  const code = error.code || "";
-  return (
-    code === "42P01" ||
-    msg.includes("could not find the table") ||
-    msg.includes("does not exist") ||
-    (msg.includes("relation") && msg.includes("does not exist"))
-  );
-};
+import { fetchQuestionCounts, fetchAttemptsByQuiz } from "../../utils/quizCounts.js";
 
 export const useFetchQuizzes = () => {
   const { user } = useAuth();
@@ -21,31 +10,6 @@ export const useFetchQuizzes = () => {
   const [section, setSection] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const generateShareToken = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let token = "";
-    for (let i = 0; i < 12; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
-  };
-
-  const getUniqueShareToken = async () => {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const candidate = generateShareToken();
-      const { data, error } = await supabase
-        .from("quizzes")
-        .select("id")
-        .eq("share_token", candidate)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) return candidate;
-    }
-
-    throw new Error("Failed to generate a unique share token");
-  };
 
   const fetchQuizzes = async () => {
     try {
@@ -62,7 +26,7 @@ export const useFetchQuizzes = () => {
           subjectId = sectionData.subject_id;
         }
       } catch (error) {
-        console.log("Could not fetch subject_id for cross-section sharing:", error);
+        console.warn("Could not fetch subject_id for cross-section sharing:", error);
       }
 
       // First try to fetch from quiz_sections table (if it exists)
@@ -246,130 +210,37 @@ export const useFetchQuizzes = () => {
           }
         }
 
-        const missingTokenQuizzes = (quizzesData || []).filter(
-          (quiz) => quiz.is_published && !quiz.share_token,
-        );
-
-        for (const quiz of missingTokenQuizzes) {
-          const token = await getUniqueShareToken();
-          const { error: tokenError } = await supabase
-            .from("quizzes")
-            .update({ share_token: token })
-            .eq("id", quiz.id);
-
-          if (!tokenError) {
-            quiz.share_token = token;
-          }
-        }
       }
 
-      // Fetch question counts and section-specific attempt counts for each quiz
-      const quizzesWithCounts = await Promise.all(
-        (quizzesData || []).map(async (quiz) => {
-          // Check junction table first
-          let qCount = null;
-          let countError = null;
-          try {
-            const { count: juncCount, error: juncError } = await supabase
-              .from("quiz_questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            if (!isMissingTableError(juncError) && juncCount && juncCount > 0) {
-              qCount = juncCount;
-              countError = null;
-            } else if (!isMissingTableError(juncError) && !juncError) {
-              qCount = juncCount || 0;
-              countError = null;
-            } else {
-              // Fallback to direct questions table
-              const direct = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.id);
-              qCount = direct.count || 0;
-              countError = direct.error;
-            }
-          } catch (e) {
-            // Fallback on any error
-            const direct = await supabase
-              .from("questions")
-              .select("*", { count: "exact", head: true })
-              .eq("quiz_id", quiz.id);
-            qCount = direct.count || 0;
-            countError = direct.error;
-          }
-
-          const targetQuizIds = [quiz.id];
-          if (quiz.parent_quiz_id) targetQuizIds.push(quiz.parent_quiz_id);
-
-          const { data: attList } = await supabase
-            .from("quiz_attempts")
-            .select("id, section_id")
-            .in("quiz_id", targetQuizIds);
-
-          const aCount = (attList || []).filter(
-            (a) => (sectionId ? a.section_id === sectionId : true)
-          ).length;
-
-          let resolvedQuestionsCount = !countError ? qCount || 0 : 0;
-
-          if (resolvedQuestionsCount === 0) {
-            const { data: sub } = await supabase
-              .from("quiz_analysis_submissions")
-              .select("analysis_results")
-              .eq("quiz_id", quiz.id)
-              .limit(1)
-              .maybeSingle();
-
-            const payload = sub?.analysis_results?.analysis || sub?.analysis_results?.questionSnapshots || [];
-            if (payload.length > 0) {
-              resolvedQuestionsCount = payload.length;
-            }
-          }
-
-          if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
-            try {
-              const { count: rootJunc, error: rootJuncErr } = await supabase
-                .from("quiz_questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (!isMissingTableError(rootJuncErr) && rootJunc && rootJunc > 0) {
-                resolvedQuestionsCount = rootJunc;
-              } else if (!isMissingTableError(rootJuncErr)) {
-                const { count: rootCount } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.parent_quiz_id);
-                if (rootCount && rootCount > 0) {
-                  resolvedQuestionsCount = rootCount;
-                }
-              } else {
-                const { count: rootCount } = await supabase
-                  .from("questions")
-                  .select("*", { count: "exact", head: true })
-                  .eq("quiz_id", quiz.parent_quiz_id);
-                if (rootCount && rootCount > 0) {
-                  resolvedQuestionsCount = rootCount;
-                }
-              }
-            } catch (e) {
-              const { count: rootCount } = await supabase
-                .from("questions")
-                .select("*", { count: "exact", head: true })
-                .eq("quiz_id", quiz.parent_quiz_id);
-              if (rootCount && rootCount > 0) {
-                resolvedQuestionsCount = rootCount;
-              }
-            }
-          }
-
-          return {
-            ...quiz,
-            attempts: aCount || 0,
-            questions_count: resolvedQuestionsCount,
-          };
-        }),
+      // Question and section-specific attempt counts, batched
+      const lookupIds = Array.from(
+        new Set(
+          (quizzesData || []).flatMap((q) => [q.id, q.parent_quiz_id]).filter(Boolean),
+        ),
       );
+      const [questionCounts, attemptsByQuiz] = await Promise.all([
+        fetchQuestionCounts(lookupIds),
+        fetchAttemptsByQuiz(lookupIds),
+      ]);
+
+      const quizzesWithCounts = (quizzesData || []).map((quiz) => {
+        const attemptRows = [
+          ...(attemptsByQuiz.get(quiz.id) || []),
+          ...(quiz.parent_quiz_id ? attemptsByQuiz.get(quiz.parent_quiz_id) || [] : []),
+        ];
+        const aCount = attemptRows.filter((a) => (sectionId ? a.section_id === sectionId : true)).length;
+
+        let resolvedQuestionsCount = questionCounts.get(quiz.id) || 0;
+        if (resolvedQuestionsCount === 0 && quiz.parent_quiz_id) {
+          resolvedQuestionsCount = questionCounts.get(quiz.parent_quiz_id) || 0;
+        }
+
+        return {
+          ...quiz,
+          attempts: aCount,
+          questions_count: resolvedQuestionsCount,
+        };
+      });
 
       setQuizzes(quizzesWithCounts);
     } catch (error) {

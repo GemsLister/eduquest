@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "../App";
 import { ProtectedRoute } from "../components/ProtectedRoute.jsx";
 import { AdminProtectedRoute } from "../components/AdminProtectedRoute.jsx";
@@ -101,8 +101,9 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.QuizResultDetail />,
             },
             {
+              // Replaced by the Question Bank
               path: "instructor-questions",
-              element: <InstructorIndex.InstructorQuestions />,
+              element: <Navigate to="/instructor-dashboard/question-bank" replace />,
             },
             {
               path: "question-bank",
@@ -141,8 +142,9 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.SavedAnalysisPage />,
             },
             {
+              // The peer review list lives under My Submissions
               path: "peer-reviews",
-              element: <InstructorIndex.PeerReviews />,
+              element: <Navigate to="/instructor-dashboard/my-submissions?tab=peer_reviews" replace />,
             },
             {
               path: "peer-reviews/:submissionId",

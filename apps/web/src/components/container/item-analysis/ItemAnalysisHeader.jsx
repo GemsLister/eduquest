@@ -26,7 +26,7 @@ export const ItemAnalysisHeader = ({
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              {isAdminPath ? "Senior Faculty" : "Instructor Dashboard"}
+              {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               Item Analysis Report
@@ -66,7 +66,7 @@ export const ItemAnalysisHeader = ({
           {/* Section Selection */}
           <div>
             <label htmlFor="ia-section" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              Select Subject
+              Select Section
             </label>
             <select
               id="ia-section"
@@ -74,7 +74,7 @@ export const ItemAnalysisHeader = ({
               onChange={(e) => onSectionChange(e.target.value)}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs bg-white text-slate-800"
             >
-              <option value="">Select Subject</option>
+              <option value="">Select Section</option>
               {sections.map((section) => (
                 <option key={section.id} value={section.id}>
                   {section.name}
@@ -84,7 +84,7 @@ export const ItemAnalysisHeader = ({
             </select>
             {sections.length === 0 && (
               <p className="text-xs text-slate-400 mt-1">
-                No sections found. Create a section first.
+                No sections found. Add a section from the Subjects page first.
               </p>
             )}
           </div>
@@ -105,7 +105,7 @@ export const ItemAnalysisHeader = ({
                 {loadingQuizzes
                   ? "Loading quizzes..."
                   : !selectedSection
-                    ? "Select a subject first"
+                    ? "Select a section first"
                     : "Select a Quiz"}
               </option>
               {quizzes &&

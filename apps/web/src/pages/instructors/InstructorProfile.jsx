@@ -28,6 +28,17 @@ export const InstructorProfile = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [stats, setStats] = useState({ quizzes: 0, published: 0, subjects: 0 });
   const fileInputRef = useRef(null);
+  const profileBeforeEdit = useRef(null);
+
+  const startEdit = () => {
+    profileBeforeEdit.current = profile;
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => {
+    if (profileBeforeEdit.current) setProfile(profileBeforeEdit.current);
+    setEditMode(false);
+  };
 
   useEffect(() => {
     if (authUser) fetchUserData();
@@ -45,57 +56,11 @@ export const InstructorProfile = () => {
           .single();
 
         if (profileError && profileError.code === "PGRST116") {
-          // Profile doesn't exist yet — create it
-          const email = authUser.email;
-          const isStudentDomain = email.endsWith("@gmail.com");
-          const firstName = authUser.user_metadata?.given_name || "";
-          const lastName = authUser.user_metadata?.family_name || "";
-          const username =
-            authUser.user_metadata?.full_name || email.split("@")[0];
-
-          const { data: newProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert({
-              id: authUser.id,
-              username: username,
-              first_name: firstName,
-              last_name: lastName,
-              bio: "",
-              is_instructor: !isStudentDomain,
-              is_approved: true, // Auto-approve everyone for testing
-              email: email,
-            })
-            .select()
-            .single();
-
-          if (createError) throw createError;
-
-          const hasInstructorAccess =
-            !!newProfile.is_instructor ||
-            newProfile.role === "teacher" ||
-            !!newProfile.is_admin ||
-            !!newProfile.is_faculty_head;
-
-          if (!hasInstructorAccess) {
-            notify.error(
-              "Access Denied: You are signed in with a student account. Please log out to access instructor features.",
-            );
-            setLoading(false);
-            return;
-          }
-
-          setProfile({
-            username: newProfile.username || "",
-            firstName: newProfile.first_name || "",
-            lastName: newProfile.last_name || "",
-            email: email,
-            bio: newProfile.bio || "",
-            avatarUrl: newProfile.avatar_url || "",
-            createdAt: newProfile.created_at || authUser.created_at || "",
-            isInstructor: newProfile.is_instructor,
-            isAdmin: newProfile.is_admin,
-            isFacultyHead: !!newProfile.is_faculty_head,
-          });
+          notify.error(
+            "Your account has no instructor profile yet. Please contact the Senior Faculty.",
+          );
+          setLoading(false);
+          return;
         } else if (profileError) {
           throw profileError;
         } else {
@@ -201,6 +166,7 @@ export const InstructorProfile = () => {
       if (updateError) throw updateError;
 
       setProfile((prev) => ({ ...prev, avatarUrl }));
+      window.dispatchEvent(new Event("profile-updated"));
       notify.success("Profile picture updated!");
     } catch (err) {
       notify.error(err.message || "Failed to upload avatar");
@@ -235,6 +201,8 @@ export const InstructorProfile = () => {
       if (updateError) throw updateError;
 
       notify.success("Profile updated successfully!");
+      profileBeforeEdit.current = null;
+      window.dispatchEvent(new Event("profile-updated"));
       setEditMode(false);
     } catch (err) {
       notify.error(err.message || "Failed to update profile");
@@ -297,7 +265,7 @@ export const InstructorProfile = () => {
         {/* Edit button in banner */}
         {!editMode && (
           <button
-            onClick={() => setEditMode(true)}
+            onClick={startEdit}
             className="absolute top-4 right-6 flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             <svg
@@ -427,7 +395,7 @@ export const InstructorProfile = () => {
                 </div>
               ) : (
                 <button
-                  onClick={() => setEditMode(true)}
+                  onClick={startEdit}
                   className="w-full bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-xl p-4 text-center transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   <p className="text-sm text-gray-400 group-hover:text-gray-500">
@@ -523,7 +491,7 @@ export const InstructorProfile = () => {
 
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setEditMode(false)}
+                  onClick={cancelEdit}
                   className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >
                   Cancel
@@ -636,7 +604,7 @@ export const InstructorProfile = () => {
             <p className="text-2xl font-black text-gray-800">
               {stats.subjects}
             </p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">Subjects</p>
+            <p className="text-xs text-gray-400 font-medium mt-0.5">Sections</p>
           </div>
         </div>
         )}

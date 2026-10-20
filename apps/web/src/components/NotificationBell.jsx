@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
 
 /**
  * Notification links are written by whoever triggers them and often point at
@@ -62,6 +63,11 @@ export const NotificationBell = () => {
   const [menuOpenId, setMenuOpenId] = useState(null);
   const dropdownRef = useRef(null);
 
+  useEscapeKey(() => {
+    setOpen(false);
+    setMenuOpenId(null);
+  }, open);
+
   useEffect(() => {
     if (!user?.id) return;
     loadNotifications();
@@ -113,8 +119,15 @@ export const NotificationBell = () => {
 
     if (data) {
       setNotifications(data);
-      setUnreadCount(data.filter((n) => !n.is_read).length);
     }
+
+    // Unread total across all notifications, not only the 20 shown
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    setUnreadCount(count ?? (data || []).filter((n) => !n.is_read).length);
   };
 
   const markAsRead = async (id) => {
@@ -139,7 +152,7 @@ export const NotificationBell = () => {
   };
 
   const handleNotificationClick = (notification) => {
-    if (menuOpenId) return;
+    setMenuOpenId(null);
     if (!notification.is_read) markAsRead(notification.id);
     const target = resolveNotificationLink(notification.link, location.pathname);
     if (target) navigate(target);
@@ -237,8 +250,17 @@ export const NotificationBell = () => {
                 return (
                   <div
                     key={n.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleNotificationClick(n)}
-                    className={`relative w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleNotificationClick(n);
+                      }
+                    }}
+                    className={`relative w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60 ${
                       !n.is_read ? "bg-brand-gold/5" : ""
                     }`}
                   >
@@ -274,7 +296,9 @@ export const NotificationBell = () => {
                             e.stopPropagation();
                             setMenuOpenId(menuOpenId === n.id ? null : n.id);
                           }}
-                          className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                          aria-label="Notification options"
+                          aria-expanded={menuOpenId === n.id}
+                          className="p-1 rounded-full hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />

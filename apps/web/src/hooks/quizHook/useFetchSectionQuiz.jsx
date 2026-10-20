@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { quizService } from "../../services/quizService";
 import { sectionService } from "../../services/sectionService";
 import { useAuth } from "../../context/AuthContext";
+import { fetchAttemptsByQuiz } from "../../utils/quizCounts.js";
 
 export const useFetchSectionQuiz = () => {
   const { user } = useAuth();
@@ -120,27 +121,22 @@ export const useFetchSectionQuiz = () => {
           }
         }
 
-        // Re-count attempts per section (handling revision chains & unsectioned attempts)
+        // Re-count attempts per section (including revision chains) with one query
+        const attemptLookupIds = processedQuizzes.flatMap((q) =>
+          [q.id, q.parent_quiz_id].filter(Boolean),
+        );
+        const attemptsByQuiz = await fetchAttemptsByQuiz(attemptLookupIds);
         for (const sectionId of Object.keys(grouped)) {
-          const quizzesInSection = grouped[sectionId];
-          const updatedQuizzes = await Promise.all(
-            quizzesInSection.map(async (quiz) => {
-              const targetQuizIds = [quiz.id];
-              if (quiz.parent_quiz_id) targetQuizIds.push(quiz.parent_quiz_id);
-
-              const { data: attList } = await supabase
-                .from("quiz_attempts")
-                .select("id, section_id")
-                .in("quiz_id", targetQuizIds);
-
-              const sectionAttempts = (attList || []).filter(
-                (a) => a.section_id === sectionId
-              ).length;
-
-              return { ...quiz, attempts: sectionAttempts || 0 };
-            }),
-          );
-          grouped[sectionId] = updatedQuizzes;
+          grouped[sectionId] = grouped[sectionId].map((quiz) => {
+            const rows = [
+              ...(attemptsByQuiz.get(quiz.id) || []),
+              ...(quiz.parent_quiz_id ? attemptsByQuiz.get(quiz.parent_quiz_id) || [] : []),
+            ];
+            return {
+              ...quiz,
+              attempts: rows.filter((a) => a.section_id === sectionId).length,
+            };
+          });
         }
 
         setSectionQuizzes(grouped);
@@ -152,7 +148,6 @@ export const useFetchSectionQuiz = () => {
     };
     fetchData();
   }, [user, navigate]);
-  {
+
   return { quizzes, sectionQuizzes, user, sections, setSections, loading };
-  }
 };

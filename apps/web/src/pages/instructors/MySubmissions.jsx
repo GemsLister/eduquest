@@ -11,6 +11,7 @@ import { notify } from "../../utils/notify.jsx";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
+import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -24,7 +25,7 @@ export const MySubmissions = () => {
   const [mainTab, setMainTab] = useState(initialTab);
 
   // My Submissions state
-  const [submissions, setSubmissions] = useState([]);
+  const [allSubmissions, setAllSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,7 +44,43 @@ export const MySubmissions = () => {
   useEffect(() => {
     loadSubmissions();
     if (!isSeniorFaculty && user?.id) loadPeerReviews();
-  }, [filter, user?.id, isSeniorFaculty]);
+  }, [user?.id, isSeniorFaculty]);
+
+  // Filtering happens on the client so switching tabs doesn't refetch
+  const submissions = useMemo(
+    () =>
+      allSubmissions.filter((sub) => {
+        if (filter === "all") return true;
+        if (filter === "pending")
+          return ["pending", "faculty_head_review"].includes(sub.status);
+        if (filter === "approved")
+          return ["approved", "faculty_head_approved"].includes(sub.status);
+        return sub.status === filter;
+      }),
+    [allSubmissions, filter],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedId(null);
+  }, [filter]);
+
+  // Fetch only the quizzes involved (plus their parent versions) instead of the whole table
+  const fetchQuizChainMap = async (rows) => {
+    const ids = new Set();
+    rows.forEach((s) => {
+      if (s.quiz_id) ids.add(s.quiz_id);
+      if (s.quizzes?.parent_quiz_id) ids.add(s.quizzes.parent_quiz_id);
+    });
+    const map = new Map();
+    if (ids.size === 0) return map;
+    const { data } = await supabase
+      .from("quizzes")
+      .select("id, parent_quiz_id, title, description, is_published, version_number")
+      .in("id", [...ids]);
+    (data || []).forEach((q) => map.set(q.id, q));
+    return map;
+  };
 
   useEffect(() => {
     if (isSeniorFaculty) {
@@ -111,22 +148,11 @@ export const MySubmissions = () => {
           });
         }
 
-        const quizIds = [
-          ...new Set(peerData.map((s) => s.quiz_id).filter(Boolean)),
-        ];
         let quizMap = new Map();
-        if (quizIds.length > 0) {
-          try {
-            const { data: quizRows } = await supabase
-              .from("quizzes")
-              .select("id, parent_quiz_id, title, description, is_published, version_number");
-
-            quizRows?.forEach((q) => {
-              quizMap.set(q.id, q);
-            });
-          } catch (e) {
-            console.warn("Could not query quizzes directly:", e);
-          }
+        try {
+          quizMap = await fetchQuizChainMap(peerData);
+        } catch (e) {
+          console.warn("Could not query quizzes directly:", e);
         }
 
         const findRootId = (quizId) => {
@@ -171,13 +197,14 @@ export const MySubmissions = () => {
           return rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
         };
 
+        // Group revisions of the same quiz (root quiz id); title is only a fallback
         const getChainKey = (s) => {
+          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+          if (rootQuizId) return `quiz_${rootQuizId}`;
+
           const baseTitle = getCleanTitle(s);
           const instructor = s.instructor_id || s.quizzes?.instructor_id || "unknown";
           if (baseTitle) return `title_${instructor}_${baseTitle}`;
-
-          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
-          if (rootQuizId) return `quiz_${rootQuizId}`;
 
           return `sub_${s.id}`;
         };
@@ -238,17 +265,11 @@ export const MySubmissions = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const quizIds = [...new Set((data || []).map((s) => s.quiz_id).filter(Boolean))];
       let quizMap = new Map();
-      if (quizIds.length > 0) {
-        try {
-          const { data: qData } = await supabase
-            .from("quizzes")
-            .select("id, parent_quiz_id, title, version_number");
-          qData?.forEach((q) => quizMap.set(q.id, q));
-        } catch (e) {
-          console.warn("Could not query quizzes in loadSubmissions:", e);
-        }
+      try {
+        quizMap = await fetchQuizChainMap(data || []);
+      } catch (e) {
+        console.warn("Could not query quizzes in loadSubmissions:", e);
       }
 
       const findRootId = (quizId) => {
@@ -313,8 +334,10 @@ export const MySubmissions = () => {
           s.displayVersion = idx + 1;
           s.chainLength = sortedAsc.length;
         });
-        // Keep the latest submission of each chain
-        latestByQuiz.push(sortedAsc[sortedAsc.length - 1]);
+        // Keep the latest submission of each chain, with its full history
+        const latest = sortedAsc[sortedAsc.length - 1];
+        latest.chain = sortedAsc;
+        latestByQuiz.push(latest);
       }
 
       latestByQuiz.sort(
@@ -323,15 +346,7 @@ export const MySubmissions = () => {
           new Date(a.created_at).getTime(),
       );
 
-      // Apply status filter client-side against the latest submission.
-      const filtered = latestByQuiz.filter((sub) => {
-        if (filter === "all") return true;
-        if (filter === "pending")
-          return ["pending", "faculty_head_review"].includes(sub.status);
-        if (filter === "approved")
-          return ["approved", "faculty_head_approved"].includes(sub.status);
-        return sub.status === filter;
-      });
+      const filtered = latestByQuiz;
 
       // Fetch reviewer profile map for all submissions
       const reviewerIds = [
@@ -396,7 +411,7 @@ export const MySubmissions = () => {
         }),
       );
 
-      setSubmissions(enriched);
+      setAllSubmissions(enriched);
     } catch (err) {
       console.error("Error loading submissions:", err);
     } finally {
@@ -404,29 +419,13 @@ export const MySubmissions = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      pending: "bg-amber-50 text-amber-700 border-amber-200",
-      approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      revision_requested: "bg-rose-50 text-rose-700 border-rose-200",
-      faculty_head_review: "bg-blue-50 text-blue-700 border-blue-200",
-      faculty_head_approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    };
-    const labels = {
-      pending: "Pending Peer Review",
-      approved: "Approved",
-      revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Department Head",
-      faculty_head_approved: "Approved by Department Head",
-    };
-    return (
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status] || "bg-slate-100 text-slate-700 border-slate-200"}`}
-      >
-        {labels[status] || status}
-      </span>
-    );
-  };
+  const getStatusBadge = (status) => (
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${getSubmissionStatusStyle(status)}`}
+    >
+      {getSubmissionStatusLabel(status)}
+    </span>
+  );
 
   const getStatusIcon = (status) => {
     const base =
@@ -570,27 +569,13 @@ export const MySubmissions = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedSubmissions = submissions.slice(startIndex, endIndex);
 
-  const getPeerStatusBadge = (status) => {
-    const styles = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      approved: "bg-green-100 text-green-800 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-800 border-orange-300",
-      faculty_head_review: "bg-blue-100 text-blue-800 border-blue-300",
-      faculty_head_approved: "bg-green-100 text-green-800 border-green-300",
-    };
-    const labels = {
-      pending: "Pending Review",
-      approved: "Approved",
-      revision_requested: "Revision Requested",
-      faculty_head_review: "At Dept. Head",
-      faculty_head_approved: "Final Approved",
-    };
-    return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${styles[status] || "bg-gray-100 text-gray-700"}`}>
-        {labels[status] || status}
-      </span>
-    );
-  };
+  const getPeerStatusBadge = (status) => (
+    <span
+      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap ${getSubmissionStatusStyle(status)}`}
+    >
+      {getSubmissionStatusLabel(status)}
+    </span>
+  );
 
   const getInstructorDisplayName = (profiles) => {
     if (!profiles) return "Instructor";
@@ -638,17 +623,19 @@ export const MySubmissions = () => {
 
   const submissionFilterCounts = useMemo(() => {
     return {
-      all: submissions.length,
-      pending: submissions.filter((s) => s.status === "pending").length,
-      approved: submissions.filter(
+      all: allSubmissions.length,
+      pending: allSubmissions.filter((s) =>
+        ["pending", "faculty_head_review"].includes(s.status),
+      ).length,
+      approved: allSubmissions.filter(
         (s) =>
           s.status === "approved" || s.status === "faculty_head_approved",
       ).length,
-      revision_requested: submissions.filter(
+      revision_requested: allSubmissions.filter(
         (s) => s.status === "revision_requested",
       ).length,
     };
-  }, [submissions]);
+  }, [allSubmissions]);
 
   if (loading) {
     return (
@@ -720,7 +707,7 @@ export const MySubmissions = () => {
             >
               <span>My Submissions</span>
               <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-white/10 text-white">
-                {submissions.length}
+                {allSubmissions.length}
               </span>
             </button>
 
@@ -757,7 +744,7 @@ export const MySubmissions = () => {
             <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
               {[
                 { key: "all", label: "All" },
-                { key: "pending", label: "Pending" },
+                { key: "pending", label: "In Review" },
                 { key: "approved", label: "Approved" },
                 { key: "revision_requested", label: "Needs Revision" },
               ].map((tab) => (
@@ -811,7 +798,7 @@ export const MySubmissions = () => {
             </h3>
             <p className="text-gray-500">
               {filter === "all"
-                ? "You haven't submitted any quiz analyses yet. Analyze a quiz and forward it to the Senior Faculty for review."
+                ? "You haven't submitted any quizzes for review yet. Open a draft quiz and click \"Submit for Review\" to send it to a peer reviewer."
                 : "No submissions match the selected filter."}
             </p>
           </div>
@@ -940,7 +927,7 @@ export const MySubmissions = () => {
                     Object.keys(submission.question_feedback).length > 0 && (
                       <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
                         <p className="text-xs font-semibold text-orange-600 mb-2">
-                          Question-Specific Feedback (
+                          Reviewer's Question-Specific Feedback (
                           {Object.keys(submission.question_feedback).length}{" "}
                           question
                           {Object.keys(submission.question_feedback).length > 1
@@ -1003,8 +990,8 @@ export const MySubmissions = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                         {expandedId === submission.id
-                          ? "Hide Charts"
-                          : "View Charts"}
+                          ? "Hide Details"
+                          : "View Details"}
                       </button>
                       {expandedId === submission.id && (
                         <div className="mt-4 space-y-6">
@@ -1013,9 +1000,7 @@ export const MySubmissions = () => {
 
                           {/* Revision History */}
                           <ExamRevisionHistory
-                            revisions={submissions.filter(
-                              (s) => (s.quizzes?.parent_quiz_id || s.quiz_id) === (submission.quizzes?.parent_quiz_id || submission.quiz_id)
-                            )}
+                            revisions={[...(submission.chain || [submission])].reverse()}
                             currentSubmissionId={submission.id}
                           />
 
@@ -1283,7 +1268,7 @@ export const MySubmissions = () => {
                                         ] && (
                                           <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
                                             <p className="text-xs font-semibold text-orange-600 mb-0.5">
-                                              Senior Faculty Feedback:
+                                              Reviewer Feedback:
                                             </p>
                                             <p className="text-sm text-orange-800">
                                               {

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from "react";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 
 const ConfirmContext = createContext(null);
 
@@ -31,6 +32,8 @@ export const ConfirmProvider = ({ children }) => {
     setState(null);
   };
 
+  useEscapeKey(() => handleResolve(false), Boolean(state));
+
   const variantStyles = {
     danger: {
       button: "bg-red-600 hover:bg-red-700 text-white",
@@ -51,9 +54,9 @@ export const ConfirmProvider = ({ children }) => {
       icon: "M5 13l4 4L19 7",
     },
     info: {
-      button: "bg-blue-600 hover:bg-blue-700 text-white",
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      button: "bg-brand-navy hover:bg-brand-indigo text-white",
+      iconBg: "bg-brand-navy/10",
+      iconColor: "text-brand-navy",
       icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     },
   };
@@ -70,10 +73,15 @@ export const ConfirmProvider = ({ children }) => {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => handleResolve(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 animate-scale-in overflow-hidden">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 animate-scale-in overflow-hidden"
+          >
             {/* Header */}
             <div className="bg-brand-navy px-6 py-4">
-              <h3 className="text-lg font-bold text-white">
+              <h3 id="confirm-modal-title" className="text-lg font-bold text-white">
                 {state.title}
               </h3>
             </div>
@@ -102,7 +110,8 @@ export const ConfirmProvider = ({ children }) => {
               </button>
               <button
                 onClick={() => handleResolve(true)}
-                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${currentVariant.button}`}
+                autoFocus
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${currentVariant.button}`}
               >
                 {state.confirmText}
               </button>

@@ -36,18 +36,24 @@ export const useCreateQuiz = ({ user } = {}) => {
     try {
       if (!quizFormData.title.trim()) {
         notify.warning("Quiz title is required");
-        return;
+        return false;
       }
 
       const sectionIds = quizFormData.section_ids || [];
       if (sectionIds.length === 0) {
-        notify.warning("Please select at least one subject for this quiz");
-        return;
+        notify.warning("Please select at least one section for this quiz");
+        return false;
+      }
+
+      const duration = quizFormData.duration ? parseInt(quizFormData.duration) : null;
+      if (duration !== null && (isNaN(duration) || duration < 1)) {
+        notify.warning("Duration must be at least 1 minute, or left blank for no time limit");
+        return false;
       }
 
       if (!user?.id) {
         notify.error("You must be logged in to create a quiz");
-        return;
+        return false;
       }
 
       setIsSubmitting(true);
@@ -59,9 +65,7 @@ export const useCreateQuiz = ({ user } = {}) => {
             instructor_id: user.id,
             title: quizFormData.title.trim(),
             description: quizFormData.description.trim() || null,
-            duration: quizFormData.duration
-              ? parseInt(quizFormData.duration)
-              : null,
+            duration,
             is_published: false,
             is_private: quizFormData.is_private !== false,
             section_id: sectionIds[0],
@@ -81,15 +85,9 @@ export const useCreateQuiz = ({ user } = {}) => {
         section_id: sectionId,
       }));
 
-      const { error: qsError } = await supabase
-        .from("quiz_sections")
-        .insert(rows)
-        .select(); // Select to get the generated share tokens
-
+      const { error: qsError } = await supabase.from("quiz_sections").insert(rows);
       if (qsError) {
         console.error("Error inserting quiz_sections:", qsError);
-      } else {
-        console.log("Quiz sections created with share tokens:", qsError?.data);
       }
 
       // Auto-share quiz with all sections in the same subject
@@ -100,8 +98,6 @@ export const useCreateQuiz = ({ user } = {}) => {
         
         if (autoShareError) {
           console.error("Error auto-sharing quiz:", autoShareError);
-        } else {
-          console.log("Quiz auto-shared with same-subject sections");
         }
       } catch (autoShareError) {
         console.error("Auto-share failed:", autoShareError);
@@ -115,6 +111,7 @@ export const useCreateQuiz = ({ user } = {}) => {
         ? `/admin-dashboard/create-quiz/${data.id}`
         : `/instructor-dashboard/instructor-quiz/${data.id}`;
       navigate(targetPath);
+      return true;
     } catch (error) {
       console.error("Full error object:", error);
 
@@ -129,6 +126,7 @@ export const useCreateQuiz = ({ user } = {}) => {
       } else {
         notify.error("Error creating quiz: " + error.message);
       }
+      return false;
     } finally {
       setIsSubmitting(false);
     }

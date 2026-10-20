@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { supabase } from "../../../supabaseClient";
+import { sectionService } from "../../../services/sectionService.js";
 import { notify } from "../../../utils/notify.jsx";
+import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
 import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
 
 export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubject, isOpen: externalIsOpen, onClose: externalOnClose }) => {
@@ -15,6 +16,10 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
     if (externalOnClose && !val) externalOnClose();
     setInternalShowForm(val);
   };
+
+  useEscapeKey(() => {
+    if (!loading) setShowForm(false);
+  }, showForm);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,56 +38,14 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
         return;
       }
 
-      const examCode = () =>
-        Math.random().toString(36).substring(2, 8).toUpperCase();
-
-      // Combine subject name with section name
-      const fullSectionName = `${activeSubject.name} - ${sectionName.trim()}`;
-      const subjectIdToUse = activeSubject.id || activeSubject.subject_id;
-
-      // Duplicate check: ensure section is not assigned twice to same subject
-      const { data: existingSection } = await supabase
-        .from("sections")
-        .select("id, name")
-        .eq("instructor_id", userId)
-        .eq("subject_id", subjectIdToUse)
-        .ilike("name", fullSectionName)
-        .maybeSingle();
-
-      if (existingSection) {
-        setError(`Section "${sectionName.trim()}" is already assigned to ${activeSubject.name}.`);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error: insertError } = await supabase
-        .from("sections")
-        .insert([
-          {
-            instructor_id: userId,
-            name: fullSectionName,
-            description: null,
-            subject_id: activeSubject.id,
-            exam_code: examCode(),
-          },
-        ])
-        .select();
-
-      if (insertError) throw insertError;
-      const newSection = data[0];
-
-      // Also record in teaching_assignments table
-      try {
-        await supabase.from("teaching_assignments").insert([
-          {
-            instructor_id: userId,
-            subject_id: activeSubject.id,
-            section_id: newSection.id,
-          },
-        ]);
-      } catch (taErr) {
-        console.warn("Could not insert teaching assignment:", taErr);
-      }
+      const { data: newSection, error: createError } =
+        await sectionService.createSectionForSubject({
+          instructorId: userId,
+          subjectId: activeSubject.id || activeSubject.subject_id,
+          subjectName: activeSubject.name,
+          sectionCode: sectionName,
+        });
+      if (createError) throw createError;
 
       setSectionName("");
       setSelectedSubject(null);
@@ -95,7 +58,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
       notify.success("Section created successfully!");
     } catch (err) {
       setError(err.message || "Failed to create section");
-      notify.error("Failed to create section");
+      notify.error(err.message || "Failed to create section");
     } finally {
       setLoading(false);
     }
@@ -118,7 +81,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>Add Subject / Section</span>
+          <span>Add Section</span>
         </button>
       )}
 
@@ -136,7 +99,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
                   <h3 className="text-xl font-black text-white">
                     {preselectedSubject
                       ? `Add Section to ${preselectedSubject.name}`
-                      : "Add Subject / Section"}
+                      : "Add Section"}
                   </h3>
                   <p className="text-white/70 text-xs mt-1">
                     {preselectedSubject
@@ -204,10 +167,11 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
               )}
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label htmlFor="create-section-name" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   Section Name <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="create-section-name"
                   type="text"
                   value={sectionName}
                   onChange={(e) => setSectionName(e.target.value)}
@@ -257,7 +221,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
                       <span>Creating...</span>
                     </>
                   ) : (
-                    <span>{preselectedSubject ? "Add Section" : "Add Subject & Section"}</span>
+                    <span>Add Section</span>
                   )}
                 </button>
               </div>

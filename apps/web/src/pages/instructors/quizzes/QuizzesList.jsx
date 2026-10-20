@@ -58,7 +58,6 @@ export const QuizzesList = ({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Quizzes</h2>
       {quizzes.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-slate-200">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-navy/5 flex items-center justify-center text-brand-navy">
@@ -69,15 +68,29 @@ export const QuizzesList = ({
           <h3 className="text-xl font-bold text-brand-navy mb-2">
             No Quizzes Yet
           </h3>
-          <p className="text-gray-500 text-sm">
-            Go to the Quizzes page to create and assign quizzes to this subject.
+          <p className="text-gray-500 text-sm mb-4">
+            Create a quiz and assign it to this section, then publish it after it is approved.
           </p>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                location.pathname.startsWith("/admin-dashboard")
+                  ? "/admin-dashboard/quizzes"
+                  : "/instructor-dashboard/quizzes",
+              )
+            }
+            className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          >
+            Go to Quizzes
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {quizzes.map((quiz) => {
             const isOpen = quiz.is_open !== false;
             const duration = formatDuration(quiz.duration);
+            const isOwner = (quiz.instructor_id || quiz.owner_id) === user?.id;
 
             return (
               <div
@@ -141,7 +154,7 @@ export const QuizzesList = ({
                     </svg>
                     <span className="font-semibold text-slate-500">Owner:</span>
                     <span className="font-extrabold text-slate-900 truncate">
-                      ({quiz.owner_name || quiz.instructor_name || user?.user_metadata?.full_name || "Instructor"})
+                      {quiz.owner_name || quiz.instructor_name || user?.user_metadata?.full_name || "Instructor"}
                     </span>
                   </div>
 
@@ -206,8 +219,8 @@ export const QuizzesList = ({
                     </div>
                   )}
 
-                  {/* Toggle Switch — only for published quizzes */}
-                  {quiz.is_published && (
+                  {/* Toggle Switch — only the owner can open/close a published quiz */}
+                  {quiz.is_published && isOwner && (
                     <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-gray-500">
                         Student Access
@@ -271,6 +284,7 @@ export const QuizzesList = ({
                         Results
                       </button>
                     )}
+                    {isOwner && (
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -295,6 +309,7 @@ export const QuizzesList = ({
                         </>
                       )}
                     </button>
+                    )}
                   </div>
                 </div>
               </div>

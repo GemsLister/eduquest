@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
 
 /**
  * ExamRevisionHistory Component
@@ -26,20 +27,11 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
     });
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "faculty_head_approved":
-      case "approved":
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Approved</span>;
-      case "revision_requested":
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">Revision Requested</span>;
-      case "faculty_head_review":
-      case "pending":
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Pending Review</span>;
-      default:
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">{status}</span>;
-    }
-  };
+  const getStatusBadge = (status) => (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getSubmissionStatusStyle(status)}`}>
+      {getSubmissionStatusLabel(status)}
+    </span>
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 space-y-6">
@@ -47,7 +39,7 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
         <div>
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 10 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Exam Revision History ({revisions.length} {revisions.length === 1 ? "Version" : "Versions"})
           </h3>
@@ -59,7 +51,7 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
 
       <div className="space-y-4">
         {revisions.map((rev, idx) => {
-          const isCurrent = rev.id === currentSubmissionId || idx === 0;
+          const isCurrent = currentSubmissionId ? rev.id === currentSubmissionId : idx === 0;
           const versionLabel = `v${revisions.length - idx}.0`;
           const analysisCount = rev.analysis_results?.analysis?.length || 0;
           const hotsCount = (rev.analysis_results?.analysis || []).filter(

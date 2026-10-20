@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
@@ -14,6 +14,7 @@ import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 export const ItemAnalysisPage = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const initialSectionId = searchParams.get("sectionId") || "";
   const initialQuizId = searchParams.get("quizId") || "";
@@ -69,27 +70,26 @@ export const ItemAnalysisPage = () => {
   useEffect(() => {
     const fetchSections = async () => {
       try {
-        if (user) {
-          // Fetch only sections that are NOT archived
-          const { data, error } = await supabase
-            .from("sections")
-            .select("id, name, description")
-            .eq("instructor_id", user.id)
-            .eq("is_archived", false);
+        if (!user) return;
+        // Fetch only sections that are NOT archived
+        const { data, error } = await supabase
+          .from("sections")
+          .select("id, name, description")
+          .eq("instructor_id", user.id)
+          .eq("is_archived", false);
 
-          if (error) {
-            console.error("Error fetching sections for item analysis:", error);
-            setSections([]);
-          } else {
-            setSections(data || []);
-          }
+        if (error) {
+          console.error("Error fetching sections for item analysis:", error);
+          setSections([]);
+        } else {
+          setSections(data || []);
         }
       } finally {
         setLoadingSections(false);
       }
     };
     fetchSections();
-  }, []);
+  }, [user?.id]);
 
   // --- 2. Fetch Quizzes ---
   useEffect(() => {
@@ -135,21 +135,6 @@ export const ItemAnalysisPage = () => {
           }));
         }
 
-        // 3. Fallback: if no section mapping found, fetch instructor's published quizzes
-        if (finalQuizzes.length === 0 && user?.id) {
-          const { data: myQuizzes } = await supabase
-            .from("quizzes")
-            .select("id, title, is_published, is_archived")
-            .eq("instructor_id", user.id)
-            .eq("is_published", true)
-            .eq("is_archived", false);
-
-          finalQuizzes = (myQuizzes || []).map((q) => ({
-            ...q,
-            title: q.title?.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") || q.title,
-          }));
-        }
-
         setQuizzes(finalQuizzes);
       } catch (err) {
         console.error("Error fetching quizzes for item analysis:", err);
@@ -163,15 +148,19 @@ export const ItemAnalysisPage = () => {
 
   // --- 3. Trigger Analysis ---
   useEffect(() => {
+    setAnalysisSaved(false);
+    setSaveError(null);
     if (selectedQuiz) fetchAndAnalyze(selectedQuiz);
-    else setAnalysis([]);
+    else {
+      setAnalysis([]);
+      setTestStats(null);
+    }
   }, [selectedQuiz, selectedCohortFilter]);
 
   // --- 3.1. Listen for question updates ---
   useEffect(() => {
     const handleUpdate = () => {
       if (selectedQuiz) {
-        console.log("Question updated, re-fetching analysis...");
         fetchAndAnalyze(selectedQuiz);
       }
     };
@@ -219,11 +208,13 @@ export const ItemAnalysisPage = () => {
   };
 
   const onManualEdit = () => {
-    // Redirect to manual edit page or form
-    if (selectedQuestion) {
-      window.location.href = `/instructor-dashboard/edit-question/${selectedQuestion.question_id}`;
-    }
     setEditModalOpen(false);
+    if (!selectedQuiz) return;
+    navigate(
+      location.pathname.startsWith("/admin-dashboard")
+        ? `/admin-dashboard/create-quiz/${selectedQuiz}`
+        : `/instructor-dashboard/instructor-quiz/${selectedQuiz}`,
+    );
   };
 
   // Helper function to map answer to letter A/B/C/D
@@ -268,90 +259,48 @@ export const ItemAnalysisPage = () => {
         if (parentQs) questions = parentQs;
       }
 
+      // Only completed attempts count toward item statistics
       let attemptsQuery = supabase
         .from("quiz_attempts")
         .select("*")
-        .in("quiz_id", relatedQuizIds);
+        .in("quiz_id", relatedQuizIds)
+        .eq("status", "completed");
 
       if (selectedSection) {
         attemptsQuery = attemptsQuery.or(`section_id.eq.${selectedSection},section_id.is.null`);
       }
 
-      // Apply cohort filtering
-      if (selectedCohortFilter !== "all" && selectedSection) {
-        // First get all attempts to calculate performance-based cohorts
-        const { data: allAttempts } = await supabase
-          .from("quiz_attempts")
-          .select("*")
-          .in("quiz_id", relatedQuizIds);
+      const { data: baseAttempts } = await attemptsQuery;
+      let attempts = baseAttempts || [];
 
-        if (!allAttempts || allAttempts.length === 0) {
-          setAnalysis([]);
-          setLoading(false);
-          return;
-        }
-
-        // Sort by score to calculate percentiles
-        const sortedAttempts = allAttempts.sort(
-          (a, b) => (b.score || 0) - (a.score || 0),
-        );
-        const totalAttempts = sortedAttempts.length;
-
-        let filteredAttempts = [];
-
-        if (selectedCohortFilter === "top_performers") {
-          // Top 25% performers
-          const topCount = Math.ceil(totalAttempts * 0.25);
-          filteredAttempts = sortedAttempts.slice(0, topCount);
-        } else if (selectedCohortFilter === "bottom_performers") {
-          // Bottom 25% performers
-          const bottomCount = Math.ceil(totalAttempts * 0.25);
-          filteredAttempts = sortedAttempts.slice(-bottomCount);
-        } else if (selectedCohortFilter === "middle_performers") {
-          // Middle 50% performers
-          const startIndex = Math.floor(totalAttempts * 0.25);
-          const endIndex = Math.ceil(totalAttempts * 0.75);
-          filteredAttempts = sortedAttempts.slice(startIndex, endIndex);
-        } else if (selectedCohortFilter === "perfect_scores") {
-          // Only students with perfect scores (100% of possible points)
-          // First get total possible points for this quiz
-          const { data: questions } = await supabase
-            .from("questions")
-            .select("points")
-            .eq("quiz_id", quizId);
-
-          const totalPossiblePoints =
-            questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
-
-          filteredAttempts = allAttempts.filter(
-            (a) => (a.score || 0) === totalPossiblePoints,
-          );
-        } else if (selectedCohortFilter === "failing_scores") {
-          // Students with scores below 60%
-          const { data: questions } = await supabase
-            .from("questions")
-            .select("points")
-            .eq("quiz_id", quizId);
-
-          const totalPossiblePoints =
-            questions?.reduce((sum, q) => sum + (q.points || 1), 0) || 0;
-          const passingThreshold = totalPossiblePoints * 0.6;
-
-          filteredAttempts = allAttempts.filter(
-            (a) => (a.score || 0) < passingThreshold,
-          );
-        }
-
-        // Use the filtered attempts for analysis
-        const filteredAttemptIds = filteredAttempts.map((a) => a.id);
-        attemptsQuery = supabase
-          .from("quiz_attempts")
-          .select("*")
-          .eq("quiz_id", quizId)
-          .in("id", filteredAttemptIds);
+      if (attempts.length === 0) {
+        setAnalysis([]);
+        setTestStats(null);
+        setAllTakersList([]);
+        return;
       }
 
-      const { data: attempts } = await attemptsQuery;
+      // Cohort filtering is done on the same section/version-scoped attempts
+      if (selectedCohortFilter !== "all") {
+        const sortedAttempts = [...attempts].sort((a, b) => (b.score || 0) - (a.score || 0));
+        const totalAttempts = sortedAttempts.length;
+        const totalPossiblePoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
+
+        if (selectedCohortFilter === "top_performers") {
+          attempts = sortedAttempts.slice(0, Math.ceil(totalAttempts * 0.25));
+        } else if (selectedCohortFilter === "bottom_performers") {
+          attempts = sortedAttempts.slice(-Math.ceil(totalAttempts * 0.25));
+        } else if (selectedCohortFilter === "middle_performers") {
+          attempts = sortedAttempts.slice(
+            Math.floor(totalAttempts * 0.25),
+            Math.ceil(totalAttempts * 0.75),
+          );
+        } else if (selectedCohortFilter === "perfect_scores") {
+          attempts = attempts.filter((a) => (a.score || 0) >= totalPossiblePoints);
+        } else if (selectedCohortFilter === "failing_scores") {
+          attempts = attempts.filter((a) => (a.score || 0) < totalPossiblePoints * 0.6);
+        }
+      }
 
       // Map attempt IDs to student names and total scores for Discrimination math
       const takersMap = {};
@@ -423,38 +372,21 @@ export const ItemAnalysisPage = () => {
             : 0;
 
         // --- 6. AI DECISION (Flag Logic) ---
-        let autoFlag = "approved"; // Default to approved
-
-        // Decision Matrix: Combine Difficulty (P) and Discrimination (D)
-        const difficulty = fi; // P-value (0-1)
-        const discValue = discrimination; // D-value
-
-        // RETAIN: Difficulty 0.25-0.75 AND Discrimination >= 0.30
-        if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.3) {
+        // REJECT: nobody / everybody answered correctly, or poor discrimination (< 0.20)
+        // RETAIN: moderate difficulty (0.25-0.75) and good discrimination (>= 0.30)
+        // REVISE: everything else
+        const difficulty = fi;
+        const discValue = discrimination;
+        let autoFlag;
+        if (total === 0) {
+          autoFlag = "revise";
+        } else if (difficulty === 0 || difficulty === 1 || discValue < 0.2) {
+          autoFlag = "reject";
+        } else if (difficulty >= 0.25 && difficulty <= 0.75 && discValue >= 0.3) {
           autoFlag = "approved";
-        }
-        // REVISE: (Difficulty outside 0.25-0.75 OR Discrimination 0.20-0.29) AND not meeting REJECT criteria
-        else if (
-          (difficulty < 0.25 ||
-            difficulty > 0.75 ||
-            (discValue >= 0.2 && discValue <= 0.29)) &&
-          !(discValue < 0.19 || discValue < 0) &&
-          !(difficulty === 0.0 || difficulty === 1.0)
-        ) {
+        } else {
           autoFlag = "revise";
         }
-        // REJECT: Extreme difficulty (0.00 or 1.00) OR Discrimination < 0.19 OR Negative discrimination
-        else if (
-          difficulty === 0.0 ||
-          difficulty === 1.0 ||
-          discValue < 0.19 ||
-          discValue < 0
-        ) {
-          autoFlag = "reject";
-        }
-
-        // Note: Difficulty Index interpretation (for reference only)
-        // P: 0-0.25 = difficult, P: 0.26-0.75 = moderately difficult, P: 0.76+ = easy
 
         // --- 7. ICC / Decile Performance Calculation ---
         const decilePerformance = Array.from({ length: 10 }, (_, i) => {
@@ -491,7 +423,7 @@ export const ItemAnalysisPage = () => {
           original_correct_answer: q.original_correct_answer,
           revision_history: q.revision_history || [],
           difficulty: total > 0 ? fi.toFixed(2) : "N/A",
-          status: fi >= 0.75 ? "EASY" : fi >= 0.3 ? "MODERATE" : "DIFFICULT",
+          status: fi > 0.75 ? "EASY" : fi >= 0.25 ? "MODERATE" : "DIFFICULT",
           discrimination: discrimination.toFixed(2),
           discStatus: discStatus,
           autoFlag: autoFlag,
@@ -632,7 +564,11 @@ export const ItemAnalysisPage = () => {
           selectedSection={selectedSection}
           selectedQuiz={selectedQuiz}
           loadingQuizzes={loadingQuizzes}
-          onSectionChange={setSelectedSection}
+          onSectionChange={(id) => {
+            setSelectedSection(id);
+            setSelectedQuiz("");
+            setSelectedCohortFilter("all");
+          }}
           onQuizChange={setSelectedQuiz}
           onSearchChange={setSearchTerm}
           onStudentSearchChange={setStudentSearchTerm}
@@ -673,7 +609,7 @@ export const ItemAnalysisPage = () => {
                   No responses found
                 </p>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  This quiz has no attempts yet. Share the quiz link to collect responses before running the analysis.
+                  This quiz has no completed attempts for the selected filters yet. Share the quiz link to collect responses before running the analysis.
                 </p>
               </div>
             );

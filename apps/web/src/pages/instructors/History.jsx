@@ -22,6 +22,7 @@ export const History = () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!user) return;
 
       const { data, error } = await supabase
         .from("quizzes")
@@ -50,6 +51,8 @@ export const History = () => {
     const config = {
       draft: { bg: "bg-slate-100 text-slate-700 border border-slate-200", label: "Draft" },
       submitted_for_review: { bg: "bg-amber-50 text-amber-700 border border-amber-200", label: "Submitted for Review" },
+      forwarded_to_head: { bg: "bg-blue-50 text-blue-700 border border-blue-200", label: "Awaiting Department Head" },
+      revision_requested: { bg: "bg-rose-50 text-rose-700 border border-rose-200", label: "Revision Requested" },
       approved: { bg: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Approved" },
       rejected: { bg: "bg-rose-50 text-rose-700 border border-rose-200", label: "Rejected" },
       scheduled: { bg: "bg-sky-50 text-sky-700 border border-sky-200", label: "Scheduled" },
@@ -58,7 +61,10 @@ export const History = () => {
       completed: { bg: "bg-indigo-50 text-indigo-700 border border-indigo-200", label: "Completed" },
       archived: { bg: "bg-slate-100 text-slate-600 border border-slate-200", label: "Archived" },
     };
-    const c = config[status] || { bg: "bg-slate-100 text-slate-600 border border-slate-200", label: status };
+    const c = config[status] || {
+      bg: "bg-slate-100 text-slate-600 border border-slate-200",
+      label: String(status || "draft").replace(/_/g, " "),
+    };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${c.bg}`}>
         {c.label}
@@ -76,7 +82,7 @@ export const History = () => {
   }, [searchTerm, statusFilter]);
 
   const filteredQuizzes = quizzes.filter((quiz) => {
-    const matchesSearch = quiz.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (quiz.title || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || quiz.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -116,7 +122,7 @@ export const History = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-              Instructor Dashboard
+              Instructor Portal
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
               Activity History & Audit Trail
@@ -202,6 +208,8 @@ export const History = () => {
                     <option value="all">All Statuses</option>
                     <option value="draft">Draft</option>
                     <option value="submitted_for_review">Submitted for Review</option>
+                    <option value="forwarded_to_head">Awaiting Department Head</option>
+                    <option value="revision_requested">Revision Requested</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                     <option value="scheduled">Scheduled</option>

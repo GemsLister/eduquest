@@ -4,6 +4,7 @@ import * as QuizHooks from "../../../hooks/quizHook/quizHooks.js";
 import { CreateQuizFormButton } from "../../../components/ui/buttons/CreateQuizFormButton.jsx";
 import { useAuth } from "../../../context/AuthContext.jsx";
 import { Skeleton } from "../../../components/ui/Skeleton.jsx";
+import { useConfirm } from "../../../components/ui/ConfirmModal.jsx";
 
 export const QuizzesPageMain = () => {
   const location = useLocation();
@@ -11,6 +12,7 @@ export const QuizzesPageMain = () => {
   const [filter, setFilter] = useState(location.state?.filter || "all");
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const {
     quizFormData,
@@ -39,9 +41,22 @@ export const QuizzesPageMain = () => {
       case "all":
         return true;
       case "drafts":
-        return !quiz.is_published && (!quiz.admin_review_status || quiz.admin_review_status === "draft");
+        return (
+          !quiz.is_published &&
+          (!quiz.admin_review_status ||
+            quiz.admin_review_status === "draft" ||
+            quiz.admin_review_status === "revision_requested")
+        );
       case "in_review":
-        return !quiz.is_published && Boolean(quiz.admin_review_status) && quiz.admin_review_status !== "draft";
+        return (
+          !quiz.is_published &&
+          ["pending", "faculty_head_review"].includes(quiz.admin_review_status)
+        );
+      case "approved":
+        return (
+          !quiz.is_published &&
+          ["approved", "faculty_head_approved"].includes(quiz.admin_review_status)
+        );
       case "published":
         return Boolean(quiz.is_published);
       default:
@@ -56,6 +71,7 @@ export const QuizzesPageMain = () => {
       all: quizzes.filter((q) => !q.is_archived).length,
       drafts: quizzes.filter((q) => filterQuiz(q, "drafts")).length,
       in_review: quizzes.filter((q) => filterQuiz(q, "in_review")).length,
+      approved: quizzes.filter((q) => filterQuiz(q, "approved")).length,
       published: quizzes.filter((q) => filterQuiz(q, "published")).length,
       archived: quizzes.filter((q) => filterQuiz(q, "archived")).length,
     };
@@ -72,8 +88,9 @@ export const QuizzesPageMain = () => {
 
   const filterTabs = [
     { key: "all", label: "All" },
-    { key: "drafts", label: "Drafts" },
+    { key: "drafts", label: "Drafts & Revisions" },
     { key: "in_review", label: "In Review" },
+    { key: "approved", label: "Ready to Publish" },
     { key: "published", label: "Published" },
     { key: "archived", label: "Archived" },
   ];
@@ -100,17 +117,17 @@ export const QuizzesPageMain = () => {
       };
     if (quiz.admin_review_status === "faculty_head_review")
       return {
-        label: "Department Head Review",
+        label: "Awaiting Department Head",
         bg: "bg-blue-500/20 text-blue-200 border-blue-400/30",
       };
     if (quiz.admin_review_status === "revision_requested")
       return {
-        label: "Revision",
+        label: "Revision Requested",
         bg: "bg-rose-500/20 text-rose-200 border-rose-400/30",
       };
     if (quiz.admin_review_status === "pending")
       return {
-        label: "Pending",
+        label: "Pending Peer Review",
         bg: "bg-amber-500/20 text-amber-200 border-amber-400/30",
       };
     return { label: "Draft", bg: "bg-white/20 text-white border-white/25" };
@@ -151,6 +168,13 @@ export const QuizzesPageMain = () => {
           title: "No Quizzes In Review",
           message:
             "None of your quizzes are currently in the review pipeline. Submit a draft to get started.",
+        };
+      case "approved":
+        return {
+          icon: "✅",
+          title: "Nothing Ready to Publish",
+          message:
+            "Quizzes approved by the Department Head appear here so you can publish them.",
         };
       case "published":
         return {
@@ -217,7 +241,7 @@ export const QuizzesPageMain = () => {
               My Quizzes
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              {quizzes?.length || 0} total {quizzes?.length === 1 ? "quiz" : "quizzes"} · Create, manage, and publish assessments
+              {counts.all || 0} active {counts.all === 1 ? "quiz" : "quizzes"} · Create, manage, and publish assessments
             </p>
           </div>
           <CreateQuizFormButton
@@ -347,6 +371,7 @@ export const QuizzesPageMain = () => {
                   quiz.admin_review_status === "faculty_head_review";
                 const isOutdatedVersion =
                   !quiz.is_archived && quiz.hasNewerVersion;
+                const isOwner = quiz.owner_id === user?.id;
 
                 return (
                   <div
@@ -436,15 +461,15 @@ export const QuizzesPageMain = () => {
                         </svg>
                         <span className="font-semibold text-slate-500">Owner:</span>
                         <span className="font-extrabold text-slate-900 truncate">
-                          ({quiz.owner_name || (quiz.profiles ? `${quiz.profiles.first_name || ''} ${quiz.profiles.last_name || ''}`.trim() : null) || user?.user_metadata?.full_name || "Instructor"})
+                          {quiz.owner_name || (quiz.profiles ? `${quiz.profiles.first_name || ''} ${quiz.profiles.last_name || ''}`.trim() : null) || user?.user_metadata?.full_name || "Instructor"}
                         </span>
                       </div>
 
-                      {/* Senior Faculty Feedback Inline */}
+                      {/* Review Feedback Inline */}
                       {quiz.admin_review_status === "revision_requested" && (
                         <div className="rounded-xl border px-3 py-2 text-xs border-rose-200 bg-rose-50 text-rose-700">
                           <span className="font-bold">
-                            Senior Faculty Feedback:{" "}
+                            {quiz.admin_review_feedback_source || "Reviewer"} Feedback:{" "}
                           </span>
                           {quiz.admin_review_feedback?.trim() ||
                             "No feedback provided yet."}
@@ -509,24 +534,33 @@ export const QuizzesPageMain = () => {
                             }
                             className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
-                            {isApproved || isReviewLocked || isOutdatedVersion
+                            {isApproved || isReviewLocked || isOutdatedVersion || !isOwner
                               ? "View"
                               : "Edit"}
                           </button>
                         )}
 
                         {/* Approved: Publish */}
-                        {isApproved && (
+                        {isApproved && isOwner && (
                           <button
-                            onClick={() => handlePublishQuiz(quiz.id)}
+                            onClick={async () => {
+                              const confirmed = await confirm({
+                                title: "Publish Quiz",
+                                message: `Publish "${quiz.title}"? Students in the assigned sections will be able to take it, and it can no longer be edited.`,
+                                confirmText: "Publish",
+                                cancelText: "Cancel",
+                                variant: "info",
+                              });
+                              if (confirmed) handlePublishQuiz(quiz.id);
+                            }}
                             className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-xs font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
                             Publish
                           </button>
                         )}
 
-                        {/* Archive / Restore */}
-                        {quiz.is_archived ? (
+                        {/* Archive / Restore (owner only) */}
+                        {!isOwner ? null : quiz.is_archived ? (
                           <button
                             onClick={() => handleRestoreQuiz(quiz.id)}
                             className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-xs font-bold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -535,7 +569,16 @@ export const QuizzesPageMain = () => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleArchiveQuiz(quiz.id)}
+                            onClick={async () => {
+                              const confirmed = await confirm({
+                                title: "Archive Quiz",
+                                message: `Archive "${quiz.title}"? It will be closed to students. You can restore it later from the Archived tab.`,
+                                confirmText: "Archive",
+                                cancelText: "Cancel",
+                                variant: "warning",
+                              });
+                              if (confirmed) handleArchiveQuiz(quiz.id);
+                            }}
                             className="px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                             title="Archive this quiz"
                           >

@@ -67,27 +67,12 @@ export const QuizResults = () => {
       if (attemptsError) throw attemptsError;
       setAttempts(attemptsData || []);
 
-      // Auto-assign any legacy null section_id attempts to this section so they stay partitioned
-      if (sectionId && attemptsData && attemptsData.some((a) => !a.section_id)) {
-        const nullIds = attemptsData.filter((a) => !a.section_id).map((a) => a.id);
-        if (nullIds.length > 0) {
-          try {
-            await supabase
-              .from("quiz_attempts")
-              .update({ section_id: sectionId })
-              .in("id", nullIds);
-          } catch (e) {
-            console.warn("Could not backfill attempt section_id:", e);
-          }
-        }
-      }
-
       // Load questions for the specific current quiz (do not merge duplicate revision questions)
       let finalQuestions = [];
       try {
         const { data: juncQs } = await supabase
           .from("quiz_questions")
-          .select("questions(id, text, created_at), order_index")
+          .select("questions(id, text, points, created_at), order_index")
           .eq("quiz_id", quizId)
           .order("order_index", { ascending: true });
 
@@ -101,7 +86,7 @@ export const QuizResults = () => {
       if (finalQuestions.length === 0) {
         const { data: directQs } = await supabase
           .from("questions")
-          .select("id, text, created_at")
+          .select("id, text, points, created_at")
           .eq("quiz_id", quizId)
           .order("created_at", { ascending: true });
 
@@ -113,7 +98,7 @@ export const QuizResults = () => {
       if (finalQuestions.length === 0 && quizData.parent_quiz_id) {
         const { data: parentQs } = await supabase
           .from("questions")
-          .select("id, text, created_at")
+          .select("id, text, points, created_at")
           .eq("quiz_id", quizData.parent_quiz_id)
           .order("created_at", { ascending: true });
 
@@ -157,8 +142,10 @@ export const QuizResults = () => {
     }
   };
 
+  const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
+
   const getStudentName = (attempt) => {
-    return attempt.student_name || "Authenticated User";
+    return attempt.student_name || attempt.guest_name || "Unnamed student";
   };
 
   const getStudentEmail = (attempt) => {
@@ -188,9 +175,11 @@ export const QuizResults = () => {
 
     return (
       <span
-        className={`px-3 py-1 rounded-full text-sm font-semibold ${statusClass[attempt.status]}`}
+        className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${statusClass[attempt.status] || "bg-gray-100 text-gray-700"}`}
       >
-        {attempt.status.charAt(0).toUpperCase() + attempt.status.slice(1)}
+        {(attempt.status || "unknown")
+          .replace(/_/g, " ")
+          .replace(/^\w/, (c) => c.toUpperCase())}
       </span>
     );
   };
@@ -250,6 +239,63 @@ export const QuizResults = () => {
         </div>
       </div>
 
+      {attempts.length > 0 && (
+        <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">
+              Total Attempts
+            </p>
+            <p className="text-3xl font-bold text-brand-navy">
+              {attempts.length}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">
+              Completed
+            </p>
+            <p className="text-3xl font-bold text-green-600">
+              {attempts.filter((a) => a.status === "completed").length}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">
+              Average Score
+            </p>
+            <p className="text-3xl font-bold text-blue-600">
+              {(() => {
+                const completedAttempts = attempts.filter(
+                  (a) => a.status === "completed",
+                );
+                if (completedAttempts.length === 0) return 0;
+                const total = completedAttempts.reduce(
+                  (sum, a) => sum + (a.score || 0),
+                  0,
+                );
+                const avg = total / completedAttempts.length;
+                return `${Math.round(avg * 10) / 10}${totalPoints ? ` / ${totalPoints}` : ""}`;
+              })()}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">
+              Highest Score
+            </p>
+            <p className="text-3xl font-bold text-purple-600">
+              {Math.max(
+                0,
+                ...attempts
+                  .filter((a) => a.status === "completed")
+                  .map((a) => a.score || 0),
+              )}
+              {totalPoints ? ` / ${totalPoints}` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {attempts.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center shadow-xs border border-slate-200">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-navy/10 text-brand-navy flex items-center justify-center">
@@ -266,8 +312,8 @@ export const QuizResults = () => {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+          <table className="w-full min-w-[720px]">
             <thead className="bg-brand-navy text-white">
               <tr>
                 <th className="px-6 py-4 text-left font-semibold">
@@ -298,6 +344,7 @@ export const QuizResults = () => {
                   <td className="px-6 py-4 text-center">
                     <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-bold">
                       {attempt.score || 0}
+                      {totalPoints ? ` / ${totalPoints}` : ""}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -316,7 +363,7 @@ export const QuizResults = () => {
                       <button
                         onClick={() =>
                           navigate(
-                            `/instructor-dashboard/quiz-results/${quizId}/attempt/${attempt.id}`,
+                            `${window.location.pathname.startsWith("/admin-dashboard") ? "/admin-dashboard" : "/instructor-dashboard"}/quiz-results/${quizId}/attempt/${attempt.id}`,
                           )
                         }
                         className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
@@ -380,17 +427,8 @@ export const QuizResults = () => {
                         </td>
                         {questions.map((q, qIdx) => {
                           const perQuestion = timeByAttemptQuestion[attempt.id];
-                          let seconds = undefined;
-                          if (perQuestion) {
-                            if (q.id in perQuestion) {
-                              seconds = perQuestion[q.id];
-                            } else {
-                              const entryValues = Object.values(perQuestion);
-                              if (entryValues[qIdx] !== undefined) {
-                                seconds = entryValues[qIdx];
-                              }
-                            }
-                          }
+                          const seconds =
+                            perQuestion && q.id in perQuestion ? perQuestion[q.id] : undefined;
                           const hasEntry = seconds !== undefined;
                           return (
                             <td
@@ -412,60 +450,7 @@ export const QuizResults = () => {
           </div>
         )}
 
-      {attempts.length > 0 && (
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600 text-sm font-semibold mb-2">
-              Total Attempts
-            </p>
-            <p className="text-3xl font-bold text-brand-navy">
-              {attempts.length}
-            </p>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600 text-sm font-semibold mb-2">
-              Completed
-            </p>
-            <p className="text-3xl font-bold text-green-600">
-              {attempts.filter((a) => a.status === "completed").length}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600 text-sm font-semibold mb-2">
-              Average Score
-            </p>
-            <p className="text-3xl font-bold text-blue-600">
-              {(() => {
-                const completedAttempts = attempts.filter(
-                  (a) => a.status === "completed",
-                );
-                if (completedAttempts.length === 0) return 0;
-                const total = completedAttempts.reduce(
-                  (sum, a) => sum + (a.score || 0),
-                  0,
-                );
-                return Math.round(total / completedAttempts.length);
-              })()}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600 text-sm font-semibold mb-2">
-              Highest Score
-            </p>
-            <p className="text-3xl font-bold text-purple-600">
-              {Math.max(
-                0,
-                ...attempts
-                  .filter((a) => a.status === "completed")
-                  .map((a) => a.score || 0),
-              )}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

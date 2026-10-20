@@ -9,20 +9,22 @@ import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisio
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { analyzeGADQuestion, detectGenderBias, replaceGenderBiasedTerm } from "../../services/gadAnalysisService.js";
 
-const QUESTION_TYPES = [{ value: "mcq", label: "Multiple Choice" }];
+// Review states during which the quiz content must not change
+const REVIEW_LOCKED_STATUSES = ["pending", "faculty_head_review", "approved", "faculty_head_approved"];
+
+// Questions that only exist in the editor (not yet saved to the database)
+const isUnsavedQuestionId = (id) =>
+  typeof id === "number" || String(id).startsWith("restored-");
 
 const transformQuestions = (rows) => {
   const seenIds = new Set();
-  const seenTexts = new Set();
   const uniqueRows = (rows || []).filter((q) => {
     if (!q || !q.id) return false;
-    const normalizedText = (q.text || "").toLowerCase().trim();
     if (seenIds.has(q.id)) return false;
-    if (normalizedText && seenTexts.has(normalizedText)) return false;
     seenIds.add(q.id);
-    if (normalizedText) seenTexts.add(normalizedText);
     return true;
   });
 
@@ -107,9 +109,21 @@ export const InstructorQuiz = () => {
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [parentQuizId, setParentQuizId] = useState(null);
   const [restoredFromSnapshot, setRestoredFromSnapshot] = useState(0);
-  const [crossSectionSource, setCrossSectionSource] = useState(null);
-  const [crossSectionSourceQuiz, setCrossSectionSourceQuiz] = useState(null);
   const [autoSharing, setAutoSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState(null);
+  const [quizOwnerId, setQuizOwnerId] = useState(null);
+
+  // A quiz is read-only once published, while it is in the review pipeline,
+  // or when it belongs to another instructor.
+  const isReviewLocked = REVIEW_LOCKED_STATUSES.includes(reviewStatus);
+  const isNotOwner = Boolean(quizId && quizOwnerId && userId && quizOwnerId !== userId);
+  const isLocked = isPublished || isReviewLocked || isNotOwner;
+  // Only the instructor's own active sections can be assigned from the editor;
+  // colleague sections added by subject auto-sharing are left untouched.
+  const mySections = availableSections.filter(
+    (s) => s.instructor_id === userId && !s.is_archived,
+  );
 
   // Question Bank import modal state
   const [showBankModal, setShowBankModal] = useState(false);
@@ -125,7 +139,7 @@ export const InstructorQuiz = () => {
       };
       setQuestions(updated);
       setExpandedQuestions(new Set([...expandedQuestions, targetId]));
-      markDirty();
+      markQuestionsDirty();
       notify.success(`Question #${bankTargetIndex + 1} updated from Question Bank!`);
     } else {
       const newQuestionObj = {
@@ -134,7 +148,7 @@ export const InstructorQuiz = () => {
       };
       setQuestions([...questions, newQuestionObj]);
       setExpandedQuestions(new Set([...expandedQuestions, newQuestionObj.id]));
-      markDirty();
+      markQuestionsDirty();
       notify.success("New question imported from Question Bank!");
     }
   };
@@ -305,7 +319,7 @@ export const InstructorQuiz = () => {
           return next;
         });
 
-        markDirty();
+        markQuestionsDirty();
         notify.success(`Successfully imported ${newQuestions.length} question(s) from CSV!`);
       } catch (err) {
         console.error("CSV import error:", err);
@@ -390,6 +404,8 @@ export const InstructorQuiz = () => {
   };
   const autoSaveTimer = useRef(null);
   const initialLoadDone = useRef(false);
+  // Question edits are only persisted by an explicit save; auto-save covers quiz details
+  const questionsDirtyRef = useRef(false);
 
   // Track unsaved changes after initial load
   const markDirty = useCallback(() => {
@@ -398,31 +414,72 @@ export const InstructorQuiz = () => {
     }
   }, []);
 
-  // Auto-save every 30 seconds when there are unsaved changes
+  const markQuestionsDirty = useCallback(() => {
+    if (initialLoadDone.current) {
+      questionsDirtyRef.current = true;
+      setHasUnsavedChanges(true);
+    }
+  }, []);
+
+  // Warn before closing the tab with unsaved changes
   useEffect(() => {
-    if (!quizId || isPublished || !hasUnsavedChanges) return;
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEscapeKey(() => setShowAddQuestionPopup(false), showAddQuestionPopup);
+  useEscapeKey(() => {
+    if (!saveSectionsLoading) handleCloseSectionModal();
+  }, showSectionModal);
+
+  const leaveEditor = async () => {
+    if (hasUnsavedChanges) {
+      const confirmed = await confirm({
+        title: "Discard Unsaved Changes?",
+        message: "You have unsaved changes to this quiz. Leave without saving?",
+        confirmText: "Leave",
+        cancelText: "Stay",
+        variant: "warning",
+      });
+      if (!confirmed) return;
+    }
+    setHasUnsavedChanges(false);
+    navigate(quizzesPath);
+  };
+
+  // Auto-save quiz details 30 seconds after the last change
+  useEffect(() => {
+    if (!quizId || isLocked || !hasUnsavedChanges) return;
 
     autoSaveTimer.current = setTimeout(async () => {
       if (!quizTitle.trim()) return;
+      const parsedDuration = quizDuration ? parseInt(quizDuration) : null;
+      if (parsedDuration !== null && (isNaN(parsedDuration) || parsedDuration < 1)) return;
       try {
-        await supabase
+        const { error: autoSaveError } = await supabase
           .from("quizzes")
           .update({
             title: quizTitle,
             description: quizDescription || null,
-            duration: quizDuration ? parseInt(quizDuration) : null,
+            duration: parsedDuration,
             is_private: isPrivate,
           })
           .eq("id", quizId);
+        if (autoSaveError) throw autoSaveError;
         setLastSaved(new Date());
-        setHasUnsavedChanges(false);
+        if (!questionsDirtyRef.current) setHasUnsavedChanges(false);
       } catch (err) {
         console.error("Auto-save failed:", err);
       }
     }, 30000);
 
     return () => clearTimeout(autoSaveTimer.current);
-  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isPublished, isPrivate]);
+  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isLocked, isPrivate]);
 
   useEffect(() => {
     loadSections();
@@ -442,59 +499,73 @@ export const InstructorQuiz = () => {
     }
   }, [location.pathname, location.state, navigate]);
 
+  // Add/remove only the changed section links so existing rows (and their
+  // section-specific share tokens) are preserved.
+  const syncQuizSections = async (targetQuizId, sectionIds) => {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("quiz_sections")
+      .select("section_id")
+      .eq("quiz_id", targetQuizId);
+    if (existingError) throw existingError;
+
+    const existingIds = new Set((existingRows || []).map((r) => r.section_id));
+    const wantedIds = new Set(sectionIds);
+    const toRemove = [...existingIds].filter((id) => !wantedIds.has(id));
+    const toAdd = [...wantedIds].filter((id) => !existingIds.has(id));
+
+    if (toRemove.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("quiz_sections")
+        .delete()
+        .eq("quiz_id", targetQuizId)
+        .in("section_id", toRemove);
+      if (deleteError) throw deleteError;
+    }
+
+    if (toAdd.length > 0) {
+      const { error: insertError } = await supabase
+        .from("quiz_sections")
+        .insert(toAdd.map((sectionId) => ({ quiz_id: targetQuizId, section_id: sectionId })));
+      if (insertError) throw insertError;
+    }
+
+    const { error: updateError } = await supabase
+      .from("quizzes")
+      .update({ section_id: sectionIds[0] || null })
+      .eq("id", targetQuizId);
+    if (updateError) throw updateError;
+  };
+
   const saveSectionAssignments = async () => {
     if (!quizId) return;
 
     setSaveSectionsLoading(true);
     try {
-      const { error: deleteError } = await supabase
+      await syncQuizSections(quizId, selectedSectionIds);
+
+      const { data: sectionTokens } = await supabase
         .from("quiz_sections")
-        .delete()
+        .select("share_token, section_id, sections(*)")
         .eq("quiz_id", quizId);
-
-      if (deleteError) throw deleteError;
-
-      if (selectedSectionIds.length > 0) {
-        const sectionInserts = selectedSectionIds.map((sectionId) => ({
-          quiz_id: quizId,
-          section_id: sectionId,
-        }));
-
-        const { data: insertedSections, error: insertError } = await supabase
-          .from("quiz_sections")
-          .insert(sectionInserts)
-          .select();
-
-        if (insertError) throw insertError;
-
-        // Update section share tokens state
-        if (insertedSections) {
-          const { data: sectionTokens } = await supabase
-            .from("quiz_sections")
-            .select("share_token, section_id, sections(*)")
-            .eq("quiz_id", quizId);
-          
-          if (sectionTokens) {
-            setSectionShareTokens(sectionTokens);
-          }
-        }
-      }
-
-      const { error: updateError } = await supabase
-        .from("quizzes")
-        .update({ section_id: selectedSectionIds[0] || null })
-        .eq("id", quizId);
-
-      if (updateError) throw updateError;
+      if (sectionTokens) setSectionShareTokens(sectionTokens);
     } finally {
       setSaveSectionsLoading(false);
     }
   };
 
   const handleCloseSectionModal = async () => {
+    if (isLocked) {
+      setShowSectionModal(false);
+      return;
+    }
+    if (selectedSectionIds.length === 0) {
+      notify.warning("Select at least one section for this quiz.");
+      return;
+    }
     try {
       await saveSectionAssignments();
       setShowSectionModal(false);
+      notify.success("Section assignments saved.");
 
       if (returnToQuizzesAfterAssign) {
         navigate(quizzesPath, {
@@ -597,11 +668,28 @@ export const InstructorQuiz = () => {
       setIsPrivate(quiz.is_private !== false);
       setShareToken(quiz.share_token || "");
       setParentQuizId(quiz.parent_quiz_id || null);
+      setQuizOwnerId(quiz.instructor_id || null);
 
-      // Load section-specific share tokens
-      if (quizId) {
+      // Latest review submission decides whether the content is locked
+      let latestStatus = null;
+      if (currentUser?.id) {
+        const { data: latestSub } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("status")
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        latestStatus = latestSub?.status || null;
+      }
+      setReviewStatus(latestStatus);
 
-        // Auto-share with any new sections in the same subject
+      const isOwner = currentUser?.id && quiz.instructor_id === currentUser.id;
+      const contentLocked =
+        quiz.is_published || REVIEW_LOCKED_STATUSES.includes(latestStatus) || !isOwner;
+
+      // Auto-share with any new sections in the same subject (owner drafts only)
+      if (!contentLocked) {
         try {
           await supabase.rpc("auto_share_quiz_with_subject_sections", {
             p_quiz_id: quizId,
@@ -609,64 +697,33 @@ export const InstructorQuiz = () => {
         } catch (e) {
           console.warn("Auto-share on load skipped:", e);
         }
-
-        const { data: sectionTokens, error: tokenError } = await supabase
-          .from("quiz_sections")
-          .select("share_token, section_id, sections(*)")
-          .eq("quiz_id", quizId);
-        
-        console.log("Section tokens loaded:", sectionTokens);
-        console.log("Token error:", tokenError);
-        console.log("Number of sections:", sectionTokens?.length || 0);
-        
-        if (sectionTokens && sectionTokens.length > 0) {
-          setSectionShareTokens(sectionTokens);
-          
-          // Check if any sections are missing tokens
-          const missingTokens = sectionTokens.filter(st => !st.share_token);
-          console.log("Sections missing tokens:", missingTokens);
-          
-          if (missingTokens.length > 0) {
-            console.log("Generating tokens for sections without tokens...");
-            const { error: genError } = await supabase.rpc("generate_share_tokens_for_quiz", {
-              p_quiz_id: quizId
-            });
-            
-            console.log("Token generation error:", genError);
-            
-            if (!genError) {
-              // Reload tokens after generation
-              const { data: newTokens } = await supabase
-                .from("quiz_sections")
-                .select("share_token, section_id, sections(*)")
-                .eq("quiz_id", quizId);
-              
-              console.log("New tokens after generation:", newTokens);
-              
-              if (newTokens) {
-                setSectionShareTokens(newTokens);
-              }
-            }
-          }
-        } else {
-          console.log("No section tokens found. Quiz might not be assigned to sections.");
-        }
       }
 
-      const { data: qsData, error: qsError } = await supabase
+      // Load section-specific share tokens
+      const { data: sectionTokens } = await supabase
         .from("quiz_sections")
-        .select("section_id, sections(*)")
+        .select("share_token, section_id, sections(*)")
         .eq("quiz_id", quizId);
-      
-      console.log("Quiz sections data:", qsData);
-      console.log("Quiz sections error:", qsError);
-      
-      if (!qsError && qsData && qsData.length > 0) {
-        setSelectedSectionIds(qsData.map((d) => d.section_id));
-        console.log("Quiz assigned to sections:", qsData.map(d => d.sections?.name || d.section_id));
+
+      if (sectionTokens && sectionTokens.length > 0) {
+        setSectionShareTokens(sectionTokens);
+
+        const missingTokens = sectionTokens.filter((st) => !st.share_token);
+        if (missingTokens.length > 0 && isOwner) {
+          const { error: genError } = await supabase.rpc("generate_share_tokens_for_quiz", {
+            p_quiz_id: quizId,
+          });
+          if (!genError) {
+            const { data: newTokens } = await supabase
+              .from("quiz_sections")
+              .select("share_token, section_id, sections(*)")
+              .eq("quiz_id", quizId);
+            if (newTokens) setSectionShareTokens(newTokens);
+          }
+        }
+        setSelectedSectionIds(sectionTokens.map((d) => d.section_id));
       } else if (quiz.section_id) {
         setSelectedSectionIds([quiz.section_id]); // fallback for old data
-        console.log("Using fallback section_id:", quiz.section_id);
       }
 
       const isMissingTableErr = (err) => {
@@ -744,72 +801,6 @@ export const InstructorQuiz = () => {
               resolved = parentViaJunction;
             }
           }
-        }
-      }
-
-      if (!resolved || resolved.rows.length === 0) {
-        // Load questions from other quizzes in the same subject (cross-section sharing)
-        try {
-          const { data: instructorSubject } = await supabase
-            .from("instructor_subjects")
-            .select("subject_id")
-            .eq("instructor_id", quiz.instructor_id)
-            .limit(1)
-            .maybeSingle();
-
-          if (instructorSubject?.subject_id) {
-            // Get all instructor_subject_ids for this subject
-            const { data: instructorSubjectIds } = await supabase
-              .from("instructor_subjects")
-              .select("id")
-              .eq("subject_id", instructorSubject.subject_id);
-
-            const issIds = instructorSubjectIds?.map(iss => iss.id) || [];
-
-            // Get all sections in the same subject
-            const { data: subjectSections } = await supabase
-              .from("instructor_subject_sections")
-              .select("section_id")
-              .in("instructor_subject_id", issIds);
-
-            const sectionIds = subjectSections?.map(ss => ss.section_id) || [];
-
-            // Get all quizzes from these sections (excluding current quiz)
-            const { data: otherQuizzes } = await supabase
-              .from("quiz_sections")
-              .select("quiz_id")
-              .in("section_id", sectionIds)
-              .neq("quiz_id", quizId);
-
-            const otherQuizIds = [...new Set(otherQuizzes?.map(oq => oq.quiz_id) || [])];
-
-            // Try to load questions from these other quizzes
-            for (const otherQuizId of otherQuizIds) {
-              const otherQuizQuestions = await loadViaJunction(otherQuizId);
-              if (otherQuizQuestions && otherQuizQuestions.rows.length > 0) {
-                resolved = otherQuizQuestions;
-                resolved._fromCrossSection = true;
-                resolved._sourceQuizId = otherQuizId;
-                setCrossSectionSource(otherQuizId);
-                
-                // Fetch the source quiz details
-                const { data: sourceQuiz } = await supabase
-                  .from("quizzes")
-                  .select("title, instructor_id")
-                  .eq("id", otherQuizId)
-                  .single();
-                
-                if (sourceQuiz) {
-                  setCrossSectionSourceQuiz(sourceQuiz);
-                }
-                
-                console.log(`Loaded questions from cross-section quiz: ${otherQuizId}`);
-                break;
-              }
-            }
-          }
-        } catch (crossSectionError) {
-          console.error("Error loading cross-section questions:", crossSectionError);
         }
       }
 
@@ -934,20 +925,22 @@ export const InstructorQuiz = () => {
     });
     const updated = [...questions, ...newQuestions];
     setQuestions(updated);
+    markQuestionsDirty();
     setShowAddQuestionPopup(false);
     const newTotalPages = Math.ceil(updated.length / QUESTIONS_PER_PAGE);
     setCurrentPage(newTotalPages);
   };
 
   const updateQuestion = (id, field, value) => {
-    setQuestions(
-      questions.map((q) => (q.id === id ? { ...q, [field]: value } : q)),
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, [field]: value } : q)),
     );
+    markQuestionsDirty();
   };
 
   const updateOption = (questionId, optionIndex, value) => {
-    setQuestions(
-      questions.map((q) =>
+    setQuestions((prev) =>
+      prev.map((q) =>
         q.id === questionId
           ? {
               ...q,
@@ -958,24 +951,41 @@ export const InstructorQuiz = () => {
           : q,
       ),
     );
+    markQuestionsDirty();
   };
 
   const addOption = (questionId) => {
-    setQuestions(
-      questions.map((q) =>
+    setQuestions((prev) =>
+      prev.map((q) =>
         q.id === questionId ? { ...q, options: [...q.options, ""] } : q,
       ),
     );
+    markQuestionsDirty();
   };
 
+  // Keep the correct answer pointing at the same option after a removal
   const removeOption = (questionId, optionIndex) => {
-    setQuestions(
-      questions.map((q) =>
-        q.id === questionId
-          ? { ...q, options: q.options.filter((_, idx) => idx !== optionIndex) }
-          : q,
-      ),
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== questionId) return q;
+        let correctAnswer = q.correctAnswer;
+        if (typeof correctAnswer === "number") {
+          if (optionIndex === correctAnswer) correctAnswer = 0;
+          else if (optionIndex < correctAnswer) correctAnswer -= 1;
+        }
+        return {
+          ...q,
+          options: q.options.filter((_, idx) => idx !== optionIndex),
+          correctAnswer,
+        };
+      }),
     );
+    markQuestionsDirty();
+  };
+
+  const removeQuestionLocally = (id) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== id));
+    markQuestionsDirty();
   };
 
   const generateShareToken = () => {
@@ -998,9 +1008,9 @@ export const InstructorQuiz = () => {
   const archiveQuestion = async (id) => {
     setDeletingQuestionId(id);
 
-    // If it's a new question (temp ID from Date.now()), just remove from state
-    if (typeof id === "number" && id > 10000000000) {
-      setQuestions(questions.filter((q) => q.id !== id));
+    // Unsaved questions have nothing to archive; just remove them from the editor
+    if (isUnsavedQuestionId(id)) {
+      removeQuestionLocally(id);
       setDeletingQuestionId(null);
       return;
     }
@@ -1051,7 +1061,26 @@ export const InstructorQuiz = () => {
 
   const handleSaveQuiz = async (publish = false, redirectOnSave = true) => {
     setError("");
+
+    if (isLocked) {
+      const err = isPublished
+        ? "This quiz is published and can no longer be edited."
+        : isNotOwner
+          ? "Only the quiz owner can edit this quiz."
+          : "This quiz is under review and can't be edited until the review is finished.";
+      setError(err);
+      return { error: err };
+    }
+
     setSaveStatus("Saving...");
+
+    const parsedDuration = quizDuration === "" || quizDuration === null ? null : parseInt(quizDuration);
+    if (parsedDuration !== null && (isNaN(parsedDuration) || parsedDuration < 1)) {
+      const err = "Duration must be at least 1 minute, or left blank for no time limit.";
+      setError(err);
+      setSaveStatus("");
+      return { error: err };
+    }
 
     if (!quizTitle.trim()) {
       const err = "Quiz title is required";
@@ -1085,9 +1114,19 @@ export const InstructorQuiz = () => {
         setSaveStatus("");
         return { error: err };
       }
+      if (
+        q.type === "mcq" &&
+        typeof q.correctAnswer === "number" &&
+        !String(q.options?.[q.correctAnswer] || "").trim()
+      ) {
+        const err = `Question #${i + 1}: the option marked as correct is empty. Fill it in or choose another correct answer.`;
+        setError(err);
+        setSaveStatus("");
+        return { error: err };
+      }
     }
 
-    setLoading(true);
+    setSaving(true);
     try {
       const {
         data: { user },
@@ -1095,7 +1134,7 @@ export const InstructorQuiz = () => {
       if (!user) {
         const err = "User not authenticated. Please log in again.";
         setError(err);
-        setLoading(false);
+        setSaving(false);
         setSaveStatus("");
         return { error: err };
       }
@@ -1106,8 +1145,12 @@ export const InstructorQuiz = () => {
       const formatCorrectAnswer = (q) => {
         if (q.type === "mcq") {
           const opts = (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim());
-          if (typeof q.correctAnswer === "number" && opts[q.correctAnswer]) {
-            return opts[q.correctAnswer];
+          // Read the answer from the unfiltered list: the index refers to the
+          // options as shown in the editor, blanks included.
+          const selected =
+            typeof q.correctAnswer === "number" ? q.options?.[q.correctAnswer] : null;
+          if (typeof selected === "string" && selected.trim()) {
+            return selected;
           }
           if (typeof q.correctAnswer === "string" && q.correctAnswer.trim()) {
             return q.correctAnswer.trim();
@@ -1177,7 +1220,8 @@ export const InstructorQuiz = () => {
       };
 
       if (quizId) {
-        if (publish) {
+        // Keep an existing share token so links already sent to students keep working
+        if (publish && !newToken) {
           newToken = generateShareToken();
         }
 
@@ -1190,21 +1234,27 @@ export const InstructorQuiz = () => {
           .update({
             title: cleanTitle,
             description: quizDescription || null,
-            duration: quizDuration ? parseInt(quizDuration) : null,
+            duration: parsedDuration,
             is_published: publish || isPublished,
             is_private: isPrivate,
-            share_token: publish ? newToken : shareToken || null,
+            share_token: newToken || null,
           })
           .eq("id", quizId)
           .select();
 
         if (updateError) throw updateError;
+        if (!data || data.length === 0) {
+          throw new Error("You don't have permission to edit this quiz.");
+        }
         quizData = data[0];
 
+        // Only active questions are compared with the editor. Archived questions
+        // were deliberately moved to the Question Bank and must not be deleted.
         const { data: existingQuestions } = await supabase
           .from("questions")
           .select("id")
-          .eq("quiz_id", quizId);
+          .eq("quiz_id", quizId)
+          .or("is_archived.is.null,is_archived.eq.false");
         const existingQuestionIds = new Set(
           existingQuestions?.map((q) => q.id) || [],
         );
@@ -1227,7 +1277,7 @@ export const InstructorQuiz = () => {
         }
 
         for (const q of questions) {
-          if (typeof q.id !== "number" && existingQuestionIds.has(q.id)) {
+          if (!isUnsavedQuestionId(q.id) && existingQuestionIds.has(q.id)) {
             const updateErr = await safeUpdateQuestion(q);
             if (updateErr) throw updateErr;
           }
@@ -1272,7 +1322,7 @@ export const InstructorQuiz = () => {
               section_id: selectedSectionIds[0] || null,
               title: quizTitle,
               description: quizDescription || null,
-              duration: quizDuration ? parseInt(quizDuration) : null,
+              duration: parsedDuration,
               is_published: publish,
               is_private: isPrivate,
               share_token: newToken,
@@ -1338,20 +1388,9 @@ export const InstructorQuiz = () => {
       // Sync the many-to-many relationship in quiz_sections
       if (quizData) {
         try {
-          const { error: deleteError } = await supabase
-            .from("quiz_sections")
-            .delete()
-            .eq("quiz_id", quizData.id);
-
-          if (!deleteError && selectedSectionIds.length > 0) {
-            const sectionInserts = selectedSectionIds.map((sId) => ({
-              quiz_id: quizData.id,
-              section_id: sId,
-            }));
-            await supabase.from("quiz_sections").insert(sectionInserts);
-          }
+          await syncQuizSections(quizData.id, selectedSectionIds);
         } catch (tableError) {
-          console.warn("quiz_sections table might not exist yet:", tableError);
+          console.warn("Could not sync quiz sections:", tableError);
         }
 
         try {
@@ -1398,18 +1437,11 @@ export const InstructorQuiz = () => {
             junctionSyncErr,
           );
         }
-
-        await supabase
-          .from("quizzes")
-          .update({
-            section_id:
-              selectedSectionIds.length > 0 ? selectedSectionIds[0] : null,
-          })
-          .eq("id", quizData.id);
       }
 
       if (newToken) setShareToken(newToken);
       setRestoredFromSnapshot(0);
+      questionsDirtyRef.current = false;
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
 
@@ -1440,7 +1472,7 @@ export const InstructorQuiz = () => {
       console.error("[handleSaveQuiz error]:", err);
       return { error: msg };
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -1466,7 +1498,7 @@ export const InstructorQuiz = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
         <div className="flex items-center gap-3 mb-3">
           <button
-            onClick={() => navigate(quizzesPath)}
+            onClick={leaveEditor}
             aria-label="Back to quizzes"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
@@ -1488,43 +1520,36 @@ export const InstructorQuiz = () => {
             </h1>
             <p className="text-white/60 text-sm mt-1">
               {isPublished
-                ? "Published quiz - view results or manage questions"
-                : "Draft - add questions and submit for review when ready"}
+                ? "Published quiz - view results and share links"
+                : isReviewLocked
+                  ? "In the review process - read-only until the review is finished"
+                  : isNotOwner
+                    ? "Shared quiz - read-only"
+                    : "Draft - add questions and submit for review when ready"}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Status pill */}
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-bold ${
-                isPublished
-                  ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                  : "bg-brand-gold/20 text-brand-gold border border-brand-gold/30"
-              }`}
-            >
-              {isPublished ? "Published" : "Draft"}
+            {(() => {
+              const pill = isPublished
+                ? { label: "Published", cls: "bg-green-500/20 text-green-300 border border-green-500/30" }
+                : reviewStatus === "approved" || reviewStatus === "faculty_head_approved"
+                  ? { label: "Approved", cls: "bg-green-500/20 text-green-300 border border-green-500/30" }
+                  : reviewStatus === "pending" || reviewStatus === "faculty_head_review"
+                    ? { label: "In Review", cls: "bg-blue-500/20 text-blue-200 border border-blue-400/30" }
+                    : reviewStatus === "revision_requested"
+                      ? { label: "Needs Revision", cls: "bg-rose-500/20 text-rose-200 border border-rose-400/30" }
+                      : { label: "Draft", cls: "bg-brand-gold/20 text-brand-gold border border-brand-gold/30" };
+              return (
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${pill.cls}`}>
+                  {pill.label}
+                </span>
+              );
+            })()}
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white/90 border border-white/20">
+              {isPrivate ? "Private" : "Public"}
             </span>
-
-            {/* Privacy toggle */}
-            {!isPublished && (
-              <button
-                type="button"
-                onClick={() => {
-                  const nextVal = !isPrivate;
-                  setIsPrivate(nextVal);
-                  markDirty();
-                  notify.info(nextVal ? "Quiz set to Private (only visible to you)" : "Quiz set to Public (visible to all instructors)");
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
-                  isPrivate
-                    ? "bg-white/10 text-white/90 border-white/20 hover:bg-white/20"
-                    : "bg-brand-gold text-brand-navy border-brand-gold hover:bg-brand-gold-dark"
-                }`}
-                title={isPrivate ? "Private: Only you can view this quiz in Question Bank" : "Public: Other instructors can view and import questions from this quiz"}
-              >
-                <span>{isPrivate ? "Private" : "Public"}</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -1541,17 +1566,6 @@ export const InstructorQuiz = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               View Results
-            </button>
-            <button
-              onClick={() =>
-                navigate(questionBankPath(quizId))
-              }
-              className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Question Bank
             </button>
           </div>
         )}
@@ -1575,7 +1589,7 @@ export const InstructorQuiz = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            Quiz Published Successfully!
+            {showShareUrl ? "Quiz Published Successfully!" : "Share Links"}
           </h3>
           <p className="text-gray-700 mb-4">
             Each section has its own unique share code. Share the corresponding code with each section:
@@ -1623,13 +1637,15 @@ export const InstructorQuiz = () => {
               <p className="text-sm text-yellow-800 mb-3">
                 No section-specific share codes available. Make sure the quiz is assigned to sections.
               </p>
-              <button
-                onClick={handleAutoShareWithSubjectSections}
-                disabled={autoSharing}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50"
-              >
-                {autoSharing ? "Sharing..." : "Auto-Share with Same Subject Sections"}
-              </button>
+              {!isNotOwner && (
+                <button
+                  onClick={handleAutoShareWithSubjectSections}
+                  disabled={autoSharing}
+                  className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50"
+                >
+                  {autoSharing ? "Sharing..." : "Share with All Sections of This Subject"}
+                </button>
+              )}
             </div>
           )}
           
@@ -1648,51 +1664,78 @@ export const InstructorQuiz = () => {
           Quiz Information
         </h2>
 
-        {isPublished && (
+        {isLocked && (
           <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
-            This quiz is published and cannot be edited.
+            {isPublished
+              ? "This quiz is published and cannot be edited."
+              : isReviewLocked
+                ? "This quiz is in the review process and cannot be edited until the review is finished. If revisions are requested, use “Edit & Resubmit” from My Submissions."
+                : "This quiz belongs to another instructor and is read-only."}
           </div>
         )}
         <div className="space-y-4">
+          {quizId && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="text-sm text-gray-700">
+                <span className="font-semibold">Assigned sections:</span>{" "}
+                {(() => {
+                  const names = availableSections
+                    .filter((s) => selectedSectionIds.includes(s.id) && s.instructor_id === userId)
+                    .map((s) => s.description || s.name);
+                  return names.length > 0 ? names.join(", ") : "None";
+                })()}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSectionModal(true)}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-navy text-white hover:bg-brand-indigo transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+              >
+                {isLocked ? "View Sections" : "Manage Sections"}
+              </button>
+            </div>
+          )}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="quiz-edit-title" className="block text-sm font-semibold text-gray-700 mb-2">
               Quiz Title *
             </label>
             <input
+              id="quiz-edit-title"
               required
               type="text"
               value={quizTitle}
               onChange={(e) => { setQuizTitle(e.target.value); markDirty(); }}
               placeholder="e.g., Biology Chapter 5 Test"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              disabled={isLocked}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="quiz-edit-description" className="block text-sm font-semibold text-gray-700 mb-2">
               Description / Instructions
             </label>
             <textarea
+              id="quiz-edit-description"
               value={quizDescription}
               onChange={(e) => { setQuizDescription(e.target.value); markDirty(); }}
               placeholder="Enter quiz instructions or description for students (optional)"
-              disabled={isPublished}
+              disabled={isLocked}
               rows={3}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="quiz-edit-duration" className="block text-sm font-semibold text-gray-700 mb-2">
               Duration (minutes)
             </label>
             <input
-              required
+              id="quiz-edit-duration"
               type="number"
+              min="1"
               value={quizDuration}
               onChange={(e) => { setQuizDuration(e.target.value); markDirty(); }}
               placeholder="Leave blank for unlimited"
-              disabled={isPublished}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+              disabled={isLocked}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
           </div>
 
@@ -1706,13 +1749,13 @@ export const InstructorQuiz = () => {
                   isPrivate
                     ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
                     : "border-gray-200 hover:bg-gray-50"
-                } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
+                } ${isLocked ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <input
                   type="radio"
                   name="edit_quiz_visibility"
                   checked={isPrivate}
-                  disabled={isPublished}
+                  disabled={isLocked}
                   onChange={() => {
                     setIsPrivate(true);
                     markDirty();
@@ -1734,13 +1777,13 @@ export const InstructorQuiz = () => {
                   !isPrivate
                     ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy"
                     : "border-gray-200 hover:bg-gray-50"
-                } ${isPublished ? "opacity-60 cursor-not-allowed" : ""}`}
+                } ${isLocked ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <input
                   type="radio"
                   name="edit_quiz_visibility"
                   checked={!isPrivate}
-                  disabled={isPublished}
+                  disabled={isLocked}
                   onChange={() => {
                     setIsPrivate(false);
                     markDirty();
@@ -1815,57 +1858,59 @@ export const InstructorQuiz = () => {
               handleCloseSectionModal();
             }}
           />
-          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Assign to Subjects
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="section-modal-title"
+            className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          >
+            <h3 id="section-modal-title" className="text-lg font-bold text-gray-800 mb-1">
+              Assign to Sections
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Select which subjects this quiz should appear in.
+              Select which of your sections this quiz should appear in.
             </p>
 
-            {availableSections.length === 0 ? (
+            {mySections.length === 0 ? (
               <div className="text-sm text-gray-500 py-4 text-center">
-                No sections available. Create one first!
+                No sections available. Add a section from the Subjects page first.
               </div>
             ) : (
               <>
-                {/* Select All */}
+                {/* Select All (only your own sections; shared sections are kept) */}
                 <label className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={
-                      selectedSectionIds.length === availableSections.length
-                    }
+                    checked={mySections.every((s) => selectedSectionIds.includes(s.id))}
                     onChange={(e) => {
+                      const myIds = mySections.map((s) => s.id);
                       if (e.target.checked) {
-                        setSelectedSectionIds(
-                          availableSections.map((s) => s.id),
-                        );
+                        setSelectedSectionIds([...new Set([...selectedSectionIds, ...myIds])]);
                       } else {
-                        setSelectedSectionIds([]);
+                        setSelectedSectionIds(selectedSectionIds.filter((id) => !myIds.includes(id)));
                       }
                     }}
-                    disabled={isPublished}
+                    disabled={isLocked}
                     className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
                   />
                   <span className="text-sm font-semibold text-gray-800">
                     Select All
                   </span>
                   <span className="ml-auto text-xs text-gray-400">
-                    {selectedSectionIds.length}/{availableSections.length}
+                    {mySections.filter((s) => selectedSectionIds.includes(s.id)).length}/{mySections.length}
                   </span>
                 </label>
 
                 {/* Section List */}
                 <div className="max-h-64 overflow-y-auto space-y-2">
-                  {availableSections.map((sec) => (
+                  {mySections.map((sec) => (
                     <label
                       key={sec.id}
                       className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedSectionIds.includes(sec.id)
                           ? "border-brand-gold bg-brand-gold/10"
                           : "border-gray-200 hover:bg-gray-50"
-                      } ${isPublished ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <input
                         type="checkbox"
@@ -1881,12 +1926,12 @@ export const InstructorQuiz = () => {
                               selectedSectionIds.filter((id) => id !== sec.id),
                             );
                         }}
-                        disabled={isPublished}
+                        disabled={isLocked}
                         className="form-checkbox h-4 w-4 text-brand-gold-dark border-gray-300 rounded"
                       />
                       <div>
                         <span className="block text-sm font-medium text-gray-800">
-                          {sec.section_name || sec.name || "Untitled Section"}
+                          {sec.name || "Untitled Section"}
                         </span>
                         {sec.description && (
                           <span className="block text-xs text-gray-500">
@@ -1906,7 +1951,7 @@ export const InstructorQuiz = () => {
                 disabled={saveSectionsLoading}
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saveSectionsLoading ? "Saving..." : "Done"}
+                {saveSectionsLoading ? "Saving..." : isLocked ? "Close" : "Save Sections"}
               </button>
             </div>
           </div>
@@ -1950,7 +1995,7 @@ export const InstructorQuiz = () => {
               </p>
             )}
           </div>
-          {!isPublished && (
+          {!isLocked && (
             <div className="flex flex-wrap items-center gap-2">
               <label
                 className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -1989,7 +2034,7 @@ export const InstructorQuiz = () => {
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg space-y-4">
             <p className="text-gray-500 font-medium">No questions added yet</p>
-            {!isPublished && (
+            {!isLocked && (
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <label
                   className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 cursor-pointer shadow-xs focus-within:ring-2 focus-within:ring-brand-navy/40"
@@ -2025,23 +2070,6 @@ export const InstructorQuiz = () => {
         ) : (
           <>
             <div className="space-y-6">
-            {crossSectionSource && crossSectionSourceQuiz && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-indigo-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="text-sm text-indigo-800">
-                      <strong>Shared Questions:</strong> These questions are from <strong>"{crossSectionSourceQuiz.title}"</strong> from another section in the same subject. You can use them as-is or modify them for your section.
-                    </p>
-                    <p className="text-xs text-indigo-600 mt-1">
-                      Total questions: {questions.length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
             {paginatedQuestions.map((question, index) => {
               const idx = startIndex + index;
               return (
@@ -2103,20 +2131,6 @@ export const InstructorQuiz = () => {
                         AI Revised
                       </span>
                     )}
-                    {!isPublished && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setBankTargetIndex(idx);
-                          setShowBankModal(true);
-                        }}
-                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-extrabold rounded-lg transition-colors flex items-center gap-1 border border-amber-300 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-                        title={`Import question from Question Bank into Question #${idx + 1}`}
-                      >
-                        
-                        <span>Question Bank</span>
-                      </button>
-                    )}
                     <span className="text-xs text-gray-400 uppercase">{question.type === "mcq" ? "MCQ" : question.type === "true_false" ? "T/F" : question.type}</span>
                     <span className="text-xs bg-brand-navy/10 text-brand-navy px-2 py-0.5 rounded-full font-semibold">{question.points || 1} pt{(question.points || 1) > 1 ? "s" : ""}</span>
                   </div>
@@ -2126,7 +2140,7 @@ export const InstructorQuiz = () => {
                 {expandedQuestions.has(question.id) && (
                 <div className="mt-4">
                 <div className="flex justify-end gap-2 mb-4">
-                    {!isPublished && (
+                    {!isLocked && (
                       <>
                         <button
                           onClick={(e) => {
@@ -2138,7 +2152,7 @@ export const InstructorQuiz = () => {
                           title={`Import question from Question Bank into Question #${idx + 1}`}
                         >
                           
-                          <span>Import from Bank</span>
+                          <span>Replace from Question Bank</span>
                         </button>
                         <button
                           onClick={async (e) => {
@@ -2146,7 +2160,7 @@ export const InstructorQuiz = () => {
                             const confirmed = await confirm({
                               title: "Archive Question",
                               message:
-                                "Archive this question to Question Bank? You can restore it later.",
+                                "Archive this question? It is removed from this quiz right away and kept in the Question Bank's Archived tab, where you can restore it.",
                               confirmText: "Archive",
                               cancelText: "Cancel",
                               variant: "warning",
@@ -2169,40 +2183,16 @@ export const InstructorQuiz = () => {
                             e.preventDefault();
                             const confirmed = await confirm({
                               title: "Remove Question",
-                              message:
-                                "Remove this question permanently? This cannot be undone.",
+                              message: isUnsavedQuestionId(question.id)
+                                ? "Remove this question from the quiz?"
+                                : "Remove this question from the quiz? It will be permanently deleted when you save the quiz. To keep it for later, use Archive instead.",
                               confirmText: "Remove",
                               cancelText: "Cancel",
                               variant: "danger",
                             });
                             if (confirmed) {
-                              if (
-                                typeof question.id === "number" &&
-                                question.id > 10000000000
-                              ) {
-                                setQuestions(
-                                  questions.filter((q) => q.id !== question.id),
-                                );
-                              } else {
-                                supabase
-                                  .from("questions")
-                                  .delete()
-                                  .eq("id", question.id)
-                                  .then(({ error }) => {
-                                    if (error) {
-                                      console.error("Delete error:", error);
-                                      notify.error(
-                                        "Remove failed: " + error.message,
-                                      );
-                                    } else {
-                                      setQuestions(
-                                        questions.filter(
-                                          (q) => q.id !== question.id,
-                                        ),
-                                      );
-                                    }
-                                  });
-                              }
+                              // Deletion of saved questions happens on save, like every other edit
+                              removeQuestionLocally(question.id);
                             }
                           }}
                           className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-1 transition-colors"
@@ -2215,18 +2205,19 @@ export const InstructorQuiz = () => {
                   </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor={`question-text-${question.id}`} className="block text-sm font-semibold text-gray-700 mb-2">
                     Question Text *
                   </label>
                   <textarea
+                    id={`question-text-${question.id}`}
                     value={question.text}
                     onChange={(e) =>
                       updateQuestion(question.id, "text", e.target.value)
                     }
                     placeholder="Enter the question"
                     rows="2"
-                    disabled={isPublished}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    disabled={isLocked}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                   />
                   {/* Real-time Gender-Fair Language / Bias Detection & Quick Fix */}
                   {(() => {
@@ -2243,7 +2234,7 @@ export const InstructorQuiz = () => {
                             <strong>Gender-Fair Language Notice:</strong> The term <em className="font-semibold underline">"{first.matchedText}"</em> is gender-biased. Suggested: <strong className="font-bold underline">"{first.neutral}"</strong> (CSC/PCW Standard)
                           </span>
                         </div>
-                        {!isPublished && (
+                        {!isLocked && (
                           <button
                             type="button"
                             onClick={() => {
@@ -2273,17 +2264,18 @@ export const InstructorQuiz = () => {
                           <input
                             type="radio"
                             name={`correct-${question.id}`}
+                            aria-label={`Mark option ${String.fromCharCode(97 + optIdx)} as the correct answer`}
                             checked={question.correctAnswer === optIdx}
-                            disabled={isPublished}
+                            disabled={isLocked}
                             onChange={() =>
-                              !isPublished &&
+                              !isLocked &&
                               updateQuestion(
                                 question.id,
                                 "correctAnswer",
                                 optIdx,
                               )
                             }
-                            className={`mt-0.5 ${isPublished ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                            className={`mt-0.5 ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                           />
                           <span className="text-sm font-semibold text-gray-500 w-5">
                             ({String.fromCharCode(97 + optIdx)})
@@ -2291,16 +2283,19 @@ export const InstructorQuiz = () => {
                           <input
                             type="text"
                             value={option}
-                            disabled={isPublished}
+                            aria-label={`Option ${String.fromCharCode(97 + optIdx)}`}
+                            disabled={isLocked}
                             onChange={(e) =>
                               updateOption(question.id, optIdx, e.target.value)
                             }
                             placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
-                            className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                            className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                           />
-                          {!isPublished && question.options.length > 2 && (
+                          {!isLocked && question.options.length > 2 && (
                             <button
+                              type="button"
                               onClick={() => removeOption(question.id, optIdx)}
+                              aria-label={`Remove option ${String.fromCharCode(97 + optIdx)}`}
                               className="text-red-500 hover:text-red-700 px-3 py-2"
                             >
                               ✕
@@ -2309,7 +2304,7 @@ export const InstructorQuiz = () => {
                         </div>
                       ))}
                     </div>
-                    {!isPublished && (
+                    {!isLocked && (
                       <button
                         onClick={() => addOption(question.id)}
                         className="text-sm text-brand-gold-dark font-semibold mt-2 hover:text-brand-navy"
@@ -2331,12 +2326,12 @@ export const InstructorQuiz = () => {
                           type="radio"
                           name={`tf-${question.id}`}
                           checked={question.correctAnswer === 0}
-                          disabled={isPublished}
+                          disabled={isLocked}
                           onChange={() =>
-                            !isPublished &&
+                            !isLocked &&
                             updateQuestion(question.id, "correctAnswer", 0)
                           }
-                          className={`mr-2 ${isPublished ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                          className={`mr-2 ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                         />
                         <span className="text-gray-700">True</span>
                       </label>
@@ -2345,12 +2340,12 @@ export const InstructorQuiz = () => {
                           type="radio"
                           name={`tf-${question.id}`}
                           checked={question.correctAnswer === 1}
-                          disabled={isPublished}
+                          disabled={isLocked}
                           onChange={() =>
-                            !isPublished &&
+                            !isLocked &&
                             updateQuestion(question.id, "correctAnswer", 1)
                           }
-                          className={`mr-2 ${isPublished ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                          className={`mr-2 ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                         />
                         <span className="text-gray-700">False</span>
                       </label>
@@ -2359,13 +2354,14 @@ export const InstructorQuiz = () => {
                 )}
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor={`question-points-${question.id}`} className="block text-sm font-semibold text-gray-700 mb-2">
                     Points
                   </label>
                   <input
+                    id={`question-points-${question.id}`}
                     type="number"
                     value={question.points}
-                    disabled={isPublished}
+                    disabled={isLocked}
                     onChange={(e) =>
                       updateQuestion(
                         question.id,
@@ -2374,7 +2370,7 @@ export const InstructorQuiz = () => {
                       )
                     }
                     min="1"
-                    className={`w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold ${isPublished ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    className={`w-20 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                   />
                 </div>
                 </div>
@@ -2420,21 +2416,17 @@ export const InstructorQuiz = () => {
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-8">
         <div className="flex flex-wrap gap-3 items-center">
           {/* Primary Actions */}
-          {!isPublished && (
+          {!isLocked && (
             <>
               <button
-                onClick={() => {
-                  handleSaveQuiz(false);
-                  setHasUnsavedChanges(false);
-                  setLastSaved(new Date());
-                }}
-                disabled={loading}
+                onClick={() => handleSaveQuiz(false, false)}
+                disabled={saving}
                 className="bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                {loading ? "Saving..." : "Save as Draft"}
+                {saving ? "Saving..." : "Save as Draft"}
               </button>
 
               <button
@@ -2447,7 +2439,7 @@ export const InstructorQuiz = () => {
                   setShowAnalysisModal(true);
                 }}
                 disabled={
-                  loading || questions.length === 0 || questions.some((q) => !q.text.trim())
+                  saving || questions.length === 0 || questions.some((q) => !(q.text || "").trim())
                 }
                 className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                 title={
@@ -2465,17 +2457,23 @@ export const InstructorQuiz = () => {
           )}
 
           {/* Divider between primary and secondary */}
-          {!isPublished && quizId && (
+          {!isLocked && quizId && (
             <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
           )}
 
           {/* Secondary Actions */}
-          {quizId && !isPublished && (
+          {quizId && !isLocked && (
             <button
-              onClick={() =>
-                navigate(questionBankPath(quizId))
-              }
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              onClick={async () => {
+                // The Question Bank imports straight into the saved quiz, so save first
+                if (hasUnsavedChanges) {
+                  const saveRes = await handleSaveQuiz(false, false);
+                  if (saveRes?.error) return;
+                }
+                navigate(questionBankPath(quizId));
+              }}
+              disabled={saving}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -2485,10 +2483,19 @@ export const InstructorQuiz = () => {
           )}
 
           {/* Right-aligned navigation */}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            {!isLocked && (
+              <span className="text-xs text-gray-400" aria-live="polite">
+                {hasUnsavedChanges
+                  ? "Unsaved changes"
+                  : lastSaved
+                    ? `Saved at ${lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : ""}
+              </span>
+            )}
             <button
-              onClick={() => navigate(quizzesPath)}
-              aria-label={quizId ? "Close without saving" : "Cancel quiz creation"}
+              onClick={leaveEditor}
+              aria-label={quizId ? "Close the quiz editor" : "Cancel quiz creation"}
               className="px-4 py-2.5 rounded-lg font-semibold text-sm border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               {quizId ? "Close" : "Cancel"}
@@ -2504,14 +2511,27 @@ export const InstructorQuiz = () => {
         <QuizAnalysisResults
           quizId={quizId || "draft"}
           quizTitle={quizTitle}
-          questions={questions.filter((q) => q.text.trim())}
+          questions={questions.filter((q) => (q.text || "").trim())}
           instructorId={userId}
           previousSubmissionId={location.state?.revisionOfSubmissionId || null}
           initialReviewerId={location.state?.assignedReviewerId || null}
           onBeforeSubmitReview={async () => {
             return await handleSaveQuiz(false, false);
           }}
-          onClose={() => setShowAnalysisModal(false)}
+          onClose={async () => {
+            setShowAnalysisModal(false);
+            // A successful submission locks the quiz; refresh the review status
+            if (quizId) {
+              const { data: latestSub } = await supabase
+                .from("quiz_analysis_submissions")
+                .select("status")
+                .eq("quiz_id", quizId)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              setReviewStatus(latestSub?.status || null);
+            }
+          }}
         />
       )}
 
