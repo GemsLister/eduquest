@@ -74,16 +74,27 @@ export const InstructorDashboard = () => {
       const res = await subjectService.getInstructorApprovedSubjects(user.id);
       const approvedList = Array.isArray(res) ? res : res?.data || [];
 
-      // 2. The user's pending subject requests, shown as "awaiting approval".
-      //    Approved requests already come back as real subjects above.
-      const reqRes = await subjectService.getMySubjectRequests(user.id);
+      // 2. The user's own pending subject requests, shown as "awaiting
+      //    approval". A request whose subject is already in the curriculum
+      //    (approved for anyone) is no longer pending.
+      const [reqRes, curriculumRes] = await Promise.all([
+        subjectService.getMySubjectRequests(user.id),
+        subjectService.getAllSubjects(),
+      ]);
       const reqList = Array.isArray(reqRes) ? reqRes : reqRes?.data || [];
-      const approvedNames = new Set(
-        approvedList.map((sub) => (sub.name || sub.subject_name || "").toLowerCase().trim()),
+      const norm = (v) => String(v || "").toLowerCase().trim();
+      const existing = [...approvedList, ...(curriculumRes?.data || [])].filter(
+        (sub) => !sub.status || sub.status === "approved",
       );
+      const existingNames = new Set(existing.map((sub) => norm(sub.name || sub.subject_name)));
+      const existingCodes = new Set(existing.map((sub) => norm(sub.code)).filter(Boolean));
       const requestedFormatted = reqList
         .filter((r) => r.request_status === "pending")
-        .filter((r) => !approvedNames.has((r.subject_name || "").toLowerCase().trim()))
+        .filter(
+          (r) =>
+            !existingNames.has(norm(r.subject_name)) &&
+            !(r.subject_code && existingCodes.has(norm(r.subject_code))),
+        )
         .map((r) => ({
           id: `request-${r.id}`,
           subject_id: null,
@@ -145,8 +156,7 @@ export const InstructorDashboard = () => {
 
   const handleArchiveSection = async (sectionId, sectionName) => {
     const confirmed = await confirm({
-      title: "Archive Section",
-      message: `Archive "${sectionName}"? Its quizzes stay as they are. You can restore the section later from the Archived view.`,
+      title: "Archive this section?",
       confirmText: "Archive",
       cancelText: "Cancel",
       variant: "warning",

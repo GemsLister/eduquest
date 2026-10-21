@@ -198,9 +198,7 @@ export const AdminQuizReviewDetail = () => {
     }
     if (status === "approved") {
       const confirmed = await confirm({
-        title: "Forward to Department Head",
-        message:
-          "Forward this quiz to the Department Head for final approval? You won't be able to change your review afterwards.",
+        title: "Forward this quiz to the Department Head?",
         confirmText: "Forward",
         cancelText: "Cancel",
         variant: "info",
@@ -1193,7 +1191,7 @@ export const AdminQuizReviewDetail = () => {
             <button
               onClick={() => handleAction("revision_requested")}
               disabled={actionLoading}
-              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              className="px-6 py-3 bg-white hover:bg-slate-50 text-brand-navy border-2 border-brand-navy/20 hover:border-brand-navy/40 rounded-lg font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               Request Revision
             </button>

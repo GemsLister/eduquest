@@ -60,7 +60,7 @@ export const RecoverPassword = () => {
           <div className="flex flex-col gap-5">
             <input
               type="email"
-              placeholder="name@buksu.edu.ph"
+              placeholder="example@gmail.com"
               onChange={(e) => setEmail(e.target.value)}
               className="border-2 border-pale-silver p-2.5 rounded-[8px] text-[clamp(10px,3dvw,14px)]"
             />

@@ -423,8 +423,7 @@ export const QuestionBank = () => {
 
   const handleBulkArchive = async () => {
     const confirmed = await confirm({
-      title: "Archive Questions",
-      message: `Are you sure you want to archive ${bulkSelected.size} question(s)?`,
+      title: `Archive ${bulkSelected.size} question(s)?`,
       confirmText: "Archive",
       cancelText: "Cancel",
       variant: "warning",
@@ -445,8 +444,7 @@ export const QuestionBank = () => {
 
   const handleBulkRestore = async () => {
     const confirmed = await confirm({
-      title: "Restore Questions",
-      message: `Are you sure you want to restore ${bulkSelected.size} question(s)?`,
+      title: `Restore ${bulkSelected.size} question(s)?`,
       confirmText: "Restore",
       cancelText: "Cancel",
       variant: "info",
@@ -467,8 +465,7 @@ export const QuestionBank = () => {
 
   const handleBulkDelete = async () => {
     const confirmed = await confirm({
-      title: "Remove Questions Permanently",
-      message: `Are you sure you want to permanently remove ${bulkSelected.size} question(s)? This cannot be undone.`,
+      title: `Permanently remove ${bulkSelected.size} question(s)?`,
       confirmText: "Remove",
       cancelText: "Cancel",
       variant: "danger",
@@ -1613,10 +1610,7 @@ export const QuestionBank = () => {
                       <button
                         onClick={async () => {
                           const confirmed = await confirm({
-                            title: "Archive Question",
-                            message: question.quiz_id
-                              ? `Archive this question? It will also be removed from the quiz "${question.quizzes?.title || "its quiz"}". You can restore it from the Archived tab.`
-                              : "Archive this question? You can restore it from the Archived tab.",
+                            title: "Archive this question?",
                             confirmText: "Archive",
                             cancelText: "Cancel",
                             variant: "warning",
@@ -1677,9 +1671,7 @@ export const QuestionBank = () => {
                       <button
                         onClick={async () => {
                           const confirmed = await confirm({
-                            title: "Remove Question Permanently",
-                            message:
-                              "Are you sure you want to permanently remove this question?",
+                            title: "Permanently remove this question?",
                             confirmText: "Remove",
                             cancelText: "Cancel",
                             variant: "danger",

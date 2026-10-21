@@ -231,8 +231,7 @@ export const FacultyHeadApprovalDetail = () => {
 
   const handleApprove = async () => {
     const confirmed = await confirm({
-      title: "Approve this quiz?",
-      message: `"${cleanQuizTitle(submission.quizzes?.title)}" will be published to students and its questions added to the Question Bank. This can't be undone from here.`,
+      title: "Are you sure you want to approve this quiz?",
       confirmText: "Approve & Publish",
       cancelText: "Cancel",
       variant: "success",
@@ -357,8 +356,7 @@ export const FacultyHeadApprovalDetail = () => {
     }
 
     const confirmed = await confirm({
-      title: "Request a revision?",
-      message: `"${cleanQuizTitle(submission.quizzes?.title)}" will be returned to the instructor with your comments.`,
+      title: "Send this quiz back for revision?",
       confirmText: "Send Revision Request",
       cancelText: "Cancel",
       variant: "warning",
@@ -984,7 +982,7 @@ export const FacultyHeadApprovalDetail = () => {
               onClick={handleRequestRevision}
               disabled={actionLoading || !hasHeadComments()}
               title={hasHeadComments() ? undefined : "Add a comment first"}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              className="px-6 py-3 bg-white hover:bg-slate-50 text-brand-navy border-2 border-brand-navy/20 hover:border-brand-navy/40 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

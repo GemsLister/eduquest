@@ -70,8 +70,7 @@ export const InstructorSubjectAssignmentManager = () => {
 
   const handleRemoveAssignment = async (assignmentId) => {
     const confirmed = await confirm({
-      title: "Remove Instructor Assignment",
-      message: "Are you sure you want to remove this instructor from the subject?",
+      title: "Remove this instructor from the subject?",
       confirmText: "Remove",
       cancelText: "Cancel",
       variant: "danger",

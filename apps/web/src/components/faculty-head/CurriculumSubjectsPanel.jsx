@@ -124,10 +124,7 @@ export const CurriculumSubjectsPanel = () => {
   const handleArchiveToggle = async (subject) => {
     const archiving = !subject.is_archived;
     const ok = await confirm({
-      title: archiving ? "Archive subject?" : "Restore subject?",
-      message: archiving
-        ? `"${subject.name}" will be hidden from instructors' subject lists. Existing sections and quizzes are kept, and you can restore it later.`
-        : `"${subject.name}" will be available to instructors again.`,
+      title: archiving ? "Archive this subject?" : "Restore this subject?",
       confirmText: archiving ? "Archive" : "Restore",
       cancelText: "Cancel",
       variant: archiving ? "warning" : "success",

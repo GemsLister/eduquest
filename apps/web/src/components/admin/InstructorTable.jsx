@@ -2,11 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { ChangePasswordModal } from "./ChangePasswordModal.jsx";
-import {
-  getAvatarColor,
-  getProfileInitials,
-  getProfileName,
-} from "../../utils/profileName.js";
+import { getProfileName } from "../../utils/profileName.js";
+import { ProfileAvatar } from "../ui/ProfileAvatar.jsx";
 
 export const InstructorTable = ({
   instructors,
@@ -85,8 +82,6 @@ export const InstructorTable = ({
         {instructors.map((instructor) => {
           const fullName = getProfileName(instructor);
           const isDisabled = instructor.is_disabled === true;
-          const initials = getProfileInitials(instructor);
-          const color = getAvatarColor(instructor.id);
           const detailPath = `/admin-dashboard/instructors/${instructor.id}`;
           const stats = quizCounts[instructor.id] || {
             total: 0,
@@ -255,13 +250,7 @@ export const InstructorTable = ({
               <div className="p-5 pt-6">
                 {/* Avatar + Name */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${
-                      isDisabled ? "bg-gray-400" : color
-                    }`}
-                  >
-                    {initials}
-                  </div>
+                  <ProfileAvatar profile={instructor} muted={isDisabled} />
                   <div className="min-w-0">
                     <Link
                       to={detailPath}

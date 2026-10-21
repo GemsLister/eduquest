@@ -43,7 +43,7 @@ export const Register = () => {
     {
       type: "email",
       name: "email",
-      placeholder: "name@buksu.edu.ph",
+      placeholder: "example@gmail.com",
       onChange: (e) => setEmail(e.target.value),
     },
     {

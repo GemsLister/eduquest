@@ -150,10 +150,7 @@ export const FacultyHeadSubjectRequests = () => {
     }
 
     const ok = await confirm({
-      title: duplicate ? "Possible duplicate subject" : "Approve subject request?",
-      message: duplicate
-        ? `An active subject already matches this request: "${duplicate.name}"${duplicate.code ? ` (${duplicate.code})` : ""}. Approving will create a second subject and assign it to ${targetReq.requester_name || "the instructor"}. Consider rejecting and pointing them to the existing subject instead.`
-        : `"${targetReq.subject_name}" will be added to the curriculum and assigned to ${targetReq.requester_name || "the requesting instructor"}.`,
+      title: duplicate ? "This subject already exists. Approve anyway?" : "Approve this subject request?",
       confirmText: duplicate ? "Approve Anyway" : "Approve",
       cancelText: "Cancel",
       variant: duplicate ? "warning" : "success",

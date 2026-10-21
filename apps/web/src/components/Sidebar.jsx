@@ -219,8 +219,7 @@ export const Sidebar = ({ mobileOpen = false, onNavigate }) => {
 
   const handleLogout = async () => {
     const confirmed = await confirm({
-      title: "Logout",
-      message: "Are you sure you want to logout?",
+      title: "Are you sure you want to log out?",
       confirmText: "Logout",
       cancelText: "Cancel",
       variant: "danger",

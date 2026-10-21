@@ -571,7 +571,8 @@ export const subjectService = {
 
       if (!tableErr && Array.isArray(tableData)) {
         tableLoaded = true;
-        tableData.forEach((req) => {
+        // Only the requester's own rows, whatever the RLS policy lets through
+        tableData.filter((req) => req.requested_by === userId).forEach((req) => {
           const key = req.id || `${req.subject_name}_${req.grade_level}`;
           listMap.set(key, {
             id: req.id,
@@ -598,8 +599,9 @@ export const subjectService = {
         .from("notifications")
         .select("*")
         .eq("user_id", userId)
+        // Values are quoted: ":" is reserved in PostgREST filter syntax
         .or(
-          "title.ilike.My Subject Request:%,title.ilike.Subject Request Approved:%,title.ilike.Subject Request Rejected:%"
+          'title.ilike."My Subject Request:%",title.ilike."Subject Request Approved:%",title.ilike."Subject Request Rejected:%"'
         )
         .order("created_at", { ascending: false });
 
@@ -613,6 +615,8 @@ export const subjectService = {
           }
 
           if (tableLoaded && !isFallbackRequestId(parsed.id)) return;
+          // A copy of someone else's request is never "mine"
+          if (parsed.requested_by && parsed.requested_by !== userId) return;
 
           const subjectName =
             parsed.subject_name ||

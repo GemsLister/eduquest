@@ -185,7 +185,14 @@ export const useFetchInstructorQuizzes = () => {
       const mySectionIdsSet = new Set(mySectionIds);
 
       const quizzesWithCounts = data.map((quiz) => {
-        const latestSubmission = latestSubmissionByQuiz.get(quiz.id);
+        // A revision copy has no submission of its own until it is resubmitted;
+        // until then it carries the "revision requested" review it answers
+        const parentSubmission = quiz.parent_quiz_id
+          ? latestSubmissionByQuiz.get(quiz.parent_quiz_id)
+          : null;
+        const latestSubmission =
+          latestSubmissionByQuiz.get(quiz.id) ||
+          (parentSubmission?.status === "revision_requested" ? parentSubmission : undefined);
 
         let resolvedQuestionsCount = questionCounts.get(quiz.id) || 0;
         if (resolvedQuestionsCount === 0 && latestSubmission?.analysis_results) {

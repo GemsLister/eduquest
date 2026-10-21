@@ -9,10 +9,9 @@ export const useArchiveQuiz = (fetchQuizzes) => {
   const [archivingQuizId, setArchivingQuizId] = useState(null);
   const confirm = useConfirm();
 
-  const handleArchiveQuiz = async (quizId, quizTitle) => {
+  const handleArchiveQuiz = async (quizId) => {
     const confirmed = await confirm({
-      title: "Archive Quiz",
-      message: `Archive "${quizTitle}"? Students will no longer be able to take it. You can restore it later from the Archived tab on the Quizzes page.`,
+      title: "Archive this quiz?",
       confirmText: "Archive",
       cancelText: "Cancel",
       variant: "warning",

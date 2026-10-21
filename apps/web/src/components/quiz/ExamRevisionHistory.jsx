@@ -100,8 +100,15 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                   </div>
                   <div className="w-px h-8 bg-gray-200" />
                   <div>
-                    <div className="text-gray-400 font-medium">HOTS Ratio</div>
-                    <div className="font-bold text-brand-navy text-sm">
+                    <div className="text-gray-400 font-medium">LOTS</div>
+                    <div className="font-bold text-emerald-600 text-sm">
+                      {analysisCount > 0 ? `${Math.round(((analysisCount - hotsCount) / analysisCount) * 100)}%` : "0%"}
+                    </div>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200" />
+                  <div>
+                    <div className="text-gray-400 font-medium">HOTS</div>
+                    <div className="font-bold text-amber-600 text-sm">
                       {analysisCount > 0 ? `${Math.round((hotsCount / analysisCount) * 100)}%` : "0%"}
                     </div>
                   </div>

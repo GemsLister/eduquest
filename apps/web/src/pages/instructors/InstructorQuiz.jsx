@@ -6,6 +6,8 @@ import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
+import { RevisionComments } from "../../components/quiz/RevisionComments.jsx";
+import { useRevisionFeedback } from "../../hooks/quizHook/useRevisionFeedback.js";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
@@ -105,6 +107,8 @@ export const InstructorQuiz = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [parentQuizId, setParentQuizId] = useState(null);
+  // Reviewer / Department Head comments while this quiz is being revised
+  const { revisionFeedback, getQuestionComments } = useRevisionFeedback(quizId, parentQuizId);
   const [restoredFromSnapshot, setRestoredFromSnapshot] = useState(0);
   const [autoSharing, setAutoSharing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -497,9 +501,9 @@ export const InstructorQuiz = () => {
         leaveBlocker.proceed();
         return;
       }
+      notify.error(result?.error || "The quiz couldn't be saved.");
       const leaveAnyway = await confirm({
-        title: "Couldn't Auto-save",
-        message: `${result?.error || "The quiz couldn't be saved."} Leave without saving your changes?`,
+        title: "Couldn't save. Leave without saving?",
         confirmText: "Leave Without Saving",
         cancelText: "Stay and Fix",
         variant: "warning",
@@ -2144,6 +2148,12 @@ export const InstructorQuiz = () => {
           )}
         </div>
 
+        <RevisionComments
+          comments={revisionFeedback?.overall}
+          title="Revision comments"
+          className="mb-6"
+        />
+
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg space-y-4">
             <p className="text-gray-500 font-medium">No questions added yet</p>
@@ -2271,9 +2281,7 @@ export const InstructorQuiz = () => {
                           onClick={async (e) => {
                             e.preventDefault();
                             const confirmed = await confirm({
-                              title: "Archive Question",
-                              message:
-                                "Archive this question? It is removed from this quiz right away and kept in the Question Bank's Archived tab, where you can restore it.",
+                              title: "Archive this question?",
                               confirmText: "Archive",
                               cancelText: "Cancel",
                               variant: "warning",
@@ -2295,10 +2303,7 @@ export const InstructorQuiz = () => {
                           onClick={async (e) => {
                             e.preventDefault();
                             const confirmed = await confirm({
-                              title: "Remove Question",
-                              message: isUnsavedQuestionId(question.id)
-                                ? "Remove this question from the quiz?"
-                                : "Remove this question from the quiz? It will be permanently deleted when you save the quiz. To keep it for later, use Archive instead.",
+                              title: "Remove this question?",
                               confirmText: "Remove",
                               cancelText: "Cancel",
                               variant: "danger",
@@ -2488,6 +2493,12 @@ export const InstructorQuiz = () => {
                 </div>
                 </div>
                 )}
+
+                {/* Review comments on this question, shown under it */}
+                <RevisionComments
+                  comments={getQuestionComments(question, idx)}
+                  className="mt-4"
+                />
               </div>
             );
             })}
@@ -2600,7 +2611,9 @@ export const InstructorQuiz = () => {
           quizTitle={quizTitle}
           questions={questions.filter((q) => (q.text || "").trim())}
           instructorId={userId}
-          previousSubmissionId={location.state?.revisionOfSubmissionId || null}
+          previousSubmissionId={
+            location.state?.revisionOfSubmissionId || revisionFeedback?.submissionId || null
+          }
           initialReviewerId={location.state?.assignedReviewerId || null}
           onBeforeSubmitReview={async () => {
             return await handleSaveQuiz(false, false);

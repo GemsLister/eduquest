@@ -12,9 +12,7 @@ export const useToggleQuizAccess = (fetchQuizzes) => {
   const handleToggleAccess = async (quizId, currentIsOpen) => {
     if (currentIsOpen) {
       const confirmed = await confirm({
-        title: "Close Quiz",
-        message:
-          "Close this quiz to students? Anyone currently taking it may be unable to submit.",
+        title: "Close this quiz to students?",
         confirmText: "Close Quiz",
         cancelText: "Cancel",
         variant: "warning",

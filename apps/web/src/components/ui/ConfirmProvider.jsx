@@ -7,15 +7,15 @@ export const ConfirmProvider = ({ children }) => {
   const [state, setState] = useState(null);
 
   const confirm = useCallback(
+    // Confirmations are one short question (the title) and two buttons
     ({
       title,
-      message,
       confirmText = "Confirm",
       cancelText = "Cancel",
       variant = "danger",
     }) => {
       return new Promise((resolve) => {
-        setState({ title, message, confirmText, cancelText, variant, resolve });
+        setState({ title, confirmText, cancelText, variant, resolve });
       });
     },
     [],
@@ -73,41 +73,30 @@ export const ConfirmProvider = ({ children }) => {
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="confirm-modal-title"
-            className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 animate-scale-in overflow-hidden"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-scale-in"
           >
-            {/* Header */}
-            <div className="bg-brand-navy px-6 py-4">
-              <h3 id="confirm-modal-title" className="text-lg font-bold text-white">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentVariant.iconBg}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${currentVariant.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={currentVariant.icon} />
+                </svg>
+              </div>
+              <h3 id="confirm-modal-title" className="text-base font-bold text-brand-navy">
                 {state.title}
               </h3>
             </div>
 
-            {/* Body */}
-            <div className="p-6">
-              <div className="flex items-start gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${currentVariant.iconBg}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${currentVariant.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={currentVariant.icon} />
-                  </svg>
-                </div>
-                <p className="text-gray-600 text-sm whitespace-pre-line pt-2">
-                  {state.message}
-                </p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+            <div className="flex gap-3 mt-6">
               <button
                 onClick={() => handleResolve(false)}
-                className="px-5 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 {state.cancelText}
               </button>
               <button
                 onClick={() => handleResolve(true)}
                 autoFocus
-                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${currentVariant.button}`}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${currentVariant.button}`}
               >
                 {state.confirmText}
               </button>

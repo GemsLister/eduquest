@@ -48,7 +48,6 @@ export const FacultyHeadSettings = () => {
     if (blocker.state !== "blocked") return;
     confirm({
       title: "Discard unsaved changes?",
-      message: "You have unsaved settings. Leave this page without saving?",
       confirmText: "Discard & Leave",
       cancelText: "Stay",
       variant: "warning",

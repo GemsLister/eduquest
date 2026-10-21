@@ -11,6 +11,7 @@ import {
   isTosCompliant,
 } from "../../utils/submissionStatus.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { ProfileAvatar } from "../../components/ui/ProfileAvatar.jsx";
 
 const getProfileName = (p) => {
   if (!p) return null;
@@ -62,7 +63,7 @@ export const AdminQuizReviews = () => {
         const { data: profiles } = profileIds.length
           ? await supabase
               .from("profiles")
-              .select("id, first_name, last_name, email, username")
+              .select("id, first_name, last_name, email, username, avatar_url")
               .in("id", profileIds)
           : { data: [] };
         const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
@@ -233,35 +234,6 @@ export const AdminQuizReviews = () => {
   const getInstructorName = (submission) =>
     getProfileName(submission.profiles) || "Unknown Instructor";
 
-  const getInitials = (submission) => {
-    const p = submission.profiles;
-    if (!p) return "?";
-    if (p.first_name || p.last_name) {
-      return (
-        ((p.first_name || "")[0] + (p.last_name || "")[0]).toUpperCase() || "?"
-      );
-    }
-    return (p.username || p.email || "?")[0].toUpperCase();
-  };
-
-  const avatarColors = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-purple-500",
-    "bg-amber-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-    "bg-indigo-500",
-    "bg-teal-500",
-  ];
-
-  const getAvatarColor = (id) => {
-    let hash = 0;
-    for (let i = 0; i < (id || "").length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return avatarColors[Math.abs(hash) % avatarColors.length];
-  };
 
   const getStatusBadge = (submission) => (
     <span
@@ -516,13 +488,10 @@ export const AdminQuizReviews = () => {
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
-                      <div
-                        className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${getAvatarColor(
-                          submission.instructor_id,
-                        )}`}
-                      >
-                        {getInitials(submission)}
-                      </div>
+                      <ProfileAvatar
+                        profile={submission.profiles}
+                        id={submission.instructor_id}
+                      />
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">

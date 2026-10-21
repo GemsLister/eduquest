@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { notify } from "../../utils/notify.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { ProfileAvatar } from "../../components/ui/ProfileAvatar.jsx";
 import {
   HEAD_STATUSES,
   loadHeadSubmissions,
@@ -96,36 +97,6 @@ export const FacultyHeadQuizApprovals = () => {
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
-
-  const getInitials = (submission) => {
-    const p = submission.profiles;
-    if (!p) return "?";
-    if (p.first_name || p.last_name) {
-      return (
-        ((p.first_name || "")[0] || "") + ((p.last_name || "")[0] || "")
-      ).toUpperCase() || "?";
-    }
-    return (p.username || p.email || "?")[0].toUpperCase();
-  };
-
-  const avatarColors = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-purple-500",
-    "bg-amber-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-    "bg-indigo-500",
-    "bg-teal-500",
-  ];
-
-  const getAvatarColor = (id) => {
-    let hash = 0;
-    for (let i = 0; i < (id || "").length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return avatarColors[Math.abs(hash) % avatarColors.length];
-  };
 
   const getStatusBadge = (status) => {
     const config = {
@@ -396,13 +367,10 @@ export const FacultyHeadQuizApprovals = () => {
                     className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/30 transition-all p-5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     <div className="flex items-start gap-4">
-                      <div
-                        className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${getAvatarColor(
-                          submission.instructor_id,
-                        )}`}
-                      >
-                        {getInitials(submission)}
-                      </div>
+                      <ProfileAvatar
+                        profile={submission.profiles}
+                        id={submission.instructor_id}
+                      />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">

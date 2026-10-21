@@ -40,8 +40,7 @@ export const AdminRegistrationRequests = () => {
 
   const handleReject = async (req) => {
     const confirmed = await confirm({
-      title: "Reject Registration",
-      message: `Reject ${getRequestName(req)}'s registration? Their account will be permanently deleted and they will have to register again.`,
+      title: "Reject this registration?",
       confirmText: "Reject",
       variant: "danger",
     });
@@ -54,8 +53,7 @@ export const AdminRegistrationRequests = () => {
   const handleApproveAll = async () => {
     if (requests.length === 0) return;
     const confirmed = await confirm({
-      title: "Approve All Requests",
-      message: `Approve all ${requests.length} pending registrations? Each of them will be able to log in as an instructor.`,
+      title: `Approve all ${requests.length} registrations?`,
       confirmText: "Approve All",
       variant: "success",
     });

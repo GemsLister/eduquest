@@ -128,7 +128,7 @@ export const QuizzesPageMain = () => {
       };
     if (quiz.admin_review_status === "revision_requested")
       return {
-        label: "Revision Requested",
+        label: "Needs Revision",
         bg: "bg-rose-500/20 text-rose-200 border-rose-400/30",
       };
     if (quiz.admin_review_status === "pending")
@@ -476,11 +476,12 @@ export const QuizzesPageMain = () => {
                       {/* Review Feedback Inline */}
                       {quiz.admin_review_status === "revision_requested" && (
                         <div className="rounded-xl border px-3 py-2 text-xs border-rose-200 bg-rose-50 text-rose-700">
+                          {/* The comments themselves are shown in the editor, next to each question */}
+                          Returned by{" "}
                           <span className="font-bold">
-                            {quiz.admin_review_feedback_source || "Reviewer"}:{" "}
+                            {quiz.admin_review_feedback_source || "the reviewer"}
                           </span>
-                          {quiz.admin_review_feedback?.trim() ||
-                            "No feedback provided yet."}
+                          . Open the quiz to see the comments.
                         </div>
                       )}
 
@@ -553,8 +554,7 @@ export const QuizzesPageMain = () => {
                           <button
                             onClick={async () => {
                               const confirmed = await confirm({
-                                title: "Publish Quiz",
-                                message: `Publish "${displayTitle(quiz)}"? Students in the assigned sections will be able to take it, and it can no longer be edited.`,
+                                title: "Publish this quiz?",
                                 confirmText: "Publish",
                                 cancelText: "Cancel",
                                 variant: "info",
@@ -579,8 +579,7 @@ export const QuizzesPageMain = () => {
                           <button
                             onClick={async () => {
                               const confirmed = await confirm({
-                                title: "Archive Quiz",
-                                message: `Archive "${displayTitle(quiz)}"? It will be closed to students. You can restore it later from the Archived tab.`,
+                                title: "Archive this quiz?",
                                 confirmText: "Archive",
                                 cancelText: "Cancel",
                                 variant: "warning",

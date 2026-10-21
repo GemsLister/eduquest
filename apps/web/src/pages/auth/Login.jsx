@@ -75,7 +75,7 @@ export const Login = () => {
       type: "email",
       name: "email",
       id: "email",
-      placeholder: "name@buksu.edu.ph",
+      placeholder: "example@gmail.com",
       onChange: (e) => setEmail(e.target.value),
       value: email,
     },

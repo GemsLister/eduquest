@@ -42,7 +42,19 @@ export const adminService = {
    * Fetch all instructor profiles
    */
   getInstructors: async () => {
-    return await supabase.rpc("get_instructor_profiles");
+    const result = await supabase.rpc("get_instructor_profiles");
+    if (result.error || !result.data?.length) return result;
+
+    // The RPC doesn't return profile pictures; add them from profiles
+    const { data: avatars } = await supabase
+      .from("profiles")
+      .select("id, avatar_url")
+      .in("id", result.data.map((p) => p.id));
+    const avatarById = new Map((avatars || []).map((p) => [p.id, p.avatar_url]));
+    return {
+      ...result,
+      data: result.data.map((p) => ({ ...p, avatar_url: avatarById.get(p.id) || null })),
+    };
   },
 
   /**

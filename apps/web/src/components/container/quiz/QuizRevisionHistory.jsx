@@ -18,7 +18,7 @@ export const QuizRevisionHistory = ({ parentQuizId, currentQuizId }) => {
         // For a full tree, a recursive query might be needed, but for now we fetch by parent_quiz_id or id
         const { data: allRelatedQuizzes } = await supabase
           .from("quizzes")
-          .select("id, title, created_at, parent_quiz_id")
+          .select("id, title, created_at, parent_quiz_id, is_published")
           .or(`id.eq.${rootQuizId},parent_quiz_id.eq.${rootQuizId}`)
           .order("created_at", { ascending: false });
 
@@ -30,9 +30,11 @@ export const QuizRevisionHistory = ({ parentQuizId, currentQuizId }) => {
         // Filter out current quiz
         const previousVersions = allRelatedQuizzes.filter(q => q.id !== currentQuizId);
 
-        // Fetch attempts for previous versions
+        // Students can only take a version once it is approved and published,
+        // so only published versions have attempts worth listing
         const versionsWithAttempts = await Promise.all(
            previousVersions.map(async (quiz) => {
+             if (!quiz.is_published) return { ...quiz, attempts: [] };
              const { data: attempts } = await supabase
                .from("quiz_attempts")
                .select(`
@@ -73,18 +75,20 @@ export const QuizRevisionHistory = ({ parentQuizId, currentQuizId }) => {
         Revision History
       </h2>
       <p className="text-sm text-gray-500 mb-4">
-        This quiz is a revised version. Below are the previous versions and the students who took them. Note: This new version has reset attempts to 0.
+        This quiz is a revised version. Below are its previous versions
+        {history.some((v) => v.is_published) && " and the students who took the published ones"}.
       </p>
 
       <div className="space-y-4">
         {history.map((version) => (
           <div key={version.id} className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-700 flex justify-between items-center">
-              <span>{version.title}</span>
+              <span>{(version.title || "").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "")}</span>
               <span className="text-xs text-gray-500 font-normal">
                 Created: {new Date(version.created_at).toLocaleDateString()}
               </span>
             </div>
+            {version.is_published && (
             <div className="p-4">
               <h4 className="text-sm font-bold text-gray-600 mb-2">Students who took this version ({version.attempts.length}):</h4>
               {version.attempts.length > 0 ? (
@@ -106,6 +110,7 @@ export const QuizRevisionHistory = ({ parentQuizId, currentQuizId }) => {
                 <p className="text-sm text-gray-500 italic">No students took this version.</p>
               )}
             </div>
+            )}
           </div>
         ))}
       </div>

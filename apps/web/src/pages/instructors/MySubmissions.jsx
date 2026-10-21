@@ -405,7 +405,9 @@ export const MySubmissions = () => {
             .maybeSingle();
 
           // Check if a newer version exists in the chain
+          // (the revision copy being edited, when there is one)
           let hasNewerVersion = false;
+          let newerQuizId = null;
           const quiz = sub.quizzes;
           if (quiz) {
             const rootId = quiz.parent_quiz_id || sub.quiz_id;
@@ -415,14 +417,17 @@ export const MySubmissions = () => {
               .eq("parent_quiz_id", rootId)
               .eq("is_archived", false)
               .gt("version_number", quiz.version_number || 1)
+              .order("version_number", { ascending: false })
               .limit(1);
             hasNewerVersion = newer && newer.length > 0;
+            newerQuizId = hasNewerVersion ? newer[0].id : null;
           }
 
           return {
             ...sub,
             section: qs?.sections || null,
             hasNewerVersion,
+            newerQuizId,
             reviewerProfile,
           };
         }),
@@ -897,119 +902,28 @@ export const MySubmissions = () => {
                     </div>
                   )}
 
-                  {/* Department Head comments (overall + per question) */}
-                  {(submission.faculty_head_feedback ||
+                  {/* Reviewer / Department Head comments are read in the quiz
+                      editor, next to the questions they are about */}
+                  {(submission.admin_feedback ||
+                    submission.faculty_head_feedback ||
+                    Object.keys(submission.question_feedback || {}).length > 0 ||
                     Object.keys(submission.faculty_head_question_feedback || {}).length > 0) && (
-                    <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
-                      <p className="text-xs font-semibold mb-1 text-orange-600">
+                    <div className="flex items-center gap-2 p-3 rounded-lg border bg-slate-50 border-slate-200 text-xs text-slate-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                      <span>
+                        {submission.faculty_head_feedback ||
+                        Object.keys(submission.faculty_head_question_feedback || {}).length > 0
+                          ? "The Department Head"
+                          : formatReviewerLabel(submission.reviewerProfile)}{" "}
+                        left comments.{" "}
                         {submission.status === "revision_requested"
-                          ? "Department Head Revision Request:"
-                          : "Department Head Comments:"}
-                      </p>
-                      {submission.faculty_head_feedback && (
-                        <p className="text-sm text-orange-800 whitespace-pre-wrap">
-                          {submission.faculty_head_feedback}
-                        </p>
-                      )}
-                      {Object.keys(submission.faculty_head_question_feedback || {}).length > 0 && (
-                        <div className="space-y-2 mt-2">
-                          {submission.analysis_results?.analysis?.map((item, idx) => {
-                            const fb = submission.faculty_head_question_feedback[item.questionId];
-                            if (!fb) return null;
-                            return (
-                              <div
-                                key={item.questionId}
-                                className="p-2 bg-white rounded border border-orange-100"
-                              >
-                                <p className="text-xs font-bold text-gray-500 mb-0.5">
-                                  Q{idx + 1}:{" "}
-                                  <span className="font-normal text-gray-700">
-                                    {item.questionText.length > 80
-                                      ? item.questionText.slice(0, 80) + "..."
-                                      : item.questionText}
-                                  </span>
-                                </p>
-                                <p className="text-sm text-orange-800 whitespace-pre-wrap">{fb}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                          ? `Open ${submission.newerQuizId ? "Continue Revision" : "Edit & Resubmit"} to see them next to each question.`
+                          : "Open the quiz to see them next to each question."}
+                      </span>
                     </div>
                   )}
-
-                  {/* Reviewer Overall Feedback */}
-                  {submission.admin_feedback && (
-                    <div
-                      className={`p-3 rounded-lg border ${
-                        submission.status === "approved"
-                          ? "bg-green-50 border-green-200"
-                          : "bg-orange-50 border-orange-200"
-                      }`}
-                    >
-                      <p
-                        className={`text-xs font-semibold mb-1 ${
-                          submission.status === "approved"
-                            ? "text-green-600"
-                            : "text-orange-600"
-                        }`}
-                      >
-                        {formatReviewerLabel(submission.reviewerProfile)} — Overall Feedback:
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          submission.status === "approved"
-                            ? "text-green-800"
-                            : "text-orange-800"
-                        }`}
-                      >
-                        {submission.admin_feedback}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Per-Question Feedback Summary */}
-                  {submission.question_feedback &&
-                    Object.keys(submission.question_feedback).length > 0 && (
-                      <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
-                        <p className="text-xs font-semibold text-orange-600 mb-2">
-                          {formatReviewerLabel(submission.reviewerProfile)} — Question-Specific Feedback (
-                          {Object.keys(submission.question_feedback).length}{" "}
-                          question
-                          {Object.keys(submission.question_feedback).length > 1
-                            ? "s"
-                            : ""}
-                          ):
-                        </p>
-                        <div className="space-y-2">
-                          {submission.analysis_results?.analysis?.map(
-                            (item, idx) => {
-                              const fb =
-                                submission.question_feedback[item.questionId];
-                              if (!fb) return null;
-                              return (
-                                <div
-                                  key={item.questionId}
-                                  className="p-2 bg-white rounded border border-orange-100"
-                                >
-                                  <p className="text-xs font-bold text-gray-500 mb-0.5">
-                                    Q{idx + 1}:{" "}
-                                    <span className="font-normal text-gray-700">
-                                      {item.questionText.length > 80
-                                        ? item.questionText.slice(0, 80) + "..."
-                                        : item.questionText}
-                                    </span>
-                                  </p>
-                                  <p className="text-sm text-orange-800">
-                                    {fb}
-                                  </p>
-                                </div>
-                              );
-                            },
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                   {/* Expandable Charts */}
                   {submission.analysis_results?.summary && (
@@ -1309,38 +1223,6 @@ export const MySubmissions = () => {
                                             </span>
                                           </div>
                                         </div>
-                                        {submission.question_feedback?.[
-                                          item.questionId
-                                        ] && (
-                                          <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                                            <p className="text-xs font-semibold text-orange-600 mb-0.5">
-                                              {formatReviewerLabel(submission.reviewerProfile)}:
-                                            </p>
-                                            <p className="text-sm text-orange-800">
-                                              {
-                                                submission.question_feedback[
-                                                  item.questionId
-                                                ]
-                                              }
-                                            </p>
-                                          </div>
-                                        )}
-                                        {submission.faculty_head_question_feedback?.[
-                                          item.questionId
-                                        ] && (
-                                          <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                                            <p className="text-xs font-semibold text-orange-600 mb-0.5">
-                                              Department Head:
-                                            </p>
-                                            <p className="text-sm text-orange-800 whitespace-pre-wrap">
-                                              {
-                                                submission.faculty_head_question_feedback[
-                                                  item.questionId
-                                                ]
-                                              }
-                                            </p>
-                                          </div>
-                                        )}
                                       </div>
                                     );
                                   },
@@ -1497,19 +1379,20 @@ export const MySubmissions = () => {
                         </svg>
                         Quiz Paper
                       </button>
-                      {submission.status === "revision_requested" &&
-                        !submission.hasNewerVersion && (
+                      {submission.status === "revision_requested" && (
                           <button
                             disabled={creatingRevisionFor === submission.id}
                             onClick={async () => {
                               try {
                                 setCreatingRevisionFor(submission.id);
-                                const newQuiz = await createRevisionCopy(
-                                  submission.quiz_id,
-                                );
+                                // Reopen the revision copy already being edited;
+                                // only the first click creates one
+                                const revisionQuizId =
+                                  submission.newerQuizId ||
+                                  (await createRevisionCopy(submission.quiz_id)).id;
                                 const targetPath = location.pathname.startsWith("/admin-dashboard")
-                                  ? `/admin-dashboard/create-quiz/${newQuiz.id}`
-                                  : `/instructor-dashboard/instructor-quiz/${newQuiz.id}`;
+                                  ? `/admin-dashboard/create-quiz/${revisionQuizId}`
+                                  : `/instructor-dashboard/instructor-quiz/${revisionQuizId}`;
                                 navigate(
                                   targetPath,
                                   {
@@ -1530,11 +1413,13 @@ export const MySubmissions = () => {
                                 setCreatingRevisionFor(null);
                               }
                             }}
-                            className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-bold rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                           >
                             {creatingRevisionFor === submission.id
-                              ? "Creating Revision..."
-                              : "Edit & Resubmit"}
+                              ? "Opening..."
+                              : submission.newerQuizId
+                                ? "Continue Revision"
+                                : "Edit & Resubmit"}
                           </button>
                         )}
                     </div>

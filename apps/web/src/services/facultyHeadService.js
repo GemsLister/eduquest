@@ -113,7 +113,7 @@ export const loadHeadSubmissions = async ({ enrich = true } = {}) => {
     profileIds.length
       ? supabase
           .from("profiles")
-          .select("id, first_name, last_name, email, username, is_admin")
+          .select("id, first_name, last_name, email, username, is_admin, avatar_url")
           .in("id", profileIds)
       : Promise.resolve({ data: [] }),
     quizIds.length
