@@ -106,6 +106,31 @@ export const QuizResults = () => {
         }
       }
 
+      // Map question IDs to question index across all related quiz versions
+      const questionIdToIdx = {};
+      try {
+        const { data: allRelatedQs } = await supabase
+          .from("questions")
+          .select("id, quiz_id, created_at")
+          .in("quiz_id", relatedQuizIds)
+          .order("created_at", { ascending: true });
+
+        if (allRelatedQs) {
+          const qsByQuiz = {};
+          allRelatedQs.forEach((rq) => {
+            if (!qsByQuiz[rq.quiz_id]) qsByQuiz[rq.quiz_id] = [];
+            qsByQuiz[rq.quiz_id].push(rq);
+          });
+          Object.values(qsByQuiz).forEach((qList) => {
+            qList.forEach((rq, idx) => {
+              questionIdToIdx[rq.id] = idx;
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("Could not map question IDs across versions:", e);
+      }
+
       setQuestions(finalQuestions);
 
       const completedIds = (attemptsData || [])
@@ -113,21 +138,45 @@ export const QuizResults = () => {
         .map((a) => a.id);
 
       if (completedIds.length > 0) {
-        const { data: responsesData, error: responsesError } = await supabase
-          .from("quiz_responses")
-          .select("attempt_id, question_id, time_spent_seconds, answer")
-          .in("attempt_id", completedIds);
+        let responsesData = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-        if (responsesError) throw responsesError;
+        while (hasMore) {
+          const { data: pageData, error: responsesError } = await supabase
+            .from("quiz_responses")
+            .select("attempt_id, question_id, time_spent_seconds, answer")
+            .in("attempt_id", completedIds)
+            .range(from, from + pageSize - 1);
+
+          if (responsesError) throw responsesError;
+
+          if (pageData && pageData.length > 0) {
+            responsesData = [...responsesData, ...pageData];
+            if (pageData.length < pageSize) {
+              hasMore = false;
+            } else {
+              from += pageSize;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
 
         const timeMap = {};
         (responsesData || []).forEach((r) => {
-          const hasAnswer =
-            r.answer !== null && r.answer !== undefined && r.answer !== "";
-          const hasTime = (r.time_spent_seconds ?? 0) > 0;
-          if (!hasAnswer && !hasTime) return;
           if (!timeMap[r.attempt_id]) timeMap[r.attempt_id] = {};
-          timeMap[r.attempt_id][r.question_id] = r.time_spent_seconds ?? 0;
+          const qIdx = questionIdToIdx[r.question_id];
+          const entry = {
+            seconds: r.time_spent_seconds,
+            answer: r.answer,
+            hasResponse: true,
+          };
+          timeMap[r.attempt_id][r.question_id] = entry;
+          if (qIdx !== undefined) {
+            timeMap[r.attempt_id][qIdx] = entry;
+          }
         });
         setTimeByAttemptQuestion(timeMap);
       } else {
@@ -154,8 +203,12 @@ export const QuizResults = () => {
   const getTotalTimeForAttempt = (attemptId) => {
     const perQuestion = timeByAttemptQuestion[attemptId];
     if (!perQuestion) return 0;
-    return Object.values(perQuestion).reduce(
-      (sum, sec) => sum + (sec || 0),
+    const uniqueEntries = new Set();
+    Object.values(perQuestion).forEach((val) => {
+      if (val && typeof val === "object") uniqueEntries.add(val);
+    });
+    return Array.from(uniqueEntries).reduce(
+      (sum, entry) => sum + (entry.seconds || 0),
       0,
     );
   };
@@ -430,15 +483,21 @@ export const QuizResults = () => {
                         </td>
                         {questions.map((q, qIdx) => {
                           const perQuestion = timeByAttemptQuestion[attempt.id];
-                          const seconds =
-                            perQuestion && q.id in perQuestion ? perQuestion[q.id] : undefined;
-                          const hasEntry = seconds !== undefined;
+                          const entry = perQuestion
+                            ? perQuestion[q.id] || perQuestion[qIdx]
+                            : undefined;
+
+                          let display = "—";
+                          if (entry && entry.hasResponse) {
+                            display = formatTimeSpent(entry.seconds);
+                          }
+
                           return (
                             <td
                               key={q.id || qIdx}
                               className="px-3 py-3 text-center text-gray-700 whitespace-nowrap"
                             >
-                              {hasEntry ? formatTimeSpent(seconds) : "—"}
+                              {display}
                             </td>
                           );
                         })}

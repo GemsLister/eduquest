@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useQuestionBank } from "../hooks/questionHook/useQuestionBank.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { analyzeGADQuestion } from "../services/gadAnalysisService.js";
@@ -18,12 +18,14 @@ export const ImportQuestionBankModal = ({
   targetQuestionNumber = null,
   currentSubjectIds = [],
   currentSubjectNames = [],
+  currentQuizQuestions = [],
 }) => {
   const { activeQuestions, loading } = useQuestionBank();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [privacyFilter, setPrivacyFilter] = useState("all"); // "all", "my_private", "my_public", "others_public", "gad_only"
+  const [bypassSubjectFilter, setBypassSubjectFilter] = useState(false);
 
   useEscapeKey(onClose, isOpen);
   const trapRef = useFocusTrap(isOpen);
@@ -42,46 +44,94 @@ export const ImportQuestionBankModal = ({
   };
 
   // 1. Strict Subject Filter: Filter bank questions to ONLY those matching the current quiz's subject
-  const subjectMatchedQuestions = activeQuestions.filter((q) => {
-    // If no subject is assigned to current quiz yet, allow viewing user's bank questions
+  const rawSubjectMatchedQuestions = activeQuestions.filter((q) => {
+    if (bypassSubjectFilter) return true;
+
+    // If no subject is assigned to current quiz yet, allow viewing all active bank questions
     if ((!currentSubjectIds || currentSubjectIds.length === 0) && normalizedSubjectNames.length === 0) {
       return true;
     }
 
-    const qSubjectId = q.subject_id || q.quizzes?.subject_id || q.sections?.subject_id;
+    const qSubjectId = q.subject_id || q.quizzes?.subject_id || q.sections?.subject_id || q.subjects?.id;
     const qSubjectName = normalize(
-      q.subject_name || q.subjects?.name || q.quizzes?.subjects?.name || q.sections?.subject_name || q.quizzes?.subject_code
+      q.subject_name || q.subjects?.name || q.quizzes?.subjects?.name || q.sections?.subject_name
     );
+    const qSubjectCode = normalize(q.subjects?.code || q.quizzes?.subjects?.code || q.quizzes?.subject_code || q.sections?.subject_code);
 
-    // Check ID match
-    if (qSubjectId && currentSubjectIds.some(id => String(id) === String(qSubjectId))) {
+    // Check exact ID match
+    if (qSubjectId && currentSubjectIds.some((id) => String(id) === String(qSubjectId))) {
       return true;
     }
 
-    // Check Name match
-    if (qSubjectName && normalizedSubjectNames.some((name) => qSubjectName.includes(name) || name.includes(qSubjectName))) {
-      return true;
+    // Check Name or Code match
+    if (normalizedSubjectNames.length > 0) {
+      const isMatch = normalizedSubjectNames.some((currentName) => {
+        if (!currentName) return false;
+        const normCurr = normalize(currentName);
+        if (!normCurr) return false;
+
+        // Exact match for full subject name or subject code
+        if (qSubjectName && normCurr === qSubjectName) return true;
+        if (qSubjectCode && normCurr === qSubjectCode) return true;
+
+        // Stop words list to prevent generic structural terms from matching across different subjects
+        const stopWords = new Set([
+          "class", "section", "dept", "department", "course", "subject",
+          "management", "development", "intro", "introduction", "fundamentals",
+          "principles", "1", "2", "3", "a", "b", "c", "d", "lab", "lecture",
+          "and", "or", "of", "to", "in", "for", "with"
+        ]);
+
+        const currentTokens = normCurr
+          .split(/[\s\-_]+/)
+          .map(normalize)
+          .filter((t) => t.length >= 2 && !stopWords.has(t));
+
+        const qTokens = (qSubjectName + " " + qSubjectCode)
+          .split(/[\s\-_]+/)
+          .map(normalize)
+          .filter((t) => t.length >= 2 && !stopWords.has(t));
+
+        if (qTokens.length > 0 && currentTokens.length > 0) {
+          // Strict whole-word token equality: "database" === "database"
+          // Avoid substring includes() which causes "database" to match "data" in "Data Structure and Algorithm"
+          return currentTokens.some((ct) => qTokens.includes(ct));
+        }
+
+        return false;
+      });
+
+      if (isMatch) return true;
     }
 
     return false;
   });
 
+  // Strict filtering results - no silent fallback to other subjects!
+  const subjectMatchedQuestions = rawSubjectMatchedQuestions;
+
   // Helper function to check if a question is owned by current instructor
   const isQuestionOwn = (q) => {
-    return q.is_own || (q.quizzes && q.quizzes.instructor_id === user?.id);
+    if (!user) return false;
+    if (q.instructor_id) return q.instructor_id === user.id;
+    if (q.quizzes?.instructor_id) return q.quizzes.instructor_id === user.id;
+    if (q.is_own !== undefined) return Boolean(q.is_own);
+    return false;
   };
 
   // Helper function to check if a question is private
   const isQuestionPrivate = (q) => {
-    if (q.is_private === true) return true;
-    if (q.quizzes && q.quizzes.is_private !== false) return true;
+    if (q.is_private === false || q.blooms_level === "public") return false;
+    if (q.quizzes && q.quizzes.is_private === false) return false;
+    if (q.is_private === true || q.blooms_level === "private") return true;
+    if (q.quizzes && q.quizzes.is_private === true) return true;
     return false;
   };
 
   // Counts for tabs
   const myPrivateCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && isQuestionPrivate(q)).length;
   const myPublicCount = subjectMatchedQuestions.filter(q => isQuestionOwn(q) && !isQuestionPrivate(q)).length;
-  const sharedCount = subjectMatchedQuestions.filter(q => !isQuestionOwn(q)).length;
+  const sharedCount = subjectMatchedQuestions.filter(q => !isQuestionOwn(q) && !isQuestionPrivate(q)).length;
   const gadCount = subjectMatchedQuestions.filter(q => isQuestionGad(q)).length;
 
   // 2. Privacy & Ownership & GAD Filtering
@@ -96,7 +146,7 @@ export const ImportQuestionBankModal = ({
       return isOwn && !isPrivate;
     }
     if (privacyFilter === "others_public") {
-      return !isOwn;
+      return !isOwn && !isPrivate;
     }
     if (privacyFilter === "gad_only") {
       return isQuestionGad(q);
@@ -196,16 +246,31 @@ export const ImportQuestionBankModal = ({
         </div>
 
         {/* Subject Constraint Notice Bar */}
-        <div className="bg-brand-navy/5 border-b border-brand-navy/10 px-5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-brand-navy">
-            <span>Subject Restricted:</span>
-            <span className="px-2 py-0.5 bg-white border border-slate-300 text-brand-navy rounded-md shadow-2xs">
+        <div className={`border-b px-5 py-2.5 flex items-center justify-between transition-colors ${
+          bypassSubjectFilter ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-indigo-50 border-indigo-200 text-indigo-900"
+        }`}>
+          <div className="flex items-center gap-2 text-xs font-extrabold">
+            <span>{bypassSubjectFilter ? "🔓 Subject Filter Bypassed:" : "🔒 Subject Restricted:"}</span>
+            <span className={`px-2 py-0.5 bg-white border rounded-md shadow-2xs ${
+              bypassSubjectFilter ? "border-amber-300 text-amber-900" : "border-indigo-300 text-indigo-800"
+            }`}>
               {activeSubjectTitle}
             </span>
           </div>
-          <span className="text-[11px] font-medium text-brand-navy/70">
-            Only showing questions from this subject
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-semibold ${bypassSubjectFilter ? "text-amber-800" : "text-indigo-700"}`}>
+              {bypassSubjectFilter ? "Showing questions from ALL subjects" : "Only showing questions from this subject"}
+            </span>
+            {bypassSubjectFilter && (
+              <button
+                type="button"
+                onClick={() => setBypassSubjectFilter(false)}
+                className="text-[11px] font-black underline text-amber-950 hover:text-amber-800 px-2 py-0.5 bg-amber-200/80 rounded border border-amber-300 transition-colors"
+              >
+                Re-enable Subject Filter
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Privacy & Ownership Filter Buttons */}
@@ -380,17 +445,37 @@ export const ImportQuestionBankModal = ({
                   ? "No questions matching GAD frameworks or gender-fair concepts were found in this subject."
                   : "Try clearing search filters or selecting another category above."}
               </p>
+              {activeQuestions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBypassSubjectFilter(true);
+                    setPrivacyFilter("all");
+                  }}
+                  className="mt-4 px-4 py-2 bg-brand-navy text-white text-xs font-bold rounded-xl shadow-xs hover:bg-brand-navy/90 transition-colors"
+                >
+                  Show All Bank Questions Across All Subjects ({activeQuestions.length})
+                </button>
+              )}
             </div>
           ) : (
             finalFilteredQuestions.map((q, idx) => {
               const isOwn = isQuestionOwn(q);
               const isPrivate = isQuestionPrivate(q);
+              const normalizedBankText = (q.text || "").toLowerCase().trim();
+              const isAlreadyInQuiz = targetQuestionNumber === null && currentQuizQuestions.some((cq) => {
+                if (q.id && cq.id === q.id) return true;
+                if (normalizedBankText && (cq.text || "").toLowerCase().trim() === normalizedBankText) return true;
+                return false;
+              });
 
               return (
                 <div
                   key={q.id || idx}
-                  className={`bg-white border rounded-2xl p-4 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all space-y-3 ${
-                    isOwn && isPrivate
+                  className={`bg-white border rounded-2xl p-4 shadow-xs transition-all space-y-3 ${
+                    isAlreadyInQuiz
+                      ? "border-amber-200 bg-amber-50/50 opacity-80"
+                      : isOwn && isPrivate
                       ? "border-brand-navy/30 hover:border-brand-navy bg-brand-navy/5"
                       : "border-slate-200 hover:border-brand-navy/50"
                   }`}
@@ -402,6 +487,13 @@ export const ImportQuestionBankModal = ({
                         <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-bold uppercase text-slate-700">
                           {q.type === "mcq" ? "Multiple Choice" : q.type === "true_false" ? "True / False" : q.type}
                         </span>
+
+                        {/* Already in Quiz Badge */}
+                        {isAlreadyInQuiz && (
+                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-[10px] font-extrabold flex items-center gap-1">
+                            Already in Quiz
+                          </span>
+                        )}
 
                         {/* Points badge */}
                         <span className="px-2 py-0.5 bg-brand-navy/10 text-brand-navy rounded-md text-[10px] font-bold">
@@ -461,12 +553,20 @@ export const ImportQuestionBankModal = ({
                     </div>
 
                     <button
+                      disabled={isAlreadyInQuiz}
                       onClick={() => handleChoose(q)}
-                      aria-label={`Import this question: ${(q.text || "").slice(0, 60)}`}
-                      className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy font-extrabold text-xs rounded-lg shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                      aria-label={
+                        isAlreadyInQuiz
+                          ? "Already in this quiz"
+                          : `Import this question: ${(q.text || "").slice(0, 60)}`
+                      }
+                      className={`px-4 py-2 font-extrabold text-xs rounded-lg shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
+                        isAlreadyInQuiz
+                          ? "bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed"
+                          : "bg-brand-gold hover:bg-brand-gold-dark hover:shadow-lg text-brand-navy"
+                      }`}
                     >
-                      
-                      <span>Import This Question</span>
+                      <span>{isAlreadyInQuiz ? "Already in Quiz" : "Import This Question"}</span>
                     </button>
                   </div>
 

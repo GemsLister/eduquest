@@ -10,6 +10,7 @@ import { EditChoiceModal } from "../../components/container/item-analysis/EditCh
 import { useDiscrimination } from "../../hooks/analysisHook/useDiscrimination";
 import { notify } from "../../utils/notify.jsx";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
+import { exportItemAnalysisPdf } from "../../utils/exportItemAnalysisPdf";
 
 export const ItemAnalysisPage = () => {
   const { user } = useAuth();
@@ -121,11 +122,12 @@ export const ItemAnalysisPage = () => {
         );
 
         let finalQuizzes = [];
-        if (allCandidateIds.length > 0) {
+        if (allCandidateIds.length > 0 && user?.id) {
           const { data: qData } = await supabase
             .from("quizzes")
             .select("id, title, is_published, is_archived")
             .in("id", allCandidateIds)
+            .eq("instructor_id", user.id)
             .eq("is_published", true)
             .eq("is_archived", false);
 
@@ -197,7 +199,23 @@ export const ItemAnalysisPage = () => {
       if (error) throw error;
 
       setAnalysisSaved(true);
-      notify.success("Analysis saved successfully!");
+
+      // Generate & download PDF report
+      try {
+        const quizObj = quizzes.find((q) => String(q.id) === String(selectedQuiz));
+        await exportItemAnalysisPdf({
+          selectedQuiz: quizObj || { title: typeof selectedQuiz === "string" ? selectedQuiz : "Item Analysis Report" },
+          analysis,
+          testStats,
+          totalAttempts: allTakersList?.length || analysis.length || 0,
+          allTakers: allTakersList,
+          selectedCohortFilter,
+        });
+        notify.success("Analysis saved to database & exported as PDF!");
+      } catch (pdfErr) {
+        console.error("PDF export error:", pdfErr);
+        notify.success("Analysis saved successfully!");
+      }
     } catch (err) {
       setSaveError(err.message);
       console.error("Save Error:", err);
@@ -218,23 +236,111 @@ export const ItemAnalysisPage = () => {
   };
 
   // Helper function to map answer to letter A/B/C/D
-  const getLetter = (answer) => {
-    const num = parseInt(answer);
-    return isNaN(num) ? answer.toUpperCase() : String.fromCharCode(65 + num);
+  const getLetter = (answer, options = []) => {
+    if (answer === null || answer === undefined || answer === "") return "—";
+
+    const str = String(answer).trim();
+
+    // Check if str is already a single letter A, B, C, D...
+    if (/^[A-Za-z]$/.test(str)) {
+      return str.toUpperCase();
+    }
+
+    // Check if str is integer index 0, 1, 2, 3...
+    const num = Number(str);
+    if (!isNaN(num) && Number.isInteger(num) && num >= 0 && num < 26) {
+      return String.fromCharCode(65 + num);
+    }
+
+    // Check if str matches one of the option texts in options array
+    if (Array.isArray(options) && options.length > 0) {
+      const idx = options.findIndex(
+        (opt) => String(opt).trim().toLowerCase() === str.toLowerCase()
+      );
+      if (idx >= 0) {
+        return String.fromCharCode(65 + idx);
+      }
+    }
+
+    return str.toUpperCase();
   };
 
   const fetchAndAnalyze = async (quizId) => {
     setLoading(true);
     try {
-      // 0. Fetch Quiz Info to get parent_quiz_id
+      // 0. Fetch Quiz Info to get parent_quiz_id & sibling versions
       const { data: qInfo } = await supabase
         .from("quizzes")
-        .select("id, parent_quiz_id")
+        .select("id, title, subject_id, parent_quiz_id, subjects(id, name, code)")
         .eq("id", quizId)
         .maybeSingle();
 
+      const rootId = qInfo?.parent_quiz_id || quizId;
       const relatedQuizIds = [quizId];
-      if (qInfo?.parent_quiz_id) relatedQuizIds.push(qInfo.parent_quiz_id);
+      if (qInfo?.parent_quiz_id && !relatedQuizIds.includes(qInfo.parent_quiz_id)) {
+        relatedQuizIds.push(qInfo.parent_quiz_id);
+      }
+      try {
+        const { data: siblingRevs } = await supabase
+          .from("quizzes")
+          .select("id")
+          .or(`parent_quiz_id.eq.${rootId},id.eq.${rootId}`);
+        if (siblingRevs) {
+          siblingRevs.forEach((r) => {
+            if (!relatedQuizIds.includes(r.id)) relatedQuizIds.push(r.id);
+          });
+        }
+      } catch (e) {
+        console.warn("Could not fetch sibling quiz revisions:", e);
+      }
+
+      // Map question IDs across all related versions by order/index (both direct and via junction)
+      const indexToQuestionIds = {};
+      try {
+        // 1. Check quiz_questions junction table
+        const { data: jData } = await supabase
+          .from("quiz_questions")
+          .select("question_id, quiz_id, order_index")
+          .in("quiz_id", relatedQuizIds)
+          .order("order_index", { ascending: true });
+
+        if (jData && jData.length > 0) {
+          const qsByQuiz = {};
+          jData.forEach((row) => {
+            if (!qsByQuiz[row.quiz_id]) qsByQuiz[row.quiz_id] = [];
+            qsByQuiz[row.quiz_id].push(row.question_id);
+          });
+          Object.values(qsByQuiz).forEach((qIds) => {
+            qIds.forEach((qId, idx) => {
+              if (!indexToQuestionIds[idx]) indexToQuestionIds[idx] = new Set();
+              indexToQuestionIds[idx].add(qId);
+            });
+          });
+        }
+
+        // 2. Check direct questions table
+        const { data: allRelatedQs } = await supabase
+          .from("questions")
+          .select("id, quiz_id, created_at")
+          .in("quiz_id", relatedQuizIds)
+          .order("created_at", { ascending: true });
+
+        if (allRelatedQs) {
+          const qsByQuiz = {};
+          allRelatedQs.forEach((rq) => {
+            if (!qsByQuiz[rq.quiz_id]) qsByQuiz[rq.quiz_id] = [];
+            qsByQuiz[rq.quiz_id].push(rq);
+          });
+          Object.values(qsByQuiz).forEach((qList) => {
+            qList.forEach((rq, idx) => {
+              if (!indexToQuestionIds[idx]) indexToQuestionIds[idx] = new Set();
+              indexToQuestionIds[idx].add(rq.id);
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("Could not map question index across versions:", e);
+      }
 
       // 1. Fetch Quiz Data (Questions)
       let questions = [];
@@ -321,15 +427,39 @@ export const ItemAnalysisPage = () => {
           return att.id;
         }) || [];
 
-      // 2. Fetch ALL individual responses for these students
-      const { data: responses } = await supabase
-        .from("quiz_responses")
-        .select("*")
-        .in("attempt_id", attemptIds);
+      // 2. Fetch ALL individual responses for these students (paginated to bypass Supabase 1000 row limit)
+      let responses = [];
+      if (attemptIds.length > 0) {
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-      const results = questions.map((q) => {
+        while (hasMore) {
+          const { data: pageData, error: respError } = await supabase
+            .from("quiz_responses")
+            .select("*")
+            .in("attempt_id", attemptIds)
+            .range(from, from + pageSize - 1);
+
+          if (respError) throw respError;
+
+          if (pageData && pageData.length > 0) {
+            responses = [...responses, ...pageData];
+            if (pageData.length < pageSize) {
+              hasMore = false;
+            } else {
+              from += pageSize;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+      }
+
+      const results = questions.map((q, qIndex) => {
+        const matchingQuestionIds = indexToQuestionIds[qIndex] || new Set([q.id]);
         const qResponses =
-          responses?.filter((r) => r.question_id === q.id) || [];
+          responses?.filter((r) => matchingQuestionIds.has(r.question_id)) || [];
         const total = qResponses.length;
 
         // --- 3. DISTRACTOR ANALYSIS ---
@@ -413,6 +543,12 @@ export const ItemAnalysisPage = () => {
 
         return {
           question_id: q.id,
+          quiz_id: quizId,
+          quiz_title: qInfo?.title || "",
+          subject_id: q.subject_id || qInfo?.subject_id || null,
+          subject_name: qInfo?.subjects?.name
+            ? `${qInfo.subjects.name}${qInfo.subjects.code ? ` (${qInfo.subjects.code})` : ''}`
+            : "",
           text: q.text,
           type: q.type,
           options: q.options,
@@ -442,12 +578,27 @@ export const ItemAnalysisPage = () => {
           totalResponses: total,
           decilePerformance,
           distractorAnalysis: distractorData,
-          takersDetails: qResponses.map((r) => ({
-            name: takersMap[r.attempt_id]?.name || "Student",
-            answer: getLetter(r.answer),
-            isCorrect: r.is_correct,
-            totalScore: takersMap[r.attempt_id]?.totalScore || 0,
-          })),
+          takersDetails: attemptIds.map((attId) => {
+            const resListForAttempt = responses?.filter((res) => res.attempt_id === attId) || [];
+            
+            // 1. Try finding response by matching question IDs for this question index
+            let r = resListForAttempt.find((res) => matchingQuestionIds.has(res.question_id) || res.question_id === q.id);
+
+            // 2. Fallback: try finding response at position qIndex if questions were taken in order
+            if (!r && resListForAttempt[qIndex]) {
+              r = resListForAttempt[qIndex];
+            }
+
+            const answerVal = r ? getLetter(r.answer, q.options) : "—";
+            const isCorrect = r ? (r.is_correct ?? (String(r.answer) === String(q.correct_answer))) : false;
+
+            return {
+              name: takersMap[attId]?.name || "Student",
+              answer: answerVal,
+              isCorrect: isCorrect,
+              totalScore: takersMap[attId]?.totalScore || 0,
+            };
+          }),
         };
       });
 
@@ -508,15 +659,35 @@ export const ItemAnalysisPage = () => {
         isSmallSample: sampleSize > 0 && sampleSize < 10,
       });
 
+      // Calculate total time spent for each attempt
+      const attemptTotalTimeMap = {};
+      (responses || []).forEach((r) => {
+        if (!attemptTotalTimeMap[r.attempt_id]) attemptTotalTimeMap[r.attempt_id] = 0;
+        attemptTotalTimeMap[r.attempt_id] += Number(r.time_spent_seconds) || 0;
+      });
+
       setAllTakersList(
-        (attempts || []).map((att) => ({
-          id: att.id,
-          name:
-            att.guest_name ||
-            att.student_name ||
-            (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous"),
-          score: att.score || 0,
-        })),
+        (attempts || []).map((att) => {
+          let totalTime = attemptTotalTimeMap[att.id] || 0;
+          if (totalTime <= 0 && att.completed_at && (att.started_at || att.created_at)) {
+            const start = new Date(att.started_at || att.created_at).getTime();
+            const end = new Date(att.completed_at).getTime();
+            if (end > start) {
+              totalTime = Math.round((end - start) / 1000);
+            }
+          }
+
+          return {
+            id: att.id,
+            name:
+              att.guest_name ||
+              att.student_name ||
+              (att.user_id ? `Student ${att.user_id.slice(0, 8)}` : "Anonymous"),
+            score: att.score || 0,
+            completedAt: att.completed_at || att.created_at || null,
+            totalTimeSeconds: totalTime,
+          };
+        }),
       );
 
       setAnalysis(results);

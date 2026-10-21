@@ -9,6 +9,7 @@ export const ItemAnalysisTable = ({
   studentSearchTerm,
   expandedQuestion,
   toggleDetails,
+  onFlagClick,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedComparisonItem, setSelectedComparisonItem] = useState(null);
@@ -58,13 +59,13 @@ export const ItemAnalysisTable = ({
                   <tr className="hover:bg-gray-50 transition-colors h-14">
                     <td className="p-3 text-sm font-medium" title={item.text}>
                       {item.autoFlag === 'revise' || item.revised_content || item.previous_text || item.revision_history?.length > 0 ? (
-                        <div 
+                        <div
                           className="group hover:bg-indigo-50/50 p-2 rounded-lg transition-all"
                           title="Item has revision history"
                         >
                           <span className="font-bold text-indigo-900 text-sm mr-2 group-hover:text-indigo-600">Q{startIndex + index + 1}:</span>
                           <span className="max-w-[200px] inline-block truncate lg:max-w-none lg:whitespace-normal lg:break-words group-hover:text-indigo-700">{item.text}</span>
-                          
+
                           {item.revision_history && item.revision_history.length > 0 && (
                             <div className="mt-1 flex items-center gap-1.5">
                               <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-brand-indigo/10 text-brand-indigo font-bold uppercase tracking-wider border border-brand-indigo/20 shadow-sm">
@@ -106,21 +107,36 @@ export const ItemAnalysisTable = ({
                       )}
                     </td>
                     <td className="p-3 text-center hidden lg:table-cell">
-                      {item.autoFlag === 'retain' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                      {item.autoFlag === 'approved' || item.autoFlag === 'retain' ? (
+                        <span
+                          title="Good item (no revision needed)"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200"
+                        >
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                           Retain
                         </span>
                       ) : item.autoFlag === 'revise' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => onFlagClick?.(item)}
+                          title="Click to edit revision"
+                          aria-label="Revise this item"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full border border-amber-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                        >
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                           Revise
-                        </span>
+                        </button>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+                        <button
+                          type="button"
+                          onClick={() => onFlagClick?.(item)}
+                          title="Click to replace with new question"
+                          aria-label="Replace this rejected item"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-full border border-rose-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                        >
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           Reject
-                        </span>
+                        </button>
                       )}
                     </td>
 
@@ -302,7 +318,7 @@ export const ItemAnalysisTable = ({
             </div>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 text-center leading-tight">
-            <strong>P</strong> = % correct answers (0.0–1.0)<br/>
+            <strong>Difficulty (P):</strong> &gt;0.75 Easy | 0.25–0.75 Moderate | &lt;0.25 Difficult<br />
             <strong>Hi/Lo</strong> = top/bottom performer total scores
           </div>
         </div>

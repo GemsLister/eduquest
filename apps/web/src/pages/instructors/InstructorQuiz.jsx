@@ -140,6 +140,7 @@ export const InstructorQuiz = () => {
       };
       setQuestions(updated);
       setExpandedQuestions(new Set([...expandedQuestions, targetId]));
+      setCurrentPage(Math.ceil((bankTargetIndex + 1) / QUESTIONS_PER_PAGE));
       markQuestionsDirty();
       notify.success(`Question #${bankTargetIndex + 1} updated from Question Bank!`);
     } else {
@@ -149,6 +150,7 @@ export const InstructorQuiz = () => {
       };
       setQuestions([...questions, newQuestionObj]);
       setExpandedQuestions(new Set([...expandedQuestions, newQuestionObj.id]));
+      setCurrentPage(Math.ceil((questions.length + 1) / QUESTIONS_PER_PAGE));
       markQuestionsDirty();
       notify.success("New question imported from Question Bank!");
     }

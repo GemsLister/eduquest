@@ -1,3 +1,6 @@
+import React, { useState, useMemo } from "react";
+import { formatTimeSpent } from "../../../utils/timeSpent";
+
 const getCohortFilterLabel = (filter) => {
   const labels = {
     all: "All Students",
@@ -90,6 +93,68 @@ export const ItemAnalysisResults = ({
   selectedCohortFilter,
   testStats,
 }) => {
+  const [takersPage, setTakersPage] = useState(1);
+  const [allTakersSortKey, setAllTakersSortKey] = useState("score_desc");
+  const takersPerPage = 10;
+
+  const takersResetKey = [allTakers?.length, selectedQuiz?.id ?? selectedQuiz, allTakersSortKey].join("|");
+  const [lastTakersResetKey, setLastTakersResetKey] = useState(takersResetKey);
+  if (lastTakersResetKey !== takersResetKey) {
+    setLastTakersResetKey(takersResetKey);
+    setTakersPage(1);
+  }
+
+  const sortedAllTakers = useMemo(() => {
+    if (!allTakers || allTakers.length === 0) return [];
+
+    return [...allTakers].sort((a, b) => {
+      if (allTakersSortKey === "score_desc") {
+        return (b.score || 0) - (a.score || 0);
+      } else if (allTakersSortKey === "score_asc") {
+        return (a.score || 0) - (b.score || 0);
+      } else if (allTakersSortKey === "name_asc") {
+        return a.name.localeCompare(b.name);
+      } else if (allTakersSortKey === "name_desc") {
+        return b.name.localeCompare(a.name);
+      } else if (allTakersSortKey === "first_to_finish") {
+        const timeA = a.totalTimeSeconds || 0;
+        const timeB = b.totalTimeSeconds || 0;
+        if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        const compA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const compB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return compA - compB;
+      } else if (allTakersSortKey === "last_to_finish") {
+        const timeA = a.totalTimeSeconds || 0;
+        const timeB = b.totalTimeSeconds || 0;
+        if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+          return timeB - timeA;
+        }
+        const compA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const compB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return compB - compA;
+      }
+      return 0;
+    });
+  }, [allTakers, allTakersSortKey]);
+
+  const totalTakersPages = Math.max(1, Math.ceil((sortedAllTakers?.length || 0) / takersPerPage));
+  const paginatedTakers = useMemo(() => {
+    if (!sortedAllTakers) return [];
+    const start = (takersPage - 1) * takersPerPage;
+    return sortedAllTakers.slice(start, start + takersPerPage);
+  }, [sortedAllTakers, takersPage]);
+
+  const toggleHeaderSort = (field) => {
+    if (field === "name") {
+      setAllTakersSortKey((prev) => (prev === "name_asc" ? "name_desc" : "name_asc"));
+    } else if (field === "score") {
+      setAllTakersSortKey((prev) => (prev === "score_desc" ? "score_asc" : "score_desc"));
+    } else if (field === "time") {
+      setAllTakersSortKey((prev) => (prev === "first_to_finish" ? "last_to_finish" : "first_to_finish"));
+    }
+  };
   const isSmallSample =
     testStats?.isSmallSample || (totalAttempts > 0 && totalAttempts < 10);
   const sampleSize = testStats?.sampleSize || totalAttempts || 0;
@@ -309,10 +374,10 @@ export const ItemAnalysisResults = ({
               <p className="text-brand-navy/70 leading-relaxed">
                 Proportion of students answering correctly (P = Correct /
                 Total).{" "}
-                <strong className="text-brand-navy">0.30 &ndash; 0.75</strong>{" "}
+                <strong className="text-brand-navy">0.25 &ndash; 0.75</strong>{" "}
                 = Moderate (Optimal),{" "}
                 <strong className="text-brand-navy">&gt; 0.75</strong> = Easy,{" "}
-                <strong className="text-brand-navy">&lt; 0.30</strong> =
+                <strong className="text-brand-navy">&lt; 0.25</strong> =
                 Difficult.
               </p>
             </div>
@@ -388,7 +453,8 @@ export const ItemAnalysisResults = ({
               <button
                 onClick={handleSaveAnalysis}
                 disabled={savingAnalysis || !analysis || analysis.length === 0}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs ${
+                title="Save analysis to database and download PDF report"
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   savingAnalysis || !analysis || analysis.length === 0
                     ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                     : analysisSaved
@@ -396,11 +462,16 @@ export const ItemAnalysisResults = ({
                     : "bg-brand-navy hover:bg-brand-indigo text-white"
                 }`}
               >
-                {savingAnalysis
-                  ? "Saving..."
-                  : analysisSaved
-                  ? "Saved"
-                  : "Save Analysis"}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>
+                  {savingAnalysis
+                    ? "Saving & Exporting PDF..."
+                    : analysisSaved
+                    ? "Saved & Exported ✓"
+                    : "Save Analysis"}
+                </span>
               </button>
             </div>
           </div>
@@ -408,20 +479,75 @@ export const ItemAnalysisResults = ({
           {/* All Takers Section */}
           {allTakers && allTakers.length > 0 && (
             <div className="p-4 border-t border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                All Students Who Took This Exam ({totalAttempts})
-              </h4>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-slate-700">
+                    All Students Who Took This Exam ({totalAttempts})
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium hidden md:inline">
+                    • Showing {(takersPage - 1) * takersPerPage + 1} to{" "}
+                    {Math.min(takersPage * takersPerPage, sortedAllTakers.length)} of {sortedAllTakers.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Sort by:</span>
+                  <select
+                    value={allTakersSortKey}
+                    onChange={(e) => setAllTakersSortKey(e.target.value)}
+                    className="text-xs font-bold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-brand-navy shadow-xs focus:outline-none focus:ring-1 focus:ring-brand-navy cursor-pointer"
+                  >
+                    <option value="score_desc">🏆 Highest to Lowest Score</option>
+                    <option value="score_asc">📉 Lowest to Highest Score</option>
+                    <option value="first_to_finish">⚡ First to Finish (Fastest Total Time)</option>
+                    <option value="last_to_finish">⏳ Last to Finish (Longest Total Time)</option>
+                    <option value="name_asc">🔤 Alphabetical (A - Z)</option>
+                    <option value="name_desc">🔤 Alphabetical (Z - A)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100 text-gray-600 text-xs uppercase">
+                  <thead className="bg-gray-100 text-gray-600 text-xs uppercase font-bold border-b">
                     <tr>
-                      <th className="p-3 text-left">Student Name</th>
-                      <th className="p-3 text-center">Score</th>
-                      <th className="p-3 text-center">Status</th>
+                      <th
+                        onClick={() => toggleHeaderSort("name")}
+                        className="p-3 text-left cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort Alphabetically (A-Z / Z-A)"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Student Name</span>
+                          {allTakersSortKey === "name_asc" && <span className="text-brand-navy font-extrabold ml-1">↑</span>}
+                          {allTakersSortKey === "name_desc" && <span className="text-brand-navy font-extrabold ml-1">↓</span>}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleHeaderSort("score")}
+                        className="p-3 text-center cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort by Score (Highest-Lowest / Lowest-Highest)"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Score</span>
+                          {allTakersSortKey === "score_desc" && <span className="text-brand-navy font-extrabold ml-1">↓</span>}
+                          {allTakersSortKey === "score_asc" && <span className="text-brand-navy font-extrabold ml-1">↑</span>}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleHeaderSort("time")}
+                        className="p-3 text-center cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                        title="Click to sort by Total Exam Time (Fastest / Slowest)"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Status &amp; Time</span>
+                          {allTakersSortKey === "first_to_finish" && <span className="text-emerald-600 font-extrabold text-[10px] lowercase ml-1">(fastest time)</span>}
+                          {allTakersSortKey === "last_to_finish" && <span className="text-amber-600 font-extrabold text-[10px] lowercase ml-1">(slowest time)</span>}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {allTakers.map((taker) => (
+                    {paginatedTakers.map((taker) => (
                       <tr key={taker.id} className="hover:bg-gray-50">
                         <td className="p-3 text-gray-800 font-medium">
                           {taker.name}
@@ -430,15 +556,70 @@ export const ItemAnalysisResults = ({
                           {taker.score}
                         </td>
                         <td className="p-3 text-center">
-                          <span className="px-2 py-1 bg-brand-navy/5 text-brand-navy text-xs rounded-full font-semibold border border-brand-navy/10">
-                            Completed
-                          </span>
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-brand-navy/5 text-brand-navy text-xs rounded-full font-semibold border border-brand-navy/10">
+                              Completed
+                            </span>
+                            {taker.totalTimeSeconds !== undefined && taker.totalTimeSeconds > 0 && (
+                              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title="Total time spent on exam">
+                                ⏱ {formatTimeSpent(taker.totalTimeSeconds)}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {totalTakersPages > 1 && (
+                <div className="mt-4 pt-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <div className="text-xs text-gray-500">
+                    Page {takersPage} of {totalTakersPages}
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setTakersPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={takersPage === 1}
+                      className={`relative inline-flex items-center justify-center px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                        takersPage === 1
+                          ? "text-gray-300 cursor-not-allowed border border-gray-100"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalTakersPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setTakersPage(page)}
+                        className={`relative inline-flex items-center justify-center w-7 h-7 text-xs font-semibold rounded-md transition-colors ${
+                          takersPage === page
+                            ? "bg-brand-navy text-white shadow-xs"
+                            : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setTakersPage((prev) => Math.min(prev + 1, totalTakersPages))}
+                      disabled={takersPage === totalTakersPages}
+                      className={`relative inline-flex items-center justify-center px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                        takersPage === totalTakersPages
+                          ? "text-gray-300 cursor-not-allowed border border-gray-100"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

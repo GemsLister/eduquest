@@ -9,6 +9,7 @@ import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import { ReuseQuestionModal } from "../../components/ReuseQuestionModal.jsx";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,6 +31,8 @@ export const QuestionBank = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [bulkSelected, setBulkSelected] = useState(new Set());
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [questionsToReuse, setQuestionsToReuse] = useState([]);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   useEscapeKey(() => setShowSortDropdown(false), showSortDropdown);
   useEscapeKey(() => setShowAddForm(false), showAddForm);
@@ -430,6 +433,30 @@ export const QuestionBank = () => {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleOpenReuseModal = (questions) => {
+    const targetList = Array.isArray(questions) ? questions : [questions];
+    if (targetList.length === 0) {
+      notify.warning("No questions selected to reuse.");
+      return;
+    }
+
+    // Questions reused together must come from the same subject
+    const subjectIds = new Set(
+      targetList
+        .map((q) => q.subject_id || q.quizzes?.subject_id || q.subjects?.id || q.sections?.subject_id)
+        .filter(Boolean),
+    );
+    if (subjectIds.size > 1) {
+      notify.warning(
+        "All selected questions must belong to the same subject to be reused together. Filter by subject first.",
+      );
+      return;
+    }
+
+    setQuestionsToReuse(targetList);
+    setShowReuseModal(true);
   };
 
   const handleBulkArchive = async () => {
@@ -1458,6 +1485,17 @@ export const QuestionBank = () => {
           <div className="flex gap-2">
             {activeTab === "active" && (
               <button
+                onClick={() => handleOpenReuseModal(allFiltered.filter((q) => bulkSelected.has(q.id)))}
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg text-xs font-bold hover:bg-brand-gold-dark transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reuse Selected
+              </button>
+            )}
+            {activeTab === "active" && (
+              <button
                 onClick={handleBulkArchive}
                 className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
@@ -1806,6 +1844,19 @@ export const QuestionBank = () => {
                   {activeTab === "active" && (
                     <div className="flex items-start gap-1 pt-4 pr-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                       <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReuseModal(question);
+                        }}
+                        className="p-2 rounded-lg text-brand-navy hover:bg-brand-gold/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                        title="Reuse in a quiz"
+                        aria-label="Reuse question in a quiz"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                      <button
                         onClick={async () => {
                           const confirmed = await confirm({
                             title: "Archive Question",
@@ -2146,6 +2197,19 @@ export const QuestionBank = () => {
           </div>
         </div>
       )}
+
+      <ReuseQuestionModal
+        isOpen={showReuseModal}
+        onClose={() => setShowReuseModal(false)}
+        questionsToReuse={questionsToReuse}
+        user={user}
+        defaultSubjectId={selectedSubjectId}
+        onSuccess={() => {
+          fetchQuestions();
+          setBulkSelected(new Set());
+        }}
+        navigate={navigate}
+      />
     </div>
   );
 };

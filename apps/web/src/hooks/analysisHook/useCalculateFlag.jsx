@@ -1,7 +1,8 @@
 export const calculateFlag = (level) => {
   const flagMap = {
     Easy: "Retain",
-    Moderate: "Revise",
+    "Moderately Difficult": "Retain",
+    Moderate: "Retain",
     Difficult: "Discard",
   };
   return flagMap[level];

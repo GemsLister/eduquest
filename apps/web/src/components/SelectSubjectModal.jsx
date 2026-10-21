@@ -12,6 +12,7 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
   const [sections, setSections] = useState([]);
   const [selectedSectionId, setSelectedSectionId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEscapeKey(onClose, isOpen);
   const trapRef = useFocusTrap(isOpen);
@@ -47,9 +48,14 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
     }
   };
 
-  const handleConfirm = () => {
-    onConfirm(selectedSectionId);
-    setSelectedSectionId(null);
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm(selectedSectionId);
+      setSelectedSectionId(null);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -125,17 +131,28 @@ export const SelectSubjectModal = ({ isOpen, onClose, onConfirm, questionText })
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:border-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+            disabled={submitting}
+            className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={loading}
-            className="flex-1 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-semibold hover:bg-brand-gold-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+            disabled={loading || submitting || sections.length === 0}
+            className="flex-1 px-4 py-2 bg-brand-gold text-brand-navy rounded-lg font-semibold hover:bg-brand-gold-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
-            Archive
+            {submitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-brand-navy" aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Archiving...</span>
+              </>
+            ) : (
+              "Archive"
+            )}
           </button>
         </div>
       </div>

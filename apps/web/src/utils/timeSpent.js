@@ -7,9 +7,9 @@ export function addTimeSpent(existing, deltaSeconds) {
 
 /** Human-readable duration with tenths of a second when useful. */
 export function formatTimeSpent(seconds) {
-  if (seconds === undefined || seconds === null) return "N/A";
+  if (seconds === undefined || seconds === null) return "0.0s";
   const s = Number(seconds);
-  if (Number.isNaN(s) || s <= 0) return "0.0s";
+  if (Number.isNaN(s)) return "0.0s";
 
   const mins = Math.floor(s / 60);
   const secPart = s - mins * 60;
