@@ -462,8 +462,13 @@ export const AdminInstructorDetail = () => {
               </div>
             )}
             <div className="min-w-0">
+              {/* The account's own role, not the portal being viewed */}
               <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
-                Senior Faculty
+                {profile.is_faculty_head
+                  ? "Department Head"
+                  : profile.is_admin
+                    ? "Senior Faculty"
+                    : "Instructor"}
               </p>
               <h1 className="text-2xl md:text-3xl font-black text-white flex flex-wrap items-center gap-3">
                 <span className="truncate">{name}</span>
