@@ -2564,6 +2564,7 @@ export const InstructorQuiz = () => {
         onClose={() => setShowBankModal(false)}
         onSelectQuestion={handleImportFromBank}
         targetQuestionNumber={bankTargetIndex !== null ? bankTargetIndex + 1 : null}
+        currentQuizQuestions={questions}
         currentSubjectIds={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_id).filter(Boolean)}
         currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_name || s.name || s.subject_code).filter(Boolean)}
       />

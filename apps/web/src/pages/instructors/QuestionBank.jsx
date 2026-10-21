@@ -2204,9 +2204,18 @@ export const QuestionBank = () => {
         questionsToReuse={questionsToReuse}
         user={user}
         defaultSubjectId={selectedSubjectId}
-        onSuccess={() => {
+        defaultQuizId={quizId || null}
+        onSuccess={(targetQuizId, addedCount) => {
           fetchQuestions();
           setBulkSelected(new Set());
+          // Opened from a quiz: go back to its editor once the questions are in
+          if (quizId && addedCount > 0 && String(targetQuizId) === String(quizId)) {
+            navigate(
+              isAdminPath
+                ? `/admin-dashboard/create-quiz/${quizId}`
+                : `/instructor-dashboard/instructor-quiz/${quizId}`,
+            );
+          }
         }}
         navigate={navigate}
       />

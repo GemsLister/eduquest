@@ -7,6 +7,20 @@ import { notify } from "../utils/notify.jsx";
  * Allows instructors to retrieve/reuse questions directly from Question Bank
  * into an existing or newly created quiz within the same subject.
  */
+// Statuses where a quiz is under review and must not be changed
+const REVIEW_LOCKED_STATUSES = ["pending", "faculty_head_review", "approved", "faculty_head_approved"];
+
+// Insert a copied question; retries without is_private when that column
+// hasn't been migrated yet (Postgres 42703 = undefined column).
+const insertQuestionCopy = async (payload) => {
+  let { data, error } = await supabase.from("questions").insert(payload).select();
+  if (error && (error.code === "42703" || error.message?.includes("is_private"))) {
+    const { is_private: _isPrivate, ...withoutPrivacy } = payload;
+    ({ data, error } = await supabase.from("questions").insert(withoutPrivacy).select());
+  }
+  return { id: data?.[0]?.id || null, error };
+};
+
 export const ReuseQuestionModal = ({
   isOpen,
   onClose,
@@ -15,6 +29,7 @@ export const ReuseQuestionModal = ({
   onSuccess,
   navigate,
   defaultSubjectId = null,
+  defaultQuizId = null,
 }) => {
   const [activeTab, setActiveTab] = useState("existing"); // "existing" | "new"
   const [quizzes, setQuizzes] = useState([]);
@@ -166,12 +181,31 @@ export const ReuseQuestionModal = ({
           }
         }
 
-        // Sort newest first
-        uniqueQuizzes.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        // The quiz the bank was opened from may sit outside this subject
+        if (defaultQuizId && !seen.has(defaultQuizId)) {
+          const { data: originQuiz } = await supabase
+            .from("quizzes")
+            .select("id, title, description, duration, is_published, is_private, created_at, subject_id, instructor_id, is_archived")
+            .eq("id", defaultQuizId)
+            .eq("instructor_id", user.id)
+            .maybeSingle();
+          if (originQuiz && !originQuiz.is_archived) {
+            seen.add(originQuiz.id);
+            uniqueQuizzes.push(originQuiz);
+          }
+        }
 
-        setQuizzes(uniqueQuizzes);
-        if (uniqueQuizzes.length > 0) {
-          setSelectedQuizId(uniqueQuizzes[0].id);
+        // Published quizzes are locked, so they can't receive questions
+        const editableQuizzes = uniqueQuizzes
+          .filter((q) => !q.is_published)
+          .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+        setQuizzes(editableQuizzes);
+        const originInList = editableQuizzes.find((q) => String(q.id) === String(defaultQuizId));
+        if (originInList) {
+          setSelectedQuizId(originInList.id);
+        } else if (editableQuizzes.length > 0) {
+          setSelectedQuizId(editableQuizzes[0].id);
         } else {
           setSelectedQuizId("");
         }
@@ -185,7 +219,7 @@ export const ReuseQuestionModal = ({
     };
 
     fetchSubjectQuizzes();
-  }, [isOpen, user, currentSubjectId]);
+  }, [isOpen, user, currentSubjectId, defaultQuizId]);
 
   if (!isOpen) return null;
 
@@ -214,6 +248,18 @@ export const ReuseQuestionModal = ({
 
     setSubmitting(true);
     try {
+      const { data: latestSub } = await supabase
+        .from("quiz_analysis_submissions")
+        .select("status")
+        .eq("quiz_id", selectedQuizId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (REVIEW_LOCKED_STATUSES.includes(latestSub?.status)) {
+        notify.error("This quiz is in the review process and can't be changed.");
+        return;
+      }
+
       // Fetch existing questions for selectedQuizId to check duplicates
       const { data: existingTargetQuestions } = await supabase
         .from("questions")
@@ -248,6 +294,8 @@ export const ReuseQuestionModal = ({
 
       let addedCount = 0;
       let skippedCount = 0;
+      let failedCount = 0;
+      let lastError = null;
       for (let i = 0; i < questionsToReuse.length; i++) {
         const q = questionsToReuse[i];
         const normalizedText = (q.text || "").toLowerCase().trim();
@@ -272,39 +320,42 @@ export const ReuseQuestionModal = ({
           subject_id: currentSubjectId || q.subject_id || null,
         };
 
-        let { data: newCloneData, error: cloneErr } = await supabase
-          .from("questions")
-          .insert(clonePayload)
-          .select();
-
-        if (cloneErr) {
+        const { id: newQId, error: cloneErr } = await insertQuestionCopy(clonePayload);
+        if (cloneErr || !newQId) {
           console.error("Failed to copy question:", cloneErr);
+          lastError = cloneErr;
+          failedCount++;
           continue;
         }
 
-        const newQId = newCloneData?.[0]?.id;
-        if (newQId) {
-          await supabase.from("quiz_questions").insert({
-            quiz_id: selectedQuizId,
-            question_id: newQId,
-            order_index: maxOrder,
-          });
-          existingQuestionIds.add(newQId);
-          if (normalizedText) existingQuestionTexts.add(normalizedText);
-          addedCount++;
-        }
+        await supabase.from("quiz_questions").insert({
+          quiz_id: selectedQuizId,
+          question_id: newQId,
+          order_index: maxOrder,
+        });
+        existingQuestionIds.add(newQId);
+        if (normalizedText) existingQuestionTexts.add(normalizedText);
+        addedCount++;
       }
 
       const targetQuizObj = quizzes.find((qz) => qz.id === selectedQuizId);
       const quizTitleText = targetQuizObj ? `"${targetQuizObj.title}"` : "selected quiz";
 
+      if (failedCount > 0) {
+        notify.error(
+          `${failedCount} question(s) couldn't be added to ${quizTitleText}${lastError?.message ? `: ${lastError.message}` : "."}`,
+        );
+      }
       if (addedCount > 0) {
-        notify.success(`Successfully added ${addedCount} question(s) to ${quizTitleText}!${skippedCount > 0 ? ` (${skippedCount} duplicate(s) skipped)` : ""}`);
-      } else if (skippedCount > 0) {
+        notify.success(`Added ${addedCount} question(s) to ${quizTitleText}.${skippedCount > 0 ? ` ${skippedCount} duplicate(s) skipped.` : ""}`);
+      } else if (skippedCount > 0 && failedCount === 0) {
         notify.info(`Question(s) are already in ${quizTitleText}. No duplicates were added.`);
       }
 
-      if (onSuccess) onSuccess(selectedQuizId);
+      // Keep the modal open on total failure so the user can retry
+      if (addedCount === 0 && failedCount > 0) return;
+
+      if (onSuccess) onSuccess(selectedQuizId, addedCount);
       onClose();
     } catch (err) {
       console.error("Error reusing question(s):", err);
@@ -348,6 +399,8 @@ export const ReuseQuestionModal = ({
       if (!newQuiz) throw new Error("Failed to create new quiz.");
 
       // 2. Clone questions to the new quiz
+      let addedCount = 0;
+      let lastError = null;
       for (let idx = 0; idx < questionsToReuse.length; idx++) {
         const q = questionsToReuse[idx];
         const clonePayload = {
@@ -363,27 +416,28 @@ export const ReuseQuestionModal = ({
           subject_id: currentSubjectId || q.subject_id || null,
         };
 
-        let { data: newCloneData, error: cloneErr } = await supabase
-          .from("questions")
-          .insert(clonePayload)
-          .select();
-
-        if (cloneErr) {
+        const { id: newQId, error: cloneErr } = await insertQuestionCopy(clonePayload);
+        if (cloneErr || !newQId) {
           console.error("Failed to copy question:", cloneErr);
+          lastError = cloneErr;
           continue;
         }
 
-        const newQId = newCloneData?.[0]?.id;
-        if (newQId) {
-          await supabase.from("quiz_questions").insert({
-            quiz_id: newQuiz.id,
-            question_id: newQId,
-            order_index: idx,
-          });
-        }
+        await supabase.from("quiz_questions").insert({
+          quiz_id: newQuiz.id,
+          question_id: newQId,
+          order_index: idx,
+        });
+        addedCount++;
       }
 
-      notify.success(`Created new quiz "${newQuiz.title}" and added ${count} question(s)!`);
+      if (addedCount < count) {
+        notify.error(
+          `Created "${newQuiz.title}", but ${count - addedCount} question(s) couldn't be copied${lastError?.message ? `: ${lastError.message}` : "."}`,
+        );
+      } else {
+        notify.success(`Created new quiz "${newQuiz.title}" and added ${count} question(s).`);
+      }
 
       if (onSuccess) onSuccess(newQuiz.id);
       onClose();
