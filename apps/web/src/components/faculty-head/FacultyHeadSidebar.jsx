@@ -1,101 +1,62 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { supabase } from "../../supabaseClient.js";
 import { subjectService } from "../../services/subjectService.js";
 import { loadHeadSubmissions, HEAD_STATUSES } from "../../services/facultyHeadService.js";
-import { useConfirm } from "../ui/ConfirmModal.jsx";
-import citlLogo from "../../assets/BUKSU_CITL.jpg";
+import { GroupedSidebar, NavIcon } from "../container/GroupedSidebar.jsx";
 
-const navItems = [
+const sections = [
   {
     name: "Dashboard",
     path: "/faculty-head-dashboard",
+    exact: true,
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <NavIcon>
         <rect x="3" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
         <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-    end: true,
-  },
-  {
-    name: "Quiz Approvals",
-    path: "/faculty-head-dashboard/quiz-approvals",
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <path d="M9 15l2 2 4-4" />
-      </svg>
+      </NavIcon>
     ),
   },
   {
-    name: "Subject Requests",
-    path: "/faculty-head-dashboard/subject-requests",
+    name: "Approvals",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
-      </svg>
+      <NavIcon>
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+        <path d="M9 14l2 2 4-4" />
+      </NavIcon>
     ),
+    children: [
+      { name: "Quiz Approvals", path: "/faculty-head-dashboard/quiz-approvals", badge: "quizzes" },
+      { name: "Subject Requests", path: "/faculty-head-dashboard/subject-requests", badge: "subjects" },
+    ],
   },
   {
     name: "Audit Trail",
     path: "/faculty-head-dashboard/audit-trail",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="12" y1="11" x2="12" y2="17" />
-        <line x1="9" y1="14" x2="15" y2="14" />
-      </svg>
+      <NavIcon>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </NavIcon>
     ),
   },
   {
     name: "Settings",
     path: "/faculty-head-dashboard/settings",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <NavIcon>
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
+      </NavIcon>
     ),
-  },
-  {
-    name: "Profile",
-    path: "/faculty-head-dashboard/profile",
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
-  {
-    name: "Logout",
-    path: "/",
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-        <polyline points="16 17 21 12 16 7" />
-        <line x1="21" y1="12" x2="9" y2="12" />
-      </svg>
-    ),
-    isLogout: true,
   },
 ];
 
 // mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
 export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
-  const navigate = useNavigate();
-  const confirm = useConfirm();
   const [pendingQuizCount, setPendingQuizCount] = useState(0);
   const [pendingSubjectCount, setPendingSubjectCount] = useState(0);
-  // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
-  const [pinned, setPinned] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -131,96 +92,15 @@ export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
     };
   }, []);
 
-  const labelVisibility = pinned
-    ? "opacity-100"
-    : "opacity-100 md:opacity-0 md:group-hover:opacity-100";
-
-  const handleLogout = async (e) => {
-    e.preventDefault();
-    const confirmed = await confirm({
-      title: "Logout",
-      message: "Are you sure you want to logout?",
-      confirmText: "Logout",
-      cancelText: "Cancel",
-      variant: "danger",
-    });
-    if (confirmed) {
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // Force logout even if network fails
-      }
-      navigate("/");
-    }
-  };
-
   return (
-    <aside
-      className={`group fixed inset-y-0 left-0 z-40 w-[220px] md:static md:z-10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${pinned ? "md:w-[220px]" : "md:w-[68px] md:hover:w-[220px]"} flex flex-col bg-brand-navy transition-all duration-300 ease-in-out overflow-hidden shadow-xl`}
-    >
-      {/* Logo — tap to pin the sidebar open */}
-      <button
-        type="button"
-        onClick={() => setPinned((p) => !p)}
-        aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
-        aria-expanded={pinned}
-        className="flex items-center gap-3 py-5 px-[14px] border-b border-white/10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
-      >
-        <img
-          src={citlLogo}
-          alt="BUKSU CITL logo"
-          className="h-9 w-9 shrink-0 rounded-full object-cover"
-        />
-        <span className={`${labelVisibility} transition-opacity duration-200 font-black text-white text-base whitespace-nowrap tracking-wide`}>
-          BUKSU CITL
-        </span>
-      </button>
-
-      {/* Nav items */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden">
-        <ul className="flex flex-col gap-1">
-          {navItems.map((nav) => (
-            <li key={nav.name}>
-              <NavLink
-                to={nav.path}
-                end={nav.end}
-                onClick={nav.isLogout ? handleLogout : onNavigate}
-                title={nav.name}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                    isActive && !nav.isLogout
-                      ? "bg-brand-gold/20 text-brand-gold shadow-inner"
-                      : "text-white/60 hover:bg-white/10 hover:text-white"
-                  }`
-                }
-              >
-                <span className="relative shrink-0 text-[18px]">
-                  {nav.icon}
-                  {nav.name === "Quiz Approvals" && pendingQuizCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
-                      {pendingQuizCount}
-                    </span>
-                  )}
-                  {nav.name === "Subject Requests" && pendingSubjectCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-amber-500 text-brand-navy text-[9px] font-extrabold rounded-full">
-                      {pendingSubjectCount}
-                    </span>
-                  )}
-                </span>
-                <span className={`${labelVisibility} transition-opacity duration-200 whitespace-nowrap overflow-hidden text-sm`}>
-                  {nav.name}
-                </span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      {/* Bottom accent */}
-      <div className="px-2 pb-4">
-        <div className={`${labelVisibility} transition-opacity duration-200 text-white/30 text-[10px] px-3 whitespace-nowrap`}>
-          © 2026 BUKSU CITL
-        </div>
-      </div>
-    </aside>
+    <GroupedSidebar
+      sections={sections}
+      badgeCounts={{ quizzes: pendingQuizCount, subjects: pendingSubjectCount }}
+      ariaLabel="Department Head"
+      profilePath="/faculty-head-dashboard/profile"
+      storageKey="departmentHeadSidebarPinned"
+      mobileOpen={mobileOpen}
+      onNavigate={onNavigate}
+    />
   );
 };
