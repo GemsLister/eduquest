@@ -29,7 +29,6 @@ export const ReuseQuestionModal = ({
   onSuccess,
   navigate,
   defaultSubjectId = null,
-  defaultQuizId = null,
 }) => {
   const [activeTab, setActiveTab] = useState("existing"); // "existing" | "new"
   const [quizzes, setQuizzes] = useState([]);
@@ -181,30 +180,13 @@ export const ReuseQuestionModal = ({
           }
         }
 
-        // The quiz the bank was opened from may sit outside this subject
-        if (defaultQuizId && !seen.has(defaultQuizId)) {
-          const { data: originQuiz } = await supabase
-            .from("quizzes")
-            .select("id, title, description, duration, is_published, is_private, created_at, subject_id, instructor_id, is_archived")
-            .eq("id", defaultQuizId)
-            .eq("instructor_id", user.id)
-            .maybeSingle();
-          if (originQuiz && !originQuiz.is_archived) {
-            seen.add(originQuiz.id);
-            uniqueQuizzes.push(originQuiz);
-          }
-        }
-
         // Published quizzes are locked, so they can't receive questions
         const editableQuizzes = uniqueQuizzes
           .filter((q) => !q.is_published)
           .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
         setQuizzes(editableQuizzes);
-        const originInList = editableQuizzes.find((q) => String(q.id) === String(defaultQuizId));
-        if (originInList) {
-          setSelectedQuizId(originInList.id);
-        } else if (editableQuizzes.length > 0) {
+        if (editableQuizzes.length > 0) {
           setSelectedQuizId(editableQuizzes[0].id);
         } else {
           setSelectedQuizId("");
@@ -219,7 +201,7 @@ export const ReuseQuestionModal = ({
     };
 
     fetchSubjectQuizzes();
-  }, [isOpen, user, currentSubjectId, defaultQuizId]);
+  }, [isOpen, user, currentSubjectId]);
 
   if (!isOpen) return null;
 

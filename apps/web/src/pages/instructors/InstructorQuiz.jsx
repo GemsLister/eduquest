@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useBlocker, useLocation, useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { SelectSubjectModal } from "../../components/SelectSubjectModal.jsx";
@@ -76,10 +76,6 @@ export const InstructorQuiz = () => {
     isAdminPath
       ? `/admin-dashboard/quiz-results/${id}`
       : `/instructor-dashboard/quiz-results/${id}`;
-  const questionBankPath = (id) =>
-    isAdminPath
-      ? `/admin-dashboard/question-bank/${id}`
-      : `/instructor-dashboard/question-bank/${id}`;
 
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
@@ -154,6 +150,22 @@ export const InstructorQuiz = () => {
       markQuestionsDirty();
       notify.success("New question imported from Question Bank!");
     }
+  };
+
+  const handleImportManyFromBank = (importedQuestions) => {
+    if (!importedQuestions?.length) return;
+    const baseId = Date.now();
+    const newQuestions = importedQuestions.map((q, i) => ({
+      ...q,
+      id: baseId + i * 1000 + Math.floor(Math.random() * 1000),
+    }));
+    // Show the first added question so the user sees where they landed
+    setCurrentPage(Math.ceil((questions.length + 1) / QUESTIONS_PER_PAGE));
+    setQuestions([...questions, ...newQuestions]);
+    markQuestionsDirty();
+    notify.success(
+      `Added ${newQuestions.length} question${newQuestions.length > 1 ? "s" : ""} from the Question Bank.`,
+    );
   };
 
   const parseCSVLine = (line) => {
@@ -424,16 +436,28 @@ export const InstructorQuiz = () => {
     }
   }, []);
 
-  // Warn before closing the tab with unsaved changes
+  // Guards against overlapping background saves; leave-guards call the latest save via saveQuizRef
+  const autoSavingRef = useRef(false);
+  const saveQuizRef = useRef(null);
+  const saveInFlightRef = useRef(null);
+
+  // Warn before closing the tab with unsaved changes, and start saving while
+  // the browser's "Leave site?" prompt is open
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const handleBeforeUnload = (e) => {
+      if (quizId && !isLocked && !autoSavingRef.current) {
+        autoSavingRef.current = true;
+        saveQuizRef.current?.(false, false, { keepRoute: true, silent: true }).finally(() => {
+          autoSavingRef.current = false;
+        });
+      }
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, quizId, isLocked]);
 
   useEscapeKey(() => setShowAddQuestionPopup(false), showAddQuestionPopup);
   useEscapeKey(() => {
@@ -442,20 +466,78 @@ export const InstructorQuiz = () => {
   const addQuestionTrapRef = useFocusTrap(showAddQuestionPopup);
   const sectionTrapRef = useFocusTrap(showSectionModal);
 
-  const leaveEditor = async () => {
-    if (hasUnsavedChanges) {
-      const confirmed = await confirm({
-        title: "Discard Unsaved Changes?",
-        message: "You have unsaved changes to this quiz. Leave without saving?",
-        confirmText: "Leave",
-        cancelText: "Stay",
-        variant: "warning",
-      });
-      if (!confirmed) return;
-    }
-    setHasUnsavedChanges(false);
+  // Unsaved changes are saved automatically when leaving; see the navigation blocker below
+  const leaveEditor = () => {
     navigate(quizzesPath);
   };
+
+  // Mirrors hasUnsavedChanges synchronously, so navigation right after a save
+  // isn't blocked by state that hasn't re-rendered yet
+  const unsavedRef = useRef(false);
+  useEffect(() => {
+    unsavedRef.current = hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
+
+  // Auto-save before leaving the editor through any in-app navigation
+  const leaveBlocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      unsavedRef.current && !isLocked && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (leaveBlocker.state !== "blocked") return;
+    let cancelled = false;
+
+    const saveThenLeave = async () => {
+      setSaveStatus("Saving...");
+      const result = await saveQuizRef.current?.(false, false, { keepRoute: true });
+      if (cancelled) return;
+      if (result && !result.error) {
+        notify.success("Quiz saved.");
+        leaveBlocker.proceed();
+        return;
+      }
+      const leaveAnyway = await confirm({
+        title: "Couldn't Auto-save",
+        message: `${result?.error || "The quiz couldn't be saved."} Leave without saving your changes?`,
+        confirmText: "Leave Without Saving",
+        cancelText: "Stay and Fix",
+        variant: "warning",
+      });
+      if (cancelled) return;
+      if (leaveAnyway) {
+        unsavedRef.current = false;
+        leaveBlocker.proceed();
+      } else {
+        leaveBlocker.reset();
+      }
+    };
+    saveThenLeave();
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs once per blocked navigation; the save function is read from a ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaveBlocker.state]);
+
+  // Best-effort save when the tab is hidden or closed (the browser may not wait
+  // for it, so the beforeunload warning above still guards the tab close)
+  useEffect(() => {
+    if (!quizId) return;
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== "hidden") return;
+      if (!unsavedRef.current || isLocked || autoSavingRef.current) return;
+      autoSavingRef.current = true;
+      try {
+        await saveQuizRef.current?.(false, false, { keepRoute: true, silent: true });
+      } finally {
+        autoSavingRef.current = false;
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [quizId, isLocked]);
 
   // Auto-save quiz details 30 seconds after the last change
   useEffect(() => {
@@ -1064,8 +1146,10 @@ export const InstructorQuiz = () => {
     }
   };
 
-  const handleSaveQuiz = async (publish = false, redirectOnSave = true) => {
-    setError("");
+  const performSaveQuiz = async (publish = false, redirectOnSave = true, { keepRoute = false, silent = false } = {}) => {
+    // Background saves (leaving the editor, switching tabs) stay quiet
+    const reportError = silent ? () => {} : setError;
+    reportError("");
 
     if (isLocked) {
       const err = isPublished
@@ -1073,7 +1157,7 @@ export const InstructorQuiz = () => {
         : isNotOwner
           ? "Only the quiz owner can edit this quiz."
           : "This quiz is under review and can't be edited until the review is finished.";
-      setError(err);
+      reportError(err);
       return { error: err };
     }
 
@@ -1082,21 +1166,21 @@ export const InstructorQuiz = () => {
     const parsedDuration = quizDuration === "" || quizDuration === null ? null : parseInt(quizDuration);
     if (parsedDuration !== null && (isNaN(parsedDuration) || parsedDuration < 1)) {
       const err = "Duration must be at least 1 minute, or left blank for no time limit.";
-      setError(err);
+      reportError(err);
       setSaveStatus("");
       return { error: err };
     }
 
     if (!quizTitle.trim()) {
       const err = "Quiz title is required";
-      setError(err);
+      reportError(err);
       setSaveStatus("");
       return { error: err };
     }
 
     if (publish && questions.length === 0) {
       const err = "Add at least one question before publishing";
-      setError(err);
+      reportError(err);
       setSaveStatus("");
       return { error: err };
     }
@@ -1105,7 +1189,7 @@ export const InstructorQuiz = () => {
       const q = questions[i];
       if (!q.text || !q.text.trim()) {
         const err = `Question #${i + 1} has no question text. Please enter the question or remove it.`;
-        setError(err);
+        reportError(err);
         setSaveStatus("");
         return { error: err };
       }
@@ -1115,7 +1199,7 @@ export const InstructorQuiz = () => {
           q.options.filter((opt) => opt && typeof opt === "string" && opt.trim()).length < 2)
       ) {
         const err = `Question #${i + 1} must have at least 2 non-empty options.`;
-        setError(err);
+        reportError(err);
         setSaveStatus("");
         return { error: err };
       }
@@ -1125,7 +1209,7 @@ export const InstructorQuiz = () => {
         !String(q.options?.[q.correctAnswer] || "").trim()
       ) {
         const err = `Question #${i + 1}: the option marked as correct is empty. Fill it in or choose another correct answer.`;
-        setError(err);
+        reportError(err);
         setSaveStatus("");
         return { error: err };
       }
@@ -1138,7 +1222,7 @@ export const InstructorQuiz = () => {
       } = await supabase.auth.getUser();
       if (!user) {
         const err = "User not authenticated. Please log in again.";
-        setError(err);
+        reportError(err);
         setSaving(false);
         setSaveStatus("");
         return { error: err };
@@ -1387,7 +1471,7 @@ export const InstructorQuiz = () => {
           }
         }
 
-        navigate(quizEditPath(quizData.id), { replace: true });
+        if (!keepRoute) navigate(quizEditPath(quizData.id), { replace: true });
       }
 
       // Sync the many-to-many relationship in quiz_sections
@@ -1447,6 +1531,7 @@ export const InstructorQuiz = () => {
       if (newToken) setShareToken(newToken);
       setRestoredFromSnapshot(0);
       questionsDirtyRef.current = false;
+      unsavedRef.current = false;
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
 
@@ -1467,12 +1552,12 @@ export const InstructorQuiz = () => {
       }
 
       if (!quizId && quizData?.id) {
-        navigate(quizEditPath(quizData.id), { replace: true });
+        if (!keepRoute) navigate(quizEditPath(quizData.id), { replace: true });
       }
       return quizData || true;
     } catch (err) {
       const msg = err.message || "Failed to save quiz";
-      setError(msg);
+      reportError(msg);
       setSaveStatus("");
       console.error("[handleSaveQuiz error]:", err);
       return { error: msg };
@@ -1480,6 +1565,22 @@ export const InstructorQuiz = () => {
       setSaving(false);
     }
   };
+
+  // Only one save runs at a time: a manual save and an auto-save started
+  // together share the same run instead of inserting new questions twice
+  const handleSaveQuiz = (...args) => {
+    if (saveInFlightRef.current) return saveInFlightRef.current;
+    const run = performSaveQuiz(...args).finally(() => {
+      saveInFlightRef.current = null;
+    });
+    saveInFlightRef.current = run;
+    return run;
+  };
+
+  // Leave-guards call the latest save through this ref
+  useEffect(() => {
+    saveQuizRef.current = handleSaveQuiz;
+  });
 
   if (loading) {
     return (
@@ -2468,32 +2569,6 @@ export const InstructorQuiz = () => {
             </>
           )}
 
-          {/* Divider between primary and secondary */}
-          {!isLocked && quizId && (
-            <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-          )}
-
-          {/* Secondary Actions */}
-          {quizId && !isLocked && (
-            <button
-              onClick={async () => {
-                // The Question Bank imports straight into the saved quiz, so save first
-                if (hasUnsavedChanges) {
-                  const saveRes = await handleSaveQuiz(false, false);
-                  if (saveRes?.error) return;
-                }
-                navigate(questionBankPath(quizId));
-              }}
-              disabled={saving}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Question Bank
-            </button>
-          )}
-
           {/* Right-aligned navigation */}
           <div className="ml-auto flex items-center gap-3">
             {!isLocked && (
@@ -2563,10 +2638,17 @@ export const InstructorQuiz = () => {
         isOpen={showBankModal}
         onClose={() => setShowBankModal(false)}
         onSelectQuestion={handleImportFromBank}
+        onSelectQuestions={handleImportManyFromBank}
         targetQuestionNumber={bankTargetIndex !== null ? bankTargetIndex + 1 : null}
         currentQuizQuestions={questions}
-        currentSubjectIds={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_id).filter(Boolean)}
-        currentSubjectNames={availableSections.filter((s) => selectedSectionIds.includes(s.id)).map((s) => s.subject_name || s.name || s.subject_code).filter(Boolean)}
+        currentSubjectIds={[
+          ...new Set(
+            availableSections
+              .filter((s) => selectedSectionIds.includes(s.id))
+              .map((s) => s.subject_id)
+              .filter(Boolean),
+          ),
+        ]}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -17,15 +17,12 @@ export const QuestionBank = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith("/admin-dashboard");
-  const { quizId } = useParams();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("active");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
-  const [importing, setImporting] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   // typeFilter removed — only MCQ type exists
   const [currentPage, setCurrentPage] = useState(1);
@@ -326,26 +323,6 @@ export const QuestionBank = () => {
         
         return standaloneMatch || quizMatch;
       });
-    } else if (quizId) {
-      // URL-based import mode: show questions NOT from this quiz
-      const quizIdStr = String(quizId);
-      const currentQuizTexts = new Set(
-        activeQuestions
-          .filter((q) => {
-            const directMatch = String(q.quiz_id) === quizIdStr;
-            const dedupeMatch = q.all_quiz_ids?.some(
-              (id) => String(id) === quizIdStr,
-            );
-            return directMatch || dedupeMatch;
-          })
-          .map((q) => q.text?.toLowerCase().trim()),
-      );
-      filteredList = filteredList.filter(
-        (q) =>
-          String(q.quiz_id) !== quizIdStr &&
-          !q.all_quiz_ids?.some((id) => String(id) === quizIdStr) &&
-          !currentQuizTexts.has(q.text?.toLowerCase().trim()),
-      );
     }
 
     if (searchTerm) {
@@ -377,11 +354,9 @@ export const QuestionBank = () => {
   };
 
   const allFiltered =
-    activeTab === "active"
-      ? filterQuestions(activeQuestions)
-      : activeTab === "archived"
-        ? filterQuestions(archivedQuestions)
-        : filterQuestions(activeQuestions);
+    activeTab === "archived"
+      ? filterQuestions(archivedQuestions)
+      : filterQuestions(activeQuestions);
 
   // Pagination
   const totalPages = Math.max(
@@ -395,19 +370,6 @@ export const QuestionBank = () => {
 
   // Stats
   const totalCount = activeQuestions.length + archivedQuestions.length;
-
-  // Import select all
-  const selectAll =
-    displayedQuestions.length > 0 &&
-    selectedQuestions.length === allFiltered.length;
-
-  const handleSelectAllToggle = () => {
-    if (selectAll) {
-      setSelectedQuestions([]);
-    } else {
-      setSelectedQuestions([...allFiltered]);
-    }
-  };
 
   // Bulk select helpers
   const bulkSelectAll =
@@ -566,122 +528,6 @@ export const QuestionBank = () => {
       setShowAddForm(false);
     } else {
       notify.error("Error: " + result.error);
-    }
-  };
-
-  // Import to quiz
-  const handleImportToQuiz = async () => {
-    if (!quizId) {
-      notify.warning("No quiz selected for import");
-      return;
-    }
-    if (selectedQuestions.length === 0) {
-      notify.warning("Please select at least one question to import");
-      return;
-    }
-    setImporting(true);
-    try {
-      // Only import into the user's own editable quiz
-      const { data: targetQuiz, error: targetError } = await supabase
-        .from("quizzes")
-        .select("id, instructor_id, is_published")
-        .eq("id", quizId)
-        .maybeSingle();
-      if (targetError) throw targetError;
-      if (!targetQuiz || targetQuiz.instructor_id !== user?.id) {
-        notify.error("You can only import questions into your own quizzes.");
-        return;
-      }
-      if (targetQuiz.is_published) {
-        notify.error("This quiz is already published and can't be changed.");
-        return;
-      }
-      const { data: latestSub } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("status")
-        .eq("quiz_id", quizId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (["pending", "faculty_head_review", "approved", "faculty_head_approved"].includes(latestSub?.status)) {
-        notify.error("This quiz is in the review process and can't be changed.");
-        return;
-      }
-
-      for (const q of selectedQuestions) {
-        const payload = {
-          quiz_id: quizId,
-          type: q.type,
-          text: q.text,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          points: q.points,
-          auto_answer: true, // Auto-answer flag for imported questions
-        };
-        let { error } = await supabase.from("questions").insert(payload);
-        if (error && (error.code === "42703" || error.message?.includes("auto_answer"))) {
-          delete payload.auto_answer;
-          const retry = await supabase.from("questions").insert(payload);
-          error = retry.error;
-        }
-        if (error) throw error;
-      }
-
-      try {
-        const { data: allQuestions, error: qsFetchErr } = await supabase
-          .from("questions")
-          .select("id, created_at")
-          .eq("quiz_id", quizId)
-          .order("created_at", { ascending: true });
-
-        if (!qsFetchErr && allQuestions && allQuestions.length > 0) {
-          await supabase
-            .from("quiz_questions")
-            .delete()
-            .eq("quiz_id", quizId);
-
-          const junctionRows = allQuestions.map((q, idx) => ({
-            quiz_id: quizId,
-            question_id: q.id,
-            order_index: idx,
-          }));
-
-          const { error: juncInsErr } = await supabase
-            .from("quiz_questions")
-            .insert(junctionRows);
-
-          if (juncInsErr) {
-            const msg = (juncInsErr.message || "").toLowerCase();
-            const code = juncInsErr.code || "";
-            const isMissingTable =
-              code === "42P01" ||
-              msg.includes("could not find the table") ||
-              msg.includes("does not exist") ||
-              (msg.includes("relation") && msg.includes("does not exist"));
-            if (!isMissingTable) throw juncInsErr;
-          }
-        }
-      } catch (junctionSyncErr) {
-        console.warn(
-          "quiz_questions sync skipped (table may not exist yet):",
-          junctionSyncErr,
-        );
-      }
-
-      notify.success(
-        `Successfully imported ${selectedQuestions.length} question(s) with correct answers to the quiz!`,
-      );
-      setSelectedQuestions([]);
-      navigate(
-        isAdminPath
-          ? `/admin-dashboard/create-quiz/${quizId}`
-          : `/instructor-dashboard/instructor-quiz/${quizId}`,
-      );
-    } catch (error) {
-      console.error("Error importing questions:", error);
-      notify.error("Error importing questions: " + error.message);
-    } finally {
-      setImporting(false);
     }
   };
 
@@ -941,14 +787,6 @@ export const QuestionBank = () => {
     return result;
   };
 
-  const toggleQuestionSelection = (question) => {
-    setSelectedQuestions((prev) => {
-      const isSelected = prev.some((q) => q.id === question.id);
-      if (isSelected) return prev.filter((q) => q.id !== question.id);
-      return [...prev, question];
-    });
-  };
-
   // Add/remove option
   const addOption = () => {
     setNewQuestion((prev) => ({
@@ -1052,9 +890,7 @@ export const QuestionBank = () => {
               Question Bank
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              {quizId
-                ? "Select questions to import to your quiz"
-                : "Archive and manage your questions for reuse"}
+              Archive and manage your questions for reuse
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5 items-center">
@@ -1212,22 +1048,6 @@ export const QuestionBank = () => {
               {archivedQuestions.length}
             </span>
           </button>
-          {quizId && (
-          <button
-            onClick={() => setActiveTab("import")}
-            aria-pressed={activeTab === "import"}
-              className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
-                activeTab === "import"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <span>Import to Quiz</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "import" ? "bg-brand-navy text-white" : "bg-slate-200 text-slate-600"}`}>
-                {selectedQuestions.length}
-              </span>
-            </button>
-          )}
         </div>
 
       {/* Subject + Quiz + Ownership Filters */}
@@ -1467,7 +1287,7 @@ export const QuestionBank = () => {
       )}
 
       {/* 4. Bulk Actions Toolbar */}
-      {activeTab !== "import" && bulkSelected.size > 0 && (
+      {bulkSelected.size > 0 && (
         <div className="mb-4 p-3.5 bg-brand-navy/5 border border-brand-navy/10 rounded-2xl flex justify-between items-center shadow-2xs">
           <div className="flex items-center gap-3">
             <label className="flex items-center cursor-pointer">
@@ -1564,37 +1384,6 @@ export const QuestionBank = () => {
         </div>
       )}
 
-      {/* Import Action Bar */}
-      {activeTab === "import" && quizId && (
-        <div className="mb-4 p-4 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex justify-between items-center gap-4 shadow-2xs">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectAll}
-                onChange={handleSelectAllToggle}
-                className="mr-2 h-5 w-5 rounded"
-              />
-              <span className="text-brand-navy font-bold text-sm">
-                Select All ({allFiltered.length})
-              </span>
-            </label>
-            <span className="text-brand-navy/70 font-semibold text-sm">
-              {selectedQuestions.length} / {allFiltered.length} selected
-            </span>
-          </div>
-          <button
-            onClick={handleImportToQuiz}
-            disabled={importing || selectedQuestions.length === 0}
-            className="bg-brand-gold text-brand-navy px-6 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-          >
-            {importing
-              ? "Importing..."
-              : `Import ${selectedQuestions.length} Questions`}
-          </button>
-        </div>
-      )}
-
       {/* Questions List */}
       {allFiltered.length === 0 ? (
         /* 2. Empty State SVG */
@@ -1628,69 +1417,39 @@ export const QuestionBank = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Bulk select all checkbox (non-import tabs) */}
-          {activeTab !== "import" && (
-            <div className="flex items-center px-2 py-1">
-              <label className="flex items-center cursor-pointer text-xs font-semibold text-gray-500">
-                <input
-                  type="checkbox"
-                  checked={bulkSelectAll}
-                  onChange={handleBulkSelectAllToggle}
-                  className="mr-2 h-4 w-4 rounded"
-                />
-                Select all on this page
-              </label>
-            </div>
-          )}
+          {/* Bulk select all checkbox */}
+          <div className="flex items-center px-2 py-1">
+            <label className="flex items-center cursor-pointer text-xs font-semibold text-gray-500">
+              <input
+                type="checkbox"
+                checked={bulkSelectAll}
+                onChange={handleBulkSelectAllToggle}
+                className="mr-2 h-4 w-4 rounded"
+              />
+              Select all on this page
+            </label>
+          </div>
 
           {displayedQuestions.map((question) => {
             const isExpanded = expandedIds.has(question.id);
-            const isImportSelected = selectedQuestions.some(
-              (q) => q.id === question.id,
-            );
             const isBulkChecked = bulkSelected.has(question.id);
 
             return (
               <div
                 key={question.id}
-                onClick={
-                  activeTab === "import"
-                    ? () => toggleQuestionSelection(question)
-                    : undefined
-                }
-                className={`group transition-all bg-white rounded-2xl overflow-hidden ${
-                  activeTab === "import" ? "cursor-pointer " : ""
-                }${
-                  activeTab === "import" && isImportSelected
-                    ? "border-2 border-brand-gold shadow-md ring-2 ring-brand-gold/20"
-                    : "border border-gray-200 hover:border-brand-gold/40 shadow-xs hover:shadow-lg hover:-translate-y-0.5"
-                }`}
+                className="group transition-all bg-white rounded-2xl overflow-hidden border border-gray-200 hover:border-brand-gold/40 shadow-xs hover:shadow-lg hover:-translate-y-0.5"
               >
                 {/* 3. Left border accent */}
                 <div className="flex border-l-4 border-l-brand-navy">
-                  {/* Bulk checkbox (non-import) */}
-                  {activeTab !== "import" && (
-                    <div className="flex items-start pt-4 pl-3">
-                      <input
-                        type="checkbox"
-                        checked={isBulkChecked}
-                        onChange={() => toggleBulkSelect(question.id)}
-                        className="h-4 w-4 rounded cursor-pointer"
-                      />
-                    </div>
-                  )}
-
-                  {/* Import checkbox */}
-                  {activeTab === "import" && (
-                    <div className="flex items-start pt-4 pl-3">
-                      <input
-                        type="checkbox"
-                        checked={isImportSelected}
-                        onChange={() => {}}
-                        className="h-5 w-5 rounded pointer-events-none"
-                      />
-                    </div>
-                  )}
+                  {/* Bulk checkbox */}
+                  <div className="flex items-start pt-4 pl-3">
+                    <input
+                      type="checkbox"
+                      checked={isBulkChecked}
+                      onChange={() => toggleBulkSelect(question.id)}
+                      className="h-4 w-4 rounded cursor-pointer"
+                    />
+                  </div>
 
                   <div className="flex-1 p-4">
                     {/* Top metadata row */}
@@ -1729,18 +1488,14 @@ export const QuestionBank = () => {
                     {/* Question text - clickable to expand */}
                     <button
                       onClick={(e) => {
-                        if (activeTab !== "import") {
-                          e.stopPropagation();
-                          toggleExpand(question.id);
-                        }
+                        e.stopPropagation();
+                        toggleExpand(question.id);
                       }}
-                      className={`text-left w-full ${activeTab !== "import" ? "cursor-pointer" : ""}`}
+                      className="text-left w-full cursor-pointer"
                     >
                       <h3
                         className={`text-[15px] font-semibold text-gray-800 ${
-                          !isExpanded && activeTab !== "import"
-                            ? "line-clamp-2"
-                            : ""
+                          !isExpanded ? "line-clamp-2" : ""
                         }`}
                       >
                         {question.text}
@@ -1748,7 +1503,7 @@ export const QuestionBank = () => {
                     </button>
 
                     {/* 7. Expandable options preview */}
-                    {(isExpanded || activeTab === "import") &&
+                    {isExpanded &&
                       question.options && (
                         <div className="mt-3 space-y-1.5">
                           {question.options.map((opt, idx) => (
@@ -1787,7 +1542,6 @@ export const QuestionBank = () => {
 
                     {/* Expand hint */}
                     {!isExpanded &&
-                      activeTab !== "import" &&
                       question.options?.length > 0 && (
                         <button
                           onClick={(e) => {
@@ -1813,7 +1567,7 @@ export const QuestionBank = () => {
                           Show {question.options.length} options
                         </button>
                       )}
-                    {isExpanded && activeTab !== "import" && (
+                    {isExpanded && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1891,32 +1645,6 @@ export const QuestionBank = () => {
                           />
                         </svg>
                       </button>
-                      {quizId && (
-                        <button
-                          onClick={() => {
-                            setSelectedQuestions([question]);
-                            setActiveTab("import");
-                          }}
-                          className="p-2 rounded-lg text-brand-navy hover:bg-brand-navy/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                          title="Import into quiz"
-                          aria-label="Import into quiz"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            />
-                          </svg>
-                        </button>
-                      )}
                     </div>
                   )}
                   {activeTab === "archived" && (
@@ -2204,18 +1932,9 @@ export const QuestionBank = () => {
         questionsToReuse={questionsToReuse}
         user={user}
         defaultSubjectId={selectedSubjectId}
-        defaultQuizId={quizId || null}
-        onSuccess={(targetQuizId, addedCount) => {
+        onSuccess={() => {
           fetchQuestions();
           setBulkSelected(new Set());
-          // Opened from a quiz: go back to its editor once the questions are in
-          if (quizId && addedCount > 0 && String(targetQuizId) === String(quizId)) {
-            navigate(
-              isAdminPath
-                ? `/admin-dashboard/create-quiz/${quizId}`
-                : `/instructor-dashboard/instructor-quiz/${quizId}`,
-            );
-          }
         }}
         navigate={navigate}
       />

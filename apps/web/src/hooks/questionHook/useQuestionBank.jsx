@@ -271,7 +271,12 @@ export const useQuestionBank = () => {
 
       const questionsWithCreators = allQuestions.map((q) => {
         const creatorId = q.quizzes?.instructor_id || q.instructor_id || q.created_by;
-        const creatorName = profileMap.get(creatorId) || profileMap.get(user?.id) || "Instructor";
+        // Standalone questions without a creator are the current user's own bank entries;
+        // anything else with an unknown creator must not be attributed to the viewer.
+        const creatorName =
+          profileMap.get(creatorId) ||
+          (!creatorId && !q.quiz_id ? profileMap.get(user?.id) : null) ||
+          "Unknown instructor";
         const subjectObj = q.subject_id ? subjectMap.get(q.subject_id) : (q.quizzes?.subject_id ? subjectMap.get(q.quizzes.subject_id) : null);
         return {
           ...q,

@@ -95,8 +95,9 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.QuestionBank />,
             },
             {
+              // Import-to-quiz mode was replaced by the quiz editor's Question Bank modal
               path: "question-bank/:quizId",
-              element: <InstructorIndex.QuestionBank />,
+              element: <Navigate to="/instructor-dashboard/question-bank" replace />,
             },
             {
               path: "instructor-profile",
@@ -203,8 +204,9 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.QuestionBank />,
             },
             {
+              // Import-to-quiz mode was replaced by the quiz editor's Question Bank modal
               path: "question-bank/:quizId",
-              element: <InstructorIndex.QuestionBank />,
+              element: <Navigate to="/admin-dashboard/question-bank" replace />,
             },
             {
               path: "item-difficulty-analysis",
