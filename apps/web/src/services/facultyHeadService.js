@@ -119,7 +119,7 @@ export const loadHeadSubmissions = async ({ enrich = true } = {}) => {
     quizIds.length
       ? supabase
           .from("quiz_sections")
-          .select("quiz_id, sections(name, subject_code)")
+          .select("quiz_id, sections(name, subject_code, subjects(code, name))")
           .in("quiz_id", quizIds)
       : Promise.resolve({ data: [] }),
   ]);
@@ -151,30 +151,55 @@ const isMissingColumnError = (error) =>
 
 /**
  * Update a submission with the Department Head columns added in
- * 20261020_add_faculty_head_feedback.sql. If that migration hasn't been
- * applied yet, retry with `legacyFields` so the action still goes through.
+ * 20261020_add_faculty_head_feedback.sql (and the per-question column from
+ * 20261025_add_faculty_head_question_feedback.sql, passed as
+ * `questionFields`). Each missing migration drops back one step so the action
+ * still goes through: without the per-question column the comments are
+ * folded into `legacyQuestionHeadFields`; without any head column,
+ * `legacyFields` is used.
  */
 export const updateSubmissionAsHead = async (
   submissionId,
   baseFields,
   headFields,
   legacyFields = {},
+  questionFields = null,
+  legacyQuestionHeadFields = null,
 ) => {
-  const { error } = await supabase
-    .from("quiz_analysis_submissions")
-    .update({ ...baseFields, ...headFields })
-    .eq("id", submissionId);
+  const attempts = [
+    ...(questionFields ? [{ ...baseFields, ...headFields, ...questionFields }] : []),
+    { ...baseFields, ...headFields, ...(legacyQuestionHeadFields || {}) },
+    { ...baseFields, ...legacyFields },
+  ];
 
-  if (!isMissingColumnError(error)) return { error, usedLegacy: false };
+  let error = null;
+  for (let i = 0; i < attempts.length; i++) {
+    ({ error } = await supabase
+      .from("quiz_analysis_submissions")
+      .update(attempts[i])
+      .eq("id", submissionId));
+    if (!isMissingColumnError(error)) {
+      return { error, usedLegacy: i === attempts.length - 1 && i > 0 };
+    }
+    console.warn(
+      "Department Head feedback columns missing — apply migrations 20261020_add_faculty_head_feedback.sql and 20261025_add_faculty_head_question_feedback.sql",
+    );
+  }
+  return { error, usedLegacy: true };
+};
 
-  console.warn(
-    "Department Head feedback columns missing — apply migration 20261020_add_faculty_head_feedback.sql",
-  );
-  const retry = await supabase
-    .from("quiz_analysis_submissions")
-    .update({ ...baseFields, ...legacyFields })
-    .eq("id", submissionId);
-  return { error: retry.error, usedLegacy: true };
+/**
+ * Fold per-question comments into one text block, for storage where the
+ * per-question column isn't available. `analysis` gives the question order.
+ */
+export const formatQuestionComments = (overall, questionComments, analysis = []) => {
+  const lines = (analysis || [])
+    .map((item, idx) => {
+      const c = questionComments?.[item.questionId];
+      return c && c.trim() ? `Q${idx + 1}: ${c.trim()}` : null;
+    })
+    .filter(Boolean);
+  return [overall?.trim(), lines.join("\n")].filter(Boolean).join("\n\n");
 };
 
 export const countHeadSubmissions = (list) => {
@@ -207,7 +232,7 @@ export const exportSubmissionTosPdf = async (submission, facultyHeadId) => {
     submittedAt: submission.created_at,
     adminFeedback: submission.admin_feedback,
     status: submission.status,
-    subjectCode: submission.section?.subject_code,
+    subjectCode: submission.section?.subjects?.code || submission.section?.subject_code,
     courseName: submission.section?.name,
     semesterOverride: signatories.semester_override,
     schoolYearOverride: signatories.school_year_override,
@@ -246,6 +271,7 @@ export const exportSubmissionQuizPaper = async (submission, facultyHeadId) => {
     quizDescription: submission.quizzes?.description,
     instructorName: submission.profiles ? getProfileName(submission.profiles) : undefined,
     courseName: submission.section?.name,
+    subjectName: submission.section?.subjects?.name,
     semesterOverride: signatories.semester_override,
     schoolYearOverride: signatories.school_year_override,
     submittedAt: submission.created_at,

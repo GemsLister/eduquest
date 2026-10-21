@@ -92,17 +92,28 @@ export const SectionDetail = () => {
 
   const isAdminPath = location.pathname.startsWith("/admin-dashboard");
 
+  // Return to the subject's section list (the Subjects page reopens it)
+  const goBackToSections = () =>
+    navigate(isAdminPath ? "/admin-dashboard/subjects" : "/instructor-dashboard", {
+      state: {
+        openSubjectId: section.subject_id || null,
+        openSubjectName: section.name?.includes(" - ")
+          ? section.name.split(" - ")[0].trim()
+          : null,
+      },
+    });
+
   return (
     <>
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
-          onClick={() => navigate(isAdminPath ? "/admin-dashboard/subjects" : "/instructor-dashboard")}
-          aria-label="Back to Subjects"
+          onClick={goBackToSections}
+          aria-label="Back to Sections"
           className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold rounded-lg transition-all mb-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-          Back to Subjects
+          Back to Sections
         </button>
         <div className="flex items-start justify-between">
           <div>

@@ -156,7 +156,7 @@ export const SubjectSectionModal = ({
                     type="text"
                     value={newSectionName}
                     onChange={(e) => setNewSectionName(e.target.value)}
-                    placeholder="e.g., BSIT 3C"
+                    placeholder="e.g., T390 or T23"
                     autoFocus
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                   />

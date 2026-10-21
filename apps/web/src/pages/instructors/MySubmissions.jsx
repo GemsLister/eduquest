@@ -10,6 +10,7 @@ import { createRevisionCopy } from "../../services/createRevisionCopy";
 import { notify } from "../../utils/notify.jsx";
 import { ExamStatusTimeline } from "../../components/quiz/ExamStatusTimeline.jsx";
 import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.jsx";
+import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
 
@@ -359,15 +360,16 @@ export const MySubmissions = () => {
 
       const filtered = latestByQuiz;
 
-      // Fetch reviewer profile map for all submissions
+      // Fetch reviewer profile map for all submissions (and their history)
+      const getReviewerId = (s) =>
+        s.assigned_reviewer_id ||
+        s.analysis_results?.assigned_reviewer_id ||
+        s.reviewed_by;
       const reviewerIds = [
         ...new Set(
           filtered
-            .map(
-              (s) =>
-                s.assigned_reviewer_id ||
-                s.analysis_results?.assigned_reviewer_id,
-            )
+            .flatMap((s) => [s, ...(s.chain || [])])
+            .map(getReviewerId)
             .filter(Boolean),
         ),
       ];
@@ -381,19 +383,23 @@ export const MySubmissions = () => {
           reviewerMap[p.id] = p;
         });
       }
+      // Revision history entries show who reviewed each version
+      filtered.forEach((s) =>
+        (s.chain || []).forEach((c) => {
+          c.reviewer = reviewerMap[getReviewerId(c)] || null;
+        }),
+      );
 
       // Fetch section data and check for newer versions for each submission
       const enriched = await Promise.all(
         filtered.map(async (sub) => {
-          const revId =
-            sub.assigned_reviewer_id ||
-            sub.analysis_results?.assigned_reviewer_id;
+          const revId = getReviewerId(sub);
           const reviewerProfile = revId ? reviewerMap[revId] : null;
 
           if (!sub.quiz_id) return { ...sub, reviewerProfile };
           const { data: qs } = await supabase
             .from("quiz_sections")
-            .select("section_id, sections(name, subject_code)")
+            .select("section_id, sections(name, subject_code, subjects(code, name))")
             .eq("quiz_id", sub.quiz_id)
             .limit(1)
             .maybeSingle();
@@ -891,15 +897,44 @@ export const MySubmissions = () => {
                     </div>
                   )}
 
-                  {/* Department Head revision request */}
-                  {submission.faculty_head_feedback && (
+                  {/* Department Head comments (overall + per question) */}
+                  {(submission.faculty_head_feedback ||
+                    Object.keys(submission.faculty_head_question_feedback || {}).length > 0) && (
                     <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
                       <p className="text-xs font-semibold mb-1 text-orange-600">
-                        Department Head Revision Request:
+                        {submission.status === "revision_requested"
+                          ? "Department Head Revision Request:"
+                          : "Department Head Comments:"}
                       </p>
-                      <p className="text-sm text-orange-800 whitespace-pre-wrap">
-                        {submission.faculty_head_feedback}
-                      </p>
+                      {submission.faculty_head_feedback && (
+                        <p className="text-sm text-orange-800 whitespace-pre-wrap">
+                          {submission.faculty_head_feedback}
+                        </p>
+                      )}
+                      {Object.keys(submission.faculty_head_question_feedback || {}).length > 0 && (
+                        <div className="space-y-2 mt-2">
+                          {submission.analysis_results?.analysis?.map((item, idx) => {
+                            const fb = submission.faculty_head_question_feedback[item.questionId];
+                            if (!fb) return null;
+                            return (
+                              <div
+                                key={item.questionId}
+                                className="p-2 bg-white rounded border border-orange-100"
+                              >
+                                <p className="text-xs font-bold text-gray-500 mb-0.5">
+                                  Q{idx + 1}:{" "}
+                                  <span className="font-normal text-gray-700">
+                                    {item.questionText.length > 80
+                                      ? item.questionText.slice(0, 80) + "..."
+                                      : item.questionText}
+                                  </span>
+                                </p>
+                                <p className="text-sm text-orange-800 whitespace-pre-wrap">{fb}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -919,7 +954,7 @@ export const MySubmissions = () => {
                             : "text-orange-600"
                         }`}
                       >
-                        Overall Reviewer Feedback:
+                        {formatReviewerLabel(submission.reviewerProfile)} — Overall Feedback:
                       </p>
                       <p
                         className={`text-sm ${
@@ -938,7 +973,7 @@ export const MySubmissions = () => {
                     Object.keys(submission.question_feedback).length > 0 && (
                       <div className="p-3 rounded-lg border bg-orange-50 border-orange-200">
                         <p className="text-xs font-semibold text-orange-600 mb-2">
-                          Reviewer's Question-Specific Feedback (
+                          {formatReviewerLabel(submission.reviewerProfile)} — Question-Specific Feedback (
                           {Object.keys(submission.question_feedback).length}{" "}
                           question
                           {Object.keys(submission.question_feedback).length > 1
@@ -1279,11 +1314,27 @@ export const MySubmissions = () => {
                                         ] && (
                                           <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
                                             <p className="text-xs font-semibold text-orange-600 mb-0.5">
-                                              Reviewer Feedback:
+                                              {formatReviewerLabel(submission.reviewerProfile)}:
                                             </p>
                                             <p className="text-sm text-orange-800">
                                               {
                                                 submission.question_feedback[
+                                                  item.questionId
+                                                ]
+                                              }
+                                            </p>
+                                          </div>
+                                        )}
+                                        {submission.faculty_head_question_feedback?.[
+                                          item.questionId
+                                        ] && (
+                                          <div className="mt-2 ml-8 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                            <p className="text-xs font-semibold text-orange-600 mb-0.5">
+                                              Department Head:
+                                            </p>
+                                            <p className="text-sm text-orange-800 whitespace-pre-wrap">
+                                              {
+                                                submission.faculty_head_question_feedback[
                                                   item.questionId
                                                 ]
                                               }
@@ -1342,7 +1393,7 @@ export const MySubmissions = () => {
                             submittedAt: submission.created_at,
                             adminFeedback: submission.admin_feedback,
                             status: submission.status,
-                            subjectCode: submission.section?.subject_code,
+                            subjectCode: submission.section?.subjects?.code || submission.section?.subject_code,
                             courseName: submission.section?.name,
                             semesterOverride,
                             schoolYearOverride,
@@ -1419,6 +1470,7 @@ export const MySubmissions = () => {
                             quizDescription: submission.quizzes?.description,
                             instructorName,
                             courseName: submission.section?.name,
+                            subjectName: submission.section?.subjects?.name,
                             semesterOverride,
                             schoolYearOverride,
                             submittedAt: submission.created_at,

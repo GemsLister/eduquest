@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { CreateSectionButton } from "../../components/ui/buttons/CreateSectionButton.jsx";
@@ -40,6 +40,7 @@ const cardThemes = [
 
 export const InstructorDashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     user,
     sections = [],
@@ -267,6 +268,7 @@ export const InstructorDashboard = () => {
           code: subCode,
           description: sub.description || "",
           grade_level: sub.grade_level || "",
+          is_pending_request: Boolean(sub.is_pending_request),
           sections: [],
         });
       }
@@ -327,6 +329,22 @@ export const InstructorDashboard = () => {
     if (sub.is_pending_request) return;
     setSelectedSubjectKey(sub.id || sub.name);
   };
+
+  // "Back to Sections" from a section page reopens that subject's sections
+  const { openSubjectId, openSubjectName } = location.state || {};
+  useEffect(() => {
+    if (!openSubjectId && !openSubjectName) return;
+    const name = openSubjectName?.toLowerCase().trim();
+    const target = groupedSubjects.find(
+      (sub) =>
+        (openSubjectId && (sub.id === openSubjectId || sub.subject_id === openSubjectId)) ||
+        (name && sub.name?.toLowerCase().trim() === name),
+    );
+    if (!target) return; // subjects may still be loading
+    setSelectedSubjectKey(target.id || target.name);
+    // Consume the state so a refresh doesn't reopen it
+    navigate(location.pathname, { replace: true, state: null });
+  }, [openSubjectId, openSubjectName, groupedSubjects, navigate, location.pathname]);
 
   // Filter grouped subjects by search
   const filteredSubjects = useMemo(() => {
@@ -925,7 +943,7 @@ export const InstructorDashboard = () => {
               </div>
               <div>
                 <label htmlFor="edit-subject-description" className="block text-xs font-semibold text-gray-600 mb-1">
-                  Section Code (e.g., BSIT 3A)
+                  Section Code (e.g., T390 or T23)
                 </label>
                 <input
                   id="edit-subject-description"

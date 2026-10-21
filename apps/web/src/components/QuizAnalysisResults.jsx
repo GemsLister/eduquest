@@ -413,14 +413,26 @@ export const QuizAnalysisResults = ({
       // Send in-app notification to the assigned reviewer
       if (selectedReviewerId) {
         try {
+          // Senior Faculty review from their own dashboard; it isn't a peer review
+          const reviewer =
+            lockedReviewer?.id === selectedReviewerId
+              ? lockedReviewer
+              : reviewerList.find((r) => r.id === selectedReviewerId);
+          const isSeniorReviewer = Boolean(reviewer?.is_admin);
           await supabase.from("notifications").insert({
             user_id: selectedReviewerId,
-            title: "Peer Review Request",
-            message: `You have been assigned to peer-review the quiz "${quizTitle || "Quiz"}".`,
+            title: isSeniorReviewer ? "Senior Faculty Review Request" : "Peer Review Request",
+            message: isSeniorReviewer
+              ? `You have been assigned to review the quiz "${quizTitle || "Quiz"}" as Senior Faculty.`
+              : `You have been assigned to peer-review the quiz "${quizTitle || "Quiz"}".`,
             type: "info",
-            link: inserted?.id
-              ? `/instructor-dashboard/peer-reviews/${inserted.id}`
-              : "/instructor-dashboard/my-submissions?tab=peer_reviews",
+            link: isSeniorReviewer
+              ? inserted?.id
+                ? `/admin-dashboard/quiz-reviews/${inserted.id}`
+                : "/admin-dashboard/quiz-reviews"
+              : inserted?.id
+                ? `/instructor-dashboard/peer-reviews/${inserted.id}`
+                : "/instructor-dashboard/my-submissions?tab=peer_reviews",
           });
         } catch (notifErr) {
           console.warn("Could not send peer review notification:", notifErr);

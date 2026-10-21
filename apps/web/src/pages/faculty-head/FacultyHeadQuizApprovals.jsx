@@ -12,6 +12,7 @@ import {
   exportSubmissionTosPdf,
   exportSubmissionQuizPaper,
 } from "../../services/facultyHeadService.js";
+import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 
 const TAB_KEYS = [
   HEAD_STATUSES.PENDING,
@@ -507,7 +508,7 @@ export const FacultyHeadQuizApprovals = () => {
                         {submission.admin_feedback && (
                           <div className="mt-3 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
                             <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-blue-600">
-                              Reviewer Feedback
+                              {formatReviewerLabel(submission.reviewer)}
                             </p>
                             <p className="text-xs text-blue-700 line-clamp-2">
                               {submission.admin_feedback}

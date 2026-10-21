@@ -5,6 +5,11 @@ import { supabase } from "../supabaseClient.js";
  * Handles subject and instructor-subject-section relationship operations
  */
 
+// Requests that could not be saved to subject_requests only live in
+// notifications, under a client-generated "req_" id.
+const isFallbackRequestId = (id) =>
+  typeof id === "string" && id.startsWith("req_");
+
 export const subjectService = {
   // ============ SUBJECT OPERATIONS ============
 
@@ -282,8 +287,12 @@ export const subjectService = {
     requester_name = "Faculty Member",
     requester_email = null,
   }) => {
+    if (!subject_code?.trim()) throw new Error("Subject code is required");
+
     let requestId = `req_${crypto.randomUUID()}`;
     const subjectNameTrimmed = subject_name.trim();
+    let savedViaRpc = false;
+    let rpcRefusal = null;
 
     // 1. Try RPC submit_subject_request first if available
     try {
@@ -298,43 +307,54 @@ export const subjectService = {
       );
       if (!rpcErr && rpcData?.success && rpcData?.request_id) {
         requestId = rpcData.request_id;
+        savedViaRpc = true;
+      } else if (!rpcErr && rpcData?.success === false) {
+        rpcRefusal = rpcData.error || "Could not submit subject request";
       }
     } catch (rpcEx) {
       console.warn("RPC submit_subject_request note:", rpcEx);
     }
 
-    // 2. Direct insert into subject_requests table (only if user is instructor to prevent 403)
-    try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("is_instructor, is_admin")
-        .eq("id", requested_by)
-        .maybeSingle();
+    // The RPC ran but refused (duplicate subject / pending request, ...).
+    // Falling back to a direct insert here would bypass those checks.
+    if (rpcRefusal) throw new Error(rpcRefusal);
 
-      if (prof?.is_instructor) {
-        const { data: inserted, error: tableError } = await supabase
-          .from("subject_requests")
-          .insert([
-            {
-              subject_name: subjectNameTrimmed,
-              subject_code: subject_code?.trim() || null,
-              grade_level: grade_level || "1st",
-              description: description?.trim() || null,
-              requested_by: requested_by,
-              request_status: "pending",
-            },
-          ])
-          .select()
+    // 2. Direct insert into subject_requests table, only when the RPC is
+    //    unavailable. The RPC already inserted the row otherwise, and a second
+    //    insert would leave a duplicate request that gets approved twice.
+    if (!savedViaRpc) {
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("is_instructor, is_admin")
+          .eq("id", requested_by)
           .maybeSingle();
 
-        if (!tableError && inserted?.id) {
-          requestId = inserted.id;
-        } else if (tableError) {
-          console.warn("Direct subject_requests insert note:", tableError);
+        if (prof?.is_instructor) {
+          const { data: inserted, error: tableError } = await supabase
+            .from("subject_requests")
+            .insert([
+              {
+                subject_name: subjectNameTrimmed,
+                subject_code: subject_code?.trim() || null,
+                grade_level: grade_level || "1st",
+                description: description?.trim() || null,
+                requested_by: requested_by,
+                request_status: "pending",
+              },
+            ])
+            .select()
+            .maybeSingle();
+
+          if (!tableError && inserted?.id) {
+            requestId = inserted.id;
+          } else if (tableError) {
+            console.warn("Direct subject_requests insert note:", tableError);
+          }
         }
+      } catch (e) {
+        console.warn("Notice: subject_requests table insert note:", e);
       }
-    } catch (e) {
-      console.warn("Notice: subject_requests table insert note:", e);
     }
 
     const requestPayload = {
@@ -407,6 +427,7 @@ export const subjectService = {
    */
   getAllSubjectRequests: async () => {
     const listMap = new Map();
+    let tableLoaded = false;
 
     // 1. Try fetching from subject_requests table (clean select without foreign key join bug)
     try {
@@ -416,6 +437,7 @@ export const subjectService = {
         .order("created_at", { ascending: false });
 
       if (!tableErr && Array.isArray(tableData)) {
+        tableLoaded = true;
         // Collect requester IDs to fetch profile details in batch
         const requesterIds = [
           ...new Set(tableData.map((r) => r.requested_by).filter(Boolean)),
@@ -489,6 +511,11 @@ export const subjectService = {
             };
           }
 
+          // Once the table is readable it is the source of truth: a request
+          // that has a table id but is missing from it was deleted, so its
+          // notification copy must not bring it back.
+          if (tableLoaded && !isFallbackRequestId(parsed.id)) return;
+
           const subjectName =
             parsed.subject_name ||
             n.title.replace("Subject Request:", "").trim();
@@ -532,6 +559,7 @@ export const subjectService = {
     if (!userId) return { data: [], error: null };
 
     const listMap = new Map();
+    let tableLoaded = false;
 
     // 1. Query subject_requests table for this user
     try {
@@ -542,6 +570,7 @@ export const subjectService = {
         .order("created_at", { ascending: false });
 
       if (!tableErr && Array.isArray(tableData)) {
+        tableLoaded = true;
         tableData.forEach((req) => {
           const key = req.id || `${req.subject_name}_${req.grade_level}`;
           listMap.set(key, {
@@ -582,6 +611,8 @@ export const subjectService = {
           } catch {
             parsed = {};
           }
+
+          if (tableLoaded && !isFallbackRequestId(parsed.id)) return;
 
           const subjectName =
             parsed.subject_name ||
@@ -686,6 +717,18 @@ export const subjectService = {
     let approvedViaRpc = false;
     let rpcRefusal = null;
     let createdSubject = null;
+
+    // Neither the RPC nor the fallback insert checks for an existing subject,
+    // so a second request for the same subject would publish a duplicate.
+    const existing = await subjectService.findDuplicateSubject({
+      name: targetReq.subject_name,
+      code: targetReq.subject_code,
+    });
+    if (existing) {
+      throw new Error(
+        `"${existing.name}" already exists in the curriculum. Reject this request instead.`,
+      );
+    }
 
     // 1. Try RPC approve_subject_request first if this is a table UUID
     if (requestId && typeof requestId === "string" && !requestId.startsWith("req_")) {
@@ -894,6 +937,8 @@ export const subjectService = {
     description = null,
     creatorId,
   }) => {
+    if (!subject_code?.trim()) throw new Error("Subject code is required");
+
     // Note: subjects table has no instructor_id column, uses created_by & approved_by
     const { data, error } = await supabase
       .from("subjects")

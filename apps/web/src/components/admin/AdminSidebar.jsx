@@ -3,6 +3,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { adminService } from "../../services/adminService.js";
 import { GroupedSidebar, NavIcon } from "../container/GroupedSidebar.jsx";
+import { useUnseenCount } from "../../hooks/useUnseenBadge.js";
 
 const sections = [
   {
@@ -83,18 +84,29 @@ const sections = [
 // mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
 export const AdminSidebar = ({ mobileOpen = false, onNavigate }) => {
   const { user } = useAuth();
-  const [pendingCount, setPendingCount] = useState(0);
-  const [pendingQuizCount, setPendingQuizCount] = useState(0);
-  const [mySubmissionsNotifCount, setMySubmissionsNotifCount] = useState(0);
+  // Item keys behind each badge; a badge clears once its page is viewed
+  const [registrationKeys, setRegistrationKeys] = useState([]);
+  const [reviewKeys, setReviewKeys] = useState([]);
+  const [submissionKeys, setSubmissionKeys] = useState([]);
+
+  const pendingCount = useUnseenCount(user?.id, "registrations", registrationKeys, [
+    "/admin-dashboard/registration-requests",
+  ]);
+  const pendingQuizCount = useUnseenCount(user?.id, "reviews", reviewKeys, [
+    "/admin-dashboard/quiz-reviews",
+  ]);
+  const mySubmissionsNotifCount = useUnseenCount(user?.id, "submissions", submissionKeys, [
+    "/admin-dashboard/my-submissions",
+  ]);
 
   useEffect(() => {
     const fetchPendingCount = async () => {
-      const { count } = await supabase
+      const { data } = await supabase
         .from("profiles")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .eq("is_approved", false)
         .eq("is_admin", false);
-      setPendingCount(count || 0);
+      setRegistrationKeys((data || []).map((p) => `reg:${p.id}`));
     };
 
     fetchPendingCount();
@@ -109,8 +121,8 @@ export const AdminSidebar = ({ mobileOpen = false, onNavigate }) => {
     if (!user?.id) return;
     // Only submissions this Senior Faculty can act on, not peer-assigned ones
     const fetchPendingQuizCount = async () => {
-      const { count } = await adminService.countReviewsNeedingAction(user.id);
-      setPendingQuizCount(count || 0);
+      const { data } = await adminService.listReviewsNeedingAction(user.id);
+      setReviewKeys((data || []).map((s) => `review:${s.id}:pending`));
     };
 
     fetchPendingQuizCount();
@@ -124,12 +136,20 @@ export const AdminSidebar = ({ mobileOpen = false, onNavigate }) => {
     if (!user?.id) return;
     const fetchMySubmissionsNotifs = async () => {
       try {
-        const { count: revCount } = await supabase
+        // Revision requests not yet resubmitted (a resubmission points back
+        // via previous_submission_id), same as the instructor sidebar
+        const { data: ownSubs } = await supabase
           .from("quiz_analysis_submissions")
-          .select("id", { count: "exact", head: true })
-          .eq("instructor_id", user.id)
-          .eq("status", "revision_requested");
-        setMySubmissionsNotifCount(revCount || 0);
+          .select("id, status, previous_submission_id")
+          .eq("instructor_id", user.id);
+        const resubmittedIds = new Set(
+          (ownSubs || []).map((s) => s.previous_submission_id).filter(Boolean),
+        );
+        setSubmissionKeys(
+          (ownSubs || [])
+            .filter((s) => s.status === "revision_requested" && !resubmittedIds.has(s.id))
+            .map((s) => `rev:${s.id}:revision_requested`),
+        );
       } catch (err) {
         console.warn("Could not fetch my submissions notifs:", err);
       }

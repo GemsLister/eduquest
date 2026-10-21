@@ -26,7 +26,9 @@ export const PortalLayout = ({ sidebar }) => {
         mobileOpen: mobileNavOpen,
         onNavigate: closeMobileNav,
       })}
-      <div className="flex flex-col flex-1 min-w-0 h-screen overflow-y-auto">
+      {/* Stable gutter: the page keeps its width whether or not the current
+          filter's content is tall enough to need a scrollbar */}
+      <div className="flex flex-col flex-1 min-w-0 h-screen overflow-y-auto [scrollbar-gutter:stable]">
         <Header
           onMenuClick={() => setMobileNavOpen(true)}
           menuOpen={mobileNavOpen}

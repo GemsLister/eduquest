@@ -3,6 +3,7 @@ import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { fetchQuestionCounts } from "../../utils/quizCounts.js";
+import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 
 export const useFetchInstructorQuizzes = () => {
   const { user } = useAuth();
@@ -101,15 +102,20 @@ export const useFetchInstructorQuizzes = () => {
       });
       const rawQuizzes = Array.from(combinedMap.values());
 
-      // Owner profiles
+      // Owner and reviewer profiles
+      const getReviewerId = (s) =>
+        s?.assigned_reviewer_id || s?.analysis_results?.assigned_reviewer_id || s?.reviewed_by;
       const instructorIds = Array.from(
-        new Set(rawQuizzes.map((q) => q.instructor_id).filter(Boolean)),
+        new Set([
+          ...rawQuizzes.map((q) => q.instructor_id),
+          ...(submissions || []).map(getReviewerId),
+        ].filter(Boolean)),
       );
       const profileMap = new Map();
       if (instructorIds.length > 0) {
         const { data: profilesData } = await supabase
           .from("profiles")
-          .select("id, first_name, last_name, username, email")
+          .select("id, first_name, last_name, username, email, is_admin")
           .in("id", instructorIds);
         (profilesData || []).forEach((p) => profileMap.set(p.id, p));
       }
@@ -199,16 +205,20 @@ export const useFetchInstructorQuizzes = () => {
           (attemptsCountByQuiz.get(quiz.id) || 0) +
           (quiz.parent_quiz_id ? attemptsCountByQuiz.get(quiz.parent_quiz_id) || 0 : 0);
 
+        const reviewer = profileMap.get(getReviewerId(latestSubmission)) || null;
+
         return {
           ...quiz,
           attempts: totalAttempts,
           questions_count: resolvedQuestionsCount,
           admin_review_status: latestSubmission?.status || null,
+          // Senior Faculty reviews are not peer reviews; the badge says which
+          admin_reviewer: reviewer,
           admin_review_feedback:
             latestSubmission?.faculty_head_feedback || latestSubmission?.admin_feedback || "",
           admin_review_feedback_source: latestSubmission?.faculty_head_feedback
             ? "Department Head"
-            : "Reviewer",
+            : formatReviewerLabel(reviewer),
           hasNewerVersion:
             (quiz.version_number || 1) <
             (maxVersionByRoot.get(quiz.parent_quiz_id || quiz.id) || quiz.version_number || 1),

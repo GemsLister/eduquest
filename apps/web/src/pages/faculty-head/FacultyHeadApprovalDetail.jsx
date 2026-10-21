@@ -16,11 +16,11 @@ import {
   cleanQuizTitle,
   getProfileName,
   updateSubmissionAsHead,
+  formatQuestionComments,
   exportSubmissionTosPdf,
   exportSubmissionQuizPaper,
 } from "../../services/facultyHeadService.js";
-import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
-import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
@@ -38,8 +38,9 @@ export const FacultyHeadApprovalDetail = () => {
   const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
   const [revisions, setRevisions] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  // Department Head comments: overall + per question (keyed by questionId)
   const [feedbackInput, setFeedbackInput] = useState("");
-  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [headQuestionFeedback, setHeadQuestionFeedback] = useState({});
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -86,7 +87,7 @@ export const FacultyHeadApprovalDetail = () => {
         if (data.quiz_id) {
           const { data: qs } = await supabase
             .from("quiz_sections")
-            .select("section_id, sections(name, subject_code)")
+            .select("section_id, sections(name, subject_code, subjects(code, name))")
             .eq("quiz_id", data.quiz_id)
             .limit(1)
             .maybeSingle();
@@ -154,9 +155,25 @@ export const FacultyHeadApprovalDetail = () => {
               .select("*, quizzes(title, parent_quiz_id)")
               .in("quiz_id", chainQuizIds)
               .order("created_at", { ascending: false });
+            const chainReviewerIds = [
+              ...new Set(
+                (chainSubs || [])
+                  .map((s) => s.reviewed_by || s.assigned_reviewer_id)
+                  .filter(Boolean),
+              ),
+            ];
+            const reviewerById = new Map();
+            if (chainReviewerIds.length > 0) {
+              const { data: chainReviewers } = await supabase
+                .from("profiles")
+                .select("id, first_name, last_name, email, username, is_admin")
+                .in("id", chainReviewerIds);
+              (chainReviewers || []).forEach((p) => reviewerById.set(p.id, p));
+            }
             allRevisions = (chainSubs || []).map((s) => ({
               ...s,
               profiles: s.instructor_id === data.instructor_id ? profile : null,
+              reviewer: reviewerById.get(s.reviewed_by || s.assigned_reviewer_id) || null,
             }));
           }
         }
@@ -173,6 +190,8 @@ export const FacultyHeadApprovalDetail = () => {
           .order("created_at", { ascending: false });
 
         setAuditLogs(logs || []);
+        setFeedbackInput(data.faculty_head_feedback || "");
+        setHeadQuestionFeedback(data.faculty_head_question_feedback || {});
         setSubmission({ ...data, profiles: profile, reviewer, section: sectionData });
       }
     } catch (err) {
@@ -190,6 +209,26 @@ export const FacultyHeadApprovalDetail = () => {
       ? "/admin-dashboard/my-submissions"
       : "/instructor-dashboard/my-submissions";
 
+  const getHeadComments = () => {
+    const overall = feedbackInput.trim();
+    const perQuestion = Object.fromEntries(
+      Object.entries(headQuestionFeedback)
+        .map(([k, v]) => [k, (v || "").trim()])
+        .filter(([, v]) => v),
+    );
+    const combined = formatQuestionComments(
+      overall,
+      perQuestion,
+      submission?.analysis_results?.analysis,
+    );
+    return { overall, perQuestion, combined };
+  };
+
+  const hasHeadComments = () => {
+    const { overall, perQuestion } = getHeadComments();
+    return Boolean(overall) || Object.keys(perQuestion).length > 0;
+  };
+
   const handleApprove = async () => {
     const confirmed = await confirm({
       title: "Approve this quiz?",
@@ -203,6 +242,9 @@ export const FacultyHeadApprovalDetail = () => {
     setPendingAction("approve");
     try {
       const now = new Date().toISOString();
+      // Optional comments are kept with the approval too
+      const { overall, perQuestion, combined } = getHeadComments();
+      const hasPerQuestion = Object.keys(perQuestion).length > 0;
       const { error } = await updateSubmissionAsHead(
         submissionId,
         {
@@ -210,7 +252,14 @@ export const FacultyHeadApprovalDetail = () => {
           faculty_head_approved_by: user?.id,
           faculty_head_approved_at: now,
         },
-        { faculty_head_reviewed_by: user?.id, faculty_head_reviewed_at: now },
+        {
+          faculty_head_reviewed_by: user?.id,
+          faculty_head_reviewed_at: now,
+          faculty_head_feedback: overall || null,
+        },
+        {},
+        { faculty_head_question_feedback: hasPerQuestion ? perQuestion : null },
+        { faculty_head_feedback: combined || null },
       );
 
       if (error) throw error;
@@ -242,7 +291,7 @@ export const FacultyHeadApprovalDetail = () => {
       await supabase.from("notifications").insert({
         user_id: submission.instructor_id,
         title: "Quiz Approved by Department Head",
-        message: `Your quiz analysis for "${quizTitle}" has been approved by the Department Head.`,
+        message: `Your quiz analysis for "${cleanQuizTitle(quizTitle)}" has been approved by the Department Head.`,
         type: "success",
         link: getSubmitterSubmissionsLink(),
       });
@@ -287,16 +336,6 @@ export const FacultyHeadApprovalDetail = () => {
     }
   };
 
-  const closeRevisionModal = () => {
-    if (pendingAction === "revision") return;
-    setShowRevisionModal(false);
-    setFeedbackInput("");
-  };
-
-  // Esc closes the revision modal
-  useEscapeKey(() => closeRevisionModal(), showRevisionModal);
-  const revisionTrapRef = useFocusTrap(showRevisionModal);
-
   const runExport = async (kind) => {
     if (exporting) return;
     setExporting(kind);
@@ -312,26 +351,38 @@ export const FacultyHeadApprovalDetail = () => {
   };
 
   const handleRequestRevision = async () => {
-    if (!feedbackInput.trim()) {
-      notify.error("Please enter revision instructions or feedback for the instructor.");
+    if (!hasHeadComments()) {
+      notify.error("Add an overall comment or a comment on at least one question first.");
       return;
     }
+
+    const confirmed = await confirm({
+      title: "Request a revision?",
+      message: `"${cleanQuizTitle(submission.quizzes?.title)}" will be returned to the instructor with your comments.`,
+      confirmText: "Send Revision Request",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+    if (!confirmed) return;
 
     setPendingAction("revision");
     try {
       const now = new Date().toISOString();
-      const feedback = feedbackInput.trim();
-      // The reviewer's admin_feedback is preserved; the Department Head's
-      // instructions go to their own column.
+      const { overall, perQuestion, combined: feedback } = getHeadComments();
+      const hasPerQuestion = Object.keys(perQuestion).length > 0;
+      // The reviewer's admin_feedback and question_feedback are preserved;
+      // the Department Head's comments go to their own columns.
       const { error } = await updateSubmissionAsHead(
         submissionId,
         { status: HEAD_STATUSES.RETURNED, updated_at: now },
         {
-          faculty_head_feedback: feedback,
+          faculty_head_feedback: overall || null,
           faculty_head_reviewed_by: user?.id,
           faculty_head_reviewed_at: now,
         },
         { admin_feedback: feedback },
+        { faculty_head_question_feedback: hasPerQuestion ? perQuestion : null },
+        { faculty_head_feedback: feedback },
       );
 
       if (error) throw error;
@@ -342,7 +393,7 @@ export const FacultyHeadApprovalDetail = () => {
       await supabase.from("notifications").insert({
         user_id: submission.instructor_id,
         title: "Revision Requested by Department Head",
-        message: `The Department Head requested changes for "${quizTitle}": "${feedbackInput.slice(0, 100)}..."`,
+        message: `The Department Head requested changes for "${cleanQuizTitle(quizTitle)}": "${feedback.slice(0, 100)}${feedback.length > 100 ? "..." : ""}"`,
         type: "warning",
         link: getSubmitterSubmissionsLink(),
       });
@@ -355,7 +406,7 @@ export const FacultyHeadApprovalDetail = () => {
         await supabase.rpc("log_quiz_status_change", {
           p_quiz_id: submission.quiz_id,
           p_new_status: "rejected",
-          p_reason: feedbackInput,
+          p_reason: feedback,
         });
       }
 
@@ -369,20 +420,18 @@ export const FacultyHeadApprovalDetail = () => {
         sectionName: submission.section?.name || null,
         previousStatus: HEAD_STATUSES.PENDING,
         newStatus: HEAD_STATUSES.RETURNED,
-        reason: feedbackInput.trim(),
+        reason: feedback,
         userRole: "faculty_head",
         newValues: {
           submissionId: submission.id,
           quizTitle: quizTitle,
           instructorId: submission.instructor_id,
-          feedback: feedbackInput.trim(),
+          feedback,
           status: HEAD_STATUSES.RETURNED,
         },
       });
 
       notify.success("Revision requested successfully!");
-      setShowRevisionModal(false);
-      setFeedbackInput("");
       navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.RETURNED}`);
     } catch (err) {
       console.error("Error requesting revision:", err);
@@ -543,11 +592,14 @@ export const FacultyHeadApprovalDetail = () => {
         {/* Revision History */}
         <ExamRevisionHistory revisions={revisions} currentSubmissionId={submission.id} />
 
-        {/* Department Head revision request (kept separate from reviewer feedback) */}
-        {submission.faculty_head_feedback && (
+        {/* Department Head comments (kept separate from reviewer feedback).
+            While pending they are edited in the comment boxes below. */}
+        {submission.faculty_head_feedback && submission.status !== HEAD_STATUSES.PENDING && (
           <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
             <p className="text-sm font-semibold text-orange-700 mb-1">
-              Department Head Revision Request:
+              {submission.status === HEAD_STATUSES.RETURNED
+                ? "Department Head Revision Request:"
+                : "Department Head Comments:"}
             </p>
             <p className="text-orange-900 whitespace-pre-wrap">{submission.faculty_head_feedback}</p>
             {submission.faculty_head_reviewed_at && (
@@ -562,14 +614,8 @@ export const FacultyHeadApprovalDetail = () => {
         {submission.admin_feedback && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-sm font-semibold text-blue-700 mb-1">
-              Reviewer Overall Feedback
-              {submission.reviewer && (
-                <span className="font-normal text-blue-600">
-                  {" "}— {getProfileName(submission.reviewer)} (
-                  {submission.reviewer.is_admin ? "Senior Faculty" : "Peer Reviewer"})
-                </span>
-              )}
-              :
+              {formatReviewerLabel(submission.reviewer)}
+              <span className="font-normal text-blue-600"> — Overall Feedback:</span>
             </p>
             <p className="text-blue-800 whitespace-pre-wrap">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
@@ -585,7 +631,8 @@ export const FacultyHeadApprovalDetail = () => {
           Object.keys(submission.question_feedback).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-sm font-semibold text-blue-700 mb-2">
-                Per-Question Feedback from Reviewer:
+                {formatReviewerLabel(submission.reviewer)}
+                <span className="font-normal text-blue-600"> — Per-Question Feedback:</span>
               </p>
               <div className="space-y-2">
                 {results?.analysis?.map((item, idx) => {
@@ -616,7 +663,8 @@ export const FacultyHeadApprovalDetail = () => {
         {submission.instructor_message && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
             <p className="text-sm font-semibold text-gray-700 mb-1">
-              Instructor's Note:
+              {getProfileName(submission.profiles, "Instructor")}
+              <span className="font-normal text-gray-500"> (Instructor) — Note:</span>
             </p>
             <p className="text-gray-800">{submission.instructor_message}</p>
           </div>
@@ -848,16 +896,54 @@ export const FacultyHeadApprovalDetail = () => {
                     </div>
                   </div>
 
-                  {/* Inline per-question feedback */}
+                  {/* Inline per-question reviewer feedback */}
                   {submission.question_feedback?.[item.questionId] && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-xs font-semibold text-blue-600 mb-0.5">
-                        Reviewer Feedback:
+                        {formatReviewerLabel(submission.reviewer)}:
                       </p>
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm text-blue-800 whitespace-pre-wrap">
                         {submission.question_feedback[item.questionId]}
                       </p>
                     </div>
+                  )}
+
+                  {/* Department Head comment for this question */}
+                  {submission.status === HEAD_STATUSES.PENDING ? (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <label
+                        htmlFor={`head-comment-${item.questionId}`}
+                        className="block text-xs font-semibold text-gray-500 mb-1.5"
+                      >
+                        Your comment on Q{idx + 1}{" "}
+                        <span className="font-normal text-gray-400">(optional)</span>
+                      </label>
+                      <textarea
+                        id={`head-comment-${item.questionId}`}
+                        value={headQuestionFeedback[item.questionId] || ""}
+                        onChange={(e) =>
+                          setHeadQuestionFeedback((prev) => ({
+                            ...prev,
+                            [item.questionId]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Add a comment for Q${idx + 1}...`}
+                        rows={2}
+                        disabled={actionLoading}
+                        className="w-full px-3 py-2 text-sm text-brand-navy border border-gray-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 resize-none bg-white"
+                      />
+                    </div>
+                  ) : (
+                    headQuestionFeedback[item.questionId] && (
+                      <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p className="text-xs font-semibold text-orange-600 mb-0.5">
+                          Department Head:
+                        </p>
+                        <p className="text-sm text-orange-800 whitespace-pre-wrap">
+                          {headQuestionFeedback[item.questionId]}
+                        </p>
+                      </div>
+                    )
                   )}
                 </div>
               );
@@ -865,18 +951,45 @@ export const FacultyHeadApprovalDetail = () => {
           </div>
         </div>
 
-        {/* Action Buttons - Approve & Request Revision */}
-        {submission.status === "faculty_head_review" && (
+        {/* Overall comment + Approve & Request Revision */}
+        {submission.status === HEAD_STATUSES.PENDING && (
+          <div>
+            <label
+              htmlFor="approval-feedback"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              Overall Comment{" "}
+              <span className="text-gray-400 font-normal">
+                (required to request a revision unless you commented on a question)
+              </span>
+            </label>
+            <textarea
+              id="approval-feedback"
+              rows={3}
+              value={feedbackInput}
+              onChange={(e) => setFeedbackInput(e.target.value)}
+              disabled={actionLoading}
+              placeholder="Overall comments for the instructor: question edits, Bloom's level updates, or items that require modification..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
+            />
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              The reviewer's feedback is kept; your comments are shown to the instructor separately.
+            </p>
+          </div>
+        )}
+
+        {submission.status === HEAD_STATUSES.PENDING && (
           <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-gray-200">
             <button
-              onClick={() => setShowRevisionModal(true)}
-              disabled={actionLoading}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              onClick={handleRequestRevision}
+              disabled={actionLoading || !hasHeadComments()}
+              title={hasHeadComments() ? undefined : "Add a comment first"}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Request Revision
+              {pendingAction === "revision" ? "Submitting..." : "Request Revision"}
             </button>
 
             <button
@@ -909,75 +1022,6 @@ export const FacultyHeadApprovalDetail = () => {
                 </>
               )}
             </button>
-          </div>
-        )}
-
-        {/* Revision Request Feedback Modal */}
-        {showRevisionModal && (
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) closeRevisionModal();
-            }}
-          >
-            <div
-              ref={revisionTrapRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="revision-modal-title"
-              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h3 id="revision-modal-title" className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  Request Quiz Revision
-                </h3>
-                <button
-                  onClick={closeRevisionModal}
-                  aria-label="Close revision request"
-                  className="text-gray-400 hover:text-gray-600 font-bold rounded-lg p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div>
-                <label htmlFor="approval-feedback" className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
-                  Feedback & Required Revisions for Instructor
-                </label>
-                <textarea
-                  id="approval-feedback"
-                  rows={4}
-                  value={feedbackInput}
-                  onChange={(e) => setFeedbackInput(e.target.value)}
-                  placeholder="Specify question edits, Bloom's level updates, or items that require modification..."
-                  autoFocus
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
-                />
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  The reviewer's original feedback is kept; your note is shown to the instructor separately.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={closeRevisionModal}
-                  disabled={pendingAction === "revision"}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRequestRevision}
-                  disabled={actionLoading || !feedbackInput.trim()}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-                >
-                  {pendingAction === "revision" ? "Submitting..." : "Send Revision Request"}
-                </button>
-              </div>
-            </div>
           </div>
         )}
 

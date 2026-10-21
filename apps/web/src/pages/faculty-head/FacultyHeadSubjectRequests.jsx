@@ -223,6 +223,10 @@ export const FacultyHeadSubjectRequests = () => {
         notify.error("Subject name is required");
         return;
       }
+      if (!newSubject.subject_code.trim()) {
+        notify.error("Subject code is required");
+        return;
+      }
 
       const duplicate = await subjectService.findDuplicateSubject({
         name: subjectNameTrimmed,
@@ -237,7 +241,7 @@ export const FacultyHeadSubjectRequests = () => {
 
       await subjectService.createDirectSubject({
         subject_name: subjectNameTrimmed,
-        subject_code: newSubject.subject_code.trim() || null,
+        subject_code: newSubject.subject_code.trim(),
         grade_level: newSubject.grade_level || "1st",
         description: newSubject.description.trim() || null,
         creatorId: user?.id,
@@ -764,7 +768,7 @@ export const FacultyHeadSubjectRequests = () => {
 
                 <div>
                   <label htmlFor="direct-subject-code" className="block text-xs font-bold text-gray-700 mb-1">
-                    Subject Code
+                    Subject Code *
                   </label>
                   <input
                     id="direct-subject-code"
@@ -774,6 +778,7 @@ export const FacultyHeadSubjectRequests = () => {
                       setNewSubject({ ...newSubject, subject_code: e.target.value })
                     }
                     placeholder="e.g., CS301"
+                    required
                     className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                     disabled={creatingSubject}
                   />

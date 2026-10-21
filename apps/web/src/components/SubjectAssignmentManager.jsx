@@ -85,6 +85,10 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
       notify.warning("Subject name is required");
       return;
     }
+    if (!newSubject.code.trim()) {
+      notify.warning("Subject code is required");
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -362,7 +366,7 @@ export const SubjectAssignmentManager = ({ onAssignmentComplete }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subject Code (optional)
+                Subject Code *
               </label>
               <input
                 type="text"

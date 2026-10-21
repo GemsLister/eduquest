@@ -43,6 +43,11 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
         return;
       }
 
+      if (!formData.subject_code?.trim()) {
+        setError("Subject code is required");
+        return;
+      }
+
       if (!formData.grade_level) {
         setError("Grade level is required");
         return;
@@ -184,7 +189,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
 
           <div>
             <label htmlFor="subject-request-code" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Subject Code <span className="text-slate-400 font-normal">(Optional)</span>
+              Subject Code <span className="text-rose-500">*</span>
             </label>
             <input
               id="subject-request-code"
@@ -193,6 +198,7 @@ export const SubjectRequestForm = ({ isOpen, onClose, onRequestSubmitted }) => {
               value={formData.subject_code}
               onChange={handleInputChange}
               placeholder="e.g., IT204, CS301"
+              required
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
               disabled={loading}
             />

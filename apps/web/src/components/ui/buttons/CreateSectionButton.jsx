@@ -183,7 +183,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
                   type="text"
                   value={sectionName}
                   onChange={(e) => setSectionName(e.target.value)}
-                  placeholder="e.g., Section 3A, BSIT 4B"
+                  placeholder="e.g., T390 or T23"
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                   disabled={loading}
                 />

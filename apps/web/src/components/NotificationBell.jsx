@@ -33,6 +33,21 @@ const resolveNotificationLink = (link, pathname) => {
   return target;
 };
 
+// Whether a notification's link points at the page being viewed: same path,
+// and any query params the link sets (e.g. ?tab=peer_reviews) are present.
+const linkMatchesLocation = (link, location) => {
+  const target = resolveNotificationLink(link, location.pathname);
+  if (!target) return false;
+  const [path, query = ""] = target.split("?");
+  const norm = (p) => p.replace(/\/+$/, "") || "/";
+  if (norm(path) !== norm(location.pathname)) return false;
+  const current = new URLSearchParams(location.search);
+  for (const [key, value] of new URLSearchParams(query)) {
+    if (current.get(key) !== value) return false;
+  }
+  return true;
+};
+
 // Subject-request notifications store a JSON payload in `message` (it's parsed
 // elsewhere), so render those as a sentence instead of raw JSON.
 const formatNotificationMessage = (message) => {
@@ -81,17 +96,20 @@ const fetchNotifications = async (userId) => {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // Unread total across all notifications, not only the 20 shown
-  const { count } = await supabase
+  // All unread notifications (not only the 20 shown): the total for the
+  // badge, and their links so visiting a linked page can mark them read
+  const { data: unreadRows, count } = await supabase
     .from("notifications")
-    .select("id", { count: "exact", head: true })
+    .select("id, link", { count: "exact" })
     .eq("user_id", userId)
     .eq("is_read", false)
-    .not("title", "ilike", `${SELF_TRACKING_PREFIX}%`);
+    .not("title", "ilike", `${SELF_TRACKING_PREFIX}%`)
+    .limit(500);
 
   return {
     list: data || null,
     unread: count ?? (data || []).filter((n) => !n.is_read).length,
+    unreadLinks: unreadRows || (data || []).filter((n) => !n.is_read),
   };
 };
 
@@ -101,6 +119,8 @@ export const NotificationBell = () => {
   const location = useLocation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  // { id, link } of every unread notification
+  const [unreadLinks, setUnreadLinks] = useState([]);
   const [open, setOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
@@ -119,10 +139,11 @@ export const NotificationBell = () => {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    fetchNotifications(userId).then(({ list, unread }) => {
+    fetchNotifications(userId).then(({ list, unread, unreadLinks: links }) => {
       if (cancelled) return;
       if (list) setNotifications(list);
       setUnreadCount(unread);
+      setUnreadLinks(links.map(({ id, link }) => ({ id, link })));
     });
     return () => {
       cancelled = true;
@@ -149,7 +170,14 @@ export const NotificationBell = () => {
           setNotifications((prev) =>
             prev.some((n) => n.id === incoming.id) ? prev : [incoming, ...prev],
           );
-          if (!incoming.is_read) setUnreadCount((prev) => prev + 1);
+          if (!incoming.is_read) {
+            setUnreadCount((prev) => prev + 1);
+            setUnreadLinks((prev) =>
+              prev.some((n) => n.id === incoming.id)
+                ? prev
+                : [...prev, { id: incoming.id, link: incoming.link }],
+            );
+          }
           REFRESH_EVENTS.forEach((name) => window.dispatchEvent(new Event(name)));
         },
       )
@@ -193,7 +221,40 @@ export const NotificationBell = () => {
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
+    setUnreadLinks((prev) => prev.filter((n) => n.id !== id));
   };
+
+  // Opening the page a notification points to (from anywhere, not only from
+  // this list) means it has been seen, so mark it read
+  const { pathname, search } = location;
+  const markingRef = useRef(new Set()); // ids with an update in flight
+  useEffect(() => {
+    if (!userId || unreadLinks.length === 0) return;
+    const seenIds = unreadLinks
+      .filter((n) => !markingRef.current.has(n.id))
+      .filter((n) => linkMatchesLocation(n.link, { pathname, search }))
+      .map((n) => n.id);
+    if (seenIds.length === 0) return;
+
+    seenIds.forEach((id) => markingRef.current.add(id));
+    supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .in("id", seenIds)
+      .then(({ error }) => {
+        seenIds.forEach((id) => markingRef.current.delete(id));
+        if (error) {
+          console.warn("Could not mark notifications read:", error);
+          return;
+        }
+        const seen = new Set(seenIds);
+        setUnreadLinks((prev) => prev.filter((n) => !seen.has(n.id)));
+        setNotifications((prev) =>
+          prev.map((n) => (seen.has(n.id) ? { ...n, is_read: true } : n)),
+        );
+        setUnreadCount((prev) => Math.max(0, prev - seenIds.length));
+      });
+  }, [userId, pathname, search, unreadLinks]);
 
   const markAllAsRead = async () => {
     if (!user) return;
@@ -207,6 +268,7 @@ export const NotificationBell = () => {
 
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
+    setUnreadLinks([]);
   };
 
   const handleNotificationClick = (notification) => {
@@ -222,6 +284,7 @@ export const NotificationBell = () => {
     const wasUnread = notifications.find((n) => n.id === id && !n.is_read);
     await supabase.from("notifications").delete().eq("id", id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setUnreadLinks((prev) => prev.filter((n) => n.id !== id));
     if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
     setMenuOpenId(null);
   };

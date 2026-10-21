@@ -1,5 +1,6 @@
 import React from "react";
 import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
+import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 
 /**
  * ExamRevisionHistory Component
@@ -79,7 +80,10 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                     {getStatusBadge(rev.status)}
                   </div>
                   <h4 className="text-sm font-bold text-gray-800">
-                    {rev.quizzes?.title || "Exam Analysis Submission"}
+                    {(rev.quizzes?.title || "Exam Analysis Submission").replace(
+                      /\s*\(Revised(?:\s+\d+)?\)\s*$/i,
+                      "",
+                    )}
                   </h4>
                   <div className="text-xs text-gray-500 flex flex-wrap items-center gap-4">
                     <span>Submitted: <strong className="text-gray-700 font-mono">{formatDate(rev.created_at)}</strong></span>
@@ -119,7 +123,7 @@ export const ExamRevisionHistory = ({ revisions = [], currentSubmissionId = null
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                     </svg>
-                    Reviewer Feedback:
+                    {formatReviewerLabel(rev.reviewer)}:
                   </div>
                   <p className="whitespace-pre-wrap">{rev.admin_feedback || rev.notes}</p>
                 </div>

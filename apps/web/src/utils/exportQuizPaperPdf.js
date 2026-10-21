@@ -55,6 +55,7 @@ export const exportQuizPaperPdf = async ({
   quizDescription,
   instructorName,
   courseName,
+  subjectName,
   semesterOverride,
   schoolYearOverride,
   submittedAt,
@@ -161,12 +162,18 @@ export const exportQuizPaperPdf = async ({
     const refDate = submittedAt ? new Date(submittedAt) : new Date();
     const semesterText = semesterOverride || deriveSemester(refDate);
     const schoolYearText = schoolYearOverride || deriveSchoolYear(refDate);
-    const displayCourseName = courseName || "Subject";
+    // Subject name + section code (e.g. "Database Management - T91"), filled
+    // into the "Subject and Section Code" field below the Name line.
+    const sectionName = (courseName || "").trim();
+    const subjectSectionText =
+      subjectName && !sectionName.toLowerCase().includes(subjectName.toLowerCase())
+        ? [subjectName, sectionName].filter(Boolean).join(" - ")
+        : sectionName;
 
-    // Row 1: Subject name (left, bold) | Instructor name (right, underlined)
-    doc.setFont("times", "bold");
+    // Row 1: Quiz title (left) | Instructor name (right, underlined)
+    doc.setFont("times", "normal");
     doc.setFontSize(11);
-    doc.text(displayCourseName.toUpperCase(), margin, y);
+    doc.text(cleanedTitle, margin, y);
 
     if (instructorName) {
       doc.setFont("times", "normal");
@@ -190,13 +197,7 @@ export const exportQuizPaperPdf = async ({
     }
     y += 6;
 
-    // Row 2: Quiz title (left)
-    doc.setFont("times", "normal");
-    doc.setFontSize(11);
-    doc.text(cleanedTitle, margin, y);
-    y += 6;
-
-    // Row 3: Semester + School Year
+    // Row 2: Semester + School Year
     doc.setFont("times", "normal");
     doc.setFontSize(11);
     doc.text(`${semesterText} S. Y. ${schoolYearText}`, margin, y);
@@ -224,12 +225,20 @@ export const exportQuizPaperPdf = async ({
     y += 7;
 
     doc.text("Subject and Section Code:", margin, y);
-    doc.line(
-      margin + doc.getTextWidth("Subject and Section Code: "),
-      y + 1,
-      nameFieldEnd,
-      y + 1,
-    );
+    const subjectFieldStart = margin + doc.getTextWidth("Subject and Section Code: ");
+    doc.line(subjectFieldStart, y + 1, nameFieldEnd, y + 1);
+    if (subjectSectionText) {
+      // Shrink long names so they stay on the line
+      const fieldWidth = nameFieldEnd - subjectFieldStart - 2;
+      let fieldFontSize = 11;
+      while (fieldFontSize > 7) {
+        doc.setFontSize(fieldFontSize);
+        if (doc.getTextWidth(subjectSectionText) <= fieldWidth) break;
+        fieldFontSize -= 0.5;
+      }
+      doc.text(subjectSectionText, subjectFieldStart + 1, y);
+      doc.setFontSize(11);
+    }
     y += 14;
 
     // ══════════════════════════════════════════════

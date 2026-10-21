@@ -88,6 +88,16 @@ export const adminService = {
       .or(`assigned_reviewer_id.is.null,assigned_reviewer_id.eq.${userId}`);
   },
 
+  /** Same submissions as countReviewsNeedingAction, as rows ({ id }). */
+  listReviewsNeedingAction: async (userId) => {
+    return await supabase
+      .from("quiz_analysis_submissions")
+      .select("id")
+      .eq("status", "pending")
+      .neq("instructor_id", userId)
+      .or(`assigned_reviewer_id.is.null,assigned_reviewer_id.eq.${userId}`);
+  },
+
   /**
    * Everything the instructor detail page shows, in one round of queries.
    * Returns { profile: null } when the id isn't an instructor account.

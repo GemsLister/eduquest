@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import { useConfirm } from "./ui/ConfirmModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import citlLogo from "../assets/BUKSU_CITL.jpg";
+import { useUnseenCount } from "../hooks/useUnseenBadge.js";
 
 const Icon = ({ children }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -134,11 +135,18 @@ export const Sidebar = ({ mobileOpen = false, onNavigate }) => {
   const { pathname } = useLocation();
   const confirm = useConfirm();
   const { user } = useAuth();
-  const [submissionNotifCount, setSubmissionNotifCount] = useState(0);
+  // Peer reviews to do + revision requests to address, as "kind:id:status" keys
+  const [submissionItemKeys, setSubmissionItemKeys] = useState([]);
   // Desktop: collapsed to an icon rail that widens on hover, or pinned open
   const [pinned, setPinned] = useState(readPinned);
   // Groups the user opened or closed; untouched groups follow the current page
   const [groupOverrides, setGroupOverrides] = useState({});
+
+  // Badges clear once the Submissions & Reviews page has been viewed
+  const submissionNotifCount = useUnseenCount(user?.id, "submissions", submissionItemKeys, [
+    "/instructor-dashboard/my-submissions",
+    "/instructor-dashboard/peer-reviews",
+  ]);
 
   const badgeCounts = {
     submissions: submissionNotifCount,
@@ -168,9 +176,9 @@ export const Sidebar = ({ mobileOpen = false, onNavigate }) => {
     const fetchNotificationCount = async () => {
       try {
         // 1. Pending peer reviews assigned to this instructor
-        const { count: peerCount } = await supabase
+        const { data: peerSubs } = await supabase
           .from("quiz_analysis_submissions")
-          .select("id", { count: "exact", head: true })
+          .select("id")
           .eq("assigned_reviewer_id", user.id)
           .eq("status", "pending");
 
@@ -183,11 +191,14 @@ export const Sidebar = ({ mobileOpen = false, onNavigate }) => {
         const resubmittedIds = new Set(
           (ownSubs || []).map((s) => s.previous_submission_id).filter(Boolean),
         );
-        const revCount = (ownSubs || []).filter(
+        const revSubs = (ownSubs || []).filter(
           (s) => s.status === "revision_requested" && !resubmittedIds.has(s.id),
-        ).length;
+        );
 
-        setSubmissionNotifCount((peerCount || 0) + (revCount || 0));
+        setSubmissionItemKeys([
+          ...(peerSubs || []).map((s) => `peer:${s.id}:pending`),
+          ...revSubs.map((s) => `rev:${s.id}:revision_requested`),
+        ]);
       } catch (err) {
         console.warn("Could not fetch submission notification count:", err);
       }

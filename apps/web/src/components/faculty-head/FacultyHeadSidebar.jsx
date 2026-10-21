@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { subjectService } from "../../services/subjectService.js";
 import { loadHeadSubmissions, HEAD_STATUSES } from "../../services/facultyHeadService.js";
 import { GroupedSidebar, NavIcon } from "../container/GroupedSidebar.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { useUnseenCount } from "../../hooks/useUnseenBadge.js";
 
 const sections = [
   {
@@ -55,15 +57,28 @@ const sections = [
 
 // mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
 export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
-  const [pendingQuizCount, setPendingQuizCount] = useState(0);
-  const [pendingSubjectCount, setPendingSubjectCount] = useState(0);
+  const { user } = useAuth();
+  // Item keys behind each badge; a badge clears once its page is viewed
+  const [pendingQuizKeys, setPendingQuizKeys] = useState([]);
+  const [pendingSubjectKeys, setPendingSubjectKeys] = useState([]);
+
+  const pendingQuizCount = useUnseenCount(user?.id, "quiz-approvals", pendingQuizKeys, [
+    "/faculty-head-dashboard/quiz-approvals",
+  ]);
+  const pendingSubjectCount = useUnseenCount(user?.id, "subject-requests", pendingSubjectKeys, [
+    "/faculty-head-dashboard/subject-requests",
+  ]);
 
   useEffect(() => {
     const fetchCounts = async () => {
       // Pending Quiz Approvals — same per-chain counting as the Quiz Approvals list
       try {
         const subs = await loadHeadSubmissions({ enrich: false });
-        setPendingQuizCount(subs.filter((s) => s.status === HEAD_STATUSES.PENDING).length);
+        setPendingQuizKeys(
+          subs
+            .filter((s) => s.status === HEAD_STATUSES.PENDING)
+            .map((s) => `approval:${s.id}:${s.status}`),
+        );
       } catch (err) {
         console.warn("Could not load pending approvals count:", err);
       }
@@ -71,10 +86,11 @@ export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
       // Pending Subject Requests
       try {
         const { data: reqs } = await subjectService.getAllSubjectRequests();
-        const pendingReqs = (reqs || []).filter(
-          (r) => r.request_status === "pending"
-        ).length;
-        setPendingSubjectCount(pendingReqs);
+        setPendingSubjectKeys(
+          (reqs || [])
+            .filter((r) => r.request_status === "pending")
+            .map((r) => `subject:${r.id}:pending`),
+        );
       } catch (err) {
         console.warn("Could not load subject requests count:", err);
       }

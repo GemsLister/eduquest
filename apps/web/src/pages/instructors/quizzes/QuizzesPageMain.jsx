@@ -6,6 +6,10 @@ import { useAuth } from "../../../context/AuthContext.jsx";
 import { Skeleton } from "../../../components/ui/Skeleton.jsx";
 import { useConfirm } from "../../../components/ui/ConfirmModal.jsx";
 
+// Revision copies are stored as "Title (Revised)"; users only see "Title".
+const displayTitle = (quiz) =>
+  (quiz?.title || "").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "");
+
 export const QuizzesPageMain = () => {
   const location = useLocation();
   const { user } = useAuth();
@@ -34,6 +38,10 @@ export const QuizzesPageMain = () => {
   const filterQuiz = (quiz, key) => {
     if (key === "archived") return Boolean(quiz.is_archived);
     if (quiz.is_archived) return false;
+    // A quiz sent back for revision continues as a newer version; the older
+    // version is history (see the version timeline), not a second quiz.
+    // Published versions stay listed: students have taken them.
+    if (quiz.hasNewerVersion && !quiz.is_published) return false;
 
     switch (key) {
       case "all":
@@ -66,7 +74,7 @@ export const QuizzesPageMain = () => {
   const counts = useMemo(() => {
     if (!quizzes) return {};
     return {
-      all: quizzes.filter((q) => !q.is_archived).length,
+      all: quizzes.filter((q) => filterQuiz(q, "all")).length,
       drafts: quizzes.filter((q) => filterQuiz(q, "drafts")).length,
       in_review: quizzes.filter((q) => filterQuiz(q, "in_review")).length,
       approved: quizzes.filter((q) => filterQuiz(q, "approved")).length,
@@ -125,7 +133,12 @@ export const QuizzesPageMain = () => {
       };
     if (quiz.admin_review_status === "pending")
       return {
-        label: "Pending Peer Review",
+        // Only a co-instructor's review is a peer review
+        label: !quiz.admin_reviewer
+          ? "Pending Review"
+          : quiz.admin_reviewer.is_admin
+            ? "Pending Senior Faculty Review"
+            : "Pending Peer Review",
         bg: "bg-amber-500/20 text-amber-200 border-amber-400/30",
       };
     return { label: "Draft", bg: "bg-white/20 text-white border-white/25" };
@@ -383,10 +396,7 @@ export const QuizzesPageMain = () => {
                       <h3
                         className={`font-bold text-lg leading-snug line-clamp-2 mb-2 ${getCardTextColor(quiz)}`}
                       >
-                        {quiz.title?.replace(
-                          /\s*\(Revised(?:\s+\d+)?\)\s*$/,
-                          "",
-                        )}
+                        {displayTitle(quiz)}
                       </h3>
 
                       <div className="flex items-center flex-wrap gap-1.5">
@@ -467,7 +477,7 @@ export const QuizzesPageMain = () => {
                       {quiz.admin_review_status === "revision_requested" && (
                         <div className="rounded-xl border px-3 py-2 text-xs border-rose-200 bg-rose-50 text-rose-700">
                           <span className="font-bold">
-                            {quiz.admin_review_feedback_source || "Reviewer"} Feedback:{" "}
+                            {quiz.admin_review_feedback_source || "Reviewer"}:{" "}
                           </span>
                           {quiz.admin_review_feedback?.trim() ||
                             "No feedback provided yet."}
@@ -544,7 +554,7 @@ export const QuizzesPageMain = () => {
                             onClick={async () => {
                               const confirmed = await confirm({
                                 title: "Publish Quiz",
-                                message: `Publish "${quiz.title}"? Students in the assigned sections will be able to take it, and it can no longer be edited.`,
+                                message: `Publish "${displayTitle(quiz)}"? Students in the assigned sections will be able to take it, and it can no longer be edited.`,
                                 confirmText: "Publish",
                                 cancelText: "Cancel",
                                 variant: "info",
@@ -570,7 +580,7 @@ export const QuizzesPageMain = () => {
                             onClick={async () => {
                               const confirmed = await confirm({
                                 title: "Archive Quiz",
-                                message: `Archive "${quiz.title}"? It will be closed to students. You can restore it later from the Archived tab.`,
+                                message: `Archive "${displayTitle(quiz)}"? It will be closed to students. You can restore it later from the Archived tab.`,
                                 confirmText: "Archive",
                                 cancelText: "Cancel",
                                 variant: "warning",
