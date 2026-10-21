@@ -155,6 +155,10 @@ export const router = createBrowserRouter(
               element: <AdminIndex.AdminInstructors />,
             },
             {
+              path: "instructors/:instructorId",
+              element: <AdminIndex.AdminInstructorDetail />,
+            },
+            {
               path: "create-instructor",
               element: <AdminIndex.AdminCreateInstructor />,
             },
@@ -213,6 +217,11 @@ export const router = createBrowserRouter(
             {
               path: "profile",
               element: <InstructorIndex.InstructorProfile />,
+            },
+            {
+              // Same page as the Department Head's, read-only for both
+              path: "audit-trail",
+              element: <FacultyHeadIndex.FacultyHeadAuditTrail />,
             },
           ],
         },

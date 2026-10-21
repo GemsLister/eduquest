@@ -69,18 +69,34 @@ Deno.serve(async (req) => {
 
     const { data: targetProfile } = await adminClient
       .from("profiles")
-      .select("is_admin")
+      .select("is_admin, is_faculty_head")
       .eq("id", userId)
       .single();
 
-    if (targetProfile?.is_admin) {
+    if (targetProfile?.is_admin || targetProfile?.is_faculty_head) {
       return new Response(
-        JSON.stringify({ error: "Cannot change an admin account status" }),
+        JSON.stringify({
+          error: "Cannot change a Senior Faculty or Department Head account status",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    // Ban in Supabase Auth too: blocks password and Google sign-in and stops
+    // existing sessions from refreshing, not just the app's own route guards
+    const { error: banError } = await adminClient.auth.admin.updateUserById(
+      userId,
+      { ban_duration: disabled ? "876000h" : "none" },
+    );
+
+    if (banError) {
+      return new Response(JSON.stringify({ error: banError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { error: updateError } = await adminClient
@@ -89,6 +105,10 @@ Deno.serve(async (req) => {
       .eq("id", userId);
 
     if (updateError) {
+      // Keep Auth and the profile in step
+      await adminClient.auth.admin.updateUserById(userId, {
+        ban_duration: disabled ? "none" : "876000h",
+      });
       return new Response(JSON.stringify({ error: updateError.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

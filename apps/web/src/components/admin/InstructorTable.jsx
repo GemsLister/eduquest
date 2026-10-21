@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { adminService } from "../../services/adminService.js";
+import { Link } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
-import { notify } from "../../utils/notify.jsx";
-import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
-import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import { ChangePasswordModal } from "./ChangePasswordModal.jsx";
+import {
+  getAvatarColor,
+  getProfileInitials,
+  getProfileName,
+} from "../../utils/profileName.js";
 
 export const InstructorTable = ({
   instructors,
@@ -11,11 +14,6 @@ export const InstructorTable = ({
   onToggleStatus,
 }) => {
   const [changePwdTarget, setChangePwdTarget] = useState(null);
-  useEscapeKey(() => setChangePwdTarget(null), Boolean(changePwdTarget));
-  const changePwdTrapRef = useFocusTrap(Boolean(changePwdTarget));
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [pwdLoading, setPwdLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [quizCounts, setQuizCounts] = useState({});
 
@@ -44,67 +42,9 @@ export const InstructorTable = ({
     loadQuizCounts();
   }, [instructors]);
 
-  const getInstructorName = (instructor) =>
-    instructor.first_name || instructor.last_name
-      ? `${instructor.first_name || ""} ${instructor.last_name || ""}`.trim()
-      : instructor.username || instructor.email;
-
-  const getInitials = (instructor) => {
-    if (instructor.first_name || instructor.last_name) {
-      const f = (instructor.first_name || "")[0] || "";
-      const l = (instructor.last_name || "")[0] || "";
-      return (f + l).toUpperCase() || "?";
-    }
-    if (instructor.username) return instructor.username[0].toUpperCase();
-    return (instructor.email || "?")[0].toUpperCase();
-  };
-
-  const avatarColors = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-purple-500",
-    "bg-amber-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-    "bg-indigo-500",
-    "bg-teal-500",
-  ];
-
-  const getAvatarColor = (id) => {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return avatarColors[Math.abs(hash) % avatarColors.length];
-  };
-
   const handleChangePwdOpen = (instructor) => {
-    const name = getInstructorName(instructor);
-    setChangePwdTarget({ id: instructor.id, name });
-    setNewPassword("");
-    setShowNewPassword(false);
+    setChangePwdTarget({ id: instructor.id, name: getProfileName(instructor) });
     setOpenMenuId(null);
-  };
-
-  const handleChangePwdSubmit = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      notify.error("Password must be at least 6 characters");
-      return;
-    }
-    setPwdLoading(true);
-    const { error } = await adminService.changeInstructorPassword(
-      changePwdTarget.id,
-      newPassword,
-    );
-    setPwdLoading(false);
-    if (error) {
-      notify.error(
-        typeof error === "string" ? error : "Failed to change password",
-      );
-    } else {
-      notify.success("Password changed successfully");
-      setChangePwdTarget(null);
-    }
   };
 
   const handleToggleClick = (instructor) => {
@@ -133,7 +73,7 @@ export const InstructorTable = ({
         </div>
         <p className="font-semibold text-lg">No instructors yet</p>
         <p className="text-sm mt-1">
-          Create one using the &quot;Create Instructor&quot; page.
+          Add one from the &quot;Add Instructor&quot; page.
         </p>
       </div>
     );
@@ -143,10 +83,11 @@ export const InstructorTable = ({
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {instructors.map((instructor) => {
-          const fullName = getInstructorName(instructor);
+          const fullName = getProfileName(instructor);
           const isDisabled = instructor.is_disabled === true;
-          const initials = getInitials(instructor);
+          const initials = getProfileInitials(instructor);
           const color = getAvatarColor(instructor.id);
+          const detailPath = `/admin-dashboard/instructors/${instructor.id}`;
           const stats = quizCounts[instructor.id] || {
             total: 0,
             published: 0,
@@ -212,6 +153,31 @@ export const InstructorTable = ({
                       onClick={() => setOpenMenuId(null)}
                     />
                     <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[180px]">
+                      <Link
+                        to={detailPath}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
+                        </svg>
+                        View Details
+                      </Link>
                       <button
                         onClick={() => handleChangePwdOpen(instructor)}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"
@@ -297,13 +263,14 @@ export const InstructorTable = ({
                     {initials}
                   </div>
                   <div className="min-w-0">
-                    <p
-                      className={`font-bold text-sm truncate ${
+                    <Link
+                      to={detailPath}
+                      className={`block font-bold text-sm truncate hover:text-brand-navy hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                         isDisabled ? "text-gray-400" : "text-gray-800"
                       }`}
                     >
                       {fullName}
-                    </p>
+                    </Link>
                     <p className="text-xs text-gray-400 truncate">
                       @{instructor.username || "—"}
                     </p>
@@ -359,15 +326,21 @@ export const InstructorTable = ({
 
                 {/* Footer: Date + Status */}
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <span className="text-[11px] text-gray-400">
+                  <span className="flex items-center gap-2 text-[11px] text-gray-400">
                     Joined {createdAt}
+                    {!isDisabled && (
+                      <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Active
+                      </span>
+                    )}
                   </span>
-                  {!isDisabled && (
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Active
-                    </span>
-                  )}
+                  <Link
+                    to={detailPath}
+                    className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                  >
+                    View Details
+                  </Link>
                 </div>
               </div>
             </div>
@@ -375,80 +348,11 @@ export const InstructorTable = ({
         })}
       </div>
 
-      {/* Change Password Modal */}
       {changePwdTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div
-            ref={changePwdTrapRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Change password"
-            className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 border border-slate-200"
-          >
-            <div className="w-12 h-12 rounded-xl bg-brand-navy/10 flex items-center justify-center mb-4 text-brand-navy">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Change Password
-            </h3>
-            <p className="text-sm text-gray-500 mb-5">
-              Set a new password for{" "}
-              <span className="font-semibold text-gray-700">
-                {changePwdTarget.name}
-              </span>
-              .
-            </p>
-            <div className="relative mb-5">
-              <label htmlFor="change-password-input" className="sr-only">
-                New password
-              </label>
-              <input
-                id="change-password-input"
-                type={showNewPassword ? "text" : "password"}
-                placeholder="New password (min. 6 characters)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 pr-16 text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                aria-label={showNewPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-brand-navy transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-              >
-                {showNewPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setChangePwdTarget(null)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-bold text-xs hover:bg-slate-50 transition-all shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleChangePwdSubmit}
-                disabled={pwdLoading}
-                className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all shadow-xs disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-              >
-                {pwdLoading ? "Saving..." : "Save Password"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChangePasswordModal
+          target={changePwdTarget}
+          onClose={() => setChangePwdTarget(null)}
+        />
       )}
     </>
   );

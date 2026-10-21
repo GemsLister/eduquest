@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { adminService } from "../../services/adminService.js";
+import { logAudit } from "../../services/auditService.js";
+import { getProfileName } from "../../utils/profileName.js";
+
+const accountName = (profile) => getProfileName(profile, "Instructor");
 
 export const useRegistrationRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -45,6 +49,14 @@ export const useRegistrationRequests = () => {
     }
     setRequests((prev) => prev.filter((r) => r.id !== userId));
     window.dispatchEvent(new Event("pending-requests-changed"));
+    logAudit({
+      action: "REGISTRATION_APPROVED",
+      tableName: "profiles",
+      recordId: userId,
+      itemName: accountName(requests.find((r) => r.id === userId)),
+      previousStatus: "pending_approval",
+      newStatus: "active",
+    });
     return { success: true };
   };
 
@@ -63,6 +75,16 @@ export const useRegistrationRequests = () => {
     }
     setRequests((prev) => prev.filter((r) => r.id !== userId));
     window.dispatchEvent(new Event("pending-requests-changed"));
+    // The account is deleted, so the record id would point at nothing
+    const rejected = requests.find((r) => r.id === userId);
+    logAudit({
+      action: "REGISTRATION_REJECTED",
+      tableName: "profiles",
+      itemName: accountName(rejected),
+      previousStatus: "pending_approval",
+      newStatus: "deleted",
+      changeSummary: rejected?.email ? `Registration for ${rejected.email} was rejected and deleted.` : null,
+    });
     return { success: true };
   };
 

@@ -1,70 +1,110 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { canSeniorFacultyReview } from "../../services/adminService.js";
+import {
+  getSubmissionStatusLabel,
+  getSubmissionStatusStyle,
+  isApprovedStatus,
+  isReturnedByHead,
+  isTosCompliant,
+} from "../../utils/submissionStatus.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+
+const getProfileName = (p) => {
+  if (!p) return null;
+  const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+  return name || p.username || p.email || null;
+};
+
+// Which tab a submission belongs to (besides "all")
+const getBucket = (s, userId) => {
+  if (s.status === "pending") {
+    return canSeniorFacultyReview(s, userId) ? "needs_review" : "with_peers";
+  }
+  if (isApprovedStatus(s.status)) return "approved";
+  return s.status;
+};
 
 export const AdminQuizReviews = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("needs_review");
   const [search, setSearch] = useState("");
   const [allSubmissions, setAllSubmissions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
-    loadSubmissions();
-  }, []);
+    if (!user?.id) return;
+    let cancelled = false;
 
-  const loadSubmissions = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("*, quizzes(*)")
-        .order("created_at", { ascending: false });
+    const loadSubmissions = async () => {
+      setLoading(true);
+      try {
+        // Own submissions live under My Submissions, not here
+        const { data, error } = await supabase
+          .from("quiz_analysis_submissions")
+          .select("*, quizzes(*)")
+          .neq("instructor_id", user.id)
+          .order("created_at", { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
+        const rows = data || [];
 
-      if (data && data.length > 0) {
-        const instructorIds = [...new Set(data.map((s) => s.instructor_id).filter(Boolean))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, first_name, last_name, email, username")
-          .in("id", instructorIds);
+        const profileIds = [
+          ...new Set(
+            rows.flatMap((s) => [s.instructor_id, s.assigned_reviewer_id]).filter(Boolean),
+          ),
+        ];
+        const { data: profiles } = profileIds.length
+          ? await supabase
+              .from("profiles")
+              .select("id, first_name, last_name, email, username")
+              .in("id", profileIds)
+          : { data: [] };
+        const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
 
-        const profileMap = {};
-        profiles?.forEach((p) => {
-          profileMap[p.id] = p;
-        });
-
-        // Fetch all quizzes involved to build a recursive rootId resolver
-        const quizIds = [...new Set(data.map((s) => s.quiz_id).filter(Boolean))];
-        let quizMap = new Map();
-        if (quizIds.length > 0) {
+        // Load the quizzes in these chains (and their parents) to find each root
+        const quizMap = new Map();
+        rows.forEach((s) => s.quizzes && quizMap.set(s.quiz_id, s.quizzes));
+        let missing = [
+          ...new Set(
+            rows
+              .flatMap((s) => [s.quiz_id, s.quizzes?.parent_quiz_id])
+              .filter((id) => id && !quizMap.has(id)),
+          ),
+        ];
+        for (let depth = 0; missing.length > 0 && depth < 5; depth++) {
           const { data: qData } = await supabase
             .from("quizzes")
-            .select("id, parent_quiz_id, title, version_number");
-          qData?.forEach((q) => quizMap.set(q.id, q));
+            .select("id, parent_quiz_id, title, version_number")
+            .in("id", missing);
+          (qData || []).forEach((q) => quizMap.set(q.id, q));
+          missing = [
+            ...new Set(
+              (qData || [])
+                .map((q) => q.parent_quiz_id)
+                .filter((id) => id && !quizMap.has(id)),
+            ),
+          ];
         }
 
         const findRootId = (quizId) => {
-          if (!quizId) return null;
           let curr = quizId;
-          let visited = new Set();
+          const visited = new Set();
           while (curr && !visited.has(curr)) {
             visited.add(curr);
-            const q = quizMap.get(curr);
-            if (q && q.parent_quiz_id) {
-              curr = q.parent_quiz_id;
-            } else {
-              break;
-            }
+            const parent = quizMap.get(curr)?.parent_quiz_id;
+            if (!parent) break;
+            curr = parent;
           }
           return curr;
         };
 
-        const enrichedData = data.map((s) => {
+        const enrichedData = rows.map((s) => {
           const joinedQuiz = s.quizzes || quizMap.get(s.quiz_id) || null;
           const quizTitle =
             joinedQuiz?.title ||
@@ -75,21 +115,20 @@ export const AdminQuizReviews = () => {
           return {
             ...s,
             quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
-            profiles: profileMap[s.instructor_id] || null,
+            profiles: profileMap.get(s.instructor_id) || null,
+            reviewerName: getProfileName(profileMap.get(s.assigned_reviewer_id)),
           };
         });
 
-        // Group submissions by quiz chain key:
-        // 1. Recursive root quiz id
-        // 2. Base title + instructor id (fallback to guarantee grouping)
+        // Group submissions by quiz chain, falling back to base title + instructor
         const getChainKey = (s) => {
-          const rootQuizId = findRootId(s.quiz_id) || s.quizzes?.parent_quiz_id || s.quiz_id;
+          const rootQuizId = findRootId(s.quiz_id);
           if (rootQuizId) return `quiz_${rootQuizId}`;
-          
+
           const rawTitle = s.quizzes?.title || "";
           const baseTitle = rawTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "").trim().toLowerCase();
           if (baseTitle && s.instructor_id) return `title_${s.instructor_id}_${baseTitle}`;
-          
+
           return `sub_${s.id}`;
         };
 
@@ -121,44 +160,53 @@ export const AdminQuizReviews = () => {
             new Date(a.created_at).getTime(),
         );
 
-        setAllSubmissions(latestPerChain);
-      } else {
-        setAllSubmissions(data || []);
+        if (!cancelled) setAllSubmissions(latestPerChain);
+      } catch (err) {
+        console.error("Error loading submissions:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (err) {
-      console.error("Error loading submissions:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    loadSubmissions();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Badge counts
   const counts = useMemo(() => {
     const c = {
-      pending: 0,
+      needs_review: 0,
+      with_peers: 0,
+      faculty_head_review: 0,
       approved: 0,
       revision_requested: 0,
-      faculty_head_review: 0,
-      faculty_head_approved: 0,
       all: 0,
     };
     allSubmissions.forEach((s) => {
       c.all++;
-      if (c[s.status] !== undefined) c[s.status]++;
+      const bucket = getBucket(s, user?.id);
+      if (c[bucket] !== undefined) c[bucket]++;
     });
     return c;
-  }, [allSubmissions]);
+  }, [allSubmissions, user?.id]);
 
-  // Reset page when filter or search changes
-  useEffect(() => {
+  // Changing the search or tab goes back to page 1
+  const changeFilter = (value) => {
+    setFilter(value);
     setCurrentPage(1);
-  }, [filter, search]);
+  };
+  const changeSearch = (value) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
 
   // Filter + search
   const filtered = useMemo(() => {
     let list = allSubmissions;
     if (filter !== "all") {
-      list = list.filter((s) => s.status === filter);
+      list = list.filter((s) => getBucket(s, user?.id) === filter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -172,21 +220,18 @@ export const AdminQuizReviews = () => {
       });
     }
     return list;
-  }, [allSubmissions, filter, search]);
+  }, [allSubmissions, filter, search, user?.id]);
 
-  // Pagination
+  // Pagination (clamped so a shrinking list never strands you on an empty page)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const page = Math.min(currentPage, Math.max(totalPages, 1));
   const paginatedSubmissions = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
+    const start = (page - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, currentPage]);
+  }, [filtered, page]);
 
-  const getInstructorName = (submission) => {
-    const p = submission.profiles;
-    if (!p) return "Unknown Instructor";
-    const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
-    return name || p.username || p.email || "Unknown Instructor";
-  };
+  const getInstructorName = (submission) =>
+    getProfileName(submission.profiles) || "Unknown Instructor";
 
   const getInitials = (submission) => {
     const p = submission.profiles;
@@ -218,37 +263,19 @@ export const AdminQuizReviews = () => {
     return avatarColors[Math.abs(hash) % avatarColors.length];
   };
 
-  const getStatusBadge = (status) => {
-    const config = {
-      pending: { bg: "bg-amber-50 text-amber-700 border border-amber-200", label: "Pending" },
-      approved: { bg: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Approved" },
-      revision_requested: {
-        bg: "bg-rose-50 text-rose-700 border border-rose-200",
-        label: "Revision",
-      },
-      faculty_head_review: {
-        bg: "bg-blue-50 text-blue-700 border border-blue-200",
-        label: "Department Head",
-      },
-      faculty_head_approved: {
-        bg: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-        label: "DH Approved",
-      },
-    };
-    const c = config[status] || {
-      bg: "bg-slate-100 text-slate-600 border border-slate-200",
-      label: status,
-    };
-    return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${c.bg}`}>
-        {c.label}
-      </span>
-    );
-  };
+  const getStatusBadge = (submission) => (
+    <span
+      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getSubmissionStatusStyle(submission.status)}`}
+    >
+      {isReturnedByHead(submission)
+        ? "Returned by Department Head"
+        : getSubmissionStatusLabel(submission.status)}
+    </span>
+  );
 
   const timeAgo = (dateStr) => {
     if (!dateStr) return "—";
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "Just now";
     if (mins < 60) return `${mins}m ago`;
@@ -262,37 +289,35 @@ export const AdminQuizReviews = () => {
     });
   };
 
-  const getTosStatus = (summary) => {
-    if (!summary) return null;
-    const lotsPct = summary.lotsPercentage || 0;
-    const hotsPct = summary.hotsPercentage || 0;
-    return Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5;
-  };
-
   const tabs = [
-    { key: "pending", label: "Pending", dotColor: "bg-amber-400" },
+    { key: "needs_review", label: "Needs My Review", dotColor: "bg-amber-400" },
+    { key: "with_peers", label: "With Peer Reviewers", dotColor: "bg-violet-400" },
     {
       key: "faculty_head_review",
-      label: "Department Head",
+      label: "Awaiting Department Head",
       dotColor: "bg-blue-500",
     },
-    {
-      key: "faculty_head_approved",
-      label: "DH Approved",
-      dotColor: "bg-emerald-500",
-    },
-    { key: "revision_requested", label: "Revision", dotColor: "bg-rose-500" },
+    { key: "approved", label: "Approved", dotColor: "bg-emerald-500" },
+    { key: "revision_requested", label: "Revision Requested", dotColor: "bg-rose-500" },
     { key: "all", label: "All", dotColor: "bg-slate-400" },
   ];
 
   const emptyMessages = {
-    pending: {
-      title: "No Pending Reviews",
-      desc: "All quiz submissions have been reviewed. New submissions will appear here.",
+    needs_review: {
+      title: "Nothing to Review",
+      desc: "Submissions that are unassigned or assigned to you will appear here.",
+    },
+    with_peers: {
+      title: "No Peer Reviews in Progress",
+      desc: "Submissions waiting on another reviewer will appear here.",
+    },
+    faculty_head_review: {
+      title: "Nothing Awaiting the Department Head",
+      desc: "Forwarded submissions stay here until the Department Head decides.",
     },
     approved: {
       title: "No Approved Submissions",
-      desc: "Approved quiz analyses will appear here after review.",
+      desc: "Exams approved by the Department Head will appear here.",
     },
     revision_requested: {
       title: "No Revision Requests",
@@ -340,18 +365,18 @@ export const AdminQuizReviews = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-          Exam Analysis Reviews
-          {counts.pending > 0 && (
+          Exam Reviews
+          {counts.needs_review > 0 && (
             <span className="flex items-center gap-2 px-3 py-1 bg-amber-400/20 border border-amber-400/30 rounded-full">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-xs font-bold text-amber-300">
-                {counts.pending} pending
+                {counts.needs_review} to review
               </span>
             </span>
           )}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Review and approve quiz analyses submitted by instructors
+          Review instructors' quiz analyses and forward them to the Department Head
         </p>
       </div>
 
@@ -382,13 +407,13 @@ export const AdminQuizReviews = () => {
               type="text"
               placeholder="Search by quiz title or instructor..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => changeSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => changeSearch("")}
                 aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
               >
@@ -415,7 +440,7 @@ export const AdminQuizReviews = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setFilter(tab.key)}
+                onClick={() => changeFilter(tab.key)}
                 aria-pressed={filter === tab.key}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
                   filter === tab.key
@@ -474,7 +499,7 @@ export const AdminQuizReviews = () => {
             <div className="space-y-3">
               {paginatedSubmissions.map((submission) => {
                 const summary = submission.analysis_results?.summary;
-                const tosCompliant = getTosStatus(summary);
+                const tosCompliant = isTosCompliant(summary);
                 const lotsPct = summary?.lotsPercentage || 0;
                 const hotsPct = summary?.hotsPercentage || 0;
                 const instructorName = getInstructorName(submission);
@@ -522,7 +547,7 @@ export const AdminQuizReviews = () => {
                               Resubmission
                             </span>
                           )}
-                          {getStatusBadge(submission.status)}
+                          {getStatusBadge(submission)}
                           {tosCompliant !== null && (
                             <span
                               className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -575,6 +600,16 @@ export const AdminQuizReviews = () => {
                               {instructorName}
                             </span>
                           </span>
+                          {submission.reviewerName && (
+                            <span>
+                              reviewer{" "}
+                              <span className="font-semibold text-gray-600">
+                                {submission.assigned_reviewer_id === user?.id
+                                  ? "You"
+                                  : submission.reviewerName}
+                              </span>
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -689,9 +724,11 @@ export const AdminQuizReviews = () => {
                           </div>
                         )}
 
-                        {/* Senior Faculty Feedback (for revision) */}
+                        {/* Feedback behind the revision request */}
                         {submission.status === "revision_requested" &&
-                          submission.admin_feedback && (
+                          (isReturnedByHead(submission)
+                            ? submission.faculty_head_feedback
+                            : submission.admin_feedback) && (
                             <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg border bg-orange-50 border-orange-100">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -709,10 +746,14 @@ export const AdminQuizReviews = () => {
                               </svg>
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5 text-orange-600">
-                                  Senior Faculty Feedback
+                                  {isReturnedByHead(submission)
+                                    ? "Department Head Feedback"
+                                    : "Reviewer Feedback"}
                                 </p>
                                 <p className="text-xs line-clamp-2 text-orange-700">
-                                  {submission.admin_feedback}
+                                  {isReturnedByHead(submission)
+                                    ? submission.faculty_head_feedback
+                                    : submission.admin_feedback}
                                 </p>
                               </div>
                             </div>
@@ -748,41 +789,39 @@ export const AdminQuizReviews = () => {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
                 <p className="text-xs text-slate-500">
-                  Showing <strong className="text-slate-900">{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
-                  <strong className="text-slate-900">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</strong> of{" "}
+                  Showing <strong className="text-slate-900">{(page - 1) * PAGE_SIZE + 1}</strong>–
+                  <strong className="text-slate-900">{Math.min(page * PAGE_SIZE, filtered.length)}</strong> of{" "}
                   <strong className="text-slate-900">{filtered.length}</strong> submissions
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(Math.max(1, page - 1))}
+                    disabled={page === 1}
                     aria-label="Previous page"
                     className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     Prev
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
+                    (n) => (
                       <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        aria-label={`Go to page ${page}`}
-                        aria-current={currentPage === page ? "page" : undefined}
+                        key={n}
+                        onClick={() => setCurrentPage(n)}
+                        aria-label={`Go to page ${n}`}
+                        aria-current={page === n ? "page" : undefined}
                         className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
-                          currentPage === page
+                          page === n
                             ? "bg-brand-navy text-white shadow-xs"
                             : "border border-slate-200 hover:bg-slate-50 text-slate-600"
                         }`}
                       >
-                        {page}
+                        {n}
                       </button>
                     ),
                   )}
                   <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
+                    disabled={page === totalPages}
                     aria-label="Next page"
                     className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >

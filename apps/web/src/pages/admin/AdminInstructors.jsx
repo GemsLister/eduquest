@@ -3,10 +3,12 @@ import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.j
 import { InstructorTable } from "../../components/admin/InstructorTable.jsx";
 import { notify } from "../../utils/notify.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useInstructorStatusToggle } from "../../hooks/adminHook/useInstructorStatusToggle.jsx";
 
 export const AdminInstructors = () => {
-  const { instructors, loading, error, statusLoading, toggleInstructorStatus } =
+  const { instructors, loading, error, setInstructorDisabled } =
     useAdminInstructors();
+  const { statusLoading, toggleStatus } = useInstructorStatusToggle();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | active | disabled
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,27 +54,16 @@ export const AdminInstructors = () => {
   };
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
+  const page = Math.min(currentPage, Math.max(totalPages, 1));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     if (error) notify.error(error);
   }, [error]);
 
   const handleStatusClick = async (instructor) => {
-    const result = await toggleInstructorStatus(
-      instructor.id,
-      !instructor.is_disabled,
-    );
-    if (result?.success) {
-      notify.success(
-        instructor.is_disabled
-          ? `${instructor.first_name || instructor.email} has been activated.`
-          : `${instructor.first_name || instructor.email} has been disabled.`,
-      );
-    }
+    const disabled = await toggleStatus(instructor);
+    if (disabled !== null) setInstructorDisabled(instructor.id, disabled);
   };
 
   const filters = [
@@ -240,41 +231,39 @@ export const AdminInstructors = () => {
         {!loading && totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
             <p className="text-xs text-slate-500">
-              Showing <strong className="text-slate-900">{(currentPage - 1) * PAGE_SIZE + 1}</strong>–
-              <strong className="text-slate-900">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</strong> of{" "}
+              Showing <strong className="text-slate-900">{(page - 1) * PAGE_SIZE + 1}</strong>–
+              <strong className="text-slate-900">{Math.min(page * PAGE_SIZE, filtered.length)}</strong> of{" "}
               <strong className="text-slate-900">{filtered.length}</strong> instructors
             </p>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(Math.max(1, page - 1))}
+                disabled={page === 1}
                 aria-label="Previous page"
                 className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 Prev
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
+                (n) => (
                   <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    aria-label={`Go to page ${page}`}
-                    aria-current={page === currentPage ? "page" : undefined}
+                    key={n}
+                    onClick={() => setCurrentPage(n)}
+                    aria-label={`Go to page ${n}`}
+                    aria-current={n === page ? "page" : undefined}
                     className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
-                      page === currentPage
+                      n === page
                         ? "bg-brand-navy text-white shadow-xs"
                         : "border border-slate-200 hover:bg-slate-50 text-slate-600"
                     }`}
                   >
-                    {page}
+                    {n}
                   </button>
                 ),
               )}
               <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
                 aria-label="Next page"
                 className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >

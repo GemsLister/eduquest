@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { notify } from "../../utils/notify.jsx";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
@@ -18,42 +18,12 @@ import {
   getAuditStatus,
   getAuditFeedback,
   getAuditItemName,
+  getActionBadgeColor,
 } from "../../utils/auditFormat.js";
 
 // Newest records loaded per query; narrow the date range to see older ones.
 const FETCH_LIMIT = 1000;
 const ITEMS_PER_PAGE = 10;
-
-const getActionBadgeColor = (action) => {
-  switch ((action || "").toUpperCase()) {
-    case "QUIZ_CREATED":
-    case "QUIZ_PUBLISHED":
-      return "bg-blue-50 text-blue-800 border border-blue-200/80";
-    case "SUBMITTED_FOR_REVIEW":
-    case "RESUBMITTED_FOR_REVIEW":
-      return "bg-amber-50 text-amber-800 border border-amber-200/80";
-    case "FORWARDED_TO_HEAD":
-    case "PEER_REVIEW_FORWARDED_TO_HEAD":
-      return "bg-sky-50 text-sky-800 border border-sky-200/80";
-    case "QUIZ_APPROVED":
-      return "bg-emerald-50 text-emerald-800 border border-emerald-200/80";
-    case "REVISION_REQUESTED":
-    case "PEER_REVIEW_REVISION_REQUESTED":
-      return "bg-orange-50 text-orange-800 border border-orange-200/80";
-    case "QUIZ_UPDATED":
-    case "QUESTION_UPDATED":
-    case "SECTION_UPDATED":
-      return "bg-indigo-50 text-indigo-800 border border-indigo-200/80";
-    case "QUIZ_DELETED":
-    case "QUESTION_DELETED":
-    case "SECTION_ARCHIVED":
-      return "bg-rose-50 text-rose-800 border border-rose-200/80";
-    case "ANALYSIS_SAVED":
-      return "bg-purple-50 text-purple-800 border border-purple-200/80";
-    default:
-      return "bg-slate-100 text-slate-700 border border-slate-200";
-  }
-};
 
 const fullName = (p) =>
   p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username || p.email || null : null;
@@ -87,8 +57,15 @@ const ActorCell = ({ log }) => (
 );
 
 /** Readable details for one audit record (replaces the raw JSON dump). */
+// Senior Faculty open submissions in Exam Reviews, Department Heads in Quiz Approvals
+const useSubmissionBasePath = () =>
+  useLocation().pathname.startsWith("/admin-dashboard")
+    ? "/admin-dashboard/quiz-reviews"
+    : "/faculty-head-dashboard/quiz-approvals";
+
 const EventDetails = ({ log }) => {
   const [showRaw, setShowRaw] = useState(false);
+  const submissionBasePath = useSubmissionBasePath();
   const status = getAuditStatus(log);
   const feedback = getAuditFeedback(log);
   const submissionId = getAuditSubmissionId(log);
@@ -176,7 +153,7 @@ const EventDetails = ({ log }) => {
       <div className="flex flex-wrap items-center gap-3 pt-1">
         {submissionId && (
           <Link
-            to={`/faculty-head-dashboard/quiz-approvals/${submissionId}`}
+            to={`${submissionBasePath}/${submissionId}`}
             className="inline-flex items-center gap-1 font-bold text-brand-navy hover:text-brand-indigo hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             Open submission
@@ -205,6 +182,8 @@ const EventDetails = ({ log }) => {
 };
 
 export const FacultyHeadAuditTrail = () => {
+  // Shared by the Department Head and Senior Faculty portals
+  const isSeniorFaculty = useLocation().pathname.startsWith("/admin-dashboard");
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -408,15 +387,15 @@ export const FacultyHeadAuditTrail = () => {
 
   return (
     <>
-      {/* Hero Header Banner consistent with Department Head navigation */}
+      {/* Hero Header Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-brand-gold text-sm font-semibold uppercase tracking-widest mb-1">
-              Department Head
+              {isSeniorFaculty ? "Senior Faculty" : "Department Head"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-              Department Audit Trail
+              Audit Trail
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Monitor and audit the complete examination workflow, faculty submissions, and system events.

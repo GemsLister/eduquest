@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
 import { formatTimeSpent } from "../../../utils/timeSpent.js";
 import { Skeleton, SkeletonTableRow } from "../../../components/ui/Skeleton.jsx";
@@ -9,6 +9,7 @@ export const QuizResults = () => {
   const [searchParams] = useSearchParams();
   const sectionId = searchParams.get("section");
   const navigate = useNavigate();
+  const isAdminPath = useLocation().pathname.startsWith("/admin-dashboard");
   const [quiz, setQuiz] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -216,26 +217,30 @@ export const QuizResults = () => {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-authentic-white p-6">
-      <div className="mb-8">
+    <div className="flex-1 overflow-auto bg-authentic-white">
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
           onClick={() => navigate(-1)}
           aria-label="Back to previous page"
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-navy/10 hover:bg-brand-navy/20 text-brand-navy text-sm font-semibold rounded-lg transition-colors mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </button>
-        <div>
-          <h1 className="text-3xl font-bold text-brand-navy mb-2">
-            Quiz Results: {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Quiz"}
-          </h1>
-          <p className="text-gray-600">
-            {attempts.length} {attempts.length === 1 ? "attempt" : "attempts"}{" "}
-            recorded
-          </p>
-        </div>
+        <p className="text-brand-gold text-sm font-semibold tracking-widest uppercase mb-1">
+          {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
+        </p>
+        <h1 className="text-2xl md:text-3xl font-black text-white">
+          Quiz Results: {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Quiz"}
+        </h1>
+        <p className="text-white/60 text-sm mt-1">
+          {attempts.length} {attempts.length === 1 ? "attempt" : "attempts"}{" "}
+          recorded
+        </p>
       </div>
+
+      <div className="p-6">
 
       {attempts.length > 0 && (
         <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -361,7 +366,7 @@ export const QuizResults = () => {
                       <button
                         onClick={() =>
                           navigate(
-                            `${window.location.pathname.startsWith("/admin-dashboard") ? "/admin-dashboard" : "/instructor-dashboard"}/quiz-results/${quizId}/attempt/${attempt.id}`,
+                            `${isAdminPath ? "/admin-dashboard" : "/instructor-dashboard"}/quiz-results/${quizId}/attempt/${attempt.id}`,
                           )
                         }
                         className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
@@ -447,8 +452,7 @@ export const QuizResults = () => {
             </div>
           </div>
         )}
-
-
+      </div>
     </div>
   );
 };

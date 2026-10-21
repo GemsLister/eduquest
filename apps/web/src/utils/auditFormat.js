@@ -26,6 +26,12 @@ const ACTION_LABELS = {
   SECTION_ARCHIVED: "Section Archived",
   ANALYSIS_SAVED: "Item Analysis Saved",
   USER_LOGIN: "User Login",
+  INSTRUCTOR_CREATED: "Instructor Account Created",
+  REGISTRATION_APPROVED: "Registration Approved",
+  REGISTRATION_REJECTED: "Registration Rejected",
+  ACCOUNT_DISABLED: "Account Disabled",
+  ACCOUNT_ENABLED: "Account Enabled",
+  PASSWORD_RESET: "Instructor Password Reset",
 };
 
 export const AUDIT_ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(
@@ -37,6 +43,7 @@ export const AUDIT_TABLE_OPTIONS = [
   { value: "questions", label: "Questions" },
   { value: "sections", label: "Sections" },
   { value: "item_analysis", label: "Item Analysis" },
+  { value: "profiles", label: "Accounts" },
 ];
 
 const titleCase = (key) =>
@@ -45,6 +52,47 @@ const titleCase = (key) =>
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Badge colors per action, shared by every audit list
+export const getActionBadgeColor = (action) => {
+  switch ((action || "").toUpperCase()) {
+    case "QUIZ_CREATED":
+    case "QUIZ_PUBLISHED":
+      return "bg-blue-50 text-blue-800 border border-blue-200/80";
+    case "SUBMITTED_FOR_REVIEW":
+    case "RESUBMITTED_FOR_REVIEW":
+      return "bg-amber-50 text-amber-800 border border-amber-200/80";
+    case "FORWARDED_TO_HEAD":
+    case "PEER_REVIEW_FORWARDED_TO_HEAD":
+      return "bg-sky-50 text-sky-800 border border-sky-200/80";
+    case "QUIZ_APPROVED":
+      return "bg-emerald-50 text-emerald-800 border border-emerald-200/80";
+    case "REVISION_REQUESTED":
+    case "PEER_REVIEW_REVISION_REQUESTED":
+      return "bg-orange-50 text-orange-800 border border-orange-200/80";
+    case "QUIZ_UPDATED":
+    case "QUESTION_UPDATED":
+    case "SECTION_UPDATED":
+      return "bg-indigo-50 text-indigo-800 border border-indigo-200/80";
+    case "QUIZ_DELETED":
+    case "QUESTION_DELETED":
+    case "SECTION_ARCHIVED":
+      return "bg-rose-50 text-rose-800 border border-rose-200/80";
+    case "ANALYSIS_SAVED":
+      return "bg-purple-50 text-purple-800 border border-purple-200/80";
+    case "INSTRUCTOR_CREATED":
+    case "REGISTRATION_APPROVED":
+    case "ACCOUNT_ENABLED":
+      return "bg-teal-50 text-teal-800 border border-teal-200/80";
+    case "REGISTRATION_REJECTED":
+    case "ACCOUNT_DISABLED":
+      return "bg-rose-50 text-rose-800 border border-rose-200/80";
+    case "PASSWORD_RESET":
+      return "bg-indigo-50 text-indigo-800 border border-indigo-200/80";
+    default:
+      return "bg-slate-100 text-slate-700 border border-slate-200";
+  }
+};
 
 export const formatAuditAction = (action) =>
   ACTION_LABELS[(action || "").toUpperCase()] || titleCase(action) || "Activity";

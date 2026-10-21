@@ -248,7 +248,7 @@ export const PeerReviewDetail = () => {
       // If approved/forwarded, also notify Department Heads for final approval
       if (status === "approved") {
         try {
-          await notifyDepartmentHeads(submission.instructor_id, {
+          await notifyDepartmentHeads({
             title: "New Exam Awaiting Final Approval",
             message: `Quiz "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
             type: "info",

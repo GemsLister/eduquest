@@ -61,6 +61,25 @@ Deno.serve(async (req) => {
           },
         );
       }
+
+      // Senior Faculty manage instructor passwords only
+      const { data: targetProfile } = await adminVerifyClient
+        .from("profiles")
+        .select("is_admin, is_faculty_head")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (targetProfile?.is_admin || targetProfile?.is_faculty_head) {
+        return new Response(
+          JSON.stringify({
+            error: "Cannot change the password of a Senior Faculty or Department Head account",
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     if (!userId || !newPassword) {
@@ -73,9 +92,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       return new Response(
-        JSON.stringify({ error: "Password must be at least 6 characters" }),
+        JSON.stringify({ error: "Password must be at least 8 characters" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

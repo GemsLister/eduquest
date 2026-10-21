@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useAdminInstructors } from "../../hooks/adminHook/useAdminInstructors.jsx";
+import { useUsername } from "../../hooks/useUsername.jsx";
+import { adminService } from "../../services/adminService.js";
+import {
+  APPROVED_STATUSES,
+  getSubmissionStatusLabel,
+  getSubmissionStatusStyle,
+  isApprovedStatus,
+  isTosCompliant,
+} from "../../utils/submissionStatus.js";
 import {
   BloomsDistributionChart,
   LotsHotsBar,
@@ -13,7 +22,7 @@ export const AdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { instructors, loading } = useAdminInstructors();
-  const [adminName, setAdminName] = useState("");
+  const { googleName: adminName } = useUsername();
   const [pendingReviews, setPendingReviews] = useState(0);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [bloomsStats, setBloomsStats] = useState(null);
@@ -24,25 +33,17 @@ export const AdminDashboard = () => {
   const [tosCompliance, setTosCompliance] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      const name =
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "Senior Faculty";
-      setAdminName(name);
-    }
-    loadPendingReviews();
+    if (!user?.id) return;
+    loadPendingReviews(user.id);
     loadBloomsStats();
     loadPendingRequests();
     loadRecentSubmissions();
-  }, []);
+  }, [user?.id]);
 
-  const loadPendingReviews = async () => {
+  // Only the submissions this Senior Faculty can act on (same as the sidebar badge)
+  const loadPendingReviews = async (userId) => {
     try {
-      const { count, error } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
+      const { count, error } = await adminService.countReviewsNeedingAction(userId);
 
       if (!error) {
         setPendingReviews(count || 0);
@@ -65,11 +66,15 @@ export const AdminDashboard = () => {
 
       const submissions = data || [];
       const total = submissions.length;
-      const approved = submissions.filter(
-        (s) => s.status === "approved",
+      const approved = submissions.filter((s) =>
+        isApprovedStatus(s.status),
       ).length;
       const revisionRequested = submissions.filter(
         (s) => s.status === "revision_requested",
+      ).length;
+      const pending = submissions.filter((s) => s.status === "pending").length;
+      const awaitingHead = submissions.filter(
+        (s) => s.status === "faculty_head_review",
       ).length;
       const reviewed = approved + revisionRequested;
       const revisionRate =
@@ -114,6 +119,8 @@ export const AdminDashboard = () => {
         total,
         approved,
         revisionRequested,
+        pending,
+        awaitingHead,
         reviewed,
         revisionRate,
         approvalRate,
@@ -195,22 +202,15 @@ export const AdminDashboard = () => {
       const { data: approvedData } = await supabase
         .from("quiz_analysis_submissions")
         .select("analysis_results")
-        .eq("status", "approved");
+        .in("status", APPROVED_STATUSES);
 
       if (approvedData && approvedData.length > 0) {
         let compliant = 0;
         let nonCompliant = 0;
         approvedData.forEach((s) => {
-          const summary = s.analysis_results?.summary;
-          if (summary) {
-            const lotsPct = summary.lotsPercentage || 0;
-            const hotsPct = summary.hotsPercentage || 0;
-            if (Math.abs(lotsPct - 30) <= 5 && Math.abs(hotsPct - 70) <= 5) {
-              compliant++;
-            } else {
-              nonCompliant++;
-            }
-          }
+          const compliantTos = isTosCompliant(s.analysis_results?.summary);
+          if (compliantTos === true) compliant++;
+          else if (compliantTos === false) nonCompliant++;
         });
         setTosCompliance({
           compliant,
@@ -225,33 +225,18 @@ export const AdminDashboard = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      pending: "bg-amber-50 text-amber-700 border border-amber-200",
-      approved: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-      revision_requested: "bg-rose-50 text-rose-700 border border-rose-200",
-      faculty_head_review: "bg-blue-50 text-blue-700 border border-blue-200",
-      faculty_head_approved: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    };
-    const labels = {
-      pending: "Pending",
-      approved: "Approved",
-      revision_requested: "Revision",
-      faculty_head_review: "Department Head",
-      faculty_head_approved: "DH Approved",
-    };
-    return (
-      <span
-        className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${styles[status] || "bg-slate-100 text-slate-600 border border-slate-200"}`}
-      >
-        {labels[status] || status}
-      </span>
-    );
-  };
+  const getStatusBadge = (status) => (
+    <span
+      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getSubmissionStatusStyle(status)}`}
+    >
+      {getSubmissionStatusLabel(status)}
+    </span>
+  );
 
   const timeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
     const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
@@ -292,10 +277,10 @@ export const AdminDashboard = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          {adminName}
+          {adminName || "Senior Faculty"}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Review and approve instructor quiz submissions.
+          Review instructor exams and manage instructor accounts.
         </p>
       </div>
 
@@ -330,7 +315,7 @@ export const AdminDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500 font-medium">
-                Pending Reviews
+                Needs My Review
               </p>
               <p className="text-3xl font-black text-brand-navy">
                 {reviewsLoading ? "-" : pendingReviews}
@@ -352,7 +337,7 @@ export const AdminDashboard = () => {
               </svg>
             </div>
             <div>
-              <p className="text-sm text-gray-500 font-medium">Approved</p>
+              <p className="text-sm text-gray-500 font-medium">Approved Exams</p>
               <p className="text-3xl font-black text-brand-navy">
                 {bloomsLoading ? "-" : bloomsStats?.approved || 0}
               </p>
@@ -418,13 +403,22 @@ export const AdminDashboard = () => {
                           title={`Approved: ${bloomsStats.approved}`}
                         />
                       )}
-                      {pendingReviews > 0 && (
+                      {bloomsStats.awaitingHead > 0 && (
+                        <div
+                          className="bg-blue-500"
+                          style={{
+                            width: `${(bloomsStats.awaitingHead / bloomsStats.total) * 100}%`,
+                          }}
+                          title={`Awaiting Department Head: ${bloomsStats.awaitingHead}`}
+                        />
+                      )}
+                      {bloomsStats.pending > 0 && (
                         <div
                           className="bg-amber-400"
                           style={{
-                            width: `${(pendingReviews / bloomsStats.total) * 100}%`,
+                            width: `${(bloomsStats.pending / bloomsStats.total) * 100}%`,
                           }}
-                          title={`Pending: ${pendingReviews}`}
+                          title={`Pending Review: ${bloomsStats.pending}`}
                         />
                       )}
                       {bloomsStats.revisionRequested > 0 && (
@@ -437,18 +431,22 @@ export const AdminDashboard = () => {
                         />
                       )}
                     </div>
-                    <div className="flex gap-3 mt-2 text-[10px] text-gray-400 font-medium">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px] text-gray-400 font-medium">
                       <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         Approved
                       </span>
                       <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        Awaiting Department Head
+                      </span>
+                      <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-amber-400" />
-                        Pending
+                        Pending Review
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-rose-500" />
-                        Revision
+                        Revision Requested
                       </span>
                     </div>
                   </div>
@@ -536,7 +534,7 @@ export const AdminDashboard = () => {
                 )}
               </div>
               <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
-                Review Submissions
+                Exam Reviews
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
                 Review pending quiz analyses
@@ -631,10 +629,10 @@ export const AdminDashboard = () => {
                 </div>
               </div>
               <p className="font-bold text-gray-800 text-sm group-hover:text-brand-navy transition-colors">
-                Create Instructor
+                Add Instructor
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Add a new instructor account
+                Create a new instructor account
               </p>
             </button>
           </div>

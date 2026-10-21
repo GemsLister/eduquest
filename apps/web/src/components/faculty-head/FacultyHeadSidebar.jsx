@@ -88,7 +88,8 @@ const navItems = [
   },
 ];
 
-export const FacultyHeadSidebar = () => {
+// mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
+export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [pendingQuizCount, setPendingQuizCount] = useState(0);
@@ -130,7 +131,9 @@ export const FacultyHeadSidebar = () => {
     };
   }, []);
 
-  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
+  const labelVisibility = pinned
+    ? "opacity-100"
+    : "opacity-100 md:opacity-0 md:group-hover:opacity-100";
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -152,7 +155,9 @@ export const FacultyHeadSidebar = () => {
   };
 
   return (
-    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[220px]" : "w-[68px] hover:w-[220px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10`}>
+    <aside
+      className={`group fixed inset-y-0 left-0 z-40 w-[220px] md:static md:z-10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${pinned ? "md:w-[220px]" : "md:w-[68px] md:hover:w-[220px]"} flex flex-col bg-brand-navy transition-all duration-300 ease-in-out overflow-hidden shadow-xl`}
+    >
       {/* Logo — tap to pin the sidebar open */}
       <button
         type="button"
@@ -179,7 +184,7 @@ export const FacultyHeadSidebar = () => {
               <NavLink
                 to={nav.path}
                 end={nav.end}
-                onClick={nav.isLogout ? handleLogout : undefined}
+                onClick={nav.isLogout ? handleLogout : onNavigate}
                 title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${

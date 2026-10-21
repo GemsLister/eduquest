@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { adminService } from "../../services/adminService.js";
+import { logAudit } from "../../services/auditService.js";
+import { getProfileName } from "../../utils/profileName.js";
+
+const accountName = (profile) => getProfileName(profile, "Instructor");
 
 export const useAdminInstructors = () => {
   const [instructors, setInstructors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(null); // stores id being updated
 
   const applyInstructors = useCallback(({ data, error: fetchError }) => {
     if (fetchError) {
@@ -49,27 +52,25 @@ export const useAdminInstructors = () => {
       setError(message);
       return { success: false, error: message };
     }
+    logAudit({
+      action: "INSTRUCTOR_CREATED",
+      tableName: "profiles",
+      recordId: data?.user?.id || null,
+      itemName: accountName({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        username: formData.username,
+        email: formData.email,
+      }),
+      changeSummary: `Account created for ${formData.email}.`,
+    });
     // Refresh the list after creation
     await fetchInstructors();
     return { success: true, data };
   };
 
-  const toggleInstructorStatus = async (userId, disabled) => {
-    setStatusLoading(userId);
-    setError("");
-    const { error: statusError } = await adminService.toggleInstructorStatus(
-      userId,
-      disabled,
-    );
-    setStatusLoading(null);
-    if (statusError) {
-      const message =
-        typeof statusError === "string"
-          ? statusError
-          : statusError.message || "Failed to update instructor status";
-      setError(message);
-      return { success: false, error: message };
-    }
+  // Reflect a disable/enable done through useInstructorStatusToggle
+  const setInstructorDisabled = (userId, disabled) => {
     setInstructors((prev) =>
       prev.map((instructor) =>
         instructor.id === userId
@@ -77,7 +78,6 @@ export const useAdminInstructors = () => {
           : instructor,
       ),
     );
-    return { success: true };
   };
 
   return {
@@ -85,9 +85,8 @@ export const useAdminInstructors = () => {
     loading,
     error,
     createLoading,
-    statusLoading,
     fetchInstructors,
     createInstructor,
-    toggleInstructorStatus,
+    setInstructorDisabled,
   };
 };

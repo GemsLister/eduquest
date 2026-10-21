@@ -29,7 +29,7 @@ export const AdminCreateInstructor = () => {
           Senior Faculty
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          Create Instructor
+          Add Instructor
         </h1>
         <p className="text-white/60 text-sm mt-1">
           Add a new instructor account to BUKSU CITL.

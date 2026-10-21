@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useConfirm } from "../ui/ConfirmModal.jsx";
+import { adminService } from "../../services/adminService.js";
 import citlLogo from "../../assets/BUKSU_CITL.jpg";
 const navItems = [
   {
@@ -100,6 +101,16 @@ const navItems = [
     ),
   },
   {
+    name: "Audit Trail",
+    path: "/admin-dashboard/audit-trail",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+  },
+  {
     name: "Instructors",
     path: "/admin-dashboard/instructors",
     icon: (
@@ -112,7 +123,7 @@ const navItems = [
     ),
   },
   {
-    name: "Reg. Requests",
+    name: "Registrations",
     path: "/admin-dashboard/registration-requests",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -158,7 +169,8 @@ const navItems = [
   },
 ];
 
-export const AdminSidebar = () => {
+// mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
+export const AdminSidebar = ({ mobileOpen = false, onNavigate }) => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { user } = useAuth();
@@ -167,7 +179,9 @@ export const AdminSidebar = () => {
   const [mySubmissionsNotifCount, setMySubmissionsNotifCount] = useState(0);
   // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
   const [pinned, setPinned] = useState(false);
-  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
+  const labelVisibility = pinned
+    ? "opacity-100"
+    : "opacity-100 md:opacity-0 md:group-hover:opacity-100";
 
   useEffect(() => {
     const fetchPendingCount = async () => {
@@ -188,11 +202,10 @@ export const AdminSidebar = () => {
   }, []);
 
   useEffect(() => {
+    if (!user?.id) return;
+    // Only submissions this Senior Faculty can act on, not peer-assigned ones
     const fetchPendingQuizCount = async () => {
-      const { count } = await supabase
-        .from("quiz_analysis_submissions")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
+      const { count } = await adminService.countReviewsNeedingAction(user.id);
       setPendingQuizCount(count || 0);
     };
 
@@ -201,7 +214,7 @@ export const AdminSidebar = () => {
     window.addEventListener("pending-quiz-reviews-changed", fetchPendingQuizCount);
     return () =>
       window.removeEventListener("pending-quiz-reviews-changed", fetchPendingQuizCount);
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -243,7 +256,9 @@ export const AdminSidebar = () => {
   };
 
   return (
-    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[220px]" : "w-[68px] hover:w-[220px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10`}>
+    <aside
+      className={`group fixed inset-y-0 left-0 z-40 w-[220px] md:static md:z-10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${pinned ? "md:w-[220px]" : "md:w-[68px] md:hover:w-[220px]"} flex flex-col bg-brand-navy transition-all duration-300 ease-in-out overflow-hidden shadow-xl`}
+    >
       {/* Logo — tap to pin the sidebar open */}
       <button
         type="button"
@@ -270,7 +285,7 @@ export const AdminSidebar = () => {
               <NavLink
                 to={nav.path}
                 end={nav.end}
-                onClick={nav.isLogout ? handleLogout : undefined}
+                onClick={nav.isLogout ? handleLogout : onNavigate}
                 title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm transition-all duration-200 outline-none focus:outline-none ${
@@ -282,7 +297,7 @@ export const AdminSidebar = () => {
               >
                 <span className="relative shrink-0 text-[18px]">
                   {nav.icon}
-                  {nav.name === "Reg. Requests" && pendingCount > 0 && (
+                  {nav.name === "Registrations" && pendingCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full">
                       {pendingCount}
                     </span>

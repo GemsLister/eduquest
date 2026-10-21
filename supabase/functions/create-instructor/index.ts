@@ -75,6 +75,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (password.length < 8) {
+      return new Response(
+        JSON.stringify({ error: "Password must be at least 8 characters" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const { data: newUserData, error: createError } =
       await adminClient.auth.admin.createUser({
         email,
@@ -100,6 +110,8 @@ Deno.serve(async (req) => {
       first_name: firstName || "",
       last_name: lastName || "",
       is_instructor: true,
+      // Created by Senior Faculty, so it skips the registration review
+      is_approved: true,
     });
 
     if (profileError) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useRegistrationRequests } from "../../hooks/adminHook/useRegistrationRequests.jsx";
 import { notify } from "../../utils/notify.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 
 export const AdminRegistrationRequests = () => {
   const {
@@ -13,10 +14,20 @@ export const AdminRegistrationRequests = () => {
     rejectRequest,
   } = useRegistrationRequests();
 
+  const confirm = useConfirm();
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [requestedPage, setCurrentPage] = useState(1);
   const [now] = useState(() => Date.now());
   const PAGE_SIZE = 9;
+
+  // Clamped so approving the last cards on a page never strands you on an empty one
+  const totalPages = Math.max(Math.ceil(requests.length / PAGE_SIZE), 1);
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  const getRequestName = (req) =>
+    req.first_name || req.last_name
+      ? `${req.first_name || ""} ${req.last_name || ""}`.trim()
+      : req.username || req.email || "New User";
 
   useEffect(() => {
     if (error) notify.error(error);
@@ -27,22 +38,46 @@ export const AdminRegistrationRequests = () => {
     if (result?.success) notify.success("Instructor approved successfully!");
   };
 
-  const handleReject = async (userId) => {
-    const result = await rejectRequest(userId);
+  const handleReject = async (req) => {
+    const confirmed = await confirm({
+      title: "Reject Registration",
+      message: `Reject ${getRequestName(req)}'s registration? Their account will be permanently deleted and they will have to register again.`,
+      confirmText: "Reject",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    const result = await rejectRequest(req.id);
     if (result?.success) notify.success("Registration request rejected.");
   };
 
   const handleApproveAll = async () => {
     if (requests.length === 0) return;
+    const confirmed = await confirm({
+      title: "Approve All Requests",
+      message: `Approve all ${requests.length} pending registrations? Each of them will be able to log in as an instructor.`,
+      confirmText: "Approve All",
+      variant: "success",
+    });
+    if (!confirmed) return;
+
     setBulkLoading(true);
     let successCount = 0;
-    for (const req of requests) {
+    for (const req of [...requests]) {
       const result = await approveRequest(req.id);
-      if (!result?.error) successCount++;
+      if (result?.success) successCount++;
     }
     setBulkLoading(false);
+    const failedCount = requests.length - successCount;
     if (successCount > 0) {
-      notify.success(`${successCount} instructor(s) approved successfully`);
+      notify.success(
+        `${successCount} ${successCount === 1 ? "instructor" : "instructors"} approved`,
+      );
+    }
+    if (failedCount > 0) {
+      notify.error(
+        `${failedCount} ${failedCount === 1 ? "request" : "requests"} could not be approved`,
+      );
     }
   };
 
@@ -280,9 +315,7 @@ export const AdminRegistrationRequests = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-bold text-gray-900 text-sm truncate">
-                            {req.first_name || req.last_name
-                              ? `${req.first_name || ""} ${req.last_name || ""}`.trim()
-                              : req.username || "New User"}
+                            {getRequestName(req)}
                           </h3>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             Pending
@@ -385,7 +418,7 @@ export const AdminRegistrationRequests = () => {
                         )}
                       </button>
                       <button
-                        onClick={() => handleReject(req.id)}
+                        onClick={() => handleReject(req)}
                         disabled={isActioning}
                         aria-label={`Reject ${req.username || req.email}`}
                         className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg font-bold text-xs hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
@@ -434,7 +467,7 @@ export const AdminRegistrationRequests = () => {
                 </span>
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
                     disabled={currentPage === 1}
                     aria-label="Previous page"
                     className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -469,7 +502,7 @@ export const AdminRegistrationRequests = () => {
                     return null;
                   })}
                   <button
-                    onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(requests.length / PAGE_SIZE), prev + 1))}
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === Math.ceil(requests.length / PAGE_SIZE)}
                     aria-label="Next page"
                     className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition-colors shadow-2xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"

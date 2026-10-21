@@ -11,6 +11,13 @@ import { analyzeGADQuestion } from "../../services/gadAnalysisService.js";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
+import { canSeniorFacultyReview } from "../../services/adminService.js";
+import {
+  getSubmissionStatusLabel,
+  getSubmissionStatusStyle,
+  isReturnedByHead,
+} from "../../utils/submissionStatus.js";
 
 /**
  * F7: Quick-fill revision suggestion templates for per-question feedback.
@@ -27,8 +34,10 @@ const REVISION_TEMPLATES = [
 export const AdminQuizReviewDetail = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
+  const [reviewerName, setReviewerName] = useState(null);
   const [chain, setChain] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -115,6 +124,23 @@ export const AdminQuizReviewDetail = () => {
         );
 
         setSubmission({ ...data, profiles: profile });
+
+        if (data.assigned_reviewer_id) {
+          const { data: reviewer } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, username, email")
+            .eq("id", data.assigned_reviewer_id)
+            .maybeSingle();
+          setReviewerName(
+            reviewer
+              ? `${reviewer.first_name || ""} ${reviewer.last_name || ""}`.trim() ||
+                  reviewer.username ||
+                  reviewer.email
+              : null,
+          );
+        } else {
+          setReviewerName(null);
+        }
         setFeedback(data.admin_feedback || "");
         setQuestionFeedback(data.question_feedback || {});
 
@@ -161,10 +187,25 @@ export const AdminQuizReviewDetail = () => {
   };
 
   const handleAction = async (status) => {
+    if (!canSeniorFacultyReview(submission, user?.id)) {
+      notify.error("You can't review this submission.");
+      return;
+    }
     if (status !== "approved" && !hasAnyFeedback()) {
       setPendingAction(status);
       setShowFeedbackModal(true);
       return;
+    }
+    if (status === "approved") {
+      const confirmed = await confirm({
+        title: "Forward to Department Head",
+        message:
+          "Forward this quiz to the Department Head for final approval? You won't be able to change your review afterwards.",
+        confirmText: "Forward",
+        cancelText: "Cancel",
+        variant: "info",
+      });
+      if (!confirmed) return;
     }
 
     setActionLoading(true);
@@ -178,7 +219,7 @@ export const AdminQuizReviewDetail = () => {
         Object.entries(questionFeedback).filter(([, v]) => v.trim()),
       );
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("quiz_analysis_submissions")
         .update({
           status: actualStatus,
@@ -190,9 +231,17 @@ export const AdminQuizReviewDetail = () => {
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
         })
-        .eq("id", submissionId);
+        .eq("id", submissionId)
+        // Only while still pending, so two reviewers can't both decide
+        .eq("status", "pending")
+        .select("id");
 
       if (error) throw error;
+      if (!updated?.length) {
+        notify.error("This submission was already reviewed by someone else.");
+        navigate("/admin-dashboard/quiz-reviews");
+        return;
+      }
 
       const quizTitle = submission.quizzes?.title || "your quiz";
       const targetQuizId = submission.quiz_id;
@@ -202,7 +251,7 @@ export const AdminQuizReviewDetail = () => {
         try {
           await supabase.rpc("log_quiz_status_change", {
             p_quiz_id: targetQuizId,
-            p_new_status: status === "approved" ? "forwarded_to_head" : "rejected",
+            p_new_status: status === "approved" ? "forwarded_to_head" : "revision_requested",
             p_reason: feedback || (status === "approved" ? "Forwarded to Department Head for final approval" : "Revision requested by Senior Faculty"),
           });
 
@@ -249,7 +298,7 @@ export const AdminQuizReviewDetail = () => {
       // Forwarded: let the Department Heads know it's awaiting final approval
       if (status === "approved") {
         try {
-          await notifyDepartmentHeads(submission.instructor_id, {
+          await notifyDepartmentHeads({
             title: "New Exam Awaiting Final Approval",
             message: `Quiz "${quizTitle}" was reviewed by the Senior Faculty and is awaiting your final department head approval.`,
             type: "info",
@@ -297,29 +346,15 @@ export const AdminQuizReviewDetail = () => {
       : "bg-emerald-500 text-white";
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      pending: "bg-yellow-100 text-yellow-700 border-yellow-300",
-      approved: "bg-green-100 text-green-700 border-green-300",
-      revision_requested: "bg-orange-100 text-orange-700 border-orange-300",
-      faculty_head_review: "bg-blue-100 text-blue-700 border-blue-300",
-      faculty_head_approved: "bg-green-100 text-green-700 border-green-300",
-    };
-    const labels = {
-      pending: "Pending Review",
-      approved: "Approved",
-      revision_requested: "Revision Requested",
-      faculty_head_review: "Awaiting Department Head",
-      faculty_head_approved: "Department Head Approved",
-    };
-    return (
-      <span
-        className={`px-3 py-1 rounded-full text-sm font-bold border ${styles[status]}`}
-      >
-        {labels[status]}
-      </span>
-    );
-  };
+  const getStatusBadge = (sub) => (
+    <span
+      className={`px-3 py-1 rounded-full text-sm font-bold border ${getSubmissionStatusStyle(sub.status)}`}
+    >
+      {isReturnedByHead(sub)
+        ? "Returned by Department Head"
+        : getSubmissionStatusLabel(sub.status)}
+    </span>
+  );
 
   if (loading) {
     return (
@@ -357,6 +392,15 @@ export const AdminQuizReviewDetail = () => {
   }
 
   const results = submission.analysis_results;
+  const canAct = canSeniorFacultyReview(submission, user?.id);
+  const readOnlyReason =
+    submission.status !== "pending"
+      ? null
+      : submission.instructor_id === user?.id
+        ? "This is your own submission. Another reviewer has to review it."
+        : !canAct
+          ? `This submission is assigned to ${reviewerName || "another reviewer"} for peer review. You can view it, but only the assigned reviewer can forward it or request a revision.`
+          : null;
   const snapshotById = (results?.questionSnapshots || []).reduce(
     (acc, item) => {
       acc[String(item.questionId)] = item;
@@ -408,7 +452,7 @@ export const AdminQuizReviewDetail = () => {
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            {getStatusBadge(submission.status)}
+            {getStatusBadge(submission)}
           </div>
         </div>
       </div>
@@ -1010,7 +1054,7 @@ export const AdminQuizReviewDetail = () => {
 
                     {/* Per-question feedback (Only if item exists) */}
                     {item && (
-                      submission.status === "pending" ? (
+                      canAct ? (
                         <div className="mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs font-semibold text-gray-500">Feedback for Q{idx + 1}</label>
@@ -1072,7 +1116,7 @@ export const AdminQuizReviewDetail = () => {
                           <div className="mt-4 pt-3 border-t border-gray-200">
                             <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                               <p className="text-xs font-semibold text-orange-600 mb-1">
-                                Senior Faculty Feedback:
+                                Reviewer Feedback:
                               </p>
                               <p className="text-sm text-orange-800">
                                 {questionFeedback[item.questionId]}
@@ -1089,13 +1133,20 @@ export const AdminQuizReviewDetail = () => {
           </div>
         </div>
 
-        {/* Senior Faculty Feedback */}
-        {submission.status === "pending" && (
+        {readOnlyReason && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+            {readOnlyReason}
+          </div>
+        )}
+
+        {/* Reviewer Feedback */}
+        {canAct && (
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="overall-feedback" className="block text-sm font-semibold text-gray-700 mb-2">
               Overall Feedback (optional if per-question feedback is provided)
             </label>
             <textarea
+              id="overall-feedback"
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Enter feedback for the instructor..."
@@ -1109,7 +1160,7 @@ export const AdminQuizReviewDetail = () => {
         {submission.admin_feedback && submission.status !== "pending" && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
             <p className="text-sm font-semibold text-gray-600 mb-1">
-              Senior Faculty Feedback:
+              Reviewer Feedback:
             </p>
             <p className="text-gray-800">{submission.admin_feedback}</p>
             {submission.reviewed_at && (
@@ -1121,8 +1172,23 @@ export const AdminQuizReviewDetail = () => {
           </div>
         )}
 
+        {submission.faculty_head_feedback && (
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+            <p className="text-sm font-semibold text-rose-700 mb-1">
+              Department Head Feedback:
+            </p>
+            <p className="text-rose-900">{submission.faculty_head_feedback}</p>
+            {submission.faculty_head_reviewed_at && (
+              <p className="text-xs text-rose-400 mt-2">
+                Returned on{" "}
+                {new Date(submission.faculty_head_reviewed_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Action Buttons */}
-        {submission.status === "pending" && (
+        {canAct && (
           <div className="flex flex-wrap gap-4 justify-end">
             <button
               onClick={() => handleAction("revision_requested")}

@@ -65,16 +65,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Safety guard: never allow deleting an admin account
+    // Only rejects pending registrations. Approved accounts are disabled
+    // instead, so their quizzes and student results are kept.
     const { data: targetProfile } = await adminVerifyClient
       .from("profiles")
-      .select("is_admin")
+      .select("is_admin, is_faculty_head, is_approved")
       .eq("id", userId)
       .single();
 
-    if (targetProfile?.is_admin) {
+    if (
+      targetProfile?.is_admin ||
+      targetProfile?.is_faculty_head ||
+      targetProfile?.is_approved
+    ) {
       return new Response(
-        JSON.stringify({ error: "Cannot delete an admin account" }),
+        JSON.stringify({
+          error: "Only pending registration requests can be deleted",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -16,8 +16,6 @@ export const InstructorProfile = () => {
     lastName: "",
     email: "",
     bio: "",
-    department: "",
-    hasDepartment: false,
     avatarUrl: "",
     createdAt: "",
     isInstructor: false,
@@ -86,9 +84,6 @@ export const InstructorProfile = () => {
             lastName: profileData.last_name || "",
             email: authUser.email,
             bio: profileData.bio || "",
-            department: profileData.department || "",
-            // profiles.department arrives with the 20261022 migration
-            hasDepartment: "department" in profileData,
             avatarUrl: profileData.avatar_url || "",
             createdAt: profileData.created_at || authUser.created_at || "",
             isInstructor: profileData.is_instructor,
@@ -199,9 +194,6 @@ export const InstructorProfile = () => {
           first_name: profile.firstName,
           last_name: profile.lastName,
           bio: profile.bio,
-          ...(profile.hasDepartment
-            ? { department: profile.department.trim() || null }
-            : {}),
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
@@ -379,9 +371,6 @@ export const InstructorProfile = () => {
               </div>
               <p className="text-gray-500 text-sm mt-1">@{profile.username}</p>
               <p className="text-gray-400 text-xs mt-0.5">{profile.email}</p>
-              {profile.department && (
-                <p className="text-gray-500 text-xs mt-0.5">{profile.department}</p>
-              )}
             </div>
           </div>
 
@@ -483,30 +472,6 @@ export const InstructorProfile = () => {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm cursor-not-allowed"
                 />
               </div>
-
-              {profile.hasDepartment && (
-                <div>
-                  <label htmlFor="profile-department" className="block text-sm font-semibold text-gray-700 mb-1">
-                    Department
-                  </label>
-                  <input
-                    id="profile-department"
-                    type="text"
-                    value={profile.department}
-                    onChange={(e) =>
-                      setProfile({ ...profile, department: e.target.value })
-                    }
-                    placeholder="e.g. Information Technology"
-                    aria-describedby="profile-department-hint"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20"
-                  />
-                  <p id="profile-department-hint" className="text-xs text-gray-400 mt-1">
-                    {profile.isFacultyHead
-                      ? "Quizzes forwarded from instructors in this department are sent to you."
-                      : "Forwarded quizzes go to this department's Department Head."}
-                  </p>
-                </div>
-              )}
 
                 <div>
                   <label htmlFor="profile-bio" className="block text-sm font-semibold text-gray-700 mb-1">

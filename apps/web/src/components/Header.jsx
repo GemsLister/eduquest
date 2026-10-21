@@ -6,7 +6,7 @@ import { NotificationBell } from "./NotificationBell";
 const pageTitles = {
   "/instructor-dashboard/section": "Section",
   "/instructor-dashboard/subject": "Subjects",
-  "/instructor-dashboard/quizzes": "Quizzes",
+  "/instructor-dashboard/quizzes": "My Quizzes",
   "/instructor-dashboard/instructor-quiz": "Quiz Editor",
   "/instructor-dashboard/quiz-results": "Quiz Results",
   "/instructor-dashboard/question-bank": "Question Bank",
@@ -21,10 +21,12 @@ const pageTitles = {
   "/admin-dashboard/subjects": "Subjects",
   "/admin-dashboard/section": "Subjects",
   "/admin-dashboard/subject": "Subjects",
-  "/admin-dashboard/quizzes": "Quizzes",
-  "/admin-dashboard/create-quiz": "Create Quiz",
+  "/admin-dashboard/quizzes": "My Quizzes",
+  "/admin-dashboard/create-quiz": "Quiz Editor",
   "/admin-dashboard/my-submissions": "My Submissions",
   "/admin-dashboard/quiz-reviews": "Exam Reviews",
+  // Before "/admin-dashboard/instructors": the first prefix match wins
+  "/admin-dashboard/instructors/": "Instructor Details",
   "/admin-dashboard/instructors": "Instructors",
   "/admin-dashboard/registration-requests": "Registration Requests",
   "/admin-dashboard/create-instructor": "Add Instructor",
@@ -33,6 +35,7 @@ const pageTitles = {
   "/admin-dashboard/student-profiles": "Student Profiles",
   "/admin-dashboard/quiz-results": "Quiz Results",
   "/admin-dashboard/profile": "Profile",
+  "/admin-dashboard/audit-trail": "Audit Trail",
   "/admin-dashboard": "Dashboard",
   "/faculty-head-dashboard/quiz-approvals": "Quiz Approvals",
   "/faculty-head-dashboard/subject-requests": "Subject Requests",
@@ -64,7 +67,7 @@ const portals = [
   },
 ];
 
-export const Header = () => {
+export const Header = ({ onMenuClick, menuOpen = false }) => {
   const userData = useUsername();
   const location = useLocation();
 
@@ -84,11 +87,29 @@ export const Header = () => {
     return <div className="h-16 bg-white border-b border-gray-100" />;
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-100 shadow-sm">
-      {/* Page title (each page renders its own h1 in the hero banner) */}
-      <p className="text-lg font-bold text-brand-navy tracking-tight">
-        {pageTitle}
-      </p>
+    <header className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-white border-b border-gray-100 shadow-sm">
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Opens the sidebar drawer on small screens */}
+        {onMenuClick && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
+            className="md:hidden -ml-1 p-2 rounded-lg text-brand-navy hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        )}
+        {/* Page title (each page renders its own h1 in the hero banner) */}
+        <p className="text-lg font-bold text-brand-navy tracking-tight truncate">
+          {pageTitle}
+        </p>
+      </div>
 
       {/* Right side */}
       <div className="flex items-center gap-3">

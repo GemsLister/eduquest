@@ -110,14 +110,17 @@ const navItems = [
   },
 ];
 
-export const Sidebar = () => {
+// mobileOpen/onNavigate come from PortalLayout (drawer on small screens)
+export const Sidebar = ({ mobileOpen = false, onNavigate }) => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { user } = useAuth();
   const [submissionNotifCount, setSubmissionNotifCount] = useState(0);
   // Tap the logo to pin the sidebar open (hover doesn't exist on touch screens)
   const [pinned, setPinned] = useState(false);
-  const labelVisibility = pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100";
+  const labelVisibility = pinned
+    ? "opacity-100"
+    : "opacity-100 md:opacity-0 md:group-hover:opacity-100";
 
   useEffect(() => {
     if (!user?.id) return;
@@ -178,7 +181,9 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className={`group static flex flex-col bg-brand-navy ${pinned ? "w-[240px]" : "w-[72px] hover:w-[240px]"} transition-all duration-300 ease-in-out overflow-hidden shadow-xl z-10 rounded-r-2xl`}>
+    <aside
+      className={`group fixed inset-y-0 left-0 z-40 w-[240px] md:static md:z-10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${pinned ? "md:w-[240px]" : "md:w-[72px] md:hover:w-[240px]"} flex flex-col bg-brand-navy transition-all duration-300 ease-in-out overflow-hidden shadow-xl rounded-r-2xl`}
+    >
       {/* Logo — tap to pin the sidebar open */}
       <button
         type="button"
@@ -204,7 +209,7 @@ export const Sidebar = () => {
               <NavLink
                 to={nav.path}
                 end={nav.end}
-                onClick={nav.isLogout ? handleLogout : undefined}
+                onClick={nav.isLogout ? handleLogout : onNavigate}
                 title={nav.name}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${

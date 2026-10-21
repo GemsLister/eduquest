@@ -44,6 +44,13 @@ export const useLogin = () => {
       });
 
       if (error) {
+        // Disabled accounts are banned in Supabase Auth; not a failed attempt
+        if (error.code === "user_banned" || /banned/i.test(error.message || "")) {
+          notify.error("This account has been disabled by the Senior Faculty");
+          userData.onCaptchaReset?.();
+          return;
+        }
+
         const errorMessage = String(error.message || "").toLowerCase();
         const isInvalidCredentials =
           errorMessage.includes("invalid login credentials") ||

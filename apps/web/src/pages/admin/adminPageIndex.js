@@ -4,3 +4,4 @@ export { AdminCreateInstructor } from "./AdminCreateInstructor.jsx";
 export { AdminRegistrationRequests } from "./AdminRegistrationRequests.jsx";
 export { AdminQuizReviews } from "./AdminQuizReviews.jsx";
 export { AdminQuizReviewDetail } from "./AdminQuizReviewDetail.jsx";
+export { AdminInstructorDetail } from "./AdminInstructorDetail.jsx";
