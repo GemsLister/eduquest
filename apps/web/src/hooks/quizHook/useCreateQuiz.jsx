@@ -21,12 +21,13 @@ export const useCreateQuiz = ({ user } = {}) => {
     if (user?.id) {
       supabase
         .from("sections")
-        .select("id, name, description, subject_code")
+        .select("id, name, description, subject_code, subjects(is_archived)")
         .eq("instructor_id", user.id)
         .eq("is_archived", false)
         .order("name")
         .then(({ data }) => {
-          setAvailableSections(data || []);
+          // No new exams under a subject the Department Head archived
+          setAvailableSections((data || []).filter((s) => !s.subjects?.is_archived));
         });
     }
   }, [user?.id]);

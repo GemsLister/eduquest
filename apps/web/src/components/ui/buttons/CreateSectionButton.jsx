@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { sectionService } from "../../../services/sectionService.js";
+import { supabase } from "../../../supabaseClient.js";
 import { notify } from "../../../utils/notify.jsx";
 import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
 import { CentralizedSubjectDropdown } from "../../CentralizedSubjectDropdown.jsx";
@@ -40,6 +41,14 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
         return;
       }
 
+      // Join the subject only now that the form is submitted
+      if (!activeSubject.is_assigned && !preselectedSubject) {
+        const { error: joinError } = await supabase.rpc("join_subject", {
+          p_subject_id: activeSubject.id,
+        });
+        if (joinError) console.error("Error assigning subject:", joinError);
+      }
+
       const { data: newSection, error: createError } =
         await sectionService.createSectionForSubject({
           instructorId: userId,
@@ -57,7 +66,11 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
         onSectionCreated(newSection);
       }
 
-      notify.success("Section created successfully!");
+      notify.success(
+        preselectedSubject
+          ? "Section created successfully!"
+          : `${activeSubject.name} added with section ${sectionName.trim()}.`,
+      );
     } catch (err) {
       setError(err.message || "Failed to create section");
       notify.error(err.message || "Failed to create section");
@@ -71,7 +84,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
       {externalIsOpen === undefined && (
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all duration-200 shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className="flex items-center gap-2 bg-brand-gold text-brand-navy px-4 py-2.5 rounded-lg font-bold text-sm border border-brand-gold active:scale-98 hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all duration-200 shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -83,7 +96,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>Add Section</span>
+          <span>Add Subject</span>
         </button>
       )}
 
@@ -107,12 +120,12 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
                   <h3 id="create-section-title" className="text-xl font-black text-white">
                     {preselectedSubject
                       ? `Add Section to ${preselectedSubject.name}`
-                      : "Add Section"}
+                      : "Add Subject"}
                   </h3>
                   <p className="text-white/70 text-xs mt-1">
                     {preselectedSubject
                       ? "Assign an additional section to this existing curriculum subject."
-                      : "Select an approved curriculum subject and assign your section."}
+                      : "Pick a curriculum subject from the Department Head and add your first section."}
                   </p>
                 </div>
                 <button
@@ -229,7 +242,7 @@ export const CreateSectionButton = ({ onSectionCreated, userId, preselectedSubje
                       <span>Creating...</span>
                     </>
                   ) : (
-                    <span>Add Section</span>
+                    <span>{preselectedSubject ? "Add Section" : "Add Subject"}</span>
                   )}
                 </button>
               </div>

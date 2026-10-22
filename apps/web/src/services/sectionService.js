@@ -15,13 +15,14 @@ export const sectionService = {
   getSectionsByInstructor: async (instructorId) => {
     const { data, error } = await supabase
       .from("sections")
-      .select("*, subjects(id, name, code, description)")
+      .select("*, subjects(id, name, code, description, is_archived)")
       .eq("instructor_id", instructorId)
       .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    // Sections under a subject the Department Head archived are retired with it
+    return (data || []).filter((s) => !s.subjects?.is_archived);
   },
 
   /**
