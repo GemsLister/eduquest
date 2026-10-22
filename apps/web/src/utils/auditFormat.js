@@ -229,4 +229,11 @@ export const getAuditFeedback = (log) =>
   log?.reason || log?.new_values?.feedback || null;
 
 export const getAuditItemName = (log) =>
-  log?.item_name || log?.new_values?.quizTitle || log?.quiz?.title || null;
+  log?.item_name ||
+  log?.new_values?.quizTitle ||
+  log?.quiz?.title ||
+  // Older section rows only stored the name ("Subject - T12") in the payload
+  (log?.table_name === "sections"
+    ? log?.section_name || log?.new_values?.name || log?.old_values?.name
+    : null) ||
+  null;

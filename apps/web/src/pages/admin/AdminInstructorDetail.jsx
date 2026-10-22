@@ -16,6 +16,7 @@ import {
   formatAuditStatus,
   formatAuditTable,
   getActionBadgeColor,
+  getAuditItemName,
 } from "../../utils/auditFormat.js";
 import {
   getAvatarColor,
@@ -972,10 +973,8 @@ export const AdminInstructorDetail = () => {
                           </td>
                           <td className="px-5 py-4">
                             <div className="font-semibold text-gray-800">
-                              {log.item_name ||
-                                // Older section rows were logged without a name
-                                (log.table_name === "sections" &&
-                                  (sectionNameById.get(log.record_id) || log.section_name || log.new_values?.name)) ||
+                              {getAuditItemName(log) ||
+                                (log.table_name === "sections" && sectionNameById.get(log.record_id)) ||
                                 "—"}
                             </div>
                             <div className="text-xs text-gray-400">{formatAuditTable(log.table_name)}</div>

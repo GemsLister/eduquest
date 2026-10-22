@@ -39,7 +39,10 @@ const formatDate = (dateString) =>
 
 const ContextCell = ({ log }) => {
   const item = getAuditItemName(log);
-  const context = [log.subject_name, log.section_name].filter(Boolean).join(" · ");
+  // Section rows use the section as the item, so don't repeat it underneath
+  const context = [log.subject_name, log.section_name]
+    .filter((v) => v && v !== item)
+    .join(" · ");
   if (!item && !context) return <span className="text-gray-400">—</span>;
   return (
     <div className="min-w-0">
