@@ -139,7 +139,7 @@ export const adminService = {
           .order("created_at", { ascending: true }),
         supabase
           .from("quizzes")
-          .select("id, title, is_published, is_archived, created_at, section_id, parent_quiz_id, version_number")
+          .select("id, title, is_published, is_archived, created_at, section_id, parent_quiz_id, version_number, quiz_sections(section_id)")
           .eq("instructor_id", instructorId)
           .order("created_at", { ascending: false }),
         supabase.rpc("get_instructor_attempt_counts", { p_instructor_id: instructorId }),
@@ -155,7 +155,7 @@ export const adminService = {
           .order("created_at", { ascending: false }),
         supabase
           .from("audit_trail")
-          .select("id, action, table_name, item_name, previous_status, new_status, created_at")
+          .select("id, action, table_name, record_id, item_name, section_name, new_values, previous_status, new_status, created_at")
           .eq("user_id", instructorId)
           .order("created_at", { ascending: false })
           .limit(20),

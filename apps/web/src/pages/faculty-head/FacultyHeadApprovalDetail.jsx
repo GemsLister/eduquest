@@ -232,7 +232,7 @@ export const FacultyHeadApprovalDetail = () => {
   const handleApprove = async () => {
     const confirmed = await confirm({
       title: "Are you sure you want to approve this exam?",
-      confirmText: "Approve & Publish",
+      confirmText: "Approve",
       cancelText: "Cancel",
       variant: "success",
     });

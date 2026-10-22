@@ -68,6 +68,8 @@ export const sectionService = {
         action: "SECTION_CREATED",
         tableName: "sections",
         recordId: createdSection.id,
+        itemName: sectionData.name,
+        sectionName: sectionData.name,
         newValues: { name: sectionData.name, description: sectionData.description },
         userRole: "instructor"
       });
@@ -146,6 +148,8 @@ export const sectionService = {
       action: "SECTION_CREATED",
       tableName: "sections",
       recordId: created.id,
+      itemName: created.name,
+      sectionName: created.name,
       newValues: { name: created.name, description: created.description },
       userRole: "instructor",
     });
@@ -179,6 +183,8 @@ export const sectionService = {
         action: "SECTION_UPDATED",
         tableName: "sections",
         recordId: sectionId,
+        itemName: updates.name || oldData?.name,
+        sectionName: updates.name || oldData?.name,
         oldValues: { name: oldData?.name, description: oldData?.description },
         newValues: updates,
         userRole: "instructor"
@@ -222,6 +228,8 @@ export const sectionService = {
         action: "SECTION_ARCHIVED",
         tableName: "sections",
         recordId: sectionId,
+        itemName: sectionData?.name,
+        sectionName: sectionData?.name,
         newValues: { name: sectionData?.name, description: sectionData?.description },
         userRole: "instructor"
       });

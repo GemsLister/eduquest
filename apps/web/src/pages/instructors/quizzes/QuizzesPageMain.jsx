@@ -252,7 +252,7 @@ export const QuizzesPageMain = () => {
               My Exams
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              {counts.all || 0} active {counts.all === 1 ? "quiz" : "quizzes"} · Create, manage, and publish assessments
+              {counts.all || 0} active {counts.all === 1 ? "exam" : "exams"} · Create, manage, and publish assessments
             </p>
           </div>
           <CreateQuizFormButton

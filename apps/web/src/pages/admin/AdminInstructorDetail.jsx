@@ -224,7 +224,7 @@ export const AdminInstructorDetail = () => {
   const sections = useMemo(() => data?.sections || [], [data]);
   const submissions = useMemo(() => data?.submissions || [], [data]);
   const reviews = useMemo(() => data?.reviews || [], [data]);
-  const activity = data?.activity || [];
+  const activity = useMemo(() => data?.activity || [], [data]);
 
   const peopleById = useMemo(
     () => new Map((data?.people || []).map((p) => [p.id, p])),
@@ -325,9 +325,15 @@ export const AdminInstructorDetail = () => {
   const subjects = useMemo(() => {
     const quizCountBySection = new Map();
     quizzes.forEach((q) => {
-      if (q.section_id && !q.is_archived) {
-        quizCountBySection.set(q.section_id, (quizCountBySection.get(q.section_id) || 0) + 1);
-      }
+      if (q.is_archived) return;
+      // An exam can be assigned to several sections; section_id is only the legacy first one
+      const sectionIds = new Set([
+        ...(q.quiz_sections || []).map((qs) => qs.section_id),
+        q.section_id,
+      ].filter(Boolean));
+      sectionIds.forEach((id) => {
+        quizCountBySection.set(id, (quizCountBySection.get(id) || 0) + 1);
+      });
     });
     const groups = new Map();
     sections
@@ -355,6 +361,7 @@ export const AdminInstructorDetail = () => {
   const quizPages = usePaged(quizzes);
   const submissionPages = usePaged(submissions);
   const reviewPages = usePaged(reviews);
+  const activityPages = usePaged(activity);
 
   const handleToggleStatus = async () => {
     const disabled = await toggleStatus(profile);
@@ -687,7 +694,7 @@ export const AdminInstructorDetail = () => {
                           >
                             <span className="font-semibold text-gray-700 truncate">{section.name}</span>
                             <span className="text-gray-400 shrink-0">
-                              {section.quizCount} {section.quizCount === 1 ? "quiz" : "quizzes"}
+                              {section.quizCount} {section.quizCount === 1 ? "exam" : "exams"}
                             </span>
                           </li>
                         ))}
@@ -734,7 +741,10 @@ export const AdminInstructorDetail = () => {
                               )}
                             </td>
                             <td className="px-5 py-4 text-gray-600">
-                              {sectionNameById.get(quiz.section_id) || "—"}
+                              {[...new Set([...(quiz.quiz_sections || []).map((qs) => qs.section_id), quiz.section_id])]
+                                .map((id) => sectionNameById.get(id))
+                                .filter(Boolean)
+                                .join(", ") || "—"}
                             </td>
                             <td className="px-5 py-4">
                               <span
@@ -763,7 +773,7 @@ export const AdminInstructorDetail = () => {
                 page={quizPages.page}
                 totalPages={quizPages.totalPages}
                 total={quizzes.length}
-                noun="quizzes"
+                noun="exams"
                 onChange={quizPages.setPage}
               />
             </>
@@ -935,6 +945,7 @@ export const AdminInstructorDetail = () => {
                 desc="Exam, question and review actions by this instructor will appear here."
               />
             ) : (
+              <>
               <div className={TABLE_WRAP}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
@@ -947,7 +958,7 @@ export const AdminInstructorDetail = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-sm">
-                      {activity.map((log) => (
+                      {activityPages.items.map((log) => (
                         <tr key={log.id} className="hover:bg-brand-navy/5 transition-colors">
                           <td className="px-5 py-4 text-gray-500 whitespace-nowrap">
                             {formatDateTime(log.created_at)}
@@ -960,7 +971,13 @@ export const AdminInstructorDetail = () => {
                             </span>
                           </td>
                           <td className="px-5 py-4">
-                            <div className="font-semibold text-gray-800">{log.item_name || "—"}</div>
+                            <div className="font-semibold text-gray-800">
+                              {log.item_name ||
+                                // Older section rows were logged without a name
+                                (log.table_name === "sections" &&
+                                  (sectionNameById.get(log.record_id) || log.section_name || log.new_values?.name)) ||
+                                "—"}
+                            </div>
                             <div className="text-xs text-gray-400">{formatAuditTable(log.table_name)}</div>
                           </td>
                           <td className="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
@@ -980,6 +997,14 @@ export const AdminInstructorDetail = () => {
                   </table>
                 </div>
               </div>
+              <Pager
+                page={activityPages.page}
+                totalPages={activityPages.totalPages}
+                total={activity.length}
+                noun="actions"
+                onChange={activityPages.setPage}
+              />
+              </>
             )}
           </>
         )}
