@@ -241,7 +241,8 @@ export const SystemActivityTimeline = () => {
 
         // Resolve Item Name
         let resolvedItemName = r.item_name;
-        if (!resolvedItemName || resolvedItemName === "System Item" || resolvedItemName === "Quiz") {
+        // Older rows were saved with the "Quiz" placeholder, newer ones with "Exam"
+        if (!resolvedItemName || ["System Item", "Quiz", "Exam"].includes(resolvedItemName)) {
           resolvedItemName =
             quiz?.title ||
             r.new_values?.quizTitle ||
@@ -343,34 +344,34 @@ export const SystemActivityTimeline = () => {
     const act = (actionKey || "").toUpperCase();
 
     if (act.includes("CREATED") && act.includes("QUIZ")) {
-      return { label: "Created a quiz", badge: "bg-emerald-50 text-emerald-800 border-emerald-200", iconType: "create_quiz" };
+      return { label: "Created an exam", badge: "bg-emerald-50 text-emerald-800 border-emerald-200", iconType: "create_quiz" };
     }
     if (act.includes("EDITED") || act.includes("UPDATED")) {
-      return { label: "Edited a quiz", badge: "bg-blue-50 text-blue-800 border-blue-200", iconType: "edit_quiz" };
+      return { label: "Edited an exam", badge: "bg-blue-50 text-blue-800 border-blue-200", iconType: "edit_quiz" };
     }
     if (act.includes("SUBMITTED") || act.includes("REVIEW_REQUESTED")) {
-      return { label: "Submitted a quiz for review", badge: "bg-amber-50 text-amber-800 border-amber-200", iconType: "submit_review" };
+      return { label: "Submitted an exam for review", badge: "bg-amber-50 text-amber-800 border-amber-200", iconType: "submit_review" };
     }
     if (act.includes("FORWARDED")) {
-      return { label: "Forwarded quiz to Head", badge: "bg-indigo-50 text-indigo-800 border-indigo-200", iconType: "forward" };
+      return { label: "Forwarded exam to Head", badge: "bg-indigo-50 text-indigo-800 border-indigo-200", iconType: "forward" };
     }
     if (act.includes("REVISION") || act.includes("REJECTED")) {
-      return { label: "Returned quiz for revision", badge: "bg-rose-50 text-rose-800 border-rose-200", iconType: "revision" };
+      return { label: "Returned exam for revision", badge: "bg-rose-50 text-rose-800 border-rose-200", iconType: "revision" };
     }
     if (act.includes("APPROVED")) {
-      return { label: "Approved a quiz", badge: "bg-emerald-50 text-emerald-800 border-emerald-200", iconType: "approve" };
+      return { label: "Approved an exam", badge: "bg-emerald-50 text-emerald-800 border-emerald-200", iconType: "approve" };
     }
     if (act.includes("PUBLISHED")) {
-      return { label: "Published a quiz", badge: "bg-teal-50 text-teal-800 border-teal-200", iconType: "publish" };
+      return { label: "Published an exam", badge: "bg-teal-50 text-teal-800 border-teal-200", iconType: "publish" };
     }
     if (act.includes("UNPUBLISHED")) {
-      return { label: "Unpublished a quiz", badge: "bg-slate-100 text-slate-800 border-slate-200", iconType: "unpublish" };
+      return { label: "Unpublished an exam", badge: "bg-slate-100 text-slate-800 border-slate-200", iconType: "unpublish" };
     }
     if (act.includes("ARCHIVED")) {
-      return { label: "Archived a quiz", badge: "bg-slate-100 text-slate-700 border-slate-200", iconType: "archive" };
+      return { label: "Archived an exam", badge: "bg-slate-100 text-slate-700 border-slate-200", iconType: "archive" };
     }
     if (act.includes("RESTORED")) {
-      return { label: "Restored a quiz", badge: "bg-sky-50 text-sky-800 border-sky-200", iconType: "restore" };
+      return { label: "Restored an exam", badge: "bg-sky-50 text-sky-800 border-sky-200", iconType: "restore" };
     }
     if (act.includes("QUESTION_CREATED") || act.includes("ADD_QUESTION")) {
       return { label: "Created a question", badge: "bg-purple-50 text-purple-800 border-purple-200", iconType: "question" };
@@ -453,7 +454,7 @@ export const SystemActivityTimeline = () => {
               <input
                 id="timeline-search"
                 type="text"
-                placeholder="Search user, action, quiz, subject, section, or reason..."
+                placeholder="Search user, action, exam, subject, section, or reason..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
@@ -725,7 +726,7 @@ export const SystemActivityTimeline = () => {
 
                 {/* 4. Affected Item */}
                 <div className="pt-2 flex justify-between items-center">
-                  <span className="font-bold text-slate-500 uppercase tracking-wide">Affected Item / Quiz</span>
+                  <span className="font-bold text-slate-500 uppercase tracking-wide">Affected Item / Exam</span>
                   <span className="font-bold text-slate-900">{activeDetailLog.item_name}</span>
                 </div>
 

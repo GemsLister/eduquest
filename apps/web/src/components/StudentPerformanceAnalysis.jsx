@@ -43,7 +43,7 @@ export const StudentPerformanceAnalysis = ({
         // Handle foreign key constraint errors
         if (attemptsError.message?.includes('foreign key constraint') || 
             attemptsError.message?.includes('23503')) {
-          setError("Database integrity issue detected. Please run the database migration to fix user references in quiz attempts.");
+          setError("Database integrity issue detected. Please run the database migration to fix user references in exam attempts.");
           setLoading(false);
           return;
         }
@@ -206,7 +206,7 @@ export const StudentPerformanceAnalysis = ({
   if (!sectionId || !quizId) {
     return (
       <div className="bg-gray-50 rounded-lg p-8 text-center">
-        <p className="text-gray-600">Select a section and quiz to view student performance analysis</p>
+        <p className="text-gray-600">Select a section and exam to view student performance analysis</p>
       </div>
     );
   }
@@ -257,7 +257,7 @@ export const StudentPerformanceAnalysis = ({
       {!loading && filteredStudents.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
           <p className="text-gray-600">
-            {studentSearch ? "No students match your search" : "No students have attempted this quiz yet"}
+            {studentSearch ? "No students match your search" : "No students have attempted this exam yet"}
           </p>
         </div>
       ) : (
@@ -272,7 +272,7 @@ export const StudentPerformanceAnalysis = ({
                     <p className="text-white/80 text-sm mt-1">{student.email}</p>
                     <div className="mt-3 flex items-center gap-4">
                       <div className="text-sm">
-                        <span className="text-white/60">Quiz Score: </span>
+                        <span className="text-white/60">Exam Score: </span>
                         <span className="font-semibold text-lg">{student.score.toFixed(1)}%</span>
                       </div>
                       <div className="text-sm">

@@ -22,7 +22,7 @@ export const useInstructorStatusToggle = () => {
       disable
         ? {
             title: "Disable Account",
-            message: `Disable ${name}'s account? They won't be able to log in, but their quizzes and results are kept. You can enable the account again later.`,
+            message: `Disable ${name}'s account? They won't be able to log in, but their exams and results are kept. You can enable the account again later.`,
             confirmText: "Disable",
             variant: "warning",
           }

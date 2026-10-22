@@ -21,7 +21,7 @@ export const createRevisionCopy = async (originalQuizId) => {
     .single();
 
   if (quizError || !originalQuiz) {
-    throw new Error("Failed to fetch original quiz");
+    throw new Error("Failed to fetch original exam");
   }
 
   const rootId = originalQuiz.parent_quiz_id || originalQuizId;
@@ -38,7 +38,7 @@ export const createRevisionCopy = async (originalQuizId) => {
           .single();
 
   if (rootError || !rootQuiz) {
-    throw new Error("Failed to fetch root quiz");
+    throw new Error("Failed to fetch root exam");
   }
 
   const baseTitle = rootQuiz.title.replace(
@@ -104,7 +104,7 @@ export const createRevisionCopy = async (originalQuizId) => {
     .single();
 
   if (createError || !newQuiz) {
-    throw new Error("Failed to create quiz revision");
+    throw new Error("Failed to create exam revision");
   }
 
   // Copy questions from the root quiz.

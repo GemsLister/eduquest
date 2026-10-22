@@ -268,7 +268,7 @@ export const exportItemRevisionPdf = ({
 
   if (item.quiz_title || item.subject_name) {
     doc.text(
-      `Quiz/Subject: ${item.quiz_title || item.subject_name}`,
+      `Exam/Subject: ${item.quiz_title || item.subject_name}`,
       pageWidth - margin - 4,
       currentY + 13,
       { align: "right" }

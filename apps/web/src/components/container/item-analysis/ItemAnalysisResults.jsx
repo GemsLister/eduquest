@@ -403,7 +403,7 @@ export const ItemAnalysisResults = ({
               </p>
               <p className="text-brand-navy/70 leading-relaxed">
                 Calculated using upper (top 27%) and lower (bottom 27%) groups
-                based on total quiz scores. Cohort filters allow analysis of
+                based on total exam scores. Cohort filters allow analysis of
                 specific performance groups.
               </p>
             </div>

@@ -288,7 +288,7 @@ export const QuizAnalysisResults = ({
           const errMsg =
             typeof saved === "object" && saved?.error
               ? saved.error
-              : "Please fix quiz issues (such as empty questions, missing options, or title) before submitting.";
+              : "Please fix exam issues (such as empty questions, missing options, or title) before submitting.";
           notify.error(errMsg);
           setForwardLoading(false);
           return;
@@ -301,7 +301,7 @@ export const QuizAnalysisResults = ({
       }
 
       if (targetQuizId === "draft" || !targetQuizId) {
-        notify.error("Please save the quiz first before submitting for review.");
+        notify.error("Please save the exam first before submitting for review.");
         setForwardLoading(false);
         return;
       }
@@ -314,8 +314,8 @@ export const QuizAnalysisResults = ({
 
       const analysisPayload = {
         ...results,
-        quiz_title: quizTitle || "Quiz",
-        title: quizTitle || "Quiz",
+        quiz_title: quizTitle || "Exam",
+        title: quizTitle || "Exam",
         assigned_reviewer_id: selectedReviewerId || null,
         questionSnapshots: (questions || []).map((q, idx) => {
           const autoGad = analyzeGADQuestion(q.text, q.options);
@@ -397,7 +397,7 @@ export const QuizAnalysisResults = ({
           action: prevSubId ? "RESUBMITTED_FOR_REVIEW" : "SUBMITTED_FOR_REVIEW",
           tableName: "quizzes",
           recordId: targetQuizId,
-          itemName: quizTitle || "Quiz",
+          itemName: quizTitle || "Exam",
           previousStatus: prevSubId ? "revision_requested" : "draft",
           newStatus: "submitted_for_review",
           reason:
@@ -423,8 +423,8 @@ export const QuizAnalysisResults = ({
             user_id: selectedReviewerId,
             title: isSeniorReviewer ? "Senior Faculty Review Request" : "Peer Review Request",
             message: isSeniorReviewer
-              ? `You have been assigned to review the quiz "${quizTitle || "Quiz"}" as Senior Faculty.`
-              : `You have been assigned to peer-review the quiz "${quizTitle || "Quiz"}".`,
+              ? `You have been assigned to review the exam "${quizTitle || "Exam"}" as Senior Faculty.`
+              : `You have been assigned to peer-review the exam "${quizTitle || "Exam"}".`,
             type: "info",
             link: isSeniorReviewer
               ? inserted?.id
@@ -443,8 +443,8 @@ export const QuizAnalysisResults = ({
       window.dispatchEvent(new Event("submissions-changed"));
       notify.success(
         prevSubId
-          ? "Revised quiz submitted for review!"
-          : "Quiz submitted for review!",
+          ? "Revised exam submitted for review!"
+          : "Exam submitted for review!",
       );
     } catch (err) {
       console.error("Forward error:", err);
@@ -594,7 +594,7 @@ export const QuizAnalysisResults = ({
               </div>
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 {existingSubmission
-                  ? "Re-analyze Your Quiz"
+                  ? "Re-analyze Your Exam"
                   : "Ready to Analyze"}
               </h3>
               <p className="text-gray-500 mb-2 max-w-md mx-auto">
@@ -1229,7 +1229,7 @@ export const QuizAnalysisResults = ({
                               })()}
                             </p>
                             <p className="text-[11px] text-blue-700 mt-0.5">
-                              Quiz revisions are automatically routed back to the reviewer who requested changes.
+                              Exam revisions are automatically routed back to the reviewer who requested changes.
                             </p>
                           </div>
                         </div>
@@ -1329,7 +1329,7 @@ export const QuizAnalysisResults = ({
                     <button
                       onClick={handleForward}
                       disabled={forwardLoading || quizId === "draft" || !selectedReviewerId}
-                      title={!selectedReviewerId ? "Select a reviewer first" : quizId === "draft" ? "Save the quiz first" : ""}
+                      title={!selectedReviewerId ? "Select a reviewer first" : quizId === "draft" ? "Save the exam first" : ""}
                       className="bg-brand-navy hover:bg-brand-indigo text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {forwardLoading ? (
@@ -1419,7 +1419,7 @@ export const QuizAnalysisResults = ({
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Quizzes
+            Back to Exams
           </button>
         </div>
       </div>

@@ -231,7 +231,7 @@ export const FacultyHeadApprovalDetail = () => {
 
   const handleApprove = async () => {
     const confirmed = await confirm({
-      title: "Are you sure you want to approve this quiz?",
+      title: "Are you sure you want to approve this exam?",
       confirmText: "Approve & Publish",
       cancelText: "Cancel",
       variant: "success",
@@ -286,11 +286,11 @@ export const FacultyHeadApprovalDetail = () => {
       }
 
       // Notify the instructor
-      const quizTitle = submission.quizzes?.title || "your quiz";
+      const quizTitle = submission.quizzes?.title || "your exam";
       await supabase.from("notifications").insert({
         user_id: submission.instructor_id,
-        title: "Quiz Approved by Department Head",
-        message: `Your quiz analysis for "${cleanQuizTitle(quizTitle)}" has been approved by the Department Head.`,
+        title: "Exam Approved by Department Head",
+        message: `Your exam analysis for "${cleanQuizTitle(quizTitle)}" has been approved by the Department Head.`,
         type: "success",
         link: getSubmitterSubmissionsLink(),
       });
@@ -325,7 +325,7 @@ export const FacultyHeadApprovalDetail = () => {
           status: HEAD_STATUSES.APPROVED,
         },
       });
-      notify.success("Quiz approved successfully!");
+      notify.success("Exam approved successfully!");
       navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.APPROVED}`);
     } catch (err) {
       console.error("Error approving submission:", err);
@@ -356,7 +356,7 @@ export const FacultyHeadApprovalDetail = () => {
     }
 
     const confirmed = await confirm({
-      title: "Send this quiz back for revision?",
+      title: "Send this exam back for revision?",
       confirmText: "Send Revision Request",
       cancelText: "Cancel",
       variant: "warning",
@@ -385,7 +385,7 @@ export const FacultyHeadApprovalDetail = () => {
 
       if (error) throw error;
 
-      const quizTitle = submission.quizzes?.title || "your quiz";
+      const quizTitle = submission.quizzes?.title || "your exam";
 
       // Notify instructor
       await supabase.from("notifications").insert({
@@ -546,7 +546,7 @@ export const FacultyHeadApprovalDetail = () => {
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
           onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
-          aria-label="Back to quiz approvals"
+          aria-label="Back to exam approvals"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -557,7 +557,7 @@ export const FacultyHeadApprovalDetail = () => {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              {cleanQuizTitle(submission.quizzes?.title || "Quiz Analysis Review")}
+              {cleanQuizTitle(submission.quizzes?.title || "Exam Analysis Review")}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               Submitted by{" "}
@@ -1016,7 +1016,7 @@ export const FacultyHeadApprovalDetail = () => {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Approve Quiz
+                  Approve Exam
                 </>
               )}
             </button>
@@ -1030,7 +1030,7 @@ export const FacultyHeadApprovalDetail = () => {
               Returned to the instructor for revision
             </h3>
             <p className="text-orange-600 text-sm">
-              The revised version will come back to Quiz Approvals after it passes review again.
+              The revised version will come back to Exam Approvals after it passes review again.
             </p>
           </div>
         )}
@@ -1039,7 +1039,7 @@ export const FacultyHeadApprovalDetail = () => {
         {submission.status === HEAD_STATUSES.APPROVED && (
           <div className="p-6 bg-green-50 border border-green-200 rounded-xl text-center">
             <h3 className="text-lg font-bold text-green-800 mb-1">
-              This quiz has been approved
+              This exam has been approved
             </h3>
             {submission.faculty_head_approved_at && (
               <p className="text-green-600 text-sm mb-4">
@@ -1067,7 +1067,7 @@ export const FacultyHeadApprovalDetail = () => {
                 {exporting === "paper" && (
                   <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
                 )}
-                {exporting === "paper" ? "Exporting…" : "Export Quiz Paper"}
+                {exporting === "paper" ? "Exporting…" : "Export Exam Paper"}
               </button>
             </div>
           </div>

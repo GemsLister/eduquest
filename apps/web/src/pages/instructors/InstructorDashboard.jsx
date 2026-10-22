@@ -577,7 +577,7 @@ export const InstructorDashboard = () => {
             description={
               search.trim()
                 ? `No subjects or sections match "${search}". Try a different keyword.`
-                : "Add a subject from the curriculum to start managing your sections and quizzes."
+                : "Add a subject from the curriculum to start managing your sections and exams."
             }
             icon={
               <svg
@@ -711,7 +711,7 @@ export const InstructorDashboard = () => {
                               {aggregateQuizzesCount}
                             </p>
                             <p className="text-[10px] text-gray-500 font-semibold uppercase">
-                              Quizzes
+                              Exams
                             </p>
                           </div>
                           <div className={`rounded-xl px-3 py-2 text-center ${theme.statBg}`}>

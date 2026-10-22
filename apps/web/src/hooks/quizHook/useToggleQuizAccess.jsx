@@ -12,8 +12,8 @@ export const useToggleQuizAccess = (fetchQuizzes) => {
   const handleToggleAccess = async (quizId, currentIsOpen) => {
     if (currentIsOpen) {
       const confirmed = await confirm({
-        title: "Close this quiz to students?",
-        confirmText: "Close Quiz",
+        title: "Close this exam to students?",
+        confirmText: "Close Exam",
         cancelText: "Cancel",
         variant: "warning",
       });
@@ -31,10 +31,10 @@ export const useToggleQuizAccess = (fetchQuizzes) => {
 
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error("You can only open or close quizzes you own.");
+        throw new Error("You can only open or close exams you own.");
       }
       await fetchQuizzes();
-      notify.success(currentIsOpen ? "Quiz closed to students." : "Quiz opened to students.");
+      notify.success(currentIsOpen ? "Exam closed to students." : "Exam opened to students.");
     } catch (err) {
       console.error("Error toggling quiz access:", err);
       notify.error(err.message || "Could not change student access.");

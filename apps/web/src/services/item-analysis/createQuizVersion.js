@@ -18,7 +18,7 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       .eq("id", originalQuizId)
       .single();
 
-    if (quizError || !originalQuiz) throw new Error("Failed to fetch original quiz");
+    if (quizError || !originalQuiz) throw new Error("Failed to fetch original exam");
 
     const rootId = originalQuiz.parent_quiz_id || originalQuizId;
 
@@ -32,7 +32,7 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
             .eq("id", rootId)
             .single();
 
-    if (rootError || !rootQuiz) throw new Error("Failed to fetch root quiz");
+    if (rootError || !rootQuiz) throw new Error("Failed to fetch root exam");
 
     const baseTitle = rootQuiz.title.replace(
       /\s*\(Revised(?:\s+\d+)?\)\s*$/,
@@ -83,7 +83,7 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
     if (createError || !newQuiz) {
       console.error("Supabase createError:", createError);
       throw new Error(
-        `Failed to create new quiz version: ${createError?.message || JSON.stringify(createError)}`,
+        `Failed to create new exam version: ${createError?.message || JSON.stringify(createError)}`,
       );
     }
 
@@ -94,7 +94,7 @@ export const createQuizVersion = async (originalQuizId, revisedQuestions) => {
       .eq("quiz_id", originalQuizId)
       .order("created_at", { ascending: true });
 
-    if (questionsError) throw new Error("Failed to fetch questions from source quiz");
+    if (questionsError) throw new Error("Failed to fetch questions from source exam");
 
     const now = new Date();
 

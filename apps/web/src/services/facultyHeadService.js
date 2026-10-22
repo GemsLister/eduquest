@@ -15,7 +15,7 @@ export const HEAD_STATUSES = {
 };
 
 export const cleanQuizTitle = (title) =>
-  (title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "");
+  (title || "Untitled Exam").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "");
 
 export const getProfileName = (p, fallback = "Unknown") => {
   if (!p) return fallback;

@@ -25,7 +25,7 @@ const TYPE_LABELS = {
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
-  { value: "quiz", label: "Source quiz (A–Z)" },
+  { value: "quiz", label: "Source exam (A–Z)" },
   { value: "points-high", label: "Points (high–low)" },
   { value: "points-low", label: "Points (low–high)" },
 ];
@@ -256,7 +256,7 @@ export const ImportQuestionBankModal = ({
     pageSelectableItems.length > 0 && pageSelectableItems.every((q) => selected.has(q.id));
 
   const quizSubjectLabel =
-    quizSubjects.length > 0 ? quizSubjects.map(getSubjectLabel).join(", ") : "This quiz's subject";
+    quizSubjects.length > 0 ? quizSubjects.map(getSubjectLabel).join(", ") : "This exam's subject";
 
   const toggleExpanded = (id) =>
     setExpandedIds((prev) => {
@@ -336,7 +336,7 @@ export const ImportQuestionBankModal = ({
               Question Bank
             </span>
             <h3 id="bank-import-title" className="text-lg font-bold flex items-center gap-2 flex-wrap">
-              {isReplaceMode ? "Replace a question" : "Add questions to this quiz"}
+              {isReplaceMode ? "Replace a question" : "Add questions to this exam"}
               {isReplaceMode && (
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-gold text-brand-navy font-bold">
                   Question #{targetQuestionNumber}
@@ -369,7 +369,7 @@ export const ImportQuestionBankModal = ({
               <input
                 id="bank-search"
                 type="search"
-                placeholder="Search text, options, quiz title, subject, or owner…"
+                placeholder="Search text, options, exam title, subject, or owner…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
@@ -441,7 +441,7 @@ export const ImportQuestionBankModal = ({
             {!isReplaceMode && (
               <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer px-1">
                 <input type="checkbox" checked={hideInQuiz} onChange={(e) => setHideInQuiz(e.target.checked)} className="h-4 w-4 rounded" />
-                Hide questions already in this quiz
+                Hide questions already in this exam
               </label>
             )}
             {filtersActive && (
@@ -475,7 +475,7 @@ export const ImportQuestionBankModal = ({
               <p className="text-sm font-bold text-slate-700">No questions match these filters</p>
               <p className="text-xs text-slate-500 mt-1">
                 {subjectFilter === "quiz"
-                  ? "Nothing in the bank is tagged with this quiz's subject yet."
+                  ? "Nothing in the bank is tagged with this exam's subject yet."
                   : "Try a different search or loosen the filters."}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -535,7 +535,7 @@ export const ImportQuestionBankModal = ({
                   const meta = [
                     TYPE_LABELS[q.type] || q.type || "MCQ",
                     `${q.points || 1} pt${(q.points || 1) > 1 ? "s" : ""}`,
-                    q.quizzes?.title ? `Quiz: ${q.quizzes.title}` : "Standalone",
+                    q.quizzes?.title ? `Exam: ${q.quizzes.title}` : "Standalone",
                     q.subjects?.name ? getSubjectLabel(q.subjects) : null,
                     q.is_own ? "Mine" : `Shared by ${q.creator_name || "Unknown instructor"}`,
                   ].filter(Boolean);
@@ -584,7 +584,7 @@ export const ImportQuestionBankModal = ({
                             )}
                             {inQuiz && (
                               <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
-                                Already in quiz
+                                Already in exam
                               </span>
                             )}
                           </div>

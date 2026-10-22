@@ -59,7 +59,7 @@ export const FacultyHeadQuizApprovals = () => {
       setAllSubmissions(await loadHeadSubmissions());
     } catch (err) {
       console.error("Error loading submissions:", err);
-      notify.error("Failed to load quiz approvals.");
+      notify.error("Failed to load exam approvals.");
     } finally {
       setLoading(false);
     }
@@ -166,10 +166,10 @@ export const FacultyHeadQuizApprovals = () => {
   ];
 
   const emptyMessages = {
-    faculty_head_review: "No quizzes are waiting for your approval.",
-    faculty_head_approved: "Quizzes you approve will appear here.",
-    revision_requested: "Quizzes you return for revision will appear here so you can track them.",
-    all: "Quiz analyses forwarded by reviewers will appear here.",
+    faculty_head_review: "No exams are waiting for your approval.",
+    faculty_head_approved: "Exams you approve will appear here.",
+    revision_requested: "Exams you return for revision will appear here so you can track them.",
+    all: "Exam analyses forwarded by reviewers will appear here.",
   };
 
   const Spinner = () => (
@@ -178,7 +178,7 @@ export const FacultyHeadQuizApprovals = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quiz approvals">
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading exam approvals">
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
           <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
           <Skeleton tone="bg-white/20" className="h-8 w-52 max-w-full rounded-md mb-2" />
@@ -212,7 +212,7 @@ export const FacultyHeadQuizApprovals = () => {
           Department Head
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-          Quiz Approvals
+          Exam Approvals
           {counts.faculty_head_review > 0 && (
             <span className="flex items-center gap-2 px-3 py-1 bg-yellow-400/20 rounded-full">
               <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
@@ -223,7 +223,7 @@ export const FacultyHeadQuizApprovals = () => {
           )}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Approve quiz analyses forwarded by peer reviewers and Senior Faculty
+          Approve exam analyses forwarded by peer reviewers and Senior Faculty
         </p>
       </div>
 
@@ -232,7 +232,7 @@ export const FacultyHeadQuizApprovals = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">
             <label htmlFor="approvals-search" className="sr-only">
-              Search by quiz, instructor, reviewer, or subject
+              Search by exam, instructor, reviewer, or subject
             </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -251,7 +251,7 @@ export const FacultyHeadQuizApprovals = () => {
             <input
               id="approvals-search"
               type="text"
-              placeholder="Search by quiz, instructor, reviewer, or subject..."
+              placeholder="Search by exam, instructor, reviewer, or subject..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold transition-all"
@@ -503,10 +503,10 @@ export const FacultyHeadQuizApprovals = () => {
                               disabled={!!exporting}
                               aria-busy={exporting === `${submission.id}:paper`}
                               className="px-3 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-wait focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
-                              title="Export Quiz Paper"
+                              title="Export Exam Paper"
                             >
                               {exporting === `${submission.id}:paper` ? <Spinner /> : null}
-                              {exporting === `${submission.id}:paper` ? "Exporting…" : "Quiz Paper"}
+                              {exporting === `${submission.id}:paper` ? "Exporting…" : "Exam Paper"}
                             </button>
                           </>
                         )}

@@ -35,13 +35,13 @@ export const useCreateQuiz = ({ user } = {}) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
     try {
       if (!quizFormData.title.trim()) {
-        notify.warning("Quiz title is required");
+        notify.warning("Exam title is required");
         return false;
       }
 
       const sectionIds = quizFormData.section_ids || [];
       if (sectionIds.length === 0) {
-        notify.warning("Please select at least one section for this quiz");
+        notify.warning("Please select at least one section for this exam");
         return false;
       }
 
@@ -52,7 +52,7 @@ export const useCreateQuiz = ({ user } = {}) => {
       }
 
       if (!user?.id) {
-        notify.error("You must be logged in to create a quiz");
+        notify.error("You must be logged in to create an exam");
         return false;
       }
 
@@ -106,7 +106,7 @@ export const useCreateQuiz = ({ user } = {}) => {
       setQuizFormData({ title: "", description: "", duration: "", section_ids: [], is_private: true });
       setShowQuizForm(false);
 
-      notify.success(`Quiz "${data.title}" created successfully!`);
+      notify.success(`Exam "${data.title}" created successfully!`);
       const targetPath = location.pathname.startsWith("/admin-dashboard")
         ? `/admin-dashboard/create-quiz/${data.id}`
         : `/instructor-dashboard/instructor-quiz/${data.id}`;
@@ -117,14 +117,14 @@ export const useCreateQuiz = ({ user } = {}) => {
 
       if (error.code === "42501") {
         notify.error(
-          "Permission denied: You don't have rights to create quizzes in this section. Please contact your administrator.",
+          "Permission denied: You don't have rights to create exams in this section. Please contact your administrator.",
         );
       } else if (error.message?.includes("row-level security")) {
         notify.error(
           "Permission denied: Your account doesn't have instructor privileges. Please ensure you're logged in as an instructor.",
         );
       } else {
-        notify.error("Error creating quiz: " + error.message);
+        notify.error("Error creating exam: " + error.message);
       }
       return false;
     } finally {

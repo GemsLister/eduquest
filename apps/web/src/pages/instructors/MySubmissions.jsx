@@ -190,7 +190,7 @@ export const MySubmissions = () => {
             s.analysis_results?.quiz_title ||
             s.analysis_results?.title ||
             s.analysis_results?.summary?.quizTitle ||
-            "Quiz";
+            "Exam";
           return {
             ...s,
             quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
@@ -307,7 +307,7 @@ export const MySubmissions = () => {
           s.analysis_results?.quiz_title ||
           s.analysis_results?.title ||
           s.analysis_results?.summary?.quizTitle ||
-          "Quiz";
+          "Exam";
         return {
           ...s,
           quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
@@ -702,13 +702,13 @@ export const MySubmissions = () => {
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
               {isSeniorFaculty
-                ? "My Quiz Submissions"
-                : "Quiz Submissions & Peer Reviews"}
+                ? "My Exam Submissions"
+                : "Exam Submissions & Peer Reviews"}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               {isSeniorFaculty
-                ? "Track the approval status, feedback, and revision history of your submitted quiz analyses"
-                : "Track your submitted quiz analyses and review quizzes assigned by peer faculty"}
+                ? "Track the approval status, feedback, and revision history of your submitted exam analyses"
+                : "Track your submitted exam analyses and review exams assigned by peer faculty"}
             </p>
           </div>
         </div>
@@ -820,7 +820,7 @@ export const MySubmissions = () => {
             </h3>
             <p className="text-gray-500">
               {filter === "all"
-                ? "You haven't submitted any quizzes for review yet. Open a draft quiz and click \"Submit for Review\" to send it to a peer reviewer."
+                ? "You haven't submitted any exams for review yet. Open a draft exam and click \"Submit for Review\" to send it to a peer reviewer."
                 : "No submissions match the selected filter."}
             </p>
           </div>
@@ -836,7 +836,7 @@ export const MySubmissions = () => {
                   <div className="flex items-center gap-3">
                     {getStatusIcon(submission.status)}
                     <h3 className="text-lg font-bold text-gray-800 flex-1 flex items-center gap-2">
-                      {(submission.quizzes?.title || "Unknown Quiz").replace(
+                      {(submission.quizzes?.title || "Unknown Exam").replace(
                         /\s*\(Revised(?:\s+\d+)?\)\s*$/,
                         "",
                       )}
@@ -920,7 +920,7 @@ export const MySubmissions = () => {
                         left comments.{" "}
                         {submission.status === "revision_requested"
                           ? `Open ${submission.newerQuizId ? "Continue Revision" : "Edit & Resubmit"} to see them next to each question.`
-                          : "Open the quiz to see them next to each question."}
+                          : "Open the exam to see them next to each question."}
                       </span>
                     </div>
                   )}
@@ -1377,7 +1377,7 @@ export const MySubmissions = () => {
                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                           />
                         </svg>
-                        Quiz Paper
+                        Exam Paper
                       </button>
                       {submission.status === "revision_requested" && (
                           <button
@@ -1501,12 +1501,12 @@ export const MySubmissions = () => {
                   />
                 </svg>
                 <label htmlFor="peer-search" className="sr-only">
-                  Search quiz title or instructor
+                  Search exam title or instructor
                 </label>
                 <input
                   id="peer-search"
                   type="text"
-                  placeholder="Search quiz title or instructor..."
+                  placeholder="Search exam title or instructor..."
                   value={peerSearch}
                   onChange={(e) => {
                     setPeerSearch(e.target.value);
@@ -1575,7 +1575,7 @@ export const MySubmissions = () => {
                 <p className="text-sm text-gray-500 max-w-md mx-auto">
                   {peerSearch || peerFilter !== "all"
                     ? "No review requests match your current filters."
-                    : "When other instructors select you to peer-review their quiz submissions, they will appear here."}
+                    : "When other instructors select you to peer-review their exam submissions, they will appear here."}
                 </p>
               </div>
             ) : (
@@ -1584,7 +1584,7 @@ export const MySubmissions = () => {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50/80 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        <th className="px-5 py-3.5">Quiz / Exam</th>
+                        <th className="px-5 py-3.5">Exam</th>
                         <th className="px-5 py-3.5">Submitter Faculty</th>
                         <th className="px-5 py-3.5">Date Received</th>
                         <th className="px-5 py-3.5">Status</th>
@@ -1603,7 +1603,7 @@ export const MySubmissions = () => {
                           >
                             <td className="px-5 py-4">
                               <div className="font-bold text-brand-navy">
-                                {sub.quizzes?.title || sub.analysis_results?.quiz_title || sub.analysis_results?.title || sub.analysis_results?.summary?.quizTitle || "Quiz"}
+                                {sub.quizzes?.title || sub.analysis_results?.quiz_title || sub.analysis_results?.title || sub.analysis_results?.summary?.quizTitle || "Exam"}
                               </div>
                               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                                 {sub.quizzes?.version_number > 1 && (
@@ -1657,7 +1657,7 @@ export const MySubmissions = () => {
                                     : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
                                 }`}
                               >
-                                {isPending ? "Review Quiz" : "View Review"}
+                                {isPending ? "Review Exam" : "View Review"}
                               </button>
                             </td>
                           </tr>

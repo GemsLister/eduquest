@@ -823,7 +823,7 @@ export const QuestionBank = () => {
       oldest: "Oldest First",
       "points-high": "Points: High to Low",
       "points-low": "Points: Low to High",
-      quiz: "By Quiz",
+      quiz: "By Exam",
     };
     activeFilters.push({
       key: "sort",
@@ -846,10 +846,10 @@ export const QuestionBank = () => {
   if (selectedQuizIdFilter) {
     const quizTitle =
       quizzesFromSubject.find((q) => q.id === selectedQuizIdFilter)?.title ||
-      "Quiz";
+      "Exam";
     activeFilters.push({
       key: "quiz",
-      label: `Quiz: ${quizTitle}`,
+      label: `Exam: ${quizTitle}`,
       clear: () => setSelectedQuizIdFilter(null),
     });
   }
@@ -1141,9 +1141,9 @@ export const QuestionBank = () => {
             onChange={(e) => setSelectedQuizIdFilter(e.target.value || null)}
             className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs min-w-[220px] bg-white text-slate-800"
           >
-            <option value="">-- Select Quiz --</option>
+            <option value="">-- Select Exam --</option>
             {quizzesFromSubject.length === 0 ? (
-              <option disabled>No quizzes in this subject</option>
+              <option disabled>No exams in this subject</option>
             ) : (
               quizzesFromSubject.map((quiz) => (
                 <option key={quiz.id} value={quiz.id}>
@@ -1215,7 +1215,7 @@ export const QuestionBank = () => {
                   { value: "oldest", label: "Oldest First" },
                   { value: "points-high", label: "Points: High to Low" },
                   { value: "points-low", label: "Points: Low to High" },
-                  { value: "quiz", label: "By Quiz Name" },
+                  { value: "quiz", label: "By Exam Name" },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -1452,7 +1452,7 @@ export const QuestionBank = () => {
                     {/* Top metadata row */}
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className="text-xs text-gray-500 font-medium">
-                        {question.quizzes?.title || "Standalone question (no quiz)"}
+                        {question.quizzes?.title || "Standalone question (no exam)"}
                       </span>
                       <span className="text-xs text-gray-400">
                         {question.points} pt{question.points !== 1 ? "s" : ""}
@@ -1600,8 +1600,8 @@ export const QuestionBank = () => {
                           handleOpenReuseModal(question);
                         }}
                         className="p-2 rounded-lg text-brand-navy hover:bg-brand-gold/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                        title="Reuse in a quiz"
-                        aria-label="Reuse question in a quiz"
+                        title="Reuse in an exam"
+                        aria-label="Reuse question in an exam"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

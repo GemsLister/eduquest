@@ -77,7 +77,7 @@ const navSections = [
     icon: icons.teaching,
     children: [
       {
-        name: "Quizzes",
+        name: "Exams",
         path: "/instructor-dashboard/quizzes",
         match: ["/instructor-dashboard/instructor-quiz", "/instructor-dashboard/quiz-results"],
       },

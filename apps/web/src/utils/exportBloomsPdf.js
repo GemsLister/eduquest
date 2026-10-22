@@ -256,7 +256,7 @@ export const exportBloomsPdf = async ({
       [
         {
           content:
-            "Quiz questions classified by\nBloom's Taxonomy cognitive levels",
+            "Exam questions classified by\nBloom's Taxonomy cognitive levels",
           styles: { fontSize: 7.5, halign: "left" },
         },
         "Multiple\nChoice",

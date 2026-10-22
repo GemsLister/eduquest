@@ -139,7 +139,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
     suggestions.push({
       type: "warning",
       title: "Too Many LOTS Questions",
-      message: `Your quiz has ${lotsPct}% LOTS questions, exceeding the ${lotsTarget}% target. Consider converting approximately ${excessLots} lower-order question(s) to higher-order thinking questions.`,
+      message: `Your exam has ${lotsPct}% LOTS questions, exceeding the ${lotsTarget}% target. Consider converting approximately ${excessLots} lower-order question(s) to higher-order thinking questions.`,
       actionItems: [
         "Replace some Remembering/Understanding questions with Analyzing or Evaluating questions",
         "Transform recall-based questions into application or analysis scenarios",
@@ -155,7 +155,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
     suggestions.push({
       type: "warning",
       title: "Insufficient HOTS Questions",
-      message: `Your quiz has only ${hotsPct}% HOTS questions, below the ${hotsTarget}% target. You need approximately ${neededHots} more higher-order thinking question(s).`,
+      message: `Your exam has only ${hotsPct}% HOTS questions, below the ${hotsTarget}% target. You need approximately ${neededHots} more higher-order thinking question(s).`,
       actionItems: [
         "Add questions that ask students to analyze relationships or compare concepts",
         "Include questions requiring evaluation of arguments or justification of decisions",
@@ -168,7 +168,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
     suggestions.push({
       type: "info",
       title: "LOTS Below Target",
-      message: `Your quiz has only ${lotsPct}% LOTS questions, below the ${lotsTarget}% target. While having more HOTS is generally positive, the TOS requires a balance for foundational knowledge assessment.`,
+      message: `Your exam has only ${lotsPct}% LOTS questions, below the ${lotsTarget}% target. While having more HOTS is generally positive, the TOS requires a balance for foundational knowledge assessment.`,
       actionItems: [
         "Add some recall or definition-based questions to assess foundational knowledge",
         "Include comprehension questions that check basic understanding",
@@ -180,7 +180,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
     suggestions.push({
       type: "success",
       title: "TOS Compliant",
-      message: `Your quiz meets the Table of Specifications requirement with ${lotsPct}% LOTS and ${hotsPct}% HOTS (target: ${lotsTarget}/${hotsTarget}).`,
+      message: `Your exam meets the Table of Specifications requirement with ${lotsPct}% LOTS and ${hotsPct}% HOTS (target: ${lotsTarget}/${hotsTarget}).`,
       actionItems: [],
     });
   }
@@ -195,7 +195,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
       suggestions.push({
         type: "info",
         title: "Missing Bloom's Levels",
-        message: `Your quiz doesn't cover: ${missingLevels.join(", ")}. A well-rounded assessment should ideally touch multiple cognitive levels.`,
+        message: `Your exam doesn't cover: ${missingLevels.join(", ")}. A well-rounded assessment should ideally touch multiple cognitive levels.`,
         actionItems: missingLevels.map((level) => {
           const tips = {
             Remembering:
@@ -258,7 +258,7 @@ const generateSuggestions = (summary, tosMode = "standard") => {
     suggestions.push({
       type: "info",
       title: "Small Question Pool",
-      message: `Your quiz has only ${totalQuestions} questions. With a small pool, it's harder to achieve the ideal LOTS/HOTS distribution.`,
+      message: `Your exam has only ${totalQuestions} questions. With a small pool, it's harder to achieve the ideal LOTS/HOTS distribution.`,
       actionItems: [
         "Consider adding more questions for a more reliable assessment",
         `Aim for at least ${Math.ceil(10 * (hotsTarget / 100))} HOTS and ${Math.ceil(10 * (lotsTarget / 100))} LOTS questions minimum`,
@@ -387,7 +387,7 @@ export const QuizSuggestions = ({ summary }) => {
       {/* Header with TOS Mode Toggle (N2) */}
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-lg font-bold text-gray-800">
-          Quiz Improvement Suggestions
+          Exam Improvement Suggestions
         </h3>
 
         {/* TOS Mode Selector */}

@@ -27,14 +27,14 @@ const PAGE_SIZE = 10;
 
 const TABS = [
   { key: "overview", label: "Overview" },
-  { key: "quizzes", label: "Quizzes" },
+  { key: "quizzes", label: "Exams" },
   { key: "submissions", label: "Exam Submissions" },
   { key: "reviews", label: "Peer Reviews" },
   { key: "activity", label: "Recent Activity" },
 ];
 
 const cleanTitle = (title) =>
-  (title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "");
+  (title || "Untitled Exam").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/i, "");
 
 const formatDate = (value) =>
   value
@@ -551,7 +551,7 @@ export const AdminInstructorDetail = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
-                label="Quizzes"
+                label="Exams"
                 value={stats.totalQuizzes}
                 hint={`${stats.published} published · ${stats.drafts} not published`}
               />
@@ -569,7 +569,7 @@ export const AdminInstructorDetail = () => {
               <StatCard
                 label="Completed Attempts"
                 value={stats.completedAttempts ?? "—"}
-                hint="Student attempts across all quizzes"
+                hint="Student attempts across all exams"
               />
             </div>
 
@@ -703,7 +703,7 @@ export const AdminInstructorDetail = () => {
         {/* Quizzes */}
         {tab === "quizzes" &&
           (quizzes.length === 0 ? (
-            <EmptyState title="No Quizzes Yet" desc="Quizzes this instructor creates will appear here." />
+            <EmptyState title="No Exams Yet" desc="Exams this instructor creates will appear here." />
           ) : (
             <>
               <div className={TABLE_WRAP}>
@@ -711,7 +711,7 @@ export const AdminInstructorDetail = () => {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className={TH_ROW}>
-                        <th className="px-5 py-3.5">Quiz</th>
+                        <th className="px-5 py-3.5">Exam</th>
                         <th className="px-5 py-3.5">Section</th>
                         <th className="px-5 py-3.5">Status</th>
                         <th className="px-5 py-3.5 text-right">Students</th>
@@ -774,7 +774,7 @@ export const AdminInstructorDetail = () => {
           (submissions.length === 0 ? (
             <EmptyState
               title="No Exam Submissions"
-              desc="Quiz analyses this instructor submits for review will appear here."
+              desc="Exam analyses this instructor submits for review will appear here."
             />
           ) : (
             <>
@@ -783,7 +783,7 @@ export const AdminInstructorDetail = () => {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className={TH_ROW}>
-                        <th className="px-5 py-3.5">Quiz / Exam</th>
+                        <th className="px-5 py-3.5">Exam</th>
                         <th className="px-5 py-3.5">Reviewer</th>
                         <th className="px-5 py-3.5">Submitted</th>
                         <th className="px-5 py-3.5">Status</th>
@@ -867,7 +867,7 @@ export const AdminInstructorDetail = () => {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className={TH_ROW}>
-                        <th className="px-5 py-3.5">Quiz / Exam</th>
+                        <th className="px-5 py-3.5">Exam</th>
                         <th className="px-5 py-3.5">Submitted By</th>
                         <th className="px-5 py-3.5">Assigned</th>
                         <th className="px-5 py-3.5">Reviewed</th>
@@ -932,7 +932,7 @@ export const AdminInstructorDetail = () => {
             {activity.length === 0 ? (
               <EmptyState
                 title="No Recorded Activity"
-                desc="Quiz, question and review actions by this instructor will appear here."
+                desc="Exam, question and review actions by this instructor will appear here."
               />
             ) : (
               <div className={TABLE_WRAP}>

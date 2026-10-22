@@ -356,7 +356,7 @@ export const StudentProfiles = () => {
               Student Profiles
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Comprehensive student performance across quizzes, scores, and class distribution
+              Comprehensive student performance across exams, scores, and class distribution
             </p>
           </div>
         </div>
@@ -506,7 +506,7 @@ export const StudentProfiles = () => {
                   {formatSubjectLabel(subjects.find((s) => s.id === selectedSubject))} — Student Performance Matrix
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Best score per quiz (points) and overall score across all published quizzes in this section
+                  Best score per exam (points) and overall score across all published exams in this section
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 shadow-2xs">
@@ -748,7 +748,7 @@ export const StudentProfiles = () => {
             </div>
             <h3 className="text-base font-bold text-brand-navy mb-1">No Student Records Found</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              There are no completed attempts on published quizzes for this section yet.
+              There are no completed attempts on published exams for this section yet.
             </p>
           </div>
         )}

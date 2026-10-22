@@ -198,7 +198,7 @@ export const AdminQuizReviewDetail = () => {
     }
     if (status === "approved") {
       const confirmed = await confirm({
-        title: "Forward this quiz to the Department Head?",
+        title: "Forward this exam to the Department Head?",
         confirmText: "Forward",
         cancelText: "Cancel",
         variant: "info",
@@ -241,7 +241,7 @@ export const AdminQuizReviewDetail = () => {
         return;
       }
 
-      const quizTitle = submission.quizzes?.title || "your quiz";
+      const quizTitle = submission.quizzes?.title || "your exam";
       const targetQuizId = submission.quiz_id;
 
       // Log quiz status change and structured audit entry
@@ -271,13 +271,13 @@ export const AdminQuizReviewDetail = () => {
       // Send notification to instructor
       const notificationMap = {
         approved: {
-          title: "Quiz Analysis Reviewed by Senior Faculty",
-          message: `Your quiz analysis for "${quizTitle}" has been reviewed by the Senior Faculty and forwarded to the Department Head for final approval.`,
+          title: "Exam Analysis Reviewed by Senior Faculty",
+          message: `Your exam analysis for "${quizTitle}" has been reviewed by the Senior Faculty and forwarded to the Department Head for final approval.`,
           type: "info",
         },
         revision_requested: {
           title: "Revision Requested",
-          message: `The Senior Faculty has requested revisions for your quiz analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
+          message: `The Senior Faculty has requested revisions for your exam analysis of "${quizTitle}".${feedback ? ` Feedback: ${feedback}` : ""}`,
           type: "warning",
         },
       };
@@ -298,7 +298,7 @@ export const AdminQuizReviewDetail = () => {
         try {
           await notifyDepartmentHeads({
             title: "New Exam Awaiting Final Approval",
-            message: `Quiz "${quizTitle}" was reviewed by the Senior Faculty and is awaiting your final department head approval.`,
+            message: `Exam "${quizTitle}" was reviewed by the Senior Faculty and is awaiting your final department head approval.`,
             type: "info",
             link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
           });
@@ -311,7 +311,7 @@ export const AdminQuizReviewDetail = () => {
       window.dispatchEvent(new Event("pending-quiz-reviews-changed"));
 
       const messages = {
-        approved: "Quiz forwarded to Department Head for approval!",
+        approved: "Exam forwarded to Department Head for approval!",
         revision_requested: "Revision request sent to instructor.",
       };
 
@@ -432,7 +432,7 @@ export const AdminQuizReviewDetail = () => {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-              {(submission.quizzes?.title || "Quiz Analysis Review").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
+              {(submission.quizzes?.title || "Exam Analysis Review").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
               {(submission.quizzes?.version_number || 0) > 1 && (
                 <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-xs font-bold">
                   V{submission.quizzes.version_number}
@@ -477,7 +477,7 @@ export const AdminQuizReviewDetail = () => {
                     Original Submission
                   </p>
                   <p className="text-xs text-emerald-900/70">
-                    This is the original version of this quiz. Newer revisions
+                    This is the original version of this exam. Newer revisions
                     exist.
                   </p>
                 </div>
@@ -504,7 +504,7 @@ export const AdminQuizReviewDetail = () => {
                     Revised Submission (Version {displayVersion})
                   </p>
                   <p className="text-xs text-brand-navy/70">
-                    The instructor revised this quiz based on previous feedback
+                    The instructor revised this exam based on previous feedback
                     and resubmitted for review.
                   </p>
                 </div>

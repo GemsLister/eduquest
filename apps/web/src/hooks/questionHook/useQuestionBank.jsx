@@ -324,7 +324,7 @@ export const useQuestionBank = () => {
       if (question && !isOwnedByUser(question)) {
         return {
           success: false,
-          error: "This question belongs to another instructor's quiz and can't be archived by you.",
+          error: "This question belongs to another instructor's exam and can't be archived by you.",
         };
       }
 
@@ -340,7 +340,7 @@ export const useQuestionBank = () => {
         if (quiz?.is_published) {
           return {
             success: false,
-            error: `This question is part of the published quiz "${quiz.title}". Archive the quiz instead.`,
+            error: `This question is part of the published exam "${quiz.title}". Archive the exam instead.`,
           };
         }
 
@@ -355,7 +355,7 @@ export const useQuestionBank = () => {
         if (["pending", "faculty_head_review", "approved", "faculty_head_approved"].includes(latestSub?.status)) {
           return {
             success: false,
-            error: `This question is part of "${quiz?.title || "a quiz"}", which is in the review process and can't be changed.`,
+            error: `This question is part of "${quiz?.title || "an exam"}", which is in the review process and can't be changed.`,
           };
         }
       }

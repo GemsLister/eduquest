@@ -173,7 +173,7 @@ export const FacultyHeadDashboard = () => {
               )}
             </h1>
             <p className="text-white/60 text-sm mt-1">
-              Review and approve quiz analyses forwarded by reviewers, and manage curriculum subjects.
+              Review and approve exam analyses forwarded by reviewers, and manage curriculum subjects.
             </p>
           </div>
         </div>
@@ -284,10 +284,10 @@ export const FacultyHeadDashboard = () => {
                 )}
               </div>
               <p className="font-bold text-gray-900 text-sm group-hover:text-brand-navy transition-colors">
-                Review Quiz Approvals
+                Review Exam Approvals
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Evaluate and approve quizzes forwarded by reviewers.
+                Evaluate and approve exams forwarded by reviewers.
               </p>
             </button>
 

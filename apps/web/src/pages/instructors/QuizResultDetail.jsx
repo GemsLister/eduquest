@@ -195,7 +195,7 @@ export const QuizResultDetail = () => {
           {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Quiz"}
+          {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Exam"}
         </h1>
         <p className="text-white/60 text-sm mt-1">
           Attempt by {attempt?.student_name || "Unknown student"}

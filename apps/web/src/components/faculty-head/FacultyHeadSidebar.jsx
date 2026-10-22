@@ -29,7 +29,7 @@ const sections = [
       </NavIcon>
     ),
     children: [
-      { name: "Quiz Approvals", path: "/faculty-head-dashboard/quiz-approvals", badge: "quizzes" },
+      { name: "Exam Approvals", path: "/faculty-head-dashboard/quiz-approvals", badge: "quizzes" },
       { name: "Subject Requests", path: "/faculty-head-dashboard/subject-requests", badge: "subjects" },
     ],
   },

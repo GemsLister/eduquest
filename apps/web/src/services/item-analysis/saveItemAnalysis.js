@@ -153,7 +153,7 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
     window.dispatchEvent(new Event("questions-updated"));
 
     // Fetch quiz metadata for rich audit logging
-    let quizTitle = "Quiz Item Analysis";
+    let quizTitle = "Exam Item Analysis";
     let subjectName = null;
     let sectionName = null;
 

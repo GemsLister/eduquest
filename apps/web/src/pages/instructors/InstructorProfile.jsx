@@ -557,7 +557,7 @@ export const InstructorProfile = () => {
             </div>
             <p className="text-2xl font-black text-gray-800">{stats.quizzes}</p>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
-              Quizzes Created
+              Exams Created
             </p>
           </div>
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 text-center">

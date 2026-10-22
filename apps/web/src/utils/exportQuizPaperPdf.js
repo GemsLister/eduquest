@@ -36,13 +36,13 @@ const deriveSchoolYear = (date) => {
  * Strip revision/version markers from quiz title.
  */
 const cleanQuizTitle = (title) => {
-  if (!title) return "Quiz";
+  if (!title) return "Exam";
   return (
     title
       .replace(/\s*\(Revised(?:\s+\d+)?\)/gi, "")
       .replace(/\s*\(V\d+\)/gi, "")
       .replace(/\s*\(Version\s*\d+\)/gi, "")
-      .trim() || "Quiz"
+      .trim() || "Exam"
   );
 };
 

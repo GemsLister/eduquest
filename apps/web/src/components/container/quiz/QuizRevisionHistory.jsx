@@ -75,7 +75,7 @@ export const QuizRevisionHistory = ({ parentQuizId, currentQuizId }) => {
         Revision History
       </h2>
       <p className="text-sm text-gray-500 mb-4">
-        This quiz is a revised version. Below are its previous versions
+        This exam is a revised version. Below are its previous versions
         {history.some((v) => v.is_published) && " and the students who took the published ones"}.
       </p>
 

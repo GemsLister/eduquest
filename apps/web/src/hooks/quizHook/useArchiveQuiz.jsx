@@ -11,7 +11,7 @@ export const useArchiveQuiz = (fetchQuizzes) => {
 
   const handleArchiveQuiz = async (quizId) => {
     const confirmed = await confirm({
-      title: "Archive this quiz?",
+      title: "Archive this exam?",
       confirmText: "Archive",
       cancelText: "Cancel",
       variant: "warning",
@@ -30,20 +30,20 @@ export const useArchiveQuiz = (fetchQuizzes) => {
         .select("id");
 
       if (error) {
-        throw new Error(`Failed to archive quiz: ${error.message}`);
+        throw new Error(`Failed to archive exam: ${error.message}`);
       }
       if (!data || data.length === 0) {
-        throw new Error("You can only archive quizzes you own.");
+        throw new Error("You can only archive exams you own.");
       }
 
       await supabase.rpc("log_quiz_status_change", {
         p_quiz_id: quizId,
         p_new_status: "archived",
-        p_reason: "Quiz archived by instructor",
+        p_reason: "Exam archived by instructor",
       });
 
       await fetchQuizzes();
-      notify.success("Quiz archived successfully!");
+      notify.success("Exam archived successfully!");
     } catch (error) {
       console.error("Error archiving quiz:", error);
       notify.error(error.message);

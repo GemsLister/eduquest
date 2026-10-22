@@ -268,7 +268,7 @@ export const useFetchInstructorQuizzes = () => {
       .select("id");
     if (error) throw error;
     if (!data || data.length === 0) {
-      throw new Error("You can only change quizzes you own.");
+      throw new Error("You can only change exams you own.");
     }
   };
 
@@ -276,10 +276,10 @@ export const useFetchInstructorQuizzes = () => {
     try {
       await updateOwnQuiz(quizId, { is_archived: false });
       await fetchQuizzes();
-      notify.success("Quiz restored successfully!");
+      notify.success("Exam restored successfully!");
     } catch (error) {
       console.error("Error restoring quiz:", error);
-      notify.error("Error restoring quiz: " + error.message);
+      notify.error("Error restoring exam: " + error.message);
     }
   };
 
@@ -291,14 +291,14 @@ export const useFetchInstructorQuizzes = () => {
       await supabase.rpc("log_quiz_status_change", {
         p_quiz_id: quizId,
         p_new_status: "archived",
-        p_reason: "Quiz archived by instructor",
+        p_reason: "Exam archived by instructor",
       });
 
       await fetchQuizzes();
-      notify.success("Quiz archived successfully!");
+      notify.success("Exam archived successfully!");
     } catch (error) {
       console.error("Error archiving quiz:", error);
-      notify.error("Error archiving quiz: " + error.message);
+      notify.error("Error archiving exam: " + error.message);
     }
   };
 
@@ -312,7 +312,7 @@ export const useFetchInstructorQuizzes = () => {
 
       if (fetchError) throw fetchError;
       if (quiz.instructor_id !== user?.id) {
-        throw new Error("You can only publish quizzes you own.");
+        throw new Error("You can only publish exams you own.");
       }
 
       const { count: sectionCount } = await supabase
@@ -320,7 +320,7 @@ export const useFetchInstructorQuizzes = () => {
         .select("quiz_id", { count: "exact", head: true })
         .eq("quiz_id", quizId);
       if (!sectionCount) {
-        throw new Error("Assign the quiz to at least one section before publishing.");
+        throw new Error("Assign the exam to at least one section before publishing.");
       }
 
       const shareToken = quiz?.share_token || (await getUniqueShareToken());
@@ -335,14 +335,14 @@ export const useFetchInstructorQuizzes = () => {
       await supabase.rpc("log_quiz_status_change", {
         p_quiz_id: quizId,
         p_new_status: "published",
-        p_reason: "Quiz published by instructor",
+        p_reason: "Exam published by instructor",
       });
 
       await fetchQuizzes();
-      notify.success("Quiz published successfully!");
+      notify.success("Exam published successfully!");
     } catch (error) {
       console.error("Error publishing quiz:", error);
-      notify.error("Error publishing quiz: " + error.message);
+      notify.error("Error publishing exam: " + error.message);
     }
   };
 

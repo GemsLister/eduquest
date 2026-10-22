@@ -112,7 +112,7 @@ export const AdminQuizReviews = () => {
             s.analysis_results?.quiz_title ||
             s.analysis_results?.title ||
             s.analysis_results?.summary?.quizTitle ||
-            "Quiz";
+            "Exam";
           return {
             ...s,
             quizzes: joinedQuiz ? { ...joinedQuiz, title: quizTitle } : { title: quizTitle },
@@ -297,7 +297,7 @@ export const AdminQuizReviews = () => {
     },
     all: {
       title: "No Submissions Yet",
-      desc: "Quiz analysis submissions from instructors will appear here.",
+      desc: "Exam analysis submissions from instructors will appear here.",
     },
   };
 
@@ -348,7 +348,7 @@ export const AdminQuizReviews = () => {
           )}
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Review instructors' quiz analyses and forward them to the Department Head
+          Review instructors' exam analyses and forward them to the Department Head
         </p>
       </div>
 
@@ -358,7 +358,7 @@ export const AdminQuizReviews = () => {
           {/* Search */}
           <div className="relative flex-1">
             <label htmlFor="reviews-search" className="sr-only">
-              Search by quiz title or instructor
+              Search by exam title or instructor
             </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -377,7 +377,7 @@ export const AdminQuizReviews = () => {
             <input
               id="reviews-search"
               type="text"
-              placeholder="Search by quiz title or instructor..."
+              placeholder="Search by exam title or instructor..."
               value={search}
               onChange={(e) => changeSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 focus:border-brand-gold shadow-2xs transition-all"
@@ -483,7 +483,7 @@ export const AdminQuizReviews = () => {
                     onClick={() =>
                       navigate(`/admin-dashboard/quiz-reviews/${submission.id}`)
                     }
-                    aria-label={`Review ${(submission.quizzes?.title || "Untitled Quiz").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${instructorName}`}
+                    aria-label={`Review ${(submission.quizzes?.title || "Untitled Exam").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${instructorName}`}
                     className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/40 transition-all p-5 cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   >
                     <div className="flex items-start gap-4">
@@ -499,7 +499,7 @@ export const AdminQuizReviews = () => {
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <h3 className="font-bold text-gray-800 group-hover:text-brand-navy transition-colors truncate">
                             {(
-                              submission.quizzes?.title || "Untitled Quiz"
+                              submission.quizzes?.title || "Untitled Exam"
                             ).replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")}
                           </h3>
                           {submission.displayVersion === 1 ? (

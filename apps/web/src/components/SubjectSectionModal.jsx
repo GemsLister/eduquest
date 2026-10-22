@@ -260,7 +260,7 @@ export const SubjectSectionModal = ({
                           {openQuizzes}/{totalQuizzes}
                         </p>
                         <p className="text-[9px] text-gray-400 font-semibold uppercase">
-                          Open Quizzes
+                          Open Exams
                         </p>
                       </div>
                       <div>

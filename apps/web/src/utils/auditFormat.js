@@ -11,12 +11,12 @@ const ACTION_LABELS = {
   PEER_REVIEW_REVISION_REQUESTED: "Peer Reviewer Requested Revision",
   FORWARDED_TO_HEAD: "Senior Faculty Forwarded to Head",
   REVISION_REQUESTED: "Revision Requested",
-  QUIZ_APPROVED: "Quiz Approved",
+  QUIZ_APPROVED: "Exam Approved",
   REVISION_CREATED: "Revision Created",
-  QUIZ_CREATED: "Quiz Created",
-  QUIZ_PUBLISHED: "Quiz Published",
-  QUIZ_UPDATED: "Quiz Updated",
-  QUIZ_DELETED: "Quiz Deleted",
+  QUIZ_CREATED: "Exam Created",
+  QUIZ_PUBLISHED: "Exam Published",
+  QUIZ_UPDATED: "Exam Updated",
+  QUIZ_DELETED: "Exam Deleted",
   QUESTIONS_CREATED: "Questions Created",
   QUESTION_UPDATED: "Question Updated",
   QUESTION_DELETED: "Question Deleted",
@@ -39,7 +39,7 @@ export const AUDIT_ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(
 );
 
 export const AUDIT_TABLE_OPTIONS = [
-  { value: "quizzes", label: "Quizzes" },
+  { value: "quizzes", label: "Exams" },
   { value: "questions", label: "Questions" },
   { value: "sections", label: "Sections" },
   { value: "item_analysis", label: "Item Analysis" },

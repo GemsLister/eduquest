@@ -292,7 +292,7 @@ export const InstructorTable = ({
                       {stats.total}
                     </p>
                     <p className="text-[10px] text-gray-400 font-medium">
-                      Quizzes
+                      Exams
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg px-2.5 py-2 text-center">

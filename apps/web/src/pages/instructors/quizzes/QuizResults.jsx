@@ -285,7 +285,7 @@ export const QuizResults = () => {
           {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
         </p>
         <h1 className="text-2xl md:text-3xl font-black text-white">
-          Quiz Results: {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Quiz"}
+          Exam Results: {quiz?.title ? quiz.title.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "") : "Exam"}
         </h1>
         <p className="text-white/60 text-sm mt-1">
           {attempts.length} {attempts.length === 1 ? "attempt" : "attempts"}{" "}
@@ -363,7 +363,7 @@ export const QuizResults = () => {
             No Attempts Yet
           </h2>
           <p className="text-gray-500 max-w-md mx-auto text-sm">
-            Students haven't taken this quiz yet. Share the quiz link with them
+            Students haven't taken this exam yet. Share the exam link with them
             to get started!
           </p>
         </div>
@@ -446,7 +446,7 @@ export const QuizResults = () => {
                 Time spent per question
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Time spent on each answered item (students who completed the quiz).
+                Time spent on each answered item (students who completed the exam).
               </p>
             </div>
             <div className="overflow-x-auto">

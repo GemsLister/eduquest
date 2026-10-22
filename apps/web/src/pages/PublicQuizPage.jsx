@@ -345,13 +345,13 @@ export const PublicQuizPage = () => {
 
         if (quizError) {
           console.error("Quiz loading error:", quizError);
-          setError("Quiz not found. Invalid link.");
+          setError("Exam not found. Invalid link.");
           setLoading(false);
           return;
         }
 
         if (!quizData) {
-          setError("Quiz not found. Invalid link.");
+          setError("Exam not found. Invalid link.");
           setLoading(false);
           return;
         }
@@ -361,7 +361,7 @@ export const PublicQuizPage = () => {
           targetSectionId,
         );
         if (!assignedToRequestedSection) {
-          setError("This quiz link is not valid for this section.");
+          setError("This exam link is not valid for this section.");
           setLoading(false);
           return;
         }
@@ -378,7 +378,7 @@ export const PublicQuizPage = () => {
         }
 
         if (quizData.is_open === false) {
-          setError("This quiz is currently closed by the instructor.");
+          setError("This exam is currently closed by the instructor.");
           setLoading(false);
           return;
         }
@@ -554,7 +554,7 @@ export const PublicQuizPage = () => {
         setQuestions(questionsData || []);
       } catch (err) {
         console.error("Full error loading quiz:", err);
-        setError(err.message || "Failed to load quiz");
+        setError(err.message || "Failed to load exam");
       } finally {
         setLoading(false);
       }
@@ -585,13 +585,13 @@ export const PublicQuizPage = () => {
         if (!hasStarted) {
           const why = [];
           if (!session?.user) why.push("Google session not established");
-          if (!quiz) why.push("Quiz data not loaded");
-          if (quiz && questions.length === 0) why.push("No questions exist for this quiz");
+          if (!quiz) why.push("Exam data not loaded");
+          if (quiz && questions.length === 0) why.push("No questions exist for this exam");
           if (!googleStartRef.current && quiz && questions.length === 0) {
             googleStartRef.current = true; // block duplicate
           }
           setError(
-            "Could not automatically start the quiz. " +
+            "Could not automatically start the exam. " +
             (why.length > 0 ? `Reason: ${why.join(", ")}. ` : "") +
             "Please sign in again using the button below.",
           );
@@ -631,8 +631,8 @@ export const PublicQuizPage = () => {
         authDeadlineRef.current = null;
       }
       setError(
-        "This quiz currently has no questions available to take. " +
-        "Please contact your instructor to populate the quiz before attempting again.",
+        "This exam currently has no questions available to take. " +
+        "Please contact your instructor to populate the exam before attempting again.",
       );
     }
 
@@ -672,7 +672,7 @@ export const PublicQuizPage = () => {
     const isInstructorEmail = email.endsWith(instructorDomain);
     if (isInstructorEmail) {
       setError(
-        `You are currently signed in with an instructor account (${email}). To take this quiz as a student, please switch to a student account (e.g. ${studentDomain}).`,
+        `You are currently signed in with an instructor account (${email}). To take this exam as a student, please switch to a student account (e.g. ${studentDomain}).`,
       );
       await supabase.auth.signOut();
       setSession(null);
@@ -780,7 +780,7 @@ export const PublicQuizPage = () => {
         }
         throw new Error(attemptError.message);
       }
-      if (!attempt) throw new Error("Failed to create quiz attempt.");
+      if (!attempt) throw new Error("Failed to create exam attempt.");
 
       setAttemptId(attempt.id);
       await shuffleAndSaveOrder(questions, attempt.id);
@@ -809,7 +809,7 @@ export const PublicQuizPage = () => {
 
       setHasStarted(true);
     } catch (err) {
-      setError(err.message || "Failed to start quiz");
+      setError(err.message || "Failed to start exam");
     } finally {
       setAuthenticating(false);
     }
@@ -1025,10 +1025,10 @@ export const PublicQuizPage = () => {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-brand-navy mb-2">
-            Quiz Already Taken
+            Exam Already Taken
           </h1>
           <p className="text-gray-600 mb-6">
-            You have already completed this quiz. Each student is only allowed
+            You have already completed this exam. Each student is only allowed
             one attempt.
           </p>
           <button
@@ -1076,7 +1076,7 @@ export const PublicQuizPage = () => {
     return (
       <div className="flex h-screen flex-col items-center justify-center p-4 text-center bg-[url('/src/assets/bg.svg')] bg-cover bg-center overflow-auto py-12">
         <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-          Quiz Complete!
+          Exam Complete!
         </h1>
         <div className="mt-4 rounded-xl bg-full-white p-8 shadow-xl max-w-md w-full border border-gray-100 text-left">
           <div className="text-center">
@@ -1204,7 +1204,7 @@ export const PublicQuizPage = () => {
                 </p>
               )}
               <h1 className="text-2xl font-bold text-brand-navy">
-                {cleanTitle(quiz?.title) || "Loading Quiz..."}
+                {cleanTitle(quiz?.title) || "Loading Exam..."}
               </h1>
               {quiz?.description && (
                 <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">

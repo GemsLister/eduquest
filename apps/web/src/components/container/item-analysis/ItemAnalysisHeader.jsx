@@ -92,7 +92,7 @@ export const ItemAnalysisHeader = ({
           {/* Quiz/Subject Selection */}
           <div>
             <label htmlFor="ia-quiz" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              Select Quiz
+              Select Exam
             </label>
             <select
               id="ia-quiz"
@@ -103,10 +103,10 @@ export const ItemAnalysisHeader = ({
             >
               <option value="">
                 {loadingQuizzes
-                  ? "Loading quizzes..."
+                  ? "Loading exams..."
                   : !selectedSection
                     ? "Select a section first"
-                    : "Select a Quiz"}
+                    : "Select an Exam"}
               </option>
               {quizzes &&
                 quizzes.map((quiz) => (

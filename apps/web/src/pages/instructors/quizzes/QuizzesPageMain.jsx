@@ -171,42 +171,42 @@ export const QuizzesPageMain = () => {
           icon: "📝",
           title: "No Drafts",
           message:
-            'You don\'t have any draft quizzes. Click "+ Create Quiz" to get started!',
+            'You don\'t have any draft exams. Click "+ Create Exam" to get started!',
         };
       case "in_review":
         return {
           icon: "📋",
-          title: "No Quizzes In Review",
+          title: "No Exams In Review",
           message:
-            "None of your quizzes are currently in the review pipeline. Submit a draft to get started.",
+            "None of your exams are currently in the review pipeline. Submit a draft to get started.",
         };
       case "approved":
         return {
           icon: "✅",
           title: "Nothing Ready to Publish",
           message:
-            "Quizzes approved by the Department Head appear here so you can publish them.",
+            "Exams approved by the Department Head appear here so you can publish them.",
         };
       case "published":
         return {
           icon: "🚀",
-          title: "No Published Quizzes",
+          title: "No Published Exams",
           message:
-            "You haven't published any quizzes yet. Once approved, assign to sections and publish!",
+            "You haven't published any exams yet. Once approved, assign to sections and publish!",
         };
       case "archived":
         return {
           icon: "📦",
-          title: "No Archived Quizzes",
-          message: "You don't have any archived quizzes.",
+          title: "No Archived Exams",
+          message: "You don't have any archived exams.",
         };
       default:
         return {
           icon: "📝",
-          title: "No Quizzes Found",
+          title: "No Exams Found",
           message: search.trim()
-            ? `No quizzes match "${search.trim()}".`
-            : 'You haven\'t created any quizzes yet. Click "+ Create Quiz" to get started!',
+            ? `No exams match "${search.trim()}".`
+            : 'You haven\'t created any exams yet. Click "+ Create Exam" to get started!',
         };
     }
   };
@@ -215,7 +215,7 @@ export const QuizzesPageMain = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quizzes">
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading exams">
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
           <Skeleton tone="bg-white/20" className="h-4 w-36 rounded-md mb-2" />
           <Skeleton tone="bg-white/20" className="h-8 w-48 rounded-md mb-2" />
@@ -249,7 +249,7 @@ export const QuizzesPageMain = () => {
               {isAdminPath ? "Senior Faculty" : "Instructor Portal"}
             </p>
             <h1 className="text-2xl md:text-3xl font-black text-white">
-              My Quizzes
+              My Exams
             </h1>
             <p className="text-white/60 text-sm mt-1">
               {counts.all || 0} active {counts.all === 1 ? "quiz" : "quizzes"} · Create, manage, and publish assessments
@@ -271,7 +271,7 @@ export const QuizzesPageMain = () => {
           {/* Search Bar */}
           <div className="relative flex-1 max-w-md">
             <label htmlFor="quiz-search" className="sr-only">
-              Search quizzes
+              Search exams
             </label>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -290,7 +290,7 @@ export const QuizzesPageMain = () => {
             <input
               id="quiz-search"
               type="text"
-              placeholder="Search quizzes..."
+              placeholder="Search exams..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all shadow-xs"
@@ -481,7 +481,7 @@ export const QuizzesPageMain = () => {
                           <span className="font-bold">
                             {quiz.admin_review_feedback_source || "the reviewer"}
                           </span>
-                          . Open the quiz to see the comments.
+                          . Open the exam to see the comments.
                         </div>
                       )}
 
@@ -554,7 +554,7 @@ export const QuizzesPageMain = () => {
                           <button
                             onClick={async () => {
                               const confirmed = await confirm({
-                                title: "Publish this quiz?",
+                                title: "Publish this exam?",
                                 confirmText: "Publish",
                                 cancelText: "Cancel",
                                 variant: "info",
@@ -579,7 +579,7 @@ export const QuizzesPageMain = () => {
                           <button
                             onClick={async () => {
                               const confirmed = await confirm({
-                                title: "Archive this quiz?",
+                                title: "Archive this exam?",
                                 confirmText: "Archive",
                                 cancelText: "Cancel",
                                 variant: "warning",
@@ -587,7 +587,7 @@ export const QuizzesPageMain = () => {
                               if (confirmed) handleArchiveQuiz(quiz.id);
                             }}
                             className="px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
-                            title="Archive this quiz"
+                            title="Archive this exam"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"

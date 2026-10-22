@@ -41,7 +41,7 @@ export const populateStudentBloomsPerformance = async (sectionId = null, quizId 
     
     if (!attempts || attempts.length === 0) {
       console.log('No quiz attempts found');
-      return { success: false, message: 'No quiz attempts found' };
+      return { success: false, message: 'No exam attempts found' };
     }
     
     // Get quiz responses with questions

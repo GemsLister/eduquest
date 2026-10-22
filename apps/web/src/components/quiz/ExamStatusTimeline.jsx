@@ -13,7 +13,7 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
   const milestones = [
     {
       key: "created",
-      title: "Quiz Created",
+      title: "Exam Created",
       description: "Initial draft & question configuration",
       isDone: true,
       activeColor: "bg-brand-navy text-white",
@@ -41,7 +41,7 @@ export const ExamStatusTimeline = ({ submission, historyLogs = [] }) => {
     },
     {
       key: "approved",
-      title: currentStatus === "revision_requested" ? "Revision Requested" : "Quiz Approved",
+      title: currentStatus === "revision_requested" ? "Revision Requested" : "Exam Approved",
       description: currentStatus === "revision_requested" ? "Requires changes before publishing" : "Ready for examination use",
       isDone: ["faculty_head_approved", "approved", "revision_requested"].includes(currentStatus),
       activeColor: currentStatus === "revision_requested" ? "bg-orange-600 text-white" : "bg-green-600 text-white",

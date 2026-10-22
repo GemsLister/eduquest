@@ -22,6 +22,13 @@ const REVIEW_LOCKED_STATUSES = ["pending", "faculty_head_review", "approved", "f
 const isUnsavedQuestionId = (id) =>
   typeof id === "number" || String(id).startsWith("restored-");
 
+// Grow a textarea to fit its content so long questions are fully visible
+const autoGrow = (el) => {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+};
+
 const transformQuestions = (rows) => {
   const seenIds = new Set();
   const uniqueRows = (rows || []).filter((q) => {
@@ -497,11 +504,11 @@ export const InstructorQuiz = () => {
       const result = await saveQuizRef.current?.(false, false, { keepRoute: true });
       if (cancelled) return;
       if (result && !result.error) {
-        notify.success("Quiz saved.");
+        notify.success("Exam saved.");
         leaveBlocker.proceed();
         return;
       }
-      notify.error(result?.error || "The quiz couldn't be saved.");
+      notify.error(result?.error || "The exam couldn't be saved.");
       const leaveAnyway = await confirm({
         title: "Couldn't save. Leave without saving?",
         confirmText: "Leave Without Saving",
@@ -650,7 +657,7 @@ export const InstructorQuiz = () => {
       return;
     }
     if (selectedSectionIds.length === 0) {
-      notify.warning("Select at least one section for this quiz.");
+      notify.warning("Select at least one section for this exam.");
       return;
     }
     try {
@@ -680,13 +687,13 @@ export const InstructorQuiz = () => {
       
       if (error) throw error;
       
-      notify.success(`Quiz shared with ${data || 0} section(s)`);
+      notify.success(`Exam shared with ${data || 0} section(s)`);
       
       // Reload sections and tokens
       loadQuiz();
     } catch (err) {
       console.error("Auto-share failed:", err);
-      notify.error("Failed to auto-share quiz: " + err.message);
+      notify.error("Failed to auto-share exam: " + err.message);
     } finally {
       setAutoSharing(false);
     }
@@ -740,11 +747,11 @@ export const InstructorQuiz = () => {
         .single();
 
       if (quizError) throw quizError;
-      if (!quiz) throw new Error("Quiz not found");
+      if (!quiz) throw new Error("Exam not found");
 
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (quiz.is_private !== false && currentUser?.id && quiz.instructor_id !== currentUser.id) {
-        notify.error("Permission denied: This quiz is private and can only be accessed by its owner.");
+        notify.error("Permission denied: This exam is private and can only be accessed by its owner.");
         navigate(quizzesPath);
         return;
       }
@@ -984,7 +991,7 @@ export const InstructorQuiz = () => {
       setQuestions(transformQuestions(finalRows));
       setTimeout(() => { initialLoadDone.current = true; }, 100);
     } catch (err) {
-      setError(err.message || "Failed to load quiz");
+      setError(err.message || "Failed to load exam");
       console.error(err);
     } finally {
       setLoading(false);
@@ -1157,10 +1164,10 @@ export const InstructorQuiz = () => {
 
     if (isLocked) {
       const err = isPublished
-        ? "This quiz is published and can no longer be edited."
+        ? "This exam is published and can no longer be edited."
         : isNotOwner
-          ? "Only the quiz owner can edit this quiz."
-          : "This quiz is under review and can't be edited until the review is finished.";
+          ? "Only the exam owner can edit this exam."
+          : "This exam is under review and can't be edited until the review is finished.";
       reportError(err);
       return { error: err };
     }
@@ -1176,7 +1183,7 @@ export const InstructorQuiz = () => {
     }
 
     if (!quizTitle.trim()) {
-      const err = "Quiz title is required";
+      const err = "Exam title is required";
       reportError(err);
       setSaveStatus("");
       return { error: err };
@@ -1337,7 +1344,7 @@ export const InstructorQuiz = () => {
 
         if (updateError) throw updateError;
         if (!data || data.length === 0) {
-          throw new Error("You don't have permission to edit this quiz.");
+          throw new Error("You don't have permission to edit this exam.");
         }
         quizData = data[0];
 
@@ -1425,7 +1432,7 @@ export const InstructorQuiz = () => {
 
         if (quizError) throw quizError;
         if (!newQuiz || newQuiz.length === 0)
-          throw new Error("Failed to create quiz");
+          throw new Error("Failed to create exam");
         quizData = newQuiz[0];
 
         // Log quiz creation in workflow history & audit log
@@ -1433,7 +1440,7 @@ export const InstructorQuiz = () => {
           await supabase.rpc("log_quiz_status_change", {
             p_quiz_id: quizData.id,
             p_new_status: publish ? "published" : "draft",
-            p_reason: publish ? "Quiz created and published live" : "Quiz created by instructor",
+            p_reason: publish ? "Exam created and published live" : "Exam created by instructor",
           });
 
           await logAudit({
@@ -1443,7 +1450,7 @@ export const InstructorQuiz = () => {
             itemName: quizTitle,
             previousStatus: null,
             newStatus: publish ? "published" : "draft",
-            reason: publish ? "Quiz created and published live" : "Quiz created by instructor",
+            reason: publish ? "Exam created and published live" : "Exam created by instructor",
           });
         } catch (hErr) {
           console.warn("Could not log quiz workflow history:", hErr);
@@ -1541,7 +1548,7 @@ export const InstructorQuiz = () => {
 
       if (publish) {
         setShowShareUrl(true);
-        setSaveStatus("Quiz published! Share URL generated.");
+        setSaveStatus("Exam published! Share URL generated.");
         setTimeout(() => setSaveStatus(""), 3000);
       } else {
         setSaveStatus("Draft saved!");
@@ -1560,7 +1567,7 @@ export const InstructorQuiz = () => {
       }
       return quizData || true;
     } catch (err) {
-      const msg = err.message || "Failed to save quiz";
+      const msg = err.message || "Failed to save exam";
       reportError(msg);
       setSaveStatus("");
       console.error("[handleSaveQuiz error]:", err);
@@ -1588,7 +1595,7 @@ export const InstructorQuiz = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading quiz">
+      <div className="flex-1 overflow-auto bg-authentic-white" aria-label="Loading exam">
         <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-5">
           <Skeleton tone="bg-white/20" className="h-7 w-64 max-w-full rounded-md mb-2" />
           <Skeleton tone="bg-white/20" className="h-4 w-96 max-w-full rounded-md" />
@@ -1609,32 +1616,32 @@ export const InstructorQuiz = () => {
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={leaveEditor}
-            aria-label="Back to quizzes"
+            aria-label="Back to exams"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Quizzes
+            Back to Exams
           </button>
           <span className="text-white/40">/</span>
           <span className="text-white/70 text-sm">
-            {quizId ? "Edit Quiz" : "New Quiz"}
+            {quizId ? "Edit Exam" : "New Exam"}
           </span>
         </div>
 
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight">
-              {quizTitle || (quizId ? "Edit Quiz" : "New Quiz")}
+              {quizTitle || (quizId ? "Edit Exam" : "New Exam")}
             </h1>
             <p className="text-white/60 text-sm mt-1">
               {isPublished
-                ? "Published quiz - view results and share links"
+                ? "Published exam - view results and share links"
                 : isReviewLocked
                   ? "In the review process - read-only until the review is finished"
                   : isNotOwner
-                    ? "Shared quiz - read-only"
+                    ? "Shared exam - read-only"
                     : "Draft - add questions and submit for review when ready"}
             </p>
           </div>
@@ -1699,7 +1706,7 @@ export const InstructorQuiz = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            {showShareUrl ? "Quiz Published Successfully!" : "Share Links"}
+            {showShareUrl ? "Exam Published Successfully!" : "Share Links"}
           </h3>
           <p className="text-gray-700 mb-4">
             Each section has its own unique share code. Share the corresponding code with each section:
@@ -1745,7 +1752,7 @@ export const InstructorQuiz = () => {
           ) : (
             <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
               <p className="text-sm text-yellow-800 mb-3">
-                No section-specific share codes available. Make sure the quiz is assigned to sections.
+                No section-specific share codes available. Make sure the exam is assigned to sections.
               </p>
               {!isNotOwner && (
                 <button
@@ -1761,7 +1768,7 @@ export const InstructorQuiz = () => {
           
           {shareToken && (
             <p className="text-sm text-gray-600 mt-4 bg-white p-3 rounded border border-gray-200">
-              <strong>General Quiz Code:</strong>{" "}
+              <strong>General Exam Code:</strong>{" "}
               <code className="bg-gray-100 px-2 py-1 rounded font-mono">{shareToken}</code>
               {" "}(for legacy access)
             </p>
@@ -1771,16 +1778,16 @@ export const InstructorQuiz = () => {
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-xl font-bold text-brand-navy mb-4">
-          Quiz Information
+          Exam Information
         </h2>
 
         {isLocked && (
           <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-semibold">
             {isPublished
-              ? "This quiz is published and cannot be edited."
+              ? "This exam is published and cannot be edited."
               : isReviewLocked
-                ? "This quiz is in the review process and cannot be edited until the review is finished. If revisions are requested, use “Edit & Resubmit” from My Submissions."
-                : "This quiz belongs to another instructor and is read-only."}
+                ? "This exam is in the review process and cannot be edited until the review is finished. If revisions are requested, use “Edit & Resubmit” from My Submissions."
+                : "This exam belongs to another instructor and is read-only."}
           </div>
         )}
         <div className="space-y-4">
@@ -1806,7 +1813,7 @@ export const InstructorQuiz = () => {
           )}
           <div>
             <label htmlFor="quiz-edit-title" className="block text-sm font-semibold text-gray-700 mb-2">
-              Quiz Title *
+              Exam Title *
             </label>
             <input
               id="quiz-edit-title"
@@ -1827,7 +1834,7 @@ export const InstructorQuiz = () => {
               id="quiz-edit-description"
               value={quizDescription}
               onChange={(e) => { setQuizDescription(e.target.value); markDirty(); }}
-              placeholder="Enter quiz instructions or description for students (optional)"
+              placeholder="Enter exam instructions or description for students (optional)"
               disabled={isLocked}
               rows={3}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 resize-none ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
@@ -1851,7 +1858,7 @@ export const InstructorQuiz = () => {
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Quiz Visibility Setting
+              Exam Visibility Setting
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label
@@ -1877,7 +1884,7 @@ export const InstructorQuiz = () => {
                     Private <span className="text-[10px] font-normal px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded">Default</span>
                   </span>
                   <span className="block text-xs text-gray-500 mt-0.5">
-                    Only you can see this quiz and its questions. Hidden from all other instructors and Question Bank.
+                    Only you can see this exam and its questions. Hidden from all other instructors and Question Bank.
                   </span>
                 </div>
               </label>
@@ -1985,7 +1992,7 @@ export const InstructorQuiz = () => {
               Assign to Sections
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Select which of your sections this quiz should appear in.
+              Select which of your sections this exam should appear in.
             </p>
 
             {mySections.length === 0 ? (
@@ -2206,7 +2213,7 @@ export const InstructorQuiz = () => {
                   tabIndex={0}
                   aria-expanded={expandedQuestions.has(question.id)}
                   aria-label={`Question ${idx + 1}: ${question.text || "Untitled question"}`}
-                  className="flex justify-between items-center cursor-pointer select-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                  className="flex justify-between items-start cursor-pointer select-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                   onClick={() => toggleQuestion(question.id)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -2215,18 +2222,18 @@ export const InstructorQuiz = () => {
                     }
                   }}
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
                     <svg
-                      className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${expandedQuestions.has(question.id) ? "rotate-90" : ""}`}
+                      className={`w-4 h-4 mt-1.5 text-gray-400 transition-transform flex-shrink-0 ${expandedQuestions.has(question.id) ? "rotate-90" : ""}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    <h3 className="text-lg font-semibold text-gray-800 truncate">
+                    <h3 className="text-lg font-semibold text-gray-800 break-words min-w-0">
                       {idx + 1}. {question.text || <span className="text-gray-400 italic">Untitled question</span>}
                     </h3>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2 mt-1">
                     {(() => {
                       const gadEval = analyzeGADQuestion(question.text || "", question.options);
                       return (
@@ -2328,6 +2335,8 @@ export const InstructorQuiz = () => {
                   </label>
                   <textarea
                     id={`question-text-${question.id}`}
+                    // Inline ref re-runs every render, so the height also follows Replace/Quick Fix edits
+                    ref={(el) => autoGrow(el)}
                     value={question.text}
                     onChange={(e) =>
                       updateQuestion(question.id, "text", e.target.value)
@@ -2335,7 +2344,7 @@ export const InstructorQuiz = () => {
                     placeholder="Enter the question"
                     rows="2"
                     disabled={isLocked}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg resize-none overflow-hidden focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                   />
                   {/* Real-time Gender-Fair Language / Bias Detection & Quick Fix */}
                   {(() => {
@@ -2593,7 +2602,7 @@ export const InstructorQuiz = () => {
             )}
             <button
               onClick={leaveEditor}
-              aria-label={quizId ? "Close the quiz editor" : "Cancel quiz creation"}
+              aria-label={quizId ? "Close the exam editor" : "Cancel exam creation"}
               className="px-4 py-2.5 rounded-lg font-semibold text-sm border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               {quizId ? "Close" : "Cancel"}

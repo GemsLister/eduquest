@@ -133,7 +133,7 @@ export const useLogin = () => {
       } else if (profile?.role === "student") {
         await supabase.auth.signOut();
         notify.error(
-          "Access Denied: Students should take quizzes via shared links.",
+          "Access Denied: Students should take exams via shared links.",
         );
         userData.onCaptchaReset?.();
       } else {

@@ -30,7 +30,7 @@ const sections = [
     children: [
       { name: "Subjects", path: "/admin-dashboard/subjects", match: ["/admin-dashboard/section"] },
       {
-        name: "My Quizzes",
+        name: "My Exams",
         path: "/admin-dashboard/quizzes",
         match: ["/admin-dashboard/create-quiz", "/admin-dashboard/quiz-results"],
       },

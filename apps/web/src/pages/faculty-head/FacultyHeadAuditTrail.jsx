@@ -456,7 +456,7 @@ export const FacultyHeadAuditTrail = () => {
                 <input
                   id="audit-search"
                   type="text"
-                  placeholder="Search quiz, person, action, feedback..."
+                  placeholder="Search exam, person, action, feedback..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`${fieldInput} pl-10 pr-10`}
@@ -572,7 +572,7 @@ export const FacultyHeadAuditTrail = () => {
                     <tr>
                       <th className="px-5 py-3.5 text-left">Timestamp</th>
                       <th className="px-5 py-3.5 text-left">Action</th>
-                      <th className="px-5 py-3.5 text-left">Quiz / Context</th>
+                      <th className="px-5 py-3.5 text-left">Exam / Context</th>
                       <th className="px-5 py-3.5 text-left">Performed By</th>
                       <th className="px-5 py-3.5 text-left">Area</th>
                       <th className="px-5 py-3.5 text-right">

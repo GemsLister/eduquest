@@ -136,7 +136,7 @@ export const InstructorSubjectAssignmentManager = () => {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-2">Instructor Subject Assignments</h2>
         <p className="text-gray-600 text-sm">
-          Manage which instructors are assigned to each subject. Instructors in the same subject can view each other's quizzes.
+          Manage which instructors are assigned to each subject. Instructors in the same subject can view each other's exams.
         </p>
       </div>
 

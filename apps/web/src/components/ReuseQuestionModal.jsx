@@ -193,7 +193,7 @@ export const ReuseQuestionModal = ({
         }
       } catch (err) {
         console.error("Error fetching subject quizzes:", err);
-        notify.error("Failed to load quizzes: " + err.message);
+        notify.error("Failed to load exams: " + err.message);
         setQuizzes([]);
       } finally {
         setQuizzesLoading(false);
@@ -224,7 +224,7 @@ export const ReuseQuestionModal = ({
   const handleAddToExistingQuiz = async (e) => {
     e.preventDefault();
     if (!selectedQuizId) {
-      notify.warning("Please select a target quiz.");
+      notify.warning("Please select a target exam.");
       return;
     }
 
@@ -238,7 +238,7 @@ export const ReuseQuestionModal = ({
         .limit(1)
         .maybeSingle();
       if (REVIEW_LOCKED_STATUSES.includes(latestSub?.status)) {
-        notify.error("This quiz is in the review process and can't be changed.");
+        notify.error("This exam is in the review process and can't be changed.");
         return;
       }
 
@@ -321,7 +321,7 @@ export const ReuseQuestionModal = ({
       }
 
       const targetQuizObj = quizzes.find((qz) => qz.id === selectedQuizId);
-      const quizTitleText = targetQuizObj ? `"${targetQuizObj.title}"` : "selected quiz";
+      const quizTitleText = targetQuizObj ? `"${targetQuizObj.title}"` : "selected exam";
 
       if (failedCount > 0) {
         notify.error(
@@ -341,7 +341,7 @@ export const ReuseQuestionModal = ({
       onClose();
     } catch (err) {
       console.error("Error reusing question(s):", err);
-      notify.error("Failed to add question to quiz: " + err.message);
+      notify.error("Failed to add question to exam: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -350,7 +350,7 @@ export const ReuseQuestionModal = ({
   const handleCreateNewQuizAndAdd = async (e) => {
     e.preventDefault();
     if (!newQuizTitle.trim()) {
-      notify.warning("Quiz title is required.");
+      notify.warning("Exam title is required.");
       return;
     }
     if (!currentSubjectId) {
@@ -378,7 +378,7 @@ export const ReuseQuestionModal = ({
         .single();
 
       if (quizErr) throw quizErr;
-      if (!newQuiz) throw new Error("Failed to create new quiz.");
+      if (!newQuiz) throw new Error("Failed to create new exam.");
 
       // 2. Clone questions to the new quiz
       let addedCount = 0;
@@ -418,7 +418,7 @@ export const ReuseQuestionModal = ({
           `Created "${newQuiz.title}", but ${count - addedCount} question(s) couldn't be copied${lastError?.message ? `: ${lastError.message}` : "."}`,
         );
       } else {
-        notify.success(`Created new quiz "${newQuiz.title}" and added ${count} question(s).`);
+        notify.success(`Created new exam "${newQuiz.title}" and added ${count} question(s).`);
       }
 
       if (onSuccess) onSuccess(newQuiz.id);
@@ -434,7 +434,7 @@ export const ReuseQuestionModal = ({
       }
     } catch (err) {
       console.error("Error creating new quiz with reused question(s):", err);
-      notify.error("Failed to create quiz: " + err.message);
+      notify.error("Failed to create exam: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -457,7 +457,7 @@ export const ReuseQuestionModal = ({
               Reuse Question Bank Items
             </span>
             <h3 className="text-lg font-bold flex items-center gap-2">
-              <span>Reuse Question{count > 1 ? "s" : ""} in Quiz</span>
+              <span>Reuse Question{count > 1 ? "s" : ""} in Exam</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-gold text-brand-navy font-extrabold">
                 {count} Selected
               </span>
@@ -495,7 +495,7 @@ export const ReuseQuestionModal = ({
             )}
           </div>
           <span className="text-[11px] text-indigo-700 italic">
-            Questions can only be added to quizzes in the same subject.
+            Questions can only be added to exams in the same subject.
           </span>
         </div>
 
@@ -522,7 +522,7 @@ export const ReuseQuestionModal = ({
                 : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
-            Add to Existing Quiz ({quizzes.length})
+            Add to Existing Exam ({quizzes.length})
           </button>
           <button
             type="button"
@@ -533,7 +533,7 @@ export const ReuseQuestionModal = ({
                 : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
-            + Create New Quiz
+            + Create New Exam
           </button>
         </div>
 
@@ -543,20 +543,20 @@ export const ReuseQuestionModal = ({
             <form onSubmit={handleAddToExistingQuiz} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Select Quiz for {currentSubjectName}:
+                  Select Exam for {currentSubjectName}:
                 </label>
                 {quizzesLoading ? (
                   <div className="p-4 text-center text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div>
-                    Loading subject quizzes...
+                    Loading subject exams...
                   </div>
                 ) : quizzes.length === 0 ? (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
                     <p className="text-xs font-bold text-amber-900">
-                      No active quizzes found for {currentSubjectName}.
+                      No active exams found for {currentSubjectName}.
                     </p>
                     <p className="text-[11px] text-amber-700 mt-1">
-                      Switch to "+ Create New Quiz" tab above to create a new quiz for this subject.
+                      Switch to "+ Create New Exam" tab above to create a new exam for this subject.
                     </p>
                   </div>
                 ) : (
@@ -587,7 +587,7 @@ export const ReuseQuestionModal = ({
                   disabled={submitting || quizzes.length === 0 || !selectedQuizId}
                   className="px-6 py-2.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-xs font-extrabold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                 >
-                  {submitting ? "Adding..." : `Add ${count} Question${count > 1 ? "s" : ""} to Selected Quiz`}
+                  {submitting ? "Adding..." : `Add ${count} Question${count > 1 ? "s" : ""} to Selected Exam`}
                 </button>
               </div>
             </form>
@@ -595,11 +595,11 @@ export const ReuseQuestionModal = ({
             <form onSubmit={handleCreateNewQuizAndAdd} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Quiz Title <span className="text-red-500">*</span>
+                  Exam Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Unit 1 Quiz on Basic Concepts"
+                  placeholder="e.g. Unit 1 Exam on Basic Concepts"
                   value={newQuizTitle}
                   onChange={(e) => setNewQuizTitle(e.target.value)}
                   required
@@ -647,7 +647,7 @@ export const ReuseQuestionModal = ({
                   disabled={submitting || !newQuizTitle.trim()}
                   className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-extrabold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                 >
-                  {submitting ? "Creating & Adding..." : `Create Quiz & Add ${count} Question${count > 1 ? "s" : ""}`}
+                  {submitting ? "Creating & Adding..." : `Create Exam & Add ${count} Question${count > 1 ? "s" : ""}`}
                 </button>
               </div>
             </form>

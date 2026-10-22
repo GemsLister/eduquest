@@ -781,7 +781,7 @@ export const ItemAnalysisPage = () => {
                   No responses found
                 </p>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  This quiz has no completed attempts for the selected filters yet. Share the quiz link to collect responses before running the analysis.
+                  This exam has no completed attempts for the selected filters yet. Share the exam link to collect responses before running the analysis.
                 </p>
               </div>
             );

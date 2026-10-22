@@ -192,7 +192,7 @@ export const AdminDashboard = () => {
 
       const enriched = submissions.map((s) => ({
         ...s,
-        quizTitle: quizMap.get(s.quiz_id) || "Untitled Quiz",
+        quizTitle: quizMap.get(s.quiz_id) || "Untitled Exam",
         instructorName: profileMap.get(s.instructor_id) || "Unknown",
       }));
 
@@ -537,7 +537,7 @@ export const AdminDashboard = () => {
                 Exam Reviews
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Review pending quiz analyses
+                Review pending exam analyses
               </p>
             </button>
 
@@ -696,7 +696,7 @@ export const AdminDashboard = () => {
                           </span>
                         </div>
                         <span className="text-sm font-bold text-green-600">
-                          {tosCompliance.compliant} quizzes
+                          {tosCompliance.compliant} exams
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -707,7 +707,7 @@ export const AdminDashboard = () => {
                           </span>
                         </div>
                         <span className="text-sm font-bold text-red-600">
-                          {tosCompliance.nonCompliant} quizzes
+                          {tosCompliance.nonCompliant} exams
                         </span>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
@@ -715,7 +715,7 @@ export const AdminDashboard = () => {
                           Total Approved
                         </span>
                         <span className="text-sm font-bold text-gray-700">
-                          {tosCompliance.total} quizzes
+                          {tosCompliance.total} exams
                         </span>
                       </div>
                     </div>
@@ -727,7 +727,7 @@ export const AdminDashboard = () => {
                       <span className="font-semibold text-gray-700">
                         30% LOTS / 70% HOTS
                       </span>{" "}
-                      distribution with 5% tolerance. Quizzes outside this range
+                      distribution with 5% tolerance. Exams outside this range
                       are flagged as non-compliant.
                     </p>
                   </div>
@@ -754,7 +754,7 @@ export const AdminDashboard = () => {
                     No Compliance Data Yet
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    TOS compliance will appear once quizzes are approved.
+                    TOS compliance will appear once exams are approved.
                   </p>
                 </div>
               )}
@@ -803,7 +803,7 @@ export const AdminDashboard = () => {
                     No Submissions Yet
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Submissions will appear here when instructors submit quizzes
+                    Submissions will appear here when instructors submit exams
                     for review.
                   </p>
                 </div>

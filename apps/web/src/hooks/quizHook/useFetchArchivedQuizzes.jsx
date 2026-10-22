@@ -58,10 +58,10 @@ export const useFetchArchivedQuizzes = () => {
       if (error) throw error;
 
       await fetchArchivedQuizzes();
-      notify.success("Quiz restored successfully!");
+      notify.success("Exam restored successfully!");
     } catch (error) {
       console.error("Error restoring quiz:", error);
-      notify.error("Error restoring quiz: " + error.message);
+      notify.error("Error restoring exam: " + error.message);
     }
   };
 

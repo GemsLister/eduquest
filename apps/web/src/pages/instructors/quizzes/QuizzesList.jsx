@@ -29,7 +29,7 @@ export const QuizzesList = ({
   const copyLink = (quiz) => {
     if (!quiz.share_token) {
       notify.warning(
-        "This quiz doesn't have a share link yet. Please publish the quiz first.",
+        "This exam doesn't have a share link yet. Please publish the exam first.",
       );
       return;
     }
@@ -66,10 +66,10 @@ export const QuizzesList = ({
             </svg>
           </div>
           <h3 className="text-xl font-bold text-brand-navy mb-2">
-            No Quizzes Yet
+            No Exams Yet
           </h3>
           <p className="text-gray-500 text-sm mb-4">
-            Create a quiz and assign it to this section, then publish it after it is approved.
+            Create an exam and assign it to this section, then publish it after it is approved.
           </p>
           <button
             type="button"
@@ -82,7 +82,7 @@ export const QuizzesList = ({
             }
             className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
-            Go to Quizzes
+            Go to Exams
           </button>
         </div>
       ) : (
@@ -241,7 +241,7 @@ export const QuizzesList = ({
                               ? "bg-green-500"
                               : "bg-gray-300"
                         }`}
-                        title={isOpen ? "Click to close quiz" : "Click to open quiz"}
+                        title={isOpen ? "Click to close exam" : "Click to open exam"}
                       >
                         <span
                           className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
@@ -296,7 +296,7 @@ export const QuizzesList = ({
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "bg-red-50 text-red-500 hover:bg-red-100 border border-red-200"
                       }`}
-                      title="Archive this quiz"
+                      title="Archive this exam"
                     >
                       {archivingQuizId === quiz.id ? (
                         "..."

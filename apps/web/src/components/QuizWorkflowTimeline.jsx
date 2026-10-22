@@ -75,7 +75,7 @@ export const QuizWorkflowTimeline = () => {
             return {
               history_id: h.id,
               quiz_id: h.quiz_id,
-              quiz_title: h.quizzes?.title || "Untitled Quiz",
+              quiz_title: h.quizzes?.title || "Untitled Exam",
               quiz_status: h.quizzes?.status || h.new_status,
               is_private: h.quizzes?.is_private || false,
               owner_id: h.quizzes?.instructor_id,
@@ -164,20 +164,20 @@ export const QuizWorkflowTimeline = () => {
       case "draft":
         if (prevStatus === "rejected" || prevStatus === "revision_requested") {
           return {
-            title: "Quiz Sent Back for Revision",
+            title: "Exam Sent Back for Revision",
             badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
             icon: "📝",
           };
         }
         return {
-          title: "Quiz Created / Saved as Draft",
+          title: "Exam Created / Saved as Draft",
           badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
           icon: "✏️",
         };
       case "submitted_for_review":
       case "waiting_for_approval":
         return {
-          title: prevStatus === "rejected" ? "Quiz Resubmitted for Approval" : "Quiz Submitted for Approval",
+          title: prevStatus === "rejected" ? "Exam Resubmitted for Approval" : "Exam Submitted for Approval",
           badgeClass: "bg-amber-100 text-amber-900 border-amber-300",
           icon: "📤",
         };
@@ -190,26 +190,26 @@ export const QuizWorkflowTimeline = () => {
       case "approved":
       case "faculty_head_approved":
         return {
-          title: "Quiz Approved by Department Head",
+          title: "Exam Approved by Department Head",
           badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300",
           icon: "✅",
         };
       case "rejected":
       case "revision_requested":
         return {
-          title: "Quiz Returned / Rejected for Revision",
+          title: "Exam Returned / Rejected for Revision",
           badgeClass: "bg-red-100 text-red-900 border-red-300",
           icon: "⚠️",
         };
       case "published":
         return {
-          title: "Quiz Published Live",
+          title: "Exam Published Live",
           badgeClass: "bg-green-100 text-green-900 border-green-300",
           icon: "🚀",
         };
       case "archived":
         return {
-          title: "Quiz Archived",
+          title: "Exam Archived",
           badgeClass: "bg-gray-200 text-gray-800 border-gray-300",
           icon: "📦",
         };
@@ -276,7 +276,7 @@ export const QuizWorkflowTimeline = () => {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search quiz title, user, or reason..."
+                placeholder="Search exam title, user, or reason..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold"
@@ -342,14 +342,14 @@ export const QuizWorkflowTimeline = () => {
         <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200 shadow-xs">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-gold mb-3"></div>
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Loading Quiz Workflow History...
+            Loading Exam Workflow History...
           </p>
         </div>
       ) : filteredEvents.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
           <span className="text-4xl mb-2 block">📜</span>
           <h3 className="text-base font-bold text-slate-800">
-            No Quiz Workflow Events Found
+            No Exam Workflow Events Found
           </h3>
           <p className="text-xs text-slate-500 mt-1">
             Try adjusting your search query or dropdown filters above.
@@ -382,7 +382,7 @@ export const QuizWorkflowTimeline = () => {
                       </span>
                       {ev.is_private && (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          🔒 Private Quiz
+                          🔒 Private Exam
                         </span>
                       )}
                     </div>
@@ -407,7 +407,7 @@ export const QuizWorkflowTimeline = () => {
                         {ev.quiz_title}
                       </h4>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Quiz Owner: <strong>{ev.owner_name}</strong>
+                        Exam Owner: <strong>{ev.owner_name}</strong>
                       </p>
                     </div>
 

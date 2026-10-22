@@ -131,7 +131,7 @@ export const SectionDetail = () => {
           <div className="flex items-center gap-3">
             <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
               <p className="text-2xl font-black text-white">{displayedQuizzes.length}</p>
-              <p className="text-white/60 text-xs font-semibold">Quizzes</p>
+              <p className="text-white/60 text-xs font-semibold">Exams</p>
             </div>
             <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 text-center">
               <p className="text-2xl font-black text-white">{openCount}</p>
@@ -152,12 +152,12 @@ export const SectionDetail = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            <span>Section Quizzes</span>
+            <span>Section Exams</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {quizScope === "mine"
-              ? "Showing published quizzes you created for this section"
-              : "Showing every published quiz in this section, including ones shared from other sections of the same subject"}
+              ? "Showing published exams you created for this section"
+              : "Showing every published exam in this section, including ones shared from other sections of the same subject"}
           </p>
         </div>
 
@@ -222,14 +222,14 @@ export const SectionDetail = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>
-                You haven't published any quizzes for this section yet, but <strong>{allPublishedQuizzes.length}</strong> published {allPublishedQuizzes.length === 1 ? "quiz is" : "quizzes are"} shared with it.
+                You haven't published any exams for this section yet, but <strong>{allPublishedQuizzes.length}</strong> published {allPublishedQuizzes.length === 1 ? "exam is" : "exams are"} shared with it.
               </span>
             </div>
             <button
               onClick={() => setQuizScope("all_published")}
               className="px-4 py-1.5 bg-brand-navy hover:bg-brand-indigo text-white rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
-              View All Published Quizzes
+              View All Published Exams
             </button>
           </div>
         )}

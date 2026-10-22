@@ -253,7 +253,7 @@ export const InstructorAuditTrail = () => {
                       {log.table_name === 'quizzes' && log.quiz ? (
                         <div>
                           <div className="font-semibold text-gray-800 text-sm">
-                            {log.quiz.title || "Untitled Quiz"}
+                            {log.quiz.title || "Untitled Exam"}
                           </div>
                           {log.quiz.status && (
                             <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-medium">
@@ -321,7 +321,7 @@ export const InstructorAuditTrail = () => {
                   {log.table_name === 'quizzes' && log.quiz && (
                     <div className="mb-2">
                       <span className="text-sm font-semibold text-gray-800">
-                        {log.quiz.title || "Untitled Quiz"}
+                        {log.quiz.title || "Untitled Exam"}
                       </span>
                       {log.quiz.status && (
                         <span className="ml-2 inline-block px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-medium">
