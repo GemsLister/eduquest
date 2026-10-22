@@ -511,8 +511,8 @@ export const QuizzesPageMain = () => {
                               onClick={() =>
                                 navigate(
                                   location.pathname.startsWith("/admin-dashboard")
-                                    ? `/admin-dashboard/quiz-results/${quiz.id}`
-                                    : `/instructor-dashboard/quiz-results/${quiz.id}`,
+                                    ? `/admin-dashboard/exam-results/${quiz.id}`
+                                    : `/instructor-dashboard/exam-results/${quiz.id}`,
                                 )
                               }
                               className="flex-1 bg-brand-navy text-white py-2 rounded-lg text-xs font-bold hover:bg-brand-indigo transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
@@ -523,8 +523,8 @@ export const QuizzesPageMain = () => {
                               onClick={() =>
                                 navigate(
                                   location.pathname.startsWith("/admin-dashboard")
-                                    ? `/admin-dashboard/create-quiz/${quiz.id}`
-                                    : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                                    ? `/admin-dashboard/create-exam/${quiz.id}`
+                                    : `/instructor-dashboard/instructor-exam/${quiz.id}`,
                                 )
                               }
                               className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -537,8 +537,8 @@ export const QuizzesPageMain = () => {
                             onClick={() =>
                               navigate(
                                 location.pathname.startsWith("/admin-dashboard")
-                                  ? `/admin-dashboard/create-quiz/${quiz.id}`
-                                  : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                                  ? `/admin-dashboard/create-exam/${quiz.id}`
+                                  : `/instructor-dashboard/instructor-exam/${quiz.id}`,
                               )
                             }
                             className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"

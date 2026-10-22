@@ -230,8 +230,8 @@ export const ItemAnalysisPage = () => {
     if (!selectedQuiz) return;
     navigate(
       location.pathname.startsWith("/admin-dashboard")
-        ? `/admin-dashboard/create-quiz/${selectedQuiz}`
-        : `/instructor-dashboard/instructor-quiz/${selectedQuiz}`,
+        ? `/admin-dashboard/create-exam/${selectedQuiz}`
+        : `/instructor-dashboard/instructor-exam/${selectedQuiz}`,
     );
   };
 

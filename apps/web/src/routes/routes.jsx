@@ -19,13 +19,19 @@ import { Layout } from "../components/container/Layout.jsx";
 import { AdminLayout } from "../components/container/AdminLayout.jsx";
 import { FacultyHeadLayout } from "../components/container/FacultyHeadLayout.jsx";
 import { NotFoundPage } from "../pages/NotFoundPage.jsx";
+import { LegacyExamRedirect } from "../components/LegacyExamRedirect.jsx";
 
 export const router = createBrowserRouter(
   [
-    // Public quiz route (no authentication required)
+    // Public exam route (no authentication required)
     {
-      path: "/quiz/:shareToken",
+      path: "/exam/:shareToken",
       element: <PublicQuizPage />,
+    },
+    {
+      // Exam links shared before the quiz-to-exam rename
+      path: "/quiz/*",
+      element: <LegacyExamRedirect />,
     },
     // For authentication routing
     {
@@ -66,25 +72,29 @@ export const router = createBrowserRouter(
               element: <InstructorIndex.SectionDetail />,
             },
             {
-              path: "quizzes",
+              path: "exams",
               element: <InstructorIndex.QuizzesPageMain />,
             },
             {
-              path: "instructor-quiz",
+              path: "instructor-exam",
               element: <InstructorIndex.InstructorQuiz />,
             },
             {
-              path: "instructor-quiz/:quizId",
+              path: "instructor-exam/:quizId",
               element: <InstructorIndex.InstructorQuiz />,
             },
             {
-              path: "quiz-results/:quizId",
+              path: "exam-results/:quizId",
               element: <InstructorIndex.QuizResults />,
             },
             {
-              path: "quiz-results/:quizId/attempt/:attemptId",
+              path: "exam-results/:quizId/attempt/:attemptId",
               element: <InstructorIndex.QuizResultDetail />,
             },
+            // Old "quiz" URLs (saved notifications, bookmarks)
+            { path: "quizzes", element: <LegacyExamRedirect /> },
+            { path: "instructor-quiz/*", element: <LegacyExamRedirect /> },
+            { path: "quiz-results/*", element: <LegacyExamRedirect /> },
             {
               // Replaced by the Question Bank
               path: "instructor-questions",
@@ -168,35 +178,40 @@ export const router = createBrowserRouter(
               element: <AdminIndex.AdminRegistrationRequests />,
             },
             {
-              path: "quiz-reviews",
+              path: "exam-reviews",
               element: <AdminIndex.AdminQuizReviews />,
             },
             {
-              path: "quiz-reviews/:submissionId",
+              path: "exam-reviews/:submissionId",
               element: <AdminIndex.AdminQuizReviewDetail />,
             },
             {
-              path: "quizzes",
+              path: "exams",
               element: <InstructorIndex.QuizzesPageMain />,
             },
             {
-              path: "create-quiz",
+              path: "create-exam",
               element: <InstructorIndex.InstructorQuiz />,
             },
             {
-              path: "create-quiz/:quizId",
+              path: "create-exam/:quizId",
               element: <InstructorIndex.InstructorQuiz />,
             },
+            // Old "quiz" URLs (saved notifications, bookmarks)
+            { path: "quiz-reviews/*", element: <LegacyExamRedirect /> },
+            { path: "quizzes", element: <LegacyExamRedirect /> },
+            { path: "create-quiz/*", element: <LegacyExamRedirect /> },
+            { path: "quiz-results/*", element: <LegacyExamRedirect /> },
             {
               path: "my-submissions",
               element: <InstructorIndex.MySubmissions />,
             },
             {
-              path: "quiz-results/:quizId",
+              path: "exam-results/:quizId",
               element: <InstructorIndex.QuizResults />,
             },
             {
-              path: "quiz-results/:quizId/attempt/:attemptId",
+              path: "exam-results/:quizId/attempt/:attemptId",
               element: <InstructorIndex.QuizResultDetail />,
             },
             {
@@ -241,13 +256,15 @@ export const router = createBrowserRouter(
               element: <FacultyHeadIndex.FacultyHeadDashboard />,
             },
             {
-              path: "quiz-approvals",
+              path: "exam-approvals",
               element: <FacultyHeadIndex.FacultyHeadQuizApprovals />,
             },
             {
-              path: "quiz-approvals/:submissionId",
+              path: "exam-approvals/:submissionId",
               element: <FacultyHeadIndex.FacultyHeadApprovalDetail />,
             },
+            // Old "quiz" URLs (saved notifications, bookmarks)
+            { path: "quiz-approvals/*", element: <LegacyExamRedirect /> },
             {
               path: "subject-requests",
               element: <FacultyHeadIndex.FacultyHeadSubjectRequests />,

@@ -158,7 +158,8 @@ export const adminService = {
           .select("id, action, table_name, record_id, item_name, section_name, new_values, previous_status, new_status, created_at")
           .eq("user_id", instructorId)
           .order("created_at", { ascending: false })
-          .limit(20),
+          // Paginated on the page; the full history is in the Audit Trail
+          .limit(100),
       ]);
 
     const firstError = [sectionsRes, quizzesRes, submissionsRes, reviewsRes, activityRes].find(

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
+import { toExamPath } from "../utils/legacyRoutes.js";
 
 /**
  * Notification links are written by whoever triggers them and often point at
@@ -11,7 +12,8 @@ import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
  */
 const resolveNotificationLink = (link, pathname) => {
   if (!link) return null;
-  const target = link.replace(/^\/faculty-head\//, "/faculty-head-dashboard/");
+  // Saved links may still use the old "quiz" URLs
+  const target = toExamPath(link.replace(/^\/faculty-head\//, "/faculty-head-dashboard/"));
 
   // Department Head pages aren't reachable from the other portals; send the
   // reader to their own Subjects page (subject-request updates) instead.
@@ -22,10 +24,10 @@ const resolveNotificationLink = (link, pathname) => {
   if (pathname.startsWith("/admin-dashboard") && target.startsWith("/instructor-dashboard")) {
     const rest = target.slice("/instructor-dashboard".length);
     const peer = rest.match(/^\/peer-reviews(\/[^?]*)?/);
-    if (peer) return `/admin-dashboard/quiz-reviews${peer[1] || ""}`;
+    if (peer) return `/admin-dashboard/exam-reviews${peer[1] || ""}`;
     if (rest === "" || rest === "/") return "/admin-dashboard/subjects";
-    if (rest.startsWith("/instructor-quiz")) {
-      return `/admin-dashboard/create-quiz${rest.slice("/instructor-quiz".length)}`;
+    if (rest.startsWith("/instructor-exam")) {
+      return `/admin-dashboard/create-exam${rest.slice("/instructor-exam".length)}`;
     }
     if (rest.startsWith("/instructor-profile")) return "/admin-dashboard/profile";
     return `/admin-dashboard${rest}`;

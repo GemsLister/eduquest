@@ -326,7 +326,7 @@ export const FacultyHeadApprovalDetail = () => {
         },
       });
       notify.success("Exam approved successfully!");
-      navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.APPROVED}`);
+      navigate(`/faculty-head-dashboard/exam-approvals?tab=${HEAD_STATUSES.APPROVED}`);
     } catch (err) {
       console.error("Error approving submission:", err);
       notify.error("Failed to approve submission");
@@ -430,7 +430,7 @@ export const FacultyHeadApprovalDetail = () => {
       });
 
       notify.success("Revision requested successfully!");
-      navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.RETURNED}`);
+      navigate(`/faculty-head-dashboard/exam-approvals?tab=${HEAD_STATUSES.RETURNED}`);
     } catch (err) {
       console.error("Error requesting revision:", err);
       notify.error("Failed to submit revision request.");
@@ -513,7 +513,7 @@ export const FacultyHeadApprovalDetail = () => {
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 text-center">
           <p className="text-rose-700 text-sm font-semibold">Submission not found.</p>
           <button
-            onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+            onClick={() => navigate("/faculty-head-dashboard/exam-approvals")}
             className="mt-4 px-4 py-2 bg-brand-navy hover:bg-brand-indigo text-white rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
           >
             Go Back
@@ -545,7 +545,7 @@ export const FacultyHeadApprovalDetail = () => {
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-brand-navy to-brand-indigo px-6 py-8">
         <button
-          onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+          onClick={() => navigate("/faculty-head-dashboard/exam-approvals")}
           aria-label="Back to exam approvals"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70"
         >

@@ -63,8 +63,8 @@ const ActorCell = ({ log }) => (
 // Senior Faculty open submissions in Exam Reviews, Department Heads in Quiz Approvals
 const useSubmissionBasePath = () =>
   useLocation().pathname.startsWith("/admin-dashboard")
-    ? "/admin-dashboard/quiz-reviews"
-    : "/faculty-head-dashboard/quiz-approvals";
+    ? "/admin-dashboard/exam-reviews"
+    : "/faculty-head-dashboard/exam-approvals";
 
 const EventDetails = ({ log }) => {
   const [showRaw, setShowRaw] = useState(false);

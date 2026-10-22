@@ -14,6 +14,13 @@ import { SubjectRequestForm } from "../../components/SubjectRequestForm.jsx";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import {
+  compareTermsDesc,
+  formatSchoolYear,
+  formatTerm,
+  getCurrentTerm,
+  isSameTerm,
+} from "../../utils/academicTerm.js";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -62,6 +69,10 @@ export const InstructorDashboard = () => {
   const [selectedSubjectKey, setSelectedSubjectKey] = useState(null);
   const [showSubjectRequestModal, setShowSubjectRequestModal] = useState(false);
   const [curriculumSubjects, setCurriculumSubjects] = useState([]);
+  const [currentTerm, setCurrentTerm] = useState(null);
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+  const [archivedYear, setArchivedYear] = useState("all");
+  const [archivedSemester, setArchivedSemester] = useState("all");
   const confirm = useConfirm();
   useEscapeKey(() => setEditModal(null), Boolean(editModal));
   const editTrapRef = useFocusTrap(Boolean(editModal));
@@ -129,26 +140,156 @@ export const InstructorDashboard = () => {
   }, [fetchCurriculumSubjects]);
 
   // Fetch archived sections on mount so the badge count is always available
-  useEffect(() => {
+  const fetchArchived = useCallback(async () => {
     if (!user?.id) return;
-    const fetchArchived = async () => {
-      setArchivedLoading(true);
-      try {
-        const { data } = await supabase
-          .from("sections")
-          .select("*, subjects(id, name, code, description)")
-          .eq("instructor_id", user.id)
-          .eq("is_archived", true)
-          .order("created_at", { ascending: false });
-        setArchivedSections(data || []);
-      } catch (err) {
-        console.error("Error loading archived sections:", err);
-      } finally {
-        setArchivedLoading(false);
-      }
-    };
-    fetchArchived();
+    setArchivedLoading(true);
+    try {
+      const { data } = await supabase
+        .from("sections")
+        .select("*, subjects(id, name, code, description)")
+        .eq("instructor_id", user.id)
+        .eq("is_archived", true)
+        .order("created_at", { ascending: false });
+      setArchivedSections(data || []);
+    } catch (err) {
+      console.error("Error loading archived sections:", err);
+    } finally {
+      setArchivedLoading(false);
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    fetchArchived();
+  }, [fetchArchived]);
+
+  useEffect(() => {
+    getCurrentTerm().then(setCurrentTerm);
+  }, []);
+
+  // Sections tagged with a term other than the current one (end-of-term reminder)
+  const pastTermSections = useMemo(
+    () =>
+      currentTerm
+        ? sections.filter((s) => s.school_year && s.semester && !isSameTerm(s, currentTerm))
+        : [],
+    [sections, currentTerm],
+  );
+  const pastTermLabels = [
+    ...new Set(
+      [...pastTermSections].sort(compareTermsDesc).map((s) => formatTerm(s.school_year, s.semester)),
+    ),
+  ];
+  const reminderKey = currentTerm
+    ? `eduquest.termReminderDismissed.${user?.id}.${currentTerm.school_year}.${currentTerm.semester}`
+    : null;
+  useEffect(() => {
+    if (!reminderKey) return;
+    try {
+      setReminderDismissed(localStorage.getItem(reminderKey) === "1");
+    } catch {
+      setReminderDismissed(false);
+    }
+  }, [reminderKey]);
+
+  const dismissReminder = () => {
+    setReminderDismissed(true);
+    try {
+      localStorage.setItem(reminderKey, "1");
+    } catch {
+      // Storage unavailable; the reminder just comes back next visit
+    }
+  };
+
+  // After archiving, drop the sections from the active list and reload the rest
+  const afterArchive = (archivedIds) => {
+    const ids = new Set(archivedIds);
+    setSections((prev) => prev.filter((s) => !ids.has(s.id)));
+    fetchArchived();
+    fetchCurriculumSubjects();
+  };
+
+  const handleArchiveSubject = async (sub) => {
+    const sectionIds = sub.sections.map((s) => s.id);
+    const openExams = new Set(
+      sub.sections.flatMap((sec) =>
+        (sectionQuizzes[sec.id] || []).filter((q) => q.is_open !== false).map((q) => q.id),
+      ),
+    );
+    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    const confirmed = await confirm({
+      // Only this user's sections; other instructors keep the subject
+      title:
+        `Archive ${sub.name}` +
+        (sectionIds.length ? ` and your ${plural(sectionIds.length, "section")}` : "") +
+        "?" +
+        (openExams.size ? ` ${plural(openExams.size, "open exam")} will close.` : ""),
+      confirmText: "Archive Subject",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      const { data, error } = await subjectService.archiveMySubject(sub.subject_id || sub.id);
+      if (error) throw error;
+      afterArchive(sectionIds);
+      setSelectedSubjectKey(null);
+      notify.success(
+        `${sub.name} archived` +
+          (data?.exams_closed ? ` and ${data.exams_closed} exam${data.exams_closed === 1 ? "" : "s"} closed.` : "."),
+      );
+    } catch (err) {
+      notify.error("Failed to archive subject: " + err.message);
+    }
+  };
+
+  const handleArchivePastTerm = async () => {
+    const count = pastTermSections.length;
+    const confirmed = await confirm({
+      title: `Archive ${count} section${count === 1 ? "" : "s"} from ${pastTermLabels.join(", ")}?`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      const ids = pastTermSections.map((s) => s.id);
+      const { data, error } = await subjectService.archiveMySections(ids);
+      if (error) throw error;
+      afterArchive(ids);
+      notify.success(
+        `Archived ${data?.sections_archived ?? count} section${(data?.sections_archived ?? count) === 1 ? "" : "s"} from past terms.`,
+      );
+    } catch (err) {
+      notify.error("Failed to archive sections: " + err.message);
+    }
+  };
+
+  const handleRestoreSubjectGroup = async (group) => {
+    try {
+      const { error } = await subjectService.restoreMySubject(
+        group.subjectId,
+        group.schoolYear,
+        group.semester,
+      );
+      if (error) throw error;
+      // The server restores every section of this subject and term, even ones hidden by search
+      const restored = archivedSections.filter(
+        (s) =>
+          (s.subject_id || s.subjects?.id) === group.subjectId &&
+          s.school_year === group.schoolYear &&
+          s.semester === group.semester,
+      );
+      const ids = new Set(restored.map((s) => s.id));
+      setArchivedSections((prev) => prev.filter((s) => !ids.has(s.id)));
+      setSections((prev) => [...restored.map((s) => ({ ...s, is_archived: false })), ...prev]);
+      fetchCurriculumSubjects();
+      notify.success(`${group.subjectName} restored!`);
+    } catch (err) {
+      notify.error("Failed to restore subject: " + err.message);
+    }
+  };
 
   const handleToggleArchived = () => {
     setShowArchived(!showArchived);
@@ -374,15 +515,51 @@ export const InstructorDashboard = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedSubjects = filteredSubjects.slice(startIndex, endIndex);
 
+  const archivedYearOptions = useMemo(
+    () =>
+      [...new Set(archivedSections.map((s) => s.school_year).filter(Boolean))].sort().reverse(),
+    [archivedSections],
+  );
+  const archivedSemesterOptions = useMemo(
+    () => [...new Set(archivedSections.map((s) => s.semester).filter(Boolean))].sort(),
+    [archivedSections],
+  );
+
+  // Archived sections grouped by subject and term, newest term first
   const filteredArchived = useMemo(() => {
-    if (!search.trim()) return archivedSections;
     const q = search.trim().toLowerCase();
-    return archivedSections.filter(
+    const matching = archivedSections.filter(
       (s) =>
-        s.name?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q),
+        (archivedYear === "all" || s.school_year === archivedYear) &&
+        (archivedSemester === "all" || s.semester === archivedSemester) &&
+        (!q ||
+          s.name?.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.subjects?.name?.toLowerCase().includes(q) ||
+          s.subjects?.code?.toLowerCase().includes(q)),
     );
-  }, [archivedSections, search]);
+    const groups = new Map();
+    matching.forEach((s) => {
+      const subjectId = s.subject_id || s.subjects?.id || null;
+      const key = `${subjectId || s.id}|${s.school_year || ""}|${s.semester || ""}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          subjectId,
+          subjectName: s.subjects?.name || s.name?.split(" - ")[0] || "No subject",
+          subjectCode: s.subjects?.code || "",
+          school_year: s.school_year || null,
+          semester: s.semester || null,
+          schoolYear: s.school_year || null,
+          sections: [],
+        });
+      }
+      groups.get(key).sections.push(s);
+    });
+    return [...groups.values()].sort(
+      (a, b) => compareTermsDesc(a, b) || a.subjectName.localeCompare(b.subjectName),
+    );
+  }, [archivedSections, search, archivedYear, archivedSemester]);
 
   const archivedTotalPages = Math.ceil(
     filteredArchived.length / ITEMS_PER_PAGE,
@@ -400,7 +577,7 @@ export const InstructorDashboard = () => {
 
   useEffect(() => {
     setArchivedPage(1);
-  }, [search, showArchived]);
+  }, [search, showArchived, archivedYear, archivedSemester]);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -452,6 +629,17 @@ export const InstructorDashboard = () => {
               {groupedSubjects.length} {groupedSubjects.length === 1 ? "subject" : "subjects"}{" "}
               ({sections.length} total assigned sections)
             </p>
+            {currentTerm && (
+              <p
+                className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/90 text-xs font-semibold"
+                title="Set by the Department Head in Settings, or worked out from today's date"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Current term: {formatTerm(currentTerm.school_year, currentTerm.semester)}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -476,6 +664,40 @@ export const InstructorDashboard = () => {
 
       {/* Main Content Area */}
       <div className="p-6">
+        {/* End-of-term reminder */}
+        {!showArchived && !reminderDismissed && pastTermSections.length > 0 && (
+          <div
+            role="status"
+            className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-amber-900 flex-1">
+              <strong>
+                {pastTermSections.length} section{pastTermSections.length === 1 ? " is" : "s are"} from a past term
+              </strong>{" "}
+              ({pastTermLabels.join(", ")}). Archive them now that the term is over? Exam results stay available.
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={dismissReminder}
+                className="px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                onClick={handleArchivePastTerm}
+                className="px-3 py-2 text-xs font-bold bg-brand-navy text-white rounded-lg hover:bg-brand-indigo transition-colors shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+              >
+                Archive {pastTermSections.length} section{pastTermSections.length === 1 ? "" : "s"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search and Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
@@ -554,7 +776,7 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              <span>{showArchived ? "Show Active Subjects" : "Archived Sections"}</span>
+              <span>{showArchived ? "Show Active Subjects" : "Archived"}</span>
               {!showArchived && archivedSections.length > 0 && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
@@ -724,21 +946,36 @@ export const InstructorDashboard = () => {
                           </div>
                         </div>
 
-                        {/* Action Button */}
-                        <button
-                          onClick={() => openSubject(sub)}
-                          disabled={sub.is_pending_request}
-                          className={`w-full py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${theme.button}`}
-                        >
-                          <span>
-                            {sub.is_pending_request
-                              ? "Pending Approval"
-                              : `View Sections (${sub.sections.length})`}
-                          </span>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openSubject(sub)}
+                            disabled={sub.is_pending_request}
+                            className={`flex-1 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${theme.button}`}
+                          >
+                            <span>
+                              {sub.is_pending_request
+                                ? "Pending Approval"
+                                : `View Sections (${sub.sections.length})`}
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                          </button>
+                          {!sub.is_pending_request && (sub.subject_id || sub.id) && (
+                            <button
+                              type="button"
+                              onClick={() => handleArchiveSubject(sub)}
+                              aria-label={`Archive ${sub.name}`}
+                              title="Archive this subject and your sections (only for you)"
+                              className="px-3 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-brand-navy transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </Container.SectionContainer>
@@ -816,8 +1053,50 @@ export const InstructorDashboard = () => {
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 />
               </svg>
-              Archived Sections
+              Archived Subjects & Sections
             </h2>
+
+            {archivedSections.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <label htmlFor="archived-year" className="sr-only">Filter by school year</label>
+                <select
+                  id="archived-year"
+                  value={archivedYear}
+                  onChange={(e) => setArchivedYear(e.target.value)}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs cursor-pointer"
+                >
+                  <option value="all">All School Years</option>
+                  {archivedYearOptions.map((y) => (
+                    <option key={y} value={y}>{formatSchoolYear(y)}</option>
+                  ))}
+                </select>
+                <label htmlFor="archived-semester" className="sr-only">Filter by semester</label>
+                <select
+                  id="archived-semester"
+                  value={archivedSemester}
+                  onChange={(e) => setArchivedSemester(e.target.value)}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 shadow-2xs cursor-pointer"
+                >
+                  <option value="all">All Semesters</option>
+                  {archivedSemesterOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                {(archivedYear !== "all" || archivedSemester !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArchivedYear("all");
+                      setArchivedSemester("all");
+                    }}
+                    className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            )}
+
             {archivedLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading archived sections">
                 <Skeleton className="h-20 w-full rounded-xl" />
@@ -827,34 +1106,57 @@ export const InstructorDashboard = () => {
             ) : filteredArchived.length === 0 ? (
               <div className="bg-white rounded-2xl p-8 text-center shadow-xs border border-slate-200">
                 <p className="text-gray-500 text-sm">
-                  {search.trim()
-                    ? "No archived sections match your search."
-                    : "No archived sections."}
+                  {archivedSections.length > 0
+                    ? "No archived sections match your search or filters."
+                    : "Nothing archived yet. When a semester ends, archive a subject to move it and your sections here."}
                 </p>
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {paginatedArchived.map((section) => (
+                  {paginatedArchived.map((group) => (
                     <div
-                      key={section.id}
-                      className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all p-4 flex items-center justify-between opacity-70 hover:opacity-100"
+                      key={group.key}
+                      className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg transition-all p-4 flex flex-col gap-3"
                     >
-                      <div>
-                        <h3 className="font-bold text-gray-700">
-                          {section.name}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {section.subjects?.name || section.description || "No subject"}
-                        </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-gray-800 truncate">{group.subjectName}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {formatTerm(group.school_year, group.semester)}
+                          </p>
+                        </div>
+                        {group.subjectCode && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold shrink-0">
+                            {group.subjectCode}
+                          </span>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleRestoreSection(section.id)}
-                        aria-label={`Restore ${section.name}`}
-                        className="px-3 py-1.5 bg-brand-gold text-brand-navy text-xs font-semibold rounded-lg hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                      >
-                        Restore
-                      </button>
+                      <ul className="space-y-1.5">
+                        {group.sections.map((section) => (
+                          <li
+                            key={section.id}
+                            className="flex items-center justify-between gap-2 text-xs bg-slate-50 rounded-lg px-3 py-2"
+                          >
+                            <span className="font-semibold text-slate-700 truncate">{section.name}</span>
+                            <button
+                              onClick={() => handleRestoreSection(section.id)}
+                              aria-label={`Restore ${section.name}`}
+                              className="text-[11px] font-bold text-brand-gold-dark hover:text-brand-navy shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                            >
+                              Restore
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      {group.subjectId && (
+                        <button
+                          onClick={() => handleRestoreSubjectGroup(group)}
+                          className="mt-auto w-full py-2 bg-brand-gold text-brand-navy text-xs font-bold rounded-lg hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
+                        >
+                          Restore Subject{group.sections.length > 1 ? ` & ${group.sections.length} Sections` : ""}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

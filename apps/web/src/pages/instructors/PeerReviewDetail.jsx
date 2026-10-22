@@ -250,7 +250,7 @@ export const PeerReviewDetail = () => {
             title: "New Exam Awaiting Final Approval",
             message: `Exam "${quizTitle}" has passed peer review and is awaiting your final department head approval.`,
             type: "info",
-            link: `/faculty-head-dashboard/quiz-approvals/${submissionId}`,
+            link: `/faculty-head-dashboard/exam-approvals/${submissionId}`,
           });
         } catch (nErr) {
           console.warn("Could not notify department heads:", nErr);

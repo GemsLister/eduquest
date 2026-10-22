@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { deriveSchoolYear, deriveSemester } from "./academicTerm.js";
 
 /**
  * Format item numbers into compact ranges
@@ -52,28 +53,6 @@ const loadImage = (src) =>
  * Generates and downloads a TOS (Table of Specifications) PDF report
  * matching the BUKSU school template format.
  */
-/**
- * Derive semester from a date based on Philippine academic calendar.
- * June-October = 1st Semester, November-March = 2nd Semester, April-May = Summer/Midyear
- */
-const deriveSemester = (date) => {
-  const month = date.getMonth(); // 0-indexed
-  if (month >= 5 && month <= 9) return "1st Semester";
-  if (month >= 10 || month <= 2) return "2nd Semester";
-  return "Summer";
-};
-
-/**
- * Derive school year from a date based on Philippine academic calendar.
- * June onwards = currentYear - (currentYear+1), before June = (currentYear-1) - currentYear
- */
-const deriveSchoolYear = (date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  if (month >= 5) return `${year}-${year + 1}`;
-  return `${year - 1}-${year}`;
-};
-
 export const exportBloomsPdf = async ({
   quizTitle,
   results,

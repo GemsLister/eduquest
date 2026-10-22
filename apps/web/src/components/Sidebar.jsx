@@ -78,8 +78,8 @@ const navSections = [
     children: [
       {
         name: "Exams",
-        path: "/instructor-dashboard/quizzes",
-        match: ["/instructor-dashboard/instructor-quiz", "/instructor-dashboard/quiz-results"],
+        path: "/instructor-dashboard/exams",
+        match: ["/instructor-dashboard/instructor-exam", "/instructor-dashboard/exam-results"],
       },
       { name: "Question Bank", path: "/instructor-dashboard/question-bank" },
       { name: "Item Analysis", path: "/instructor-dashboard/item-difficulty-analysis" },

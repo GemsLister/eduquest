@@ -305,7 +305,7 @@ export const AdminDashboard = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+            onClick={() => navigate("/admin-dashboard/exam-reviews")}
             className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 flex items-center gap-4 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <div className="w-12 h-12 rounded-xl bg-brand-navy/5 text-brand-navy flex items-center justify-center shrink-0">
@@ -507,7 +507,7 @@ export const AdminDashboard = () => {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
-              onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+              onClick={() => navigate("/admin-dashboard/exam-reviews")}
               className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
@@ -768,7 +768,7 @@ export const AdminDashboard = () => {
                 Recent Submissions
               </h2>
               <button
-                onClick={() => navigate("/admin-dashboard/quiz-reviews")}
+                onClick={() => navigate("/admin-dashboard/exam-reviews")}
                 className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 View All
@@ -813,7 +813,7 @@ export const AdminDashboard = () => {
                     <button
                       key={sub.id}
                       onClick={() =>
-                        navigate(`/admin-dashboard/quiz-reviews/${sub.id}`)
+                        navigate(`/admin-dashboard/exam-reviews/${sub.id}`)
                       }
                       aria-label={`Review ${sub.quizTitle} by ${sub.instructorName}`}
                       className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"

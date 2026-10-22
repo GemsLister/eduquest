@@ -6,6 +6,7 @@ import { useConfirm } from "../ui/ConfirmModal.jsx";
 import { Skeleton } from "../ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
+import { getProfileName } from "../../utils/profileName.js";
 
 const GRADE_LEVELS = ["1st", "2nd", "3rd", "4th"];
 const PAGE_SIZE = 10;
@@ -28,6 +29,7 @@ export const CurriculumSubjectsPanel = () => {
   const [editing, setEditing] = useState(null); // subject being edited
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [teachersBySubject, setTeachersBySubject] = useState(new Map());
 
   useEffect(() => {
     fetchSubjects();
@@ -41,12 +43,38 @@ export const CurriculumSubjectsPanel = () => {
 
   const fetchSubjects = async () => {
     try {
-      const { data, error } = await supabase
-        .from("subjects")
-        .select("id, name, code, grade_level, description, is_archived, created_at")
-        .order("name", { ascending: true });
-      if (error) throw error;
-      setSubjects(data || []);
+      const [subjectsRes, linksRes] = await Promise.all([
+        supabase
+          .from("subjects")
+          .select("id, name, code, grade_level, description, is_archived, created_at")
+          .order("name", { ascending: true }),
+        // Who currently teaches each subject (links archived by an instructor are left out)
+        supabase
+          .from("instructor_subjects")
+          .select("subject_id, instructor_id")
+          .eq("is_archived", false),
+      ]);
+      if (subjectsRes.error) throw subjectsRes.error;
+      setSubjects(subjectsRes.data || []);
+
+      const links = linksRes.error ? [] : linksRes.data || [];
+      const ids = [...new Set(links.map((l) => l.instructor_id))];
+      const { data: people } = ids.length
+        ? await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, username, email")
+            .in("id", ids)
+        : { data: [] };
+      const peopleById = new Map((people || []).map((p) => [p.id, p]));
+      const bySubject = new Map();
+      links.forEach((l) => {
+        const person = peopleById.get(l.instructor_id);
+        if (!person) return;
+        if (!bySubject.has(l.subject_id)) bySubject.set(l.subject_id, []);
+        bySubject.get(l.subject_id).push(getProfileName(person));
+      });
+      bySubject.forEach((names) => names.sort((a, b) => a.localeCompare(b)));
+      setTeachersBySubject(bySubject);
     } catch (err) {
       console.error("Error loading subjects:", err);
       notify.error("Failed to load curriculum subjects.");
@@ -272,6 +300,18 @@ export const CurriculumSubjectsPanel = () => {
                       {subject.description}
                     </p>
                   )}
+                  {(() => {
+                    const teachers = teachersBySubject.get(subject.id) || [];
+                    const shown = teachers.slice(0, 3);
+                    return (
+                      <p className="text-xs text-gray-500 mt-1.5" title={teachers.join(", ") || undefined}>
+                        <span className="font-semibold text-gray-600">Taught by: </span>
+                        {teachers.length === 0
+                          ? "No instructors yet"
+                          : shown.join(", ") + (teachers.length > shown.length ? ` +${teachers.length - shown.length} more` : "")}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                   {!subject.is_archived && (

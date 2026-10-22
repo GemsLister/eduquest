@@ -184,7 +184,7 @@ export const FacultyHeadDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <button
             type="button"
-            onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+            onClick={() => navigate("/faculty-head-dashboard/exam-approvals")}
             className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
             <div className="flex items-center gap-4">
@@ -239,7 +239,7 @@ export const FacultyHeadDashboard = () => {
           <button
             type="button"
             onClick={() =>
-              navigate(`/faculty-head-dashboard/quiz-approvals?tab=${HEAD_STATUSES.APPROVED}`)
+              navigate(`/faculty-head-dashboard/exam-approvals?tab=${HEAD_STATUSES.APPROVED}`)
             }
             className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 flex items-center justify-between hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
           >
@@ -268,7 +268,7 @@ export const FacultyHeadDashboard = () => {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+              onClick={() => navigate("/faculty-head-dashboard/exam-approvals")}
               className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-brand-gold/40 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <div className="flex items-center justify-between mb-3">
@@ -324,7 +324,7 @@ export const FacultyHeadDashboard = () => {
               Recent Submissions
             </h2>
             <button
-              onClick={() => navigate("/faculty-head-dashboard/quiz-approvals")}
+              onClick={() => navigate("/faculty-head-dashboard/exam-approvals")}
               className="text-xs font-bold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1 cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
             >
               <span>View All Submissions</span>
@@ -353,7 +353,7 @@ export const FacultyHeadDashboard = () => {
                     <button
                       key={sub.id}
                       onClick={() =>
-                        navigate(`/faculty-head-dashboard/quiz-approvals/${sub.id}`)
+                        navigate(`/faculty-head-dashboard/exam-approvals/${sub.id}`)
                       }
                       aria-label={`Review ${sub.quizTitle} by ${sub.instructorName}`}
                       className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors text-left cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold/60"

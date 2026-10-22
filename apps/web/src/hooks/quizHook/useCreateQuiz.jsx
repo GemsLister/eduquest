@@ -109,8 +109,8 @@ export const useCreateQuiz = ({ user } = {}) => {
 
       notify.success(`Exam "${data.title}" created successfully!`);
       const targetPath = location.pathname.startsWith("/admin-dashboard")
-        ? `/admin-dashboard/create-quiz/${data.id}`
-        : `/instructor-dashboard/instructor-quiz/${data.id}`;
+        ? `/admin-dashboard/create-exam/${data.id}`
+        : `/instructor-dashboard/instructor-exam/${data.id}`;
       navigate(targetPath);
       return true;
     } catch (error) {

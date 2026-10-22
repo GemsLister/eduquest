@@ -29,7 +29,7 @@ const sections = [
       </NavIcon>
     ),
     children: [
-      { name: "Exam Approvals", path: "/faculty-head-dashboard/quiz-approvals", badge: "quizzes" },
+      { name: "Exam Approvals", path: "/faculty-head-dashboard/exam-approvals", badge: "quizzes" },
       { name: "Subject Requests", path: "/faculty-head-dashboard/subject-requests", badge: "subjects" },
     ],
   },
@@ -63,7 +63,7 @@ export const FacultyHeadSidebar = ({ mobileOpen = false, onNavigate }) => {
   const [pendingSubjectKeys, setPendingSubjectKeys] = useState([]);
 
   const pendingQuizCount = useUnseenCount(user?.id, "quiz-approvals", pendingQuizKeys, [
-    "/faculty-head-dashboard/quiz-approvals",
+    "/faculty-head-dashboard/exam-approvals",
   ]);
   const pendingSubjectCount = useUnseenCount(user?.id, "subject-requests", pendingSubjectKeys, [
     "/faculty-head-dashboard/subject-requests",

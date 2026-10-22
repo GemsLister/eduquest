@@ -75,16 +75,16 @@ export const InstructorQuiz = () => {
   // Role-aware dynamic path routing
   const isAdminPath = location.pathname.startsWith("/admin-dashboard");
   const quizzesPath = isAdminPath
-    ? "/admin-dashboard/quizzes"
-    : "/instructor-dashboard/quizzes";
+    ? "/admin-dashboard/exams"
+    : "/instructor-dashboard/exams";
   const quizEditPath = (id) =>
     isAdminPath
-      ? `/admin-dashboard/create-quiz/${id}`
-      : `/instructor-dashboard/instructor-quiz/${id}`;
+      ? `/admin-dashboard/create-exam/${id}`
+      : `/instructor-dashboard/instructor-exam/${id}`;
   const quizResultsPath = (id) =>
     isAdminPath
-      ? `/admin-dashboard/quiz-results/${id}`
-      : `/instructor-dashboard/quiz-results/${id}`;
+      ? `/admin-dashboard/exam-results/${id}`
+      : `/instructor-dashboard/exam-results/${id}`;
 
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
@@ -1720,7 +1720,7 @@ export const InstructorQuiz = () => {
                 );
                 const tokensToDisplay = userTokens.length > 0 ? userTokens : sectionShareTokens;
                 return tokensToDisplay.map((sectionToken) => {
-                  const sectionUrl = `${window.location.origin}/quiz/${sectionToken.share_token}`;
+                  const sectionUrl = `${window.location.origin}/exam/${sectionToken.share_token}`;
                   return (
                     <div key={sectionToken.id || sectionToken.section_id} className="bg-white p-4 rounded-lg border border-gray-200">
                       <p className="text-sm font-semibold text-gray-700 mb-2">
@@ -2387,7 +2387,7 @@ export const InstructorQuiz = () => {
                     </label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
-                        <div key={optIdx} className="flex gap-2 items-center">
+                        <div key={optIdx} className="flex gap-2 items-start">
                           <input
                             type="radio"
                             name={`correct-${question.id}`}
@@ -2402,21 +2402,26 @@ export const InstructorQuiz = () => {
                                 optIdx,
                               )
                             }
-                            className={`mt-0.5 ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                            className={`mt-3.5 ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                           />
-                          <span className="text-sm font-semibold text-gray-500 w-5">
+                          <span className="text-sm font-semibold text-gray-500 w-5 mt-2.5">
                             ({String.fromCharCode(97 + optIdx)})
                           </span>
-                          <input
-                            type="text"
+                          {/* Wraps long options; Enter is blocked so an option stays one paragraph */}
+                          <textarea
+                            ref={(el) => autoGrow(el)}
+                            rows={1}
                             value={option}
                             aria-label={`Option ${String.fromCharCode(97 + optIdx)}`}
                             disabled={isLocked}
                             onChange={(e) =>
-                              updateOption(question.id, optIdx, e.target.value)
+                              updateOption(question.id, optIdx, e.target.value.replace(/\r?\n/g, " "))
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.preventDefault();
+                            }}
                             placeholder={`Option ${String.fromCharCode(97 + optIdx)}`}
-                            className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                            className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none overflow-hidden focus:outline-none focus:border-brand-gold ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                           />
                           {!isLocked && question.options.length > 2 && (
                             <button

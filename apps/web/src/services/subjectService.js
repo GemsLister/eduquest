@@ -272,6 +272,37 @@ export const subjectService = {
     return await supabase.rpc("leave_subject", { p_subject_id: subjectId });
   },
 
+  /**
+   * Archive a subject for the current user only: their sections under it are
+   * archived and their open exams with no other active section are closed.
+   * @returns {Promise<{data: {sections_archived, exams_closed}, error}>}
+   */
+  archiveMySubject: async (subjectId) => {
+    return await supabase.rpc("archive_my_subject", { p_subject_id: subjectId });
+  },
+
+  /**
+   * Archive specific sections of the current user (end-of-term cleanup).
+   * Subjects left without an active section are archived for them too.
+   * @returns {Promise<{data: {sections_archived, exams_closed, subjects_archived}, error}>}
+   */
+  archiveMySections: async (sectionIds) => {
+    return await supabase.rpc("archive_my_sections", { p_section_ids: sectionIds });
+  },
+
+  /**
+   * Restore an archived subject for the current user, optionally only the
+   * sections from one term.
+   * @returns {Promise<{data: {sections_restored}, error}>}
+   */
+  restoreMySubject: async (subjectId, schoolYear = null, semester = null) => {
+    return await supabase.rpc("restore_my_subject", {
+      p_subject_id: subjectId,
+      p_school_year: schoolYear,
+      p_semester: semester,
+    });
+  },
+
   // ============ SUBJECT REQUEST WORKFLOW OPERATIONS ============
 
   /**
@@ -693,11 +724,16 @@ export const subjectService = {
       // 2. Fetch approved subjects assigned to this instructor via instructor_subjects junction
       const { data: assignedSubs, error: assignedErr } = await supabase
         .from("instructor_subjects")
-        .select("subject_id, subjects(*)")
+        .select("subject_id, is_archived, subjects(*)")
         .eq("instructor_id", instructorId);
 
       if (!assignedErr && Array.isArray(assignedSubs)) {
         assignedSubs.forEach((item) => {
+          // Archived by this instructor (e.g. the semester ended)
+          if (item.is_archived) {
+            subjectMap.delete(item.subject_id);
+            return;
+          }
           if (
             item.subjects &&
             item.subjects.status === "approved" &&

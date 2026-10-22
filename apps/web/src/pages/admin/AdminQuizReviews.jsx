@@ -481,7 +481,7 @@ export const AdminQuizReviews = () => {
                     type="button"
                     key={submission.id}
                     onClick={() =>
-                      navigate(`/admin-dashboard/quiz-reviews/${submission.id}`)
+                      navigate(`/admin-dashboard/exam-reviews/${submission.id}`)
                     }
                     aria-label={`Review ${(submission.quizzes?.title || "Untitled Exam").replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")} by ${instructorName}`}
                     className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/40 transition-all p-5 cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"

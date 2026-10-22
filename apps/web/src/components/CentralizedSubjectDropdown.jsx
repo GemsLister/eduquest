@@ -275,6 +275,16 @@ export const CentralizedSubjectDropdown = ({
           </svg>
         </div>
       </div>
+      {(() => {
+        const picked = subjects.find((s) => s.id === selectedSubjectId);
+        // Request-workflow tags like "[REQUEST:APPROVED]" aren't meant for people
+        const description = picked?.description?.replace(/\[REQUEST:[^\]]*\]/g, "").trim();
+        return description ? (
+          <p className="mt-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 leading-relaxed">
+            {description}
+          </p>
+        ) : null;
+      })()}
       {subjects.length > 0 && (
         <p className="text-[11px] text-slate-500 mt-1.5">
           {filtersActive

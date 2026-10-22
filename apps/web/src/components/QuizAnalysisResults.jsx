@@ -428,8 +428,8 @@ export const QuizAnalysisResults = ({
             type: "info",
             link: isSeniorReviewer
               ? inserted?.id
-                ? `/admin-dashboard/quiz-reviews/${inserted.id}`
-                : "/admin-dashboard/quiz-reviews"
+                ? `/admin-dashboard/exam-reviews/${inserted.id}`
+                : "/admin-dashboard/exam-reviews"
               : inserted?.id
                 ? `/instructor-dashboard/peer-reviews/${inserted.id}`
                 : "/instructor-dashboard/my-submissions?tab=peer_reviews",
@@ -1399,8 +1399,8 @@ export const QuizAnalysisResults = ({
               onClose();
               navigate(
                 window.location.pathname.startsWith("/admin-dashboard")
-                  ? "/admin-dashboard/quizzes"
-                  : "/instructor-dashboard/quizzes",
+                  ? "/admin-dashboard/exams"
+                  : "/instructor-dashboard/exams",
               );
             }}
             className="bg-brand-gold hover:bg-brand-gold-dark text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-xs"

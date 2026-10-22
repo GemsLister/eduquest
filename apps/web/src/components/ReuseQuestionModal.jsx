@@ -428,8 +428,8 @@ export const ReuseQuestionModal = ({
       if (navigate) {
         const isPathAdmin = window.location.pathname.startsWith("/admin-dashboard");
         const editPath = isPathAdmin
-          ? `/admin-dashboard/create-quiz/${newQuiz.id}`
-          : `/instructor-dashboard/instructor-quiz/${newQuiz.id}`;
+          ? `/admin-dashboard/create-exam/${newQuiz.id}`
+          : `/instructor-dashboard/instructor-exam/${newQuiz.id}`;
         navigate(editPath);
       }
     } catch (err) {

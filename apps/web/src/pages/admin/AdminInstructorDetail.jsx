@@ -841,7 +841,7 @@ export const AdminInstructorDetail = () => {
                             </td>
                             <td className="px-5 py-4 text-right">
                               <Link
-                                to={`/admin-dashboard/quiz-reviews/${s.id}`}
+                                to={`/admin-dashboard/exam-reviews/${s.id}`}
                                 className="inline-flex px-4 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                               >
                                 View
@@ -906,7 +906,7 @@ export const AdminInstructorDetail = () => {
                           </td>
                           <td className="px-5 py-4 text-right">
                             <Link
-                              to={`/admin-dashboard/quiz-reviews/${r.id}`}
+                              to={`/admin-dashboard/exam-reviews/${r.id}`}
                               className="inline-flex px-4 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                             >
                               View
@@ -932,7 +932,9 @@ export const AdminInstructorDetail = () => {
         {tab === "activity" && (
           <>
             <div className="flex items-center justify-between mb-3">
-              <SectionTitle>Last {activity.length} Actions</SectionTitle>
+              <SectionTitle>
+                {activity.length >= 100 ? "Last 100 Actions" : `${activity.length} Recent Actions`}
+              </SectionTitle>
               <Link
                 to="/admin-dashboard/audit-trail"
                 className="text-xs font-semibold text-brand-gold-dark hover:text-brand-gold transition-colors rounded mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"

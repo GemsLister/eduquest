@@ -21,7 +21,7 @@ export const QuizzesList = ({
 
   const buildShareUrl = (quiz) => {
     if (!quiz.share_token) return "";
-    const base = `${window.location.origin}/quiz/${quiz.share_token}`;
+    const base = `${window.location.origin}/exam/${quiz.share_token}`;
     const secId = getActiveSectionId(quiz);
     return secId ? `${base}?section=${secId}` : base;
   };
@@ -76,8 +76,8 @@ export const QuizzesList = ({
             onClick={() =>
               navigate(
                 location.pathname.startsWith("/admin-dashboard")
-                  ? "/admin-dashboard/quizzes"
-                  : "/instructor-dashboard/quizzes",
+                  ? "/admin-dashboard/exams"
+                  : "/instructor-dashboard/exams",
               )
             }
             className="px-4 py-2 bg-brand-gold text-brand-navy rounded-lg text-sm font-semibold hover:bg-brand-gold-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -258,8 +258,8 @@ export const QuizzesList = ({
                       onClick={() =>
                         navigate(
                           location.pathname.startsWith("/admin-dashboard")
-                            ? `/admin-dashboard/create-quiz/${quiz.id}`
-                            : `/instructor-dashboard/instructor-quiz/${quiz.id}`,
+                            ? `/admin-dashboard/create-exam/${quiz.id}`
+                            : `/instructor-dashboard/instructor-exam/${quiz.id}`,
                         )
                       }
                       className="flex-1 bg-brand-gold text-brand-navy py-2 rounded-lg text-sm font-semibold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
@@ -271,8 +271,8 @@ export const QuizzesList = ({
                         onClick={() => {
                           const secId = getActiveSectionId(quiz);
                           const basePath = location.pathname.startsWith("/admin-dashboard")
-                            ? "/admin-dashboard/quiz-results"
-                            : "/instructor-dashboard/quiz-results";
+                            ? "/admin-dashboard/exam-results"
+                            : "/instructor-dashboard/exam-results";
                           navigate(
                             secId
                               ? `${basePath}/${quiz.id}?section=${secId}`

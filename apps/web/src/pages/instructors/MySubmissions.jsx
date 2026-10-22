@@ -1391,8 +1391,8 @@ export const MySubmissions = () => {
                                   submission.newerQuizId ||
                                   (await createRevisionCopy(submission.quiz_id)).id;
                                 const targetPath = location.pathname.startsWith("/admin-dashboard")
-                                  ? `/admin-dashboard/create-quiz/${revisionQuizId}`
-                                  : `/instructor-dashboard/instructor-quiz/${revisionQuizId}`;
+                                  ? `/admin-dashboard/create-exam/${revisionQuizId}`
+                                  : `/instructor-dashboard/instructor-exam/${revisionQuizId}`;
                                 navigate(
                                   targetPath,
                                   {
@@ -1647,7 +1647,7 @@ export const MySubmissions = () => {
                               <button
                                 onClick={() => {
                                   const targetPath = location.pathname.startsWith("/admin-dashboard")
-                                    ? `/admin-dashboard/quiz-reviews/${sub.id}`
+                                    ? `/admin-dashboard/exam-reviews/${sub.id}`
                                     : `/instructor-dashboard/peer-reviews/${sub.id}`;
                                   navigate(targetPath);
                                 }}

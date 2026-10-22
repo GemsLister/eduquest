@@ -356,12 +356,12 @@ export const FacultyHeadQuizApprovals = () => {
                     tabIndex={0}
                     aria-label={`Review ${quizTitle} by ${instructorName}`}
                     onClick={() =>
-                      navigate(`/faculty-head-dashboard/quiz-approvals/${submission.id}`)
+                      navigate(`/faculty-head-dashboard/exam-approvals/${submission.id}`)
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        navigate(`/faculty-head-dashboard/quiz-approvals/${submission.id}`);
+                        navigate(`/faculty-head-dashboard/exam-approvals/${submission.id}`);
                       }
                     }}
                     className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-gold/30 transition-all p-5 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"

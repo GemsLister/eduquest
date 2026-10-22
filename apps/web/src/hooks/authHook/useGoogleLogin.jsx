@@ -35,6 +35,8 @@ export const useGoogleLogin = () => {
     }
   };
   const handleGoogleQuizLogin = async (quizToken, sectionId = null) => {
+    // Kept on the old /quiz/ path, which Supabase's redirect allow-list already
+    // covers; the router forwards it to /exam/ with the query intact
     let redirectUrl = `${window.location.origin}/quiz/${quizToken}?auth=success`;
     if (sectionId) {
       redirectUrl += `&section=${sectionId}`;

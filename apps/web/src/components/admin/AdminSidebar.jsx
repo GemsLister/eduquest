@@ -31,8 +31,8 @@ const sections = [
       { name: "Subjects", path: "/admin-dashboard/subjects", match: ["/admin-dashboard/section"] },
       {
         name: "My Exams",
-        path: "/admin-dashboard/quizzes",
-        match: ["/admin-dashboard/create-quiz", "/admin-dashboard/quiz-results"],
+        path: "/admin-dashboard/exams",
+        match: ["/admin-dashboard/create-exam", "/admin-dashboard/exam-results"],
       },
       { name: "Question Bank", path: "/admin-dashboard/question-bank" },
       { name: "Item Analysis", path: "/admin-dashboard/item-difficulty-analysis" },
@@ -49,7 +49,7 @@ const sections = [
       </NavIcon>
     ),
     children: [
-      { name: "Exam Reviews", path: "/admin-dashboard/quiz-reviews", badge: "reviews" },
+      { name: "Exam Reviews", path: "/admin-dashboard/exam-reviews", badge: "reviews" },
       { name: "My Submissions", path: "/admin-dashboard/my-submissions", badge: "submissions" },
     ],
   },
@@ -93,7 +93,7 @@ export const AdminSidebar = ({ mobileOpen = false, onNavigate }) => {
     "/admin-dashboard/registration-requests",
   ]);
   const pendingQuizCount = useUnseenCount(user?.id, "reviews", reviewKeys, [
-    "/admin-dashboard/quiz-reviews",
+    "/admin-dashboard/exam-reviews",
   ]);
   const mySubmissionsNotifCount = useUnseenCount(user?.id, "submissions", submissionKeys, [
     "/admin-dashboard/my-submissions",
