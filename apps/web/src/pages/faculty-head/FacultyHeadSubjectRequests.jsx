@@ -774,7 +774,7 @@ export const FacultyHeadSubjectRequests = () => {
                     onChange={(e) =>
                       setNewSubject({ ...newSubject, subject_code: e.target.value })
                     }
-                    placeholder="e.g., IT301"
+                    placeholder="e.g., IT 301"
                     required
                     className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-xs text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all"
                     disabled={creatingSubject}
