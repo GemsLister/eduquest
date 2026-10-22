@@ -1,4 +1,8 @@
 import jsPDF from "jspdf";
+import {
+  deriveSchoolYear as deriveSchoolYearKey,
+  deriveSemester as deriveSemesterLabel,
+} from "./academicTerm.js";
 
 /**
  * Load an image as HTMLImageElement for embedding in PDF
@@ -12,25 +16,16 @@ const loadImage = (src) =>
     img.src = src;
   });
 
-/**
- * Derive semester from a date based on Philippine academic calendar.
- */
-const deriveSemester = (date) => {
-  const month = date.getMonth();
-  if (month >= 5 && month <= 9) return "FIRST SEMESTER";
-  if (month >= 10 || month <= 2) return "SECOND SEMESTER";
-  return "SUMMER";
+// Same calendar as academicTerm.js, in the exam paper's heading style
+const SEMESTER_HEADINGS = {
+  "1st Semester": "FIRST SEMESTER",
+  "2nd Semester": "SECOND SEMESTER",
+  Summer: "SUMMER",
 };
 
-/**
- * Derive school year from a date based on Philippine academic calendar.
- */
-const deriveSchoolYear = (date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  if (month >= 5) return `${year} \u2013 ${year + 1}`;
-  return `${year - 1} \u2013 ${year}`;
-};
+const deriveSemester = (date) => SEMESTER_HEADINGS[deriveSemesterLabel(date)];
+
+const deriveSchoolYear = (date) => deriveSchoolYearKey(date).replace("-", " \u2013 ");
 
 /**
  * Strip revision/version markers from quiz title.

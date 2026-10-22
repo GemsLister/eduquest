@@ -2,28 +2,30 @@ import { supabase } from "../supabaseClient.js";
 
 /**
  * School year and semester helpers. The rules match the database
- * (academic_term_for_date / current_academic_term in 20261027_semester_archiving.sql).
+ * (academic_term_for_date in 20261028_update_academic_calendar.sql).
  */
 
 /**
- * Derive semester from a date based on Philippine academic calendar.
- * June-October = 1st Semester, November-March = 2nd Semester, April-May = Summer/Midyear
+ * Derive semester from a date based on the school calendar.
+ * August-December = 1st Semester, January-May = 2nd Semester,
+ * June-July = Summer (midyear of the school year that just ended)
  */
 export const deriveSemester = (date) => {
   const month = date.getMonth(); // 0-indexed
-  if (month >= 5 && month <= 9) return "1st Semester";
-  if (month >= 10 || month <= 2) return "2nd Semester";
+  if (month >= 7) return "1st Semester";
+  if (month <= 4) return "2nd Semester";
   return "Summer";
 };
 
 /**
- * Derive school year from a date based on Philippine academic calendar.
- * June onwards = currentYear - (currentYear+1), before June = (currentYear-1) - currentYear
+ * Derive school year from a date based on the school calendar.
+ * A school year starts in August: August onwards = currentYear - (currentYear+1),
+ * January-July = (currentYear-1) - currentYear
  */
 export const deriveSchoolYear = (date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
-  if (month >= 5) return `${year}-${year + 1}`;
+  if (month >= 7) return `${year}-${year + 1}`;
   return `${year - 1}-${year}`;
 };
 
