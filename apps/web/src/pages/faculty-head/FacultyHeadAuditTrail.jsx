@@ -15,7 +15,7 @@ import {
   getChangedFields,
   getReferencedUserIds,
   getAuditSubmissionId,
-  getAuditStatus,
+  getAuditStatusChange,
   getAuditFeedback,
   getAuditItemName,
   getActionBadgeColor,
@@ -69,31 +69,37 @@ const useSubmissionBasePath = () =>
 const EventDetails = ({ log }) => {
   const [showRaw, setShowRaw] = useState(false);
   const submissionBasePath = useSubmissionBasePath();
-  const status = getAuditStatus(log);
+  const { from: previousStatus, to: status } = getAuditStatusChange(log);
   const feedback = getAuditFeedback(log);
   const submissionId = getAuditSubmissionId(log);
-  const extraFields = getReadableFields(log.new_values);
-  const changes = getChangedFields(log.old_values, log.new_values);
+  const extraFields = getReadableFields(log.new_values, log.table_name);
+  const changes = getChangedFields(log.old_values, log.new_values, log.table_name);
 
+  // Section rows repeat the same name in several fields; show each value once
+  const seen = new Set();
   const rows = [
     { label: "Item", value: getAuditItemName(log) },
     { label: "Subject", value: log.subject_name },
     { label: "Section", value: log.section_name },
     { label: "Instructor", value: log.instructorName },
     ...extraFields.map((f) => ({ label: f.label, value: f.value })),
-  ].filter((r) => r.value && r.value !== "—");
+  ].filter((r) => {
+    if (!r.value || r.value === "—" || seen.has(r.value)) return false;
+    seen.add(r.value);
+    return true;
+  });
 
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs">
-      {(status || log.previous_status) && (
+      {(status || previousStatus) && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px] w-24 shrink-0">
             Status
           </span>
-          {log.previous_status && (
+          {previousStatus && (
             <>
-              <span className={`px-2 py-0.5 rounded-full border font-semibold ${getAuditStatusTone(log.previous_status)}`}>
-                {formatAuditStatus(log.previous_status)}
+              <span className={`px-2 py-0.5 rounded-full border font-semibold ${getAuditStatusTone(previousStatus)}`}>
+                {formatAuditStatus(previousStatus)}
               </span>
               <span className="text-gray-400" aria-hidden="true">→</span>
             </>
@@ -295,7 +301,7 @@ export const FacultyHeadAuditTrail = () => {
         log.instructorName,
         getAuditFeedback(log),
         log.change_summary,
-        getAuditStatus(log) && formatAuditStatus(getAuditStatus(log)),
+        getAuditStatusChange(log).to && formatAuditStatus(getAuditStatusChange(log).to),
       ]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(term)),
@@ -343,8 +349,8 @@ export const FacultyHeadAuditTrail = () => {
       log.subject_name,
       log.section_name,
       log.instructorName,
-      log.previous_status ? formatAuditStatus(log.previous_status) : "",
-      getAuditStatus(log) ? formatAuditStatus(getAuditStatus(log)) : "",
+      getAuditStatusChange(log).from ? formatAuditStatus(getAuditStatusChange(log).from) : "",
+      getAuditStatusChange(log).to ? formatAuditStatus(getAuditStatusChange(log).to) : "",
       getAuditFeedback(log),
       fullName(log.profiles) || "Unknown User",
       log.profiles?.email,

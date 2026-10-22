@@ -125,6 +125,8 @@ const STATUS_LABELS = {
   faculty_head_approved: "Approved by Department Head",
   revision_requested: "Revision Requested",
   rejected: "Returned",
+  active: "Active",
+  archived: "Archived",
 };
 
 export const formatAuditStatus = (status) =>
@@ -139,6 +141,8 @@ const STATUS_TONES = {
   forwarded_to_head: "bg-sky-50 text-sky-700 border-sky-200",
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   submitted_for_review: "bg-amber-50 text-amber-700 border-amber-200",
+  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  archived: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 export const getAuditStatusTone = (status) =>
@@ -184,29 +188,52 @@ const formatValue = (value) => {
   return String(value);
 };
 
+// Section rows store "<Subject> - <Code>" as the name and the code as the description
+const TABLE_FIELD_LABELS = {
+  sections: { name: "Section", description: "Section Code" },
+};
+
+const fieldLabel = (key, tableName) =>
+  TABLE_FIELD_LABELS[tableName]?.[key] || FIELD_LABELS[key] || titleCase(key);
+
 /**
  * Readable key/value pairs from a JSON payload (new_values / old_values),
  * with raw identifiers removed.
  */
-export const getReadableFields = (values) => {
+export const getReadableFields = (values, tableName = null) => {
   if (!values || typeof values !== "object") return [];
   return Object.entries(values)
     .filter(([key]) => !ID_KEYS.has(key) && !PROMOTED_KEYS.has(key))
     .map(([key, value]) => ({
       key,
-      label: FIELD_LABELS[key] || titleCase(key),
+      label: fieldLabel(key, tableName),
       value: formatValue(value),
     }));
 };
 
+/**
+ * Status before → after for a log. Section rows don't record one, so creating
+ * and archiving a section are shown as becoming Active / Archived.
+ * @returns {{from: string|null, to: string|null}}
+ */
+export const getAuditStatusChange = (log) => {
+  const from = log?.previous_status || log?.new_values?.previousStatus || null;
+  const to = log?.new_status || log?.new_values?.status || null;
+  if (from || to) return { from, to };
+  const action = (log?.action || "").toUpperCase();
+  if (action === "SECTION_CREATED") return { from: null, to: "active" };
+  if (action === "SECTION_ARCHIVED") return { from: "active", to: "archived" };
+  return { from: null, to: null };
+};
+
 /** Before → after pairs for fields present in old_values. */
-export const getChangedFields = (oldValues, newValues) => {
+export const getChangedFields = (oldValues, newValues, tableName = null) => {
   if (!oldValues || typeof oldValues !== "object") return [];
   return Object.keys(oldValues)
     .filter((key) => !ID_KEYS.has(key))
     .map((key) => ({
       key,
-      label: FIELD_LABELS[key] || titleCase(key),
+      label: fieldLabel(key, tableName),
       before: formatValue(oldValues[key]),
       after: formatValue(newValues?.[key]),
     }))

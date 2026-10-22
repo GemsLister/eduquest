@@ -17,6 +17,7 @@ import {
   formatAuditTable,
   getActionBadgeColor,
   getAuditItemName,
+  getAuditStatusChange,
 } from "../../utils/auditFormat.js";
 import {
   getAvatarColor,
@@ -221,7 +222,37 @@ export const AdminInstructorDetail = () => {
   }, [instructorId]);
 
   const profile = data?.profile || null;
-  const quizzes = useMemo(() => data?.quizzes || [], [data]);
+  const allQuizzes = useMemo(() => data?.quizzes || [], [data]);
+
+  // One entry per exam: a revision is a separate row pointing at the original
+  // (parent_quiz_id), so the versions are folded into the newest active one.
+  const quizzes = useMemo(() => {
+    const chains = new Map();
+    allQuizzes.forEach((q) => {
+      const root = q.parent_quiz_id || q.id;
+      if (!chains.has(root)) chains.set(root, []);
+      chains.get(root).push(q);
+    });
+    return [...chains.values()]
+      .map((versions) => {
+        const active = versions.filter((v) => !v.is_archived);
+        const pool = active.length ? active : versions;
+        const latest = pool.reduce((a, b) => ((b.version_number || 1) > (a.version_number || 1) ? b : a));
+        return {
+          ...latest,
+          versionIds: versions.map((v) => v.id),
+          is_archived: active.length === 0,
+          // Live if any active version is published (the original stays live during a revision)
+          is_published: active.some((v) => v.is_published),
+          sectionIds: [
+            ...new Set(
+              pool.flatMap((v) => [...(v.quiz_sections || []).map((qs) => qs.section_id), v.section_id]),
+            ),
+          ].filter(Boolean),
+        };
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [allQuizzes]);
   const sections = useMemo(() => data?.sections || [], [data]);
   const submissions = useMemo(() => data?.submissions || [], [data]);
   const reviews = useMemo(() => data?.reviews || [], [data]);
@@ -231,15 +262,6 @@ export const AdminInstructorDetail = () => {
     () => new Map((data?.people || []).map((p) => [p.id, p])),
     [data],
   );
-
-  // Latest submission per quiz (submissions arrive newest first)
-  const latestSubmissionByQuiz = useMemo(() => {
-    const map = new Map();
-    submissions.forEach((s) => {
-      if (!map.has(s.quiz_id)) map.set(s.quiz_id, s);
-    });
-    return map;
-  }, [submissions]);
 
   const attemptsByQuiz = useMemo(
     () => new Map((data?.attemptCounts || []).map((a) => [a.quiz_id, a])),
@@ -317,6 +339,10 @@ export const AdminInstructorDetail = () => {
         : null,
       assignedReviews: reviews.length,
       pendingReviews: reviews.filter((r) => r.status === "pending").length,
+      // Shown in place of the average until a review is completed
+      oldestPendingHours: reviews
+        .filter((r) => r.status === "pending" && r.created_at)
+        .reduce((max, r) => Math.max(max, (Date.now() - new Date(r.created_at)) / 36e5), -1),
       completedReviews: completedReviews.length,
       turnaroundHours,
     };
@@ -325,14 +351,10 @@ export const AdminInstructorDetail = () => {
   // Active sections grouped under their subject
   const subjects = useMemo(() => {
     const quizCountBySection = new Map();
+    // Each exam counts once per section it's assigned to, whatever its version
     quizzes.forEach((q) => {
       if (q.is_archived) return;
-      // An exam can be assigned to several sections; section_id is only the legacy first one
-      const sectionIds = new Set([
-        ...(q.quiz_sections || []).map((qs) => qs.section_id),
-        q.section_id,
-      ].filter(Boolean));
-      sectionIds.forEach((id) => {
+      q.sectionIds.forEach((id) => {
         quizCountBySection.set(id, (quizCountBySection.get(id) || 0) + 1);
       });
     });
@@ -655,9 +677,28 @@ export const AdminInstructorDetail = () => {
                     <span className="text-lg font-bold text-amber-600">{stats.pendingReviews}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Average Response Time</span>
-                    <span className="text-lg font-bold text-brand-navy">
-                      {formatDuration(stats.turnaroundHours)}
+                    <span className="text-sm text-gray-500">
+                      Average Response Time
+                      {stats.turnaroundHours == null && (
+                        <span className="block text-xs text-gray-400">
+                          {stats.oldestPendingHours >= 0
+                            ? "No completed reviews yet · oldest pending so far"
+                            : "No reviews yet"}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-lg font-bold ${
+                        stats.turnaroundHours == null && stats.oldestPendingHours >= 0
+                          ? "text-amber-600"
+                          : "text-brand-navy"
+                      }`}
+                    >
+                      {stats.turnaroundHours != null
+                        ? formatDuration(stats.turnaroundHours)
+                        : stats.oldestPendingHours >= 0
+                          ? formatDuration(stats.oldestPendingHours)
+                          : "—"}
                     </span>
                   </div>
                 </div>
@@ -729,8 +770,19 @@ export const AdminInstructorDetail = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-sm">
                       {quizPages.items.map((quiz) => {
-                        const state = getQuizState(quiz, latestSubmissionByQuiz.get(quiz.id));
-                        const attempts = attemptsByQuiz.get(quiz.id);
+                        // Newest submission and attempt totals across all versions of the exam
+                        const latestSubmission = submissions.find((s) => quiz.versionIds.includes(s.quiz_id));
+                        const state = getQuizState(quiz, latestSubmission);
+                        const versionAttempts = quiz.versionIds.map((id) => attemptsByQuiz.get(id)).filter(Boolean);
+                        const attempts = versionAttempts.length
+                          ? {
+                              student_count: Math.max(...versionAttempts.map((a) => Number(a.student_count || 0))),
+                              completed_attempts: versionAttempts.reduce(
+                                (sum, a) => sum + Number(a.completed_attempts || 0),
+                                0,
+                              ),
+                            }
+                          : null;
                         return (
                           <tr key={quiz.id} className="hover:bg-brand-navy/5 transition-colors">
                             <td className="px-5 py-4">
@@ -742,7 +794,7 @@ export const AdminInstructorDetail = () => {
                               )}
                             </td>
                             <td className="px-5 py-4 text-gray-600">
-                              {[...new Set([...(quiz.quiz_sections || []).map((qs) => qs.section_id), quiz.section_id])]
+                              {quiz.sectionIds
                                 .map((id) => sectionNameById.get(id))
                                 .filter(Boolean)
                                 .join(", ") || "—"}
@@ -982,15 +1034,21 @@ export const AdminInstructorDetail = () => {
                             <div className="text-xs text-gray-400">{formatAuditTable(log.table_name)}</div>
                           </td>
                           <td className="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
-                            {log.previous_status || log.new_status ? (
-                              <>
-                                {log.previous_status ? formatAuditStatus(log.previous_status) : "—"}
-                                <span className="text-gray-300 mx-1" aria-hidden="true">→</span>
-                                {log.new_status ? formatAuditStatus(log.new_status) : "—"}
-                              </>
-                            ) : (
-                              "—"
-                            )}
+                            {(() => {
+                              const { from, to } = getAuditStatusChange(log);
+                              if (!from && !to) return "—";
+                              return (
+                                <>
+                                  {from && (
+                                    <>
+                                      {formatAuditStatus(from)}
+                                      <span className="text-gray-300 mx-1" aria-hidden="true">→</span>
+                                    </>
+                                  )}
+                                  {to ? formatAuditStatus(to) : "—"}
+                                </>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}

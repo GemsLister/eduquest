@@ -70,6 +70,7 @@ export const sectionService = {
         tableName: "sections",
         recordId: createdSection.id,
         itemName: sectionData.name,
+        newStatus: "active",
         sectionName: sectionData.name,
         newValues: { name: sectionData.name, description: sectionData.description },
         userRole: "instructor"
@@ -150,6 +151,7 @@ export const sectionService = {
       tableName: "sections",
       recordId: created.id,
       itemName: created.name,
+      newStatus: "active",
       sectionName: created.name,
       newValues: { name: created.name, description: created.description },
       userRole: "instructor",
@@ -230,6 +232,8 @@ export const sectionService = {
         tableName: "sections",
         recordId: sectionId,
         itemName: sectionData?.name,
+        previousStatus: "active",
+        newStatus: "archived",
         sectionName: sectionData?.name,
         newValues: { name: sectionData?.name, description: sectionData?.description },
         userRole: "instructor"
