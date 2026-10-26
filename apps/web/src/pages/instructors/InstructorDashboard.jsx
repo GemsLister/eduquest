@@ -842,7 +842,7 @@ export const InstructorDashboard = () => {
                       {/* Subject Card Header */}
                       <button
                         type="button"
-                        className={`relative h-28 w-full bg-gradient-to-br ${theme.gradient} flex items-end p-5 text-white text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold`}
+                        className={`relative min-h-28 w-full bg-gradient-to-br ${theme.gradient} flex items-end p-5 text-white text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-gold`}
                         onClick={() => openSubject(sub)}
                         aria-label={
                           sub.is_pending_request
@@ -875,7 +875,7 @@ export const InstructorDashboard = () => {
                               </span>
                             )}
                           </div>
-                          <h2 className="text-xl font-bold leading-tight drop-shadow line-clamp-1">
+                          <h2 className="text-xl font-bold leading-tight drop-shadow break-words">
                             {sub.name}
                           </h2>
                         </div>

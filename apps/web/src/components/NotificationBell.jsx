@@ -50,10 +50,21 @@ const linkMatchesLocation = (link, location) => {
   return true;
 };
 
+// Revision copies are stored as "Title (Revised)" (v2) or "Title (Revised N)"
+// (v N+1); show the version like the V2 badges elsewhere. The notification
+// email (send-notification-email) does the same.
+const withVersionLabels = (text) =>
+  typeof text === "string"
+    ? text.replace(
+        /"([^"]*?)\s*\(Revised(?:\s+(\d+))?\)"/gi,
+        (_, title, n) => `"${title}" (Version ${n ? Number(n) + 1 : 2})`,
+      )
+    : text;
+
 // Subject-request notifications store a JSON payload in `message` (it's parsed
 // elsewhere), so render those as a sentence instead of raw JSON.
 const formatNotificationMessage = (message) => {
-  if (typeof message !== "string" || !message.trim().startsWith("{")) return message;
+  if (typeof message !== "string" || !message.trim().startsWith("{")) return withVersionLabels(message);
   try {
     const p = JSON.parse(message);
     const name = p.subject_name ? `"${p.subject_name}"` : "A subject";
@@ -347,7 +358,7 @@ export const NotificationBell = () => {
 
       {/* Dropdown */}
       {open && (
-        <div className="fixed left-4 right-4 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <div className="fixed left-4 right-4 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-brand-navy">
             <h3 className="font-bold text-white text-sm">Notifications</h3>
@@ -362,7 +373,7 @@ export const NotificationBell = () => {
           </div>
 
           {/* Notification List */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[min(28rem,calc(100dvh-9rem))] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-gray-400 text-sm">
                 No notifications yet
@@ -394,17 +405,17 @@ export const NotificationBell = () => {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-start gap-2">
                           <p
-                            className={`text-sm font-semibold truncate ${!n.is_read ? "text-brand-navy" : "text-gray-600"}`}
+                            className={`text-sm font-semibold break-words ${!n.is_read ? "text-brand-navy" : "text-gray-600"}`}
                           >
-                            {n.title}
+                            {withVersionLabels(n.title)}
                           </p>
                           {!n.is_read && (
-                            <span className="w-2 h-2 bg-brand-gold rounded-full shrink-0" />
+                            <span className="w-2 h-2 bg-brand-gold rounded-full shrink-0 mt-1.5" />
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                        <p className="text-xs text-gray-500 mt-0.5 break-words whitespace-pre-line">
                           {formatNotificationMessage(n.message)}
                         </p>
                         <p className="text-[10px] text-gray-400 mt-1">

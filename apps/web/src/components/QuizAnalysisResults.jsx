@@ -1375,9 +1375,27 @@ export const QuizAnalysisResults = ({
                       : "Submitted for Review!"}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
-                    Your assigned reviewer has been notified. After the peer review,
-                    the Department Head gives final approval. Track progress in
-                    Submissions &amp; Reviews.
+                    {(() => {
+                      const reviewer =
+                        lockedReviewer?.id === selectedReviewerId
+                          ? lockedReviewer
+                          : reviewerList.find((r) => r.id === selectedReviewerId);
+                      const isSeniorReviewer = Boolean(reviewer?.is_admin);
+                      const reviewerName = reviewer
+                        ? `${reviewer.first_name || ""} ${reviewer.last_name || ""}`.trim()
+                        : "";
+                      return (
+                        <>
+                          {reviewerName
+                            ? `${reviewerName} (${isSeniorReviewer ? "Senior Faculty" : "Peer Reviewer"})`
+                            : "Your assigned reviewer"}{" "}
+                          has been notified. After the{" "}
+                          {isSeniorReviewer ? "Senior Faculty review" : "peer review"}, the
+                          Department Head gives final approval. Track progress in
+                          Submissions &amp; Reviews.
+                        </>
+                      );
+                    })()}
                   </p>
                 </div>
               )}
