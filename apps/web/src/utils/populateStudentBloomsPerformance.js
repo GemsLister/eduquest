@@ -55,7 +55,7 @@ export const populateStudentBloomsPerformance = async (sectionId = null, quizId 
         questions!quiz_responses_question_id_fkey (
           id,
           text,
-          cognitive_level,
+          blooms_level,
           points
         )
       `)
@@ -114,7 +114,9 @@ export const populateStudentBloomsPerformance = async (sectionId = null, quizId 
         const question = response.questions;
         if (!question) return;
         
-        const cognitiveLevel = question.cognitive_level || 'Remembering';
+        // blooms_level holds the final (possibly reviewer-corrected) Bloom's level;
+        // cognitive_level is only LOTS/HOTS
+        const cognitiveLevel = question.blooms_level || 'Remembering';
         if (cognitiveDomains[cognitiveLevel]) {
           cognitiveDomains[cognitiveLevel].total++;
           if (response.is_correct) {

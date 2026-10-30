@@ -10,6 +10,10 @@ import { RevisionComments } from "../../components/quiz/RevisionComments.jsx";
 import { useRevisionFeedback } from "../../hooks/quizHook/useRevisionFeedback.js";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
+import { ImportExamFileModal } from "../../components/quiz/ImportExamFileModal.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
+import { StableLabel } from "../../components/ui/StableLabel.jsx";
+import { scrollToElementTop } from "../../utils/scrollToElement.js";
 import { Skeleton } from "../../components/ui/Skeleton.jsx";
 import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { analyzeGADQuestion, detectGenderBias, replaceGenderBiasedTerm } from "../../services/gadAnalysisService.js";
@@ -29,6 +33,15 @@ const autoGrow = (el) => {
   el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
 };
 
+// Draft MCQs can be saved before their options are filled in; give them blank
+// option inputs again so they can be edited
+const padDraftOptions = (options) => {
+  const opts = Array.isArray(options) ? [...options] : [];
+  if (opts.length >= 2) return opts;
+  while (opts.length < 4) opts.push("");
+  return opts;
+};
+
 const transformQuestions = (rows) => {
   const seenIds = new Set();
   const uniqueRows = (rows || []).filter((q) => {
@@ -45,6 +58,8 @@ const transformQuestions = (rows) => {
         ? q.options.indexOf(q.correct_answer)
         : 0;
       if (correctAnswerValue === -1) correctAnswerValue = 0;
+      // Draft questions (e.g. imported from a file) may not have an answer yet
+      if (q.correct_answer === null || q.correct_answer === "") correctAnswerValue = null;
     } else if (q.type === "true_false") {
       correctAnswerValue = q.correct_answer === "true" ? 0 : 1;
     } else {
@@ -54,9 +69,7 @@ const transformQuestions = (rows) => {
       id: q.id,
       type: q.type,
       text: q.text,
-      options: q.type === "mcq" && Array.isArray(q.options)
-        ? q.options
-        : [""],
+      options: q.type === "mcq" ? padDraftOptions(q.options) : [""],
       correctAnswer: correctAnswerValue,
       points: q.points || 1,
       is_gad: q.is_gad || false,
@@ -370,54 +383,46 @@ export const InstructorQuiz = () => {
   const startIndex = (validCurrentPage - 1) * QUESTIONS_PER_PAGE;
   const endIndex = startIndex + QUESTIONS_PER_PAGE;
   const paginatedQuestions = questions.slice(startIndex, endIndex);
+  const questionListRef = useRef(null);
 
-  const renderPageButtons = () => {
-    const pages = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      if (validCurrentPage > 3) {
-        pages.push("...");
-      }
-      const start = Math.max(2, validCurrentPage - 1);
-      const end = Math.min(totalPages - 1, validCurrentPage + 1);
-      for (let i = start; i <= end; i++) {
-        if (!pages.includes(i)) pages.push(i);
-      }
-      if (validCurrentPage < totalPages - 2) {
-        pages.push("...");
-      }
-      if (!pages.includes(totalPages)) pages.push(totalPages);
-    }
+  // Changing pages scrolls back up to the first question on the new page
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    scrollToElementTop(questionListRef.current);
+  };
 
-    return pages.map((page, i) => {
-      if (page === "...") {
-        return (
-          <span key={`dots-${i}`} className="px-2 text-sm text-gray-400 select-none">
-            ...
-          </span>
-        );
-      }
-      return (
-        <button
-          key={page}
-          type="button"
-          onClick={() => setCurrentPage(page)}
-          aria-label={`Go to question page ${page}`}
-          aria-current={validCurrentPage === page ? "page" : undefined}
-          className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
-            validCurrentPage === page
-              ? "bg-brand-gold text-brand-navy font-bold shadow-sm"
-              : "border border-gray-200 hover:bg-gray-50 text-gray-600"
-          }`}
-        >
-          {page}
-        </button>
-      );
+  // Word/PDF import: the file is chosen and previewed in ImportExamFileModal
+  const [showExamImport, setShowExamImport] = useState(false);
+
+  const handleImportExamQuestions = (imported, fileName) => {
+    const baseId = Date.now();
+    const newQuestions = imported.map((q, i) => ({
+      id: baseId + i,
+      type: "mcq",
+      text: q.text,
+      options: padDraftOptions(q.options),
+      correctAnswer: q.correctAnswer,
+      points: 1,
+      is_gad: false,
+      ai_generated: false,
+      ai_revised: false,
+    }));
+    const firstNewPage = Math.floor(questions.length / QUESTIONS_PER_PAGE) + 1;
+    setQuestions((prev) => [...prev, ...newQuestions]);
+    setExpandedQuestions((prev) => {
+      const next = new Set(prev);
+      newQuestions.forEach((q) => next.add(q.id));
+      return next;
     });
+    markQuestionsDirty();
+    goToPage(firstNewPage);
+
+    const missing = newQuestions.filter((q) => q.correctAnswer === null).length;
+    notify.success(
+      `Added ${newQuestions.length} question${newQuestions.length === 1 ? "" : "s"} from ${fileName}.` +
+        (missing ? ` ${missing} still need${missing === 1 ? "s" : ""} a correct answer.` : ""),
+    );
+    setShowExamImport(false);
   };
 
   const toggleQuestion = (questionId) => {
@@ -459,7 +464,7 @@ export const InstructorQuiz = () => {
     const handleBeforeUnload = (e) => {
       if (quizId && !isLocked && !autoSavingRef.current) {
         autoSavingRef.current = true;
-        saveQuizRef.current?.(false, false, { keepRoute: true, silent: true }).finally(() => {
+        saveQuizRef.current?.(false, false, { keepRoute: true, silent: true, allowIncomplete: true }).finally(() => {
           autoSavingRef.current = false;
         });
       }
@@ -501,7 +506,7 @@ export const InstructorQuiz = () => {
 
     const saveThenLeave = async () => {
       setSaveStatus("Saving...");
-      const result = await saveQuizRef.current?.(false, false, { keepRoute: true });
+      const result = await saveQuizRef.current?.(false, false, { keepRoute: true, allowIncomplete: true });
       if (cancelled) return;
       if (result && !result.error) {
         notify.success("Exam saved.");
@@ -541,7 +546,7 @@ export const InstructorQuiz = () => {
       if (!unsavedRef.current || isLocked || autoSavingRef.current) return;
       autoSavingRef.current = true;
       try {
-        await saveQuizRef.current?.(false, false, { keepRoute: true, silent: true });
+        await saveQuizRef.current?.(false, false, { keepRoute: true, silent: true, allowIncomplete: true });
       } finally {
         autoSavingRef.current = false;
       }
@@ -1157,7 +1162,13 @@ export const InstructorQuiz = () => {
     }
   };
 
-  const performSaveQuiz = async (publish = false, redirectOnSave = true, { keepRoute = false, silent = false } = {}) => {
+  // allowIncomplete: drafts may keep blank or half-filled questions; publishing
+  // and submitting for review always require complete questions
+  const performSaveQuiz = async (
+    publish = false,
+    redirectOnSave = true,
+    { keepRoute = false, silent = false, allowIncomplete = false } = {},
+  ) => {
     // Background saves (leaving the editor, switching tabs) stay quiet
     const reportError = silent ? () => {} : setError;
     reportError("");
@@ -1196,7 +1207,8 @@ export const InstructorQuiz = () => {
       return { error: err };
     }
 
-    for (let i = 0; i < questions.length; i++) {
+    const requireCompleteQuestions = publish || !allowIncomplete;
+    for (let i = 0; requireCompleteQuestions && i < questions.length; i++) {
       const q = questions[i];
       if (!q.text || !q.text.trim()) {
         const err = `Question #${i + 1} has no question text. Please enter the question or remove it.`;
@@ -1224,6 +1236,12 @@ export const InstructorQuiz = () => {
         setSaveStatus("");
         return { error: err };
       }
+      if (q.type === "mcq" && (q.correctAnswer === null || q.correctAnswer === undefined)) {
+        const err = `Question #${i + 1} has no correct answer selected.`;
+        reportError(err);
+        setSaveStatus("");
+        return { error: err };
+      }
     }
 
     setSaving(true);
@@ -1244,6 +1262,8 @@ export const InstructorQuiz = () => {
 
       const formatCorrectAnswer = (q) => {
         if (q.type === "mcq") {
+          // Only drafts get here without an answer; keep it unset rather than guessing
+          if (q.correctAnswer === null || q.correctAnswer === undefined) return null;
           const opts = (q.options || []).filter((opt) => opt && typeof opt === "string" && opt.trim());
           // Read the answer from the unfiltered list: the index refers to the
           // options as shown in the editor, blanks included.
@@ -1760,7 +1780,7 @@ export const InstructorQuiz = () => {
                   disabled={autoSharing}
                   className="bg-brand-navy hover:bg-brand-indigo text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50"
                 >
-                  {autoSharing ? "Sharing..." : "Share with All Sections of This Subject"}
+                  <StableLabel busy={autoSharing} label="Share with All Sections of This Subject" busyLabel="Sharing..." />
                 </button>
               )}
             </div>
@@ -1921,6 +1941,13 @@ export const InstructorQuiz = () => {
         </div>
       </div>
 
+      {showExamImport && (
+        <ImportExamFileModal
+          onClose={() => setShowExamImport(false)}
+          onImport={handleImportExamQuestions}
+        />
+      )}
+
       {showAddQuestionPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
@@ -2075,7 +2102,7 @@ export const InstructorQuiz = () => {
                 disabled={saveSectionsLoading}
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saveSectionsLoading ? "Saving..." : isLocked ? "Close" : "Save Sections"}
+                <StableLabel busy={saveSectionsLoading} label={isLocked ? "Close" : "Save Sections"} busyLabel="Saving..." />
               </button>
             </div>
           </div>
@@ -2135,6 +2162,14 @@ export const InstructorQuiz = () => {
                 />
               </label>
               <button
+                type="button"
+                onClick={() => setShowExamImport(true)}
+                className="bg-brand-navy hover:bg-brand-navy/90 text-white px-3.5 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+                title="Import multiple-choice questions from a Word (.docx) or PDF exam file"
+              >
+                <span>Import Word/PDF</span>
+              </button>
+              <button
                 onClick={() => {
                   setBankTargetIndex(null);
                   setShowBankModal(true);
@@ -2179,6 +2214,14 @@ export const InstructorQuiz = () => {
                   />
                 </label>
                 <button
+                  type="button"
+                  onClick={() => setShowExamImport(true)}
+                  className="bg-brand-navy hover:bg-brand-navy/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-1.5 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
+                  title="Import multiple-choice questions from a Word (.docx) or PDF exam file"
+                >
+                  <span>Import Word/PDF</span>
+                </button>
+                <button
                   onClick={() => {
                     setBankTargetIndex(null);
                     setShowBankModal(true);
@@ -2199,7 +2242,7 @@ export const InstructorQuiz = () => {
           </div>
         ) : (
           <>
-            <div className="space-y-6">
+            <div ref={questionListRef} className="space-y-6 scroll-mt-4">
             {paginatedQuestions.map((question, index) => {
               const idx = startIndex + index;
               return (
@@ -2384,6 +2427,11 @@ export const InstructorQuiz = () => {
                   <div className="mb-4">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Options *
+                      {!isLocked && (question.correctAnswer === null || question.correctAnswer === undefined) && (
+                        <span className="ml-2 text-xs font-medium text-amber-700">
+                          Select the correct answer
+                        </span>
+                      )}
                     </label>
                     <div className="space-y-2">
                       {question.options.map((option, optIdx) => (
@@ -2518,34 +2566,12 @@ export const InstructorQuiz = () => {
             })}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-200 mt-6">
-              <p className="text-sm text-gray-500 font-medium">
-                Showing {startIndex + 1}–{Math.min(endIndex, questions.length)} of {questions.length} questions
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={validCurrentPage === 1}
-                  aria-label="Previous question page"
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  Prev
-                </button>
-                {renderPageButtons()}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={validCurrentPage === totalPages}
-                  aria-label="Next question page"
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={validCurrentPage}
+            pageSize={QUESTIONS_PER_PAGE}
+            totalItems={questions.length}
+            onChange={goToPage}
+          />
           </>
         )}
       </div>
@@ -2557,14 +2583,14 @@ export const InstructorQuiz = () => {
           {!isLocked && (
             <>
               <button
-                onClick={() => handleSaveQuiz(false, false)}
+                onClick={() => handleSaveQuiz(false, false, { allowIncomplete: true })}
                 disabled={saving}
                 className="bg-brand-gold hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 text-brand-navy px-5 py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                {saving ? "Saving..." : "Save as Draft"}
+                <StableLabel busy={saving} label="Save as Draft" busyLabel="Saving..." />
               </button>
 
               <button

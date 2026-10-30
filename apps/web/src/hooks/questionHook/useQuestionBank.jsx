@@ -207,8 +207,10 @@ export const useQuestionBank = () => {
         }));
       }
 
-      // Combine both types of questions
-      const allQuestions = [...quizQuestions, ...standaloneQuestions];
+      // Combine both types of questions, skipping blank placeholders saved in draft exams
+      const allQuestions = [...quizQuestions, ...standaloneQuestions].filter((q) =>
+        (q.text || "").trim(),
+      );
 
       if (allQuestions.length === 0) {
         setActiveQuestions([]);

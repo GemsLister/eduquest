@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
@@ -21,6 +21,21 @@ import {
   exportSubmissionQuizPaper,
 } from "../../services/facultyHeadService.js";
 import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
+import { useBloomsLevelEditor } from "../../hooks/useBloomsLevelEditor.jsx";
+import {
+  BloomsConfidenceBlock,
+  BloomsLevelBadge,
+  BloomsLevelHistory,
+  ManualLevelNotice,
+} from "../../components/quiz/BloomsLevelControls.jsx";
+import { saveSubmissionLevelChange } from "../../services/bloomsLevelService.js";
+import { RevisionTemplateMenu } from "../../components/quiz/RevisionTemplateMenu.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
+import { StableLabel } from "../../components/ui/StableLabel.jsx";
+import { appendTemplate } from "../../utils/revisionTemplates.js";
+import { scrollToElementTop } from "../../utils/scrollToElement.js";
+
+const QUESTIONS_PER_PAGE = 10;
 
 export const FacultyHeadApprovalDetail = () => {
   const { user } = useAuth();
@@ -41,6 +56,27 @@ export const FacultyHeadApprovalDetail = () => {
   // Department Head comments: overall + per question (keyed by questionId)
   const [feedbackInput, setFeedbackInput] = useState("");
   const [headQuestionFeedback, setHeadQuestionFeedback] = useState({});
+  const [questionPage, setQuestionPage] = useState(1);
+  const questionListRef = useRef(null);
+
+  // The Department Head can correct Bloom's levels while the exam awaits approval
+  const levelEditor = useBloomsLevelEditor({
+    reasonRequired: true,
+    onSave: async (item, questionNumber, level, reason) => {
+      const updated = await saveSubmissionLevelChange({
+        submissionId: submission.id,
+        quizId: submission.quiz_id,
+        quizTitle: submission.quizzes?.title || submission.analysis_results?.quiz_title,
+        questionId: item.questionId,
+        questionNumber,
+        newLevel: level,
+        reason,
+        role: "department_head",
+      });
+      setSubmission((prev) => ({ ...prev, analysis_results: updated }));
+      notify.success(`Question ${questionNumber} is now ${level}.`);
+    },
+  });
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -524,6 +560,16 @@ export const FacultyHeadApprovalDetail = () => {
   }
 
   const results = submission.analysis_results;
+  const questionCount = results?.analysis?.length || 0;
+  const currentQuestionPage = Math.min(questionPage, Math.max(1, Math.ceil(questionCount / QUESTIONS_PER_PAGE)));
+  const pageStart = (currentQuestionPage - 1) * QUESTIONS_PER_PAGE;
+  const goToQuestionPage = (page) => {
+    setQuestionPage(page);
+    scrollToElementTop(questionListRef.current);
+  };
+  // No self-review: a Department Head can't change levels on their own exam
+  const canEditLevels =
+    submission.status === HEAD_STATUSES.PENDING && submission.instructor_id !== user?.id;
   const snapshotById = (results?.questionSnapshots || []).reduce(
     (acc, item) => {
       acc[String(item.questionId)] = item;
@@ -743,6 +789,12 @@ export const FacultyHeadApprovalDetail = () => {
               </span>
             </div>
           )}
+          <ManualLevelNotice results={results} />
+          {canEditLevels && (
+            <p className="mt-3 text-xs text-gray-500">
+              If a question&apos;s Bloom&apos;s level is wrong, click the level to correct it. The instructor will see your reason.
+            </p>
+          )}
         </div>
 
         {/* Bloom's Visualization Charts */}
@@ -760,8 +812,9 @@ export const FacultyHeadApprovalDetail = () => {
           <h3 className="text-lg font-bold text-gray-800 mb-4">
             Question Analysis
           </h3>
-          <div className="space-y-4">
-            {results?.analysis?.map((item, idx) => {
+          <div ref={questionListRef} className="space-y-4">
+            {results?.analysis?.slice(pageStart, pageStart + QUESTIONS_PER_PAGE).map((item, pageIdx) => {
+              const idx = pageStart + pageIdx;
               const questionMeta =
                 snapshotById[String(item.questionId)] ||
                 snapshotByText[normalizeQuestionText(item.questionText)] ||
@@ -793,11 +846,12 @@ export const FacultyHeadApprovalDetail = () => {
                         >
                           {item.thinkingOrder}
                         </span>
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
-                        >
-                          {item.bloomsLevel}
-                        </span>
+                        <BloomsLevelBadge
+                          item={item}
+                          questionNumber={idx + 1}
+                          className="px-2 py-1"
+                          onEdit={canEditLevels ? () => levelEditor.open(item, idx + 1) : undefined}
+                        />
                         {(() => {
                           const gadEval = analyzeGADQuestion(item.questionText || "", options);
                           return (
@@ -878,21 +932,10 @@ export const FacultyHeadApprovalDetail = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-right ml-4">
-                      <p className="text-sm text-gray-500">Confidence</p>
-                      <p
-                        className={`text-lg font-bold ${
-                          item.confidence >= 0.9
-                            ? "text-green-600"
-                            : item.confidence >= 0.75
-                              ? "text-yellow-600"
-                              : "text-red-600"
-                        }`}
-                      >
-                        {(item.confidence * 100).toFixed(1)}%
-                      </p>
-                    </div>
+                    <BloomsConfidenceBlock item={item} className="ml-4" />
                   </div>
+
+                  <BloomsLevelHistory item={item} />
 
                   {/* Inline per-question reviewer feedback */}
                   {submission.question_feedback?.[item.questionId] && (
@@ -909,13 +952,24 @@ export const FacultyHeadApprovalDetail = () => {
                   {/* Department Head comment for this question */}
                   {submission.status === HEAD_STATUSES.PENDING ? (
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                      <label
-                        htmlFor={`head-comment-${item.questionId}`}
-                        className="block text-xs font-semibold text-gray-500 mb-1.5"
-                      >
-                        Your comment on Q{idx + 1}{" "}
-                        <span className="font-normal text-gray-400">(optional)</span>
-                      </label>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <label
+                          htmlFor={`head-comment-${item.questionId}`}
+                          className="text-xs font-semibold text-gray-500"
+                        >
+                          Your comment on Q{idx + 1}{" "}
+                          <span className="font-normal text-gray-400">(optional)</span>
+                        </label>
+                        <RevisionTemplateMenu
+                          disabled={actionLoading}
+                          onPick={(text) =>
+                            setHeadQuestionFeedback((prev) => ({
+                              ...prev,
+                              [item.questionId]: appendTemplate(prev[item.questionId], text),
+                            }))
+                          }
+                        />
+                      </div>
                       <textarea
                         id={`head-comment-${item.questionId}`}
                         value={headQuestionFeedback[item.questionId] || ""}
@@ -947,6 +1001,12 @@ export const FacultyHeadApprovalDetail = () => {
               );
             })}
           </div>
+          <Pagination
+            page={currentQuestionPage}
+            pageSize={QUESTIONS_PER_PAGE}
+            totalItems={questionCount}
+            onChange={goToQuestionPage}
+          />
         </div>
 
         {/* Overall comment + Approve & Request Revision */}
@@ -987,7 +1047,7 @@ export const FacultyHeadApprovalDetail = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              {pendingAction === "revision" ? "Submitting..." : "Request Revision"}
+              <StableLabel busy={pendingAction === "revision"} label="Request Revision" busyLabel="Submitting..." />
             </button>
 
             <button
@@ -996,29 +1056,20 @@ export const FacultyHeadApprovalDetail = () => {
               className="px-8 py-3 bg-brand-navy hover:bg-brand-navy/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
             >
               {pendingAction === "approve" ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Approving...
-                </>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
-                <>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Approve Exam
-                </>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
               )}
+              <StableLabel busy={pendingAction === "approve"} label="Approve Exam" busyLabel="Approving..." />
             </button>
           </div>
         )}
@@ -1073,6 +1124,7 @@ export const FacultyHeadApprovalDetail = () => {
           </div>
         )}
       </div>
+      {levelEditor.modal}
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient";
@@ -13,23 +13,26 @@ import { useEscapeKey } from "../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../hooks/useFocusTrap.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
 import { canSeniorFacultyReview } from "../../services/adminService.js";
+import { useBloomsLevelEditor } from "../../hooks/useBloomsLevelEditor.jsx";
+import {
+  BloomsConfidenceBlock,
+  BloomsLevelBadge,
+  BloomsLevelHistory,
+  ManualLevelNotice,
+} from "../../components/quiz/BloomsLevelControls.jsx";
+import { saveSubmissionLevelChange } from "../../services/bloomsLevelService.js";
+import { RevisionTemplateMenu } from "../../components/quiz/RevisionTemplateMenu.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
+import { StableLabel } from "../../components/ui/StableLabel.jsx";
+import { appendTemplate } from "../../utils/revisionTemplates.js";
+import { scrollToElementTop } from "../../utils/scrollToElement.js";
 import {
   getSubmissionStatusLabel,
   getSubmissionStatusStyle,
   isReturnedByHead,
 } from "../../utils/submissionStatus.js";
 
-/**
- * F7: Quick-fill revision suggestion templates for per-question feedback.
- */
-const REVISION_TEMPLATES = [
-  { label: "Rephrase for clarity", text: "Please rephrase this question for better clarity and precision." },
-  { label: "Raise cognitive level", text: "Consider revising to a higher Bloom's level (e.g., Analyzing/Evaluating) for better HOTS alignment." },
-  { label: "Lower cognitive level", text: "This question may be too complex. Consider simplifying to align with LOTS objectives." },
-  { label: "Review answer options", text: "The answer choices need revision — some distractors are too obvious or the correct answer is ambiguous." },
-  { label: "Add more context", text: "This question lacks sufficient context. Add a scenario or more specific details." },
-  { label: "Fix grammatical errors", text: "This question has grammatical or spelling errors. Please proofread and correct." },
-];
+const QUESTIONS_PER_PAGE = 10;
 
 export const AdminQuizReviewDetail = () => {
   const { user } = useAuth();
@@ -51,7 +54,27 @@ export const AdminQuizReviewDetail = () => {
   const [questionMetaByText, setQuestionMetaByText] = useState({});
   const [questionMetaByIndex, setQuestionMetaByIndex] = useState([]);
   const [previousSnapshots, setPreviousSnapshots] = useState([]); // F8: snapshots from previous submission's analysis_results
-  const [openTemplateFor, setOpenTemplateFor] = useState(null); // F7: which question has template popover open
+  const [questionPage, setQuestionPage] = useState(1);
+  const questionListRef = useRef(null);
+
+  // Senior Faculty can correct Bloom's levels while reviewing
+  const levelEditor = useBloomsLevelEditor({
+    reasonRequired: true,
+    onSave: async (item, questionNumber, level, reason) => {
+      const updated = await saveSubmissionLevelChange({
+        submissionId: submission.id,
+        quizId: submission.quiz_id,
+        quizTitle: submission.quizzes?.title || submission.analysis_results?.quiz_title,
+        questionId: item.questionId,
+        questionNumber,
+        newLevel: level,
+        reason,
+        role: "senior_faculty",
+      });
+      setSubmission((prev) => ({ ...prev, analysis_results: updated }));
+      notify.success(`Question ${questionNumber} is now ${level}.`);
+    },
+  });
 
   const normalizeQuestionText = (value) =>
     String(value || "")
@@ -390,6 +413,16 @@ export const AdminQuizReviewDetail = () => {
   }
 
   const results = submission.analysis_results;
+  // Revisions are compared side by side, so removed questions get a card too
+  const questionCount =
+    previousSnapshots.length > 0
+      ? Math.max(previousSnapshots.length, (results?.analysis || []).length)
+      : (results?.analysis || []).length;
+  const currentQuestionPage = Math.min(questionPage, Math.max(1, Math.ceil(questionCount / QUESTIONS_PER_PAGE)));
+  const goToQuestionPage = (page) => {
+    setQuestionPage(page);
+    scrollToElementTop(questionListRef.current);
+  };
   const canAct = canSeniorFacultyReview(submission, user?.id);
   const readOnlyReason =
     submission.status !== "pending"
@@ -624,6 +657,12 @@ export const AdminQuizReviewDetail = () => {
               </span>
             </div>
           )}
+          <ManualLevelNotice results={results} />
+          {canAct && (
+            <p className="mt-3 text-xs text-gray-500">
+              If the classifier got a question&apos;s Bloom&apos;s level wrong, click the level to correct it. The instructor will see your reason.
+            </p>
+          )}
         </div>
 
         {/* Bloom's Visualization Charts */}
@@ -666,7 +705,7 @@ export const AdminQuizReviewDetail = () => {
             )}
           </div>
 
-          <div className="space-y-5">
+          <div ref={questionListRef} className="space-y-5">
             {(() => {
               const hasPrevious = previousSnapshots.length > 0;
               const maxLen = hasPrevious
@@ -676,7 +715,9 @@ export const AdminQuizReviewDetail = () => {
                   )
                 : (results?.analysis || []).length;
 
-              return Array.from({ length: maxLen }).map((_, idx) => {
+              const pageStart = (currentQuestionPage - 1) * QUESTIONS_PER_PAGE;
+              return Array.from({ length: Math.min(QUESTIONS_PER_PAGE, maxLen - pageStart) }).map((_, pageIdx) => {
+                const idx = pageStart + pageIdx;
                 const item = results?.analysis?.[idx] || null;
                 const prevSnap = hasPrevious ? previousSnapshots[idx] : null;
 
@@ -785,11 +826,11 @@ export const AdminQuizReviewDetail = () => {
                               >
                                 {item.thinkingOrder}
                               </span>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-bold border ${getLevelColor(item.bloomsLevel)}`}
-                              >
-                                {item.bloomsLevel}
-                              </span>
+                              <BloomsLevelBadge
+                                item={item}
+                                questionNumber={idx + 1}
+                                onEdit={canAct ? () => levelEditor.open(item, idx + 1) : undefined}
+                              />
                               {gadEval.hasGenderBias && (
                                 <span
                                   className="px-2 py-0.5 rounded text-xs font-bold bg-brand-navy/10 text-brand-navy border border-brand-navy/20 flex items-center gap-1"
@@ -834,24 +875,7 @@ export const AdminQuizReviewDetail = () => {
                         })()}
                       </div>
 
-                      {item && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 font-medium">
-                            Confidence:
-                          </span>
-                          <span
-                            className={`text-sm font-black ${
-                              item.confidence >= 0.9
-                                ? "text-green-600"
-                                : item.confidence >= 0.75
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                            }`}
-                          >
-                            {(item.confidence * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      )}
+                      {item && <BloomsConfidenceBlock item={item} />}
                     </div>
 
                     {/* Question Content */}
@@ -1050,51 +1074,22 @@ export const AdminQuizReviewDetail = () => {
                       </div>
                     )}
 
+                    {item && <BloomsLevelHistory item={item} />}
+
                     {/* Per-question feedback (Only if item exists) */}
                     {item && (
                       canAct ? (
                         <div className="mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs font-semibold text-gray-500">Feedback for Q{idx + 1}</label>
-                            {/* F7: Suggest Revision quick templates */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setOpenTemplateFor(openTemplateFor === questionIdKey ? null : questionIdKey)}
-                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-brand-navy bg-brand-navy/5 hover:bg-brand-navy/10 border border-brand-navy/20 rounded-lg transition-colors"
-                              >
-                                Suggest Revision
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                              {openTemplateFor === questionIdKey && (
-                                <div className="absolute right-0 top-full mt-1 z-20 w-72 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                                  <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
-                                    <p className="text-xs font-bold text-gray-600">Quick Revision Templates</p>
-                                    <p className="text-[10px] text-gray-400">Click to pre-fill the feedback field</p>
-                                  </div>
-                                  <ul className="py-1">
-                                    {REVISION_TEMPLATES.map((template) => (
-                                      <li key={template.label}>
-                                        <button
-                                          onClick={() => {
-                                            setQuestionFeedback((prev) => ({
-                                              ...prev,
-                                              [item.questionId]: template.text,
-                                            }));
-                                            setOpenTemplateFor(null);
-                                          }}
-                                          className="w-full text-left px-3 py-2 text-xs hover:bg-brand-navy/5 transition-colors"
-                                        >
-                                          <span className="font-semibold text-brand-navy block">{template.label}</span>
-                                          <span className="text-gray-500 line-clamp-1">{template.text}</span>
-                                        </button>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
+                            <RevisionTemplateMenu
+                              onPick={(text) =>
+                                setQuestionFeedback((prev) => ({
+                                  ...prev,
+                                  [item.questionId]: appendTemplate(prev[item.questionId], text),
+                                }))
+                              }
+                            />
                           </div>
                           <textarea
                             value={questionFeedback[item.questionId] || ""}
@@ -1129,6 +1124,12 @@ export const AdminQuizReviewDetail = () => {
               });
             })()}
           </div>
+          <Pagination
+            page={currentQuestionPage}
+            pageSize={QUESTIONS_PER_PAGE}
+            totalItems={questionCount}
+            onChange={goToQuestionPage}
+          />
         </div>
 
         {readOnlyReason && (
@@ -1247,12 +1248,13 @@ export const AdminQuizReviewDetail = () => {
                 disabled={!hasAnyFeedback() || actionLoading}
                 className="px-4 py-2 bg-brand-navy text-white rounded-lg font-semibold hover:bg-brand-indigo transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
               >
-                {actionLoading ? "Submitting..." : "Submit"}
+                <StableLabel busy={actionLoading} label="Submit" busyLabel="Submitting..." />
               </button>
             </div>
           </div>
         </div>
       )}
+      {levelEditor.modal}
     </>
   );
 };

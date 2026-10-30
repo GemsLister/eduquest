@@ -25,6 +25,7 @@ const ACTION_LABELS = {
   SECTION_UPDATED: "Section Updated",
   SECTION_ARCHIVED: "Section Archived",
   ANALYSIS_SAVED: "Item Analysis Saved",
+  BLOOMS_LEVEL_CHANGED: "Bloom's Level Changed",
   USER_LOGIN: "User Login",
   INSTRUCTOR_CREATED: "Instructor Account Created",
   REGISTRATION_APPROVED: "Registration Approved",
@@ -80,6 +81,8 @@ export const getActionBadgeColor = (action) => {
       return "bg-rose-50 text-rose-800 border border-rose-200/80";
     case "ANALYSIS_SAVED":
       return "bg-purple-50 text-purple-800 border border-purple-200/80";
+    case "BLOOMS_LEVEL_CHANGED":
+      return "bg-violet-50 text-violet-800 border border-violet-200/80";
     case "INSTRUCTOR_CREATED":
     case "REGISTRATION_APPROVED":
     case "ACCOUNT_ENABLED":

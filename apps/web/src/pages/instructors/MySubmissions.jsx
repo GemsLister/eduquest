@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../context/AuthContext";
@@ -13,6 +13,16 @@ import { ExamRevisionHistory } from "../../components/quiz/ExamRevisionHistory.j
 import { formatReviewerLabel } from "../../utils/reviewerLabel.js";
 import { Skeleton, SkeletonTableRow } from "../../components/ui/Skeleton.jsx";
 import { getSubmissionStatusLabel, getSubmissionStatusStyle } from "../../utils/submissionStatus.js";
+import {
+  BloomsConfidence,
+  BloomsLevelBadge,
+  BloomsLevelHistory,
+  ManualLevelNotice,
+} from "../../components/quiz/BloomsLevelControls.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
+import { scrollToElementTop } from "../../utils/scrollToElement.js";
+
+const QUESTIONS_PER_PAGE = 10;
 
 const ITEMS_PER_PAGE = 5;
 
@@ -31,6 +41,9 @@ export const MySubmissions = () => {
   const [filter, setFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
+  // Question page of the expanded submission's breakdown
+  const [breakdownPage, setBreakdownPage] = useState(1);
+  const breakdownRef = useRef(null);
   const [instructorName, setInstructorName] = useState(null);
   const [creatingRevisionFor, setCreatingRevisionFor] = useState(null);
 
@@ -929,11 +942,12 @@ export const MySubmissions = () => {
                   {submission.analysis_results?.summary && (
                     <div>
                       <button
-                        onClick={() =>
+                        onClick={() => {
                           setExpandedId(
                             expandedId === submission.id ? null : submission.id,
-                          )
-                        }
+                          );
+                          setBreakdownPage(1);
+                        }}
                         aria-expanded={expandedId === submission.id}
                         className="text-xs font-semibold text-brand-navy hover:text-brand-indigo transition-colors flex items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                       >
@@ -1053,9 +1067,11 @@ export const MySubmissions = () => {
                             summary={submission.analysis_results.summary}
                           />
 
+                          <ManualLevelNotice results={submission.analysis_results} className="" />
+
                           {/* Per-Question Breakdown */}
                           {submission.analysis_results.analysis?.length > 0 && (
-                            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div ref={breakdownRef} className="border border-gray-200 rounded-xl overflow-hidden">
                               <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                                 <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                                   <svg
@@ -1093,8 +1109,10 @@ export const MySubmissions = () => {
                                 </div>
                               </div>
                               <div className="divide-y divide-gray-100">
-                                {submission.analysis_results.analysis.map(
-                                  (item, idx) => {
+                                {submission.analysis_results.analysis
+                                  .slice((breakdownPage - 1) * QUESTIONS_PER_PAGE, breakdownPage * QUESTIONS_PER_PAGE)
+                                  .map((item, pageIdx) => {
+                                    const idx = (breakdownPage - 1) * QUESTIONS_PER_PAGE + pageIdx;
                                     const snapshots =
                                       submission.analysis_results
                                         .questionSnapshots || [];
@@ -1173,29 +1191,10 @@ export const MySubmissions = () => {
                                                 })}
                                               </div>
                                             )}
+                                            <BloomsLevelHistory item={item} className="mt-2" />
                                           </div>
                                           <div className="col-span-2 pt-0.5">
-                                            <span
-                                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${
-                                                {
-                                                  Remembering:
-                                                    "bg-blue-100 text-blue-700 border-blue-300",
-                                                  Understanding:
-                                                    "bg-cyan-100 text-cyan-700 border-cyan-300",
-                                                  Applying:
-                                                    "bg-green-100 text-green-700 border-green-300",
-                                                  Analyzing:
-                                                    "bg-yellow-100 text-yellow-700 border-yellow-300",
-                                                  Evaluating:
-                                                    "bg-orange-100 text-orange-700 border-orange-300",
-                                                  Creating:
-                                                    "bg-purple-100 text-purple-700 border-purple-300",
-                                                }[item.bloomsLevel] ||
-                                                "bg-gray-100 text-gray-700 border-gray-300"
-                                              }`}
-                                            >
-                                              {item.bloomsLevel}
-                                            </span>
+                                            <BloomsLevelBadge item={item} questionNumber={idx + 1} />
                                           </div>
                                           <div className="col-span-2 pt-0.5">
                                             <span
@@ -1212,22 +1211,24 @@ export const MySubmissions = () => {
                                               </span>
                                             )}
                                           </div>
-                                          <div className="col-span-2 text-right pt-0.5">
-                                            <span
-                                              className={`font-semibold ${item.confidence >= 0.9 ? "text-green-600" : item.confidence >= 0.75 ? "text-yellow-600" : "text-red-600"}`}
-                                            >
-                                              {(item.confidence * 100).toFixed(
-                                                1,
-                                              )}
-                                              %
-                                            </span>
+                                          <div className="col-span-2 min-w-0 text-right pt-0.5">
+                                            <BloomsConfidence item={item} />
                                           </div>
                                         </div>
                                       </div>
                                     );
-                                  },
-                                )}
+                                  })}
                               </div>
+                              <Pagination
+                                page={breakdownPage}
+                                pageSize={QUESTIONS_PER_PAGE}
+                                totalItems={submission.analysis_results.analysis.length}
+                                onChange={(page) => {
+                                  setBreakdownPage(page);
+                                  scrollToElementTop(breakdownRef.current);
+                                }}
+                                className="px-4 py-3 border-t border-gray-200 bg-gray-50"
+                              />
                             </div>
                           )}
                         </div>

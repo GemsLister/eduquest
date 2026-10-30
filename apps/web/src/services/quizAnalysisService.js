@@ -8,7 +8,7 @@ const API_URL = "http://localhost:8000";
 /**
  * Analyze a quiz's questions using the Bloom's Taxonomy classifier
  * @param {string} quizId - The quiz ID
- * @param {Array<{id: string, text: string}>} questions - Array of questions to analyze
+ * @param {Array<{id: string, text: string, choices?: string[] | null}>} questions - Array of questions to analyze (choices are option texts only, no answer key)
  * @returns {Promise<Object>} Analysis results with summary and per-question breakdown
  */
 export const analyzeQuiz = async (quizId, questions) => {
