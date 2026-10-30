@@ -29,6 +29,10 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
+# Bloom's Taxonomy model weights (268 MB)
+distilbert_blooms_mcq/
+distilbert_blooms_taxonomy/
+
 # Supabase
 supabase/.branches/
 supabase/.temp/

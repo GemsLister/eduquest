@@ -9,12 +9,12 @@ from models import (
     ForwardToAdminRequest,
     ForwardToAdminResponse,
 )
-from classifier import classify_question, BLOOM_LABELS
+from classifier import classify_questions, BLOOM_LABELS, USE_ML_MODEL
 
 app = FastAPI(
     title="Bloom's Taxonomy Classifier API",
     description="Classifies quiz questions using fine-tuned DistilBERT",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -35,7 +35,7 @@ def root():
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "model": "distilbert_blooms_taxonomy"}
+    return {"status": "healthy", "model": "distilbert_blooms_mcq", "mlModelLoaded": USE_ML_MODEL}
 
 
 @app.post("/api/quiz/analyze", response_model=AnalyzeResponse)
@@ -52,19 +52,20 @@ def analyze_quiz(request: AnalyzeRequest):
     hots_count = 0
     flagged_count = 0
 
-    for question in request.questions:
-        try:
-            result = classify_question(question.text)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+    try:
+        results = classify_questions([(q.text, q.choices) for q in request.questions])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
+    for question, result in zip(request.questions, results):
         analysis_results.append(QuestionAnalysis(
             questionId=question.id,
             questionText=question.text,
             bloomsLevel=result["bloomsLevel"],
             thinkingOrder=result["thinkingOrder"],
             confidence=result["confidence"],
-            needsReview=result["needsReview"]
+            needsReview=result["needsReview"],
+            reviewReasons=result["reviewReasons"]
         ))
 
         distribution[result["bloomsLevel"]] += 1

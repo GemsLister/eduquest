@@ -6,6 +6,7 @@ class Question(BaseModel):
     """Single question for analysis."""
     id: str
     text: str
+    choices: Optional[List[str]] = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -22,6 +23,7 @@ class QuestionAnalysis(BaseModel):
     thinkingOrder: str
     confidence: float
     needsReview: bool
+    reviewReasons: List[str] = []
 
 
 class AnalysisSummary(BaseModel):
