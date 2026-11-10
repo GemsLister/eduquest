@@ -1,0 +1,6 @@
+node_modules/
+.env
+# Test accounts, passwords, login tokens and the schema dump
+data/
+# k6 reports
+results/

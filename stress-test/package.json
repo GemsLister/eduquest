@@ -1,0 +1,15 @@
+{
+  "name": "eduquest-stress-test",
+  "private": true,
+  "type": "module",
+  "description": "Seed a separate Supabase test project with test accounts and exams, then load-test it with k6.",
+  "scripts": {
+    "seed": "node --env-file=.env scripts/seed.mjs",
+    "tokens": "node --env-file=.env scripts/tokens.mjs",
+    "reset": "node --env-file=.env scripts/reset.mjs",
+    "check": "node --env-file=.env scripts/check.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.90.1"
+  }
+}
