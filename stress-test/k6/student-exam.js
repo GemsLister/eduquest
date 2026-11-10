@@ -21,7 +21,7 @@ import { Api } from "./lib/api.js";
 import { takeExam } from "./lib/student.js";
 import { loadTestData, warnIfTokensExpire } from "./lib/data.js";
 
-const { students, meta } = loadTestData(__ENV.DATA_FILE || "../data/users.json");
+const { students, meta } = loadTestData(__ENV.DATA_FILE);
 
 const SCENARIO = (__ENV.SCENARIO || "load").toLowerCase();
 const PROFILES = {

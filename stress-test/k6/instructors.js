@@ -11,7 +11,7 @@ import { Api, think } from "./lib/api.js";
 import { viewResults, createExam, analyzeBlooms } from "./lib/instructor.js";
 import { loadTestData, warnIfTokensExpire } from "./lib/data.js";
 
-const { instructors, meta } = loadTestData(__ENV.DATA_FILE || "../data/users.json");
+const { instructors, meta } = loadTestData(__ENV.DATA_FILE);
 
 const num = (name, fallback) => (__ENV[name] !== undefined && __ENV[name] !== "" ? Number(__ENV[name]) : fallback);
 const VUS = Math.min(num("VUS", 100), instructors.length);

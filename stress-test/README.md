@@ -78,9 +78,15 @@ npm run check
 
 In the **test** project only:
 
-- **Authentication → Rate Limits**: raise the sign-in limit (for example 1000 per
-  5 minutes). The seed step signs in all 2,100 accounts once to collect their
-  login tokens, and with the default limit that takes a long time.
+- **Authentication → Rate Limits**: raise **both** of these, then click Save:
+  - **Rate limit for sign-ups and sign-ins** → 1000 per 5 minutes
+  - **Rate limit for token refreshes** → 1800 per 5 minutes. Logins go through
+    the same token endpoint, so the default of 150 caps logins at about 0.5
+    per second. Long tests also refresh tokens against this limit.
+
+  The seed step signs in all 2,100 accounts once to collect their login tokens.
+  With both limits raised it does about 3 per second (~12 minutes); with the
+  defaults it takes over an hour.
 - **Access token (JWT) expiry**: set it to **14400** seconds (4 hours) so tokens
   outlive the 2-hour soak test. It's in the project's JWT / Auth session
   settings; search the settings for "JWT expiry".

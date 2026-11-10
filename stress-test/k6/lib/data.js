@@ -1,11 +1,14 @@
 // Loads data/users.json once and shares it between all VUs (SharedArray), so
 // 1,000+ VUs don't each keep their own copy in memory.
 //
-// k6 resolves open() paths relative to the entry script, so each entry script
-// passes its own path (they all live in k6/, next to ../data).
+// The default path is resolved from this file, so it keeps working whichever
+// way a k6 version resolves relative open() paths. -e DATA_FILE=... overrides it.
 import { SharedArray } from "k6/data";
 
-export function loadTestData(path) {
+const DEFAULT_DATA_FILE = import.meta.resolve("../../data/users.json");
+
+export function loadTestData(customPath) {
+  const path = customPath || DEFAULT_DATA_FILE;
   const pickAccount = (a) => ({
     n: a.n,
     id: a.id,

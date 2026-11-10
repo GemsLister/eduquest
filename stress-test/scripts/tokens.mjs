@@ -13,8 +13,20 @@ import { loadConfig, readData, writeData, pool, sleep, intEnv, progress } from "
 
 const MIN_VALID_MINUTES = 90;
 
-async function signIn(cfg, email, password) {
+// Supabase's sign-in limit is "N per 5 minutes per IP". Pace requests just
+// under it instead of bursting into it and waiting: 1000 per 5 min = 3.3/s.
+let nextSlot = 0;
+async function paced(ratePerSecond) {
+  const gap = 1000 / ratePerSecond;
+  const now = Date.now();
+  const at = Math.max(now, nextSlot);
+  nextSlot = at + gap;
+  if (at > now) await sleep(at - now);
+}
+
+async function signIn(cfg, email, password, ratePerSecond) {
   for (let attempt = 1; ; attempt++) {
+    await paced(ratePerSecond);
     const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: { apikey: cfg.anonKey, "Content-Type": "application/json" },
@@ -23,9 +35,13 @@ async function signIn(cfg, email, password) {
     if (res.ok) return res.json();
 
     const body = await res.text();
-    if (res.status === 429 && attempt <= 20) {
-      process.stdout.write(`\n  Sign-in rate limit hit, waiting 60s (raise it under Authentication -> Rate Limits in the TEST project to go faster)\n`);
-      await sleep(60_000);
+    if (res.status === 429 && attempt <= 30) {
+      // short, growing waits: 5 s, 10 s, 20 s ... up to 60 s
+      const wait = Math.min(60, 5 * 2 ** Math.min(attempt - 1, 4));
+      if (attempt === 1 || wait === 60) {
+        process.stdout.write(`\n  Sign-in rate limit hit, waiting ${wait}s (lower TOKEN_RATE, or raise the limit under Authentication -> Rate Limits in the TEST project)\n`);
+      }
+      await sleep(wait * 1000);
       continue;
     }
     if (res.status >= 500 && attempt <= 3) {
@@ -38,6 +54,7 @@ async function signIn(cfg, email, password) {
 
 export async function collectTokens(cfg, data, { all = false } = {}) {
   const concurrency = intEnv("TOKEN_CONCURRENCY", 3);
+  const rate = Number(process.env.TOKEN_RATE || 3); // sign-ins per second
   const cutoff = Math.floor(Date.now() / 1000) + MIN_VALID_MINUTES * 60;
   const accounts = [...data.instructors, ...data.students];
   const todo = accounts.filter((a) => all || !a.access_token || !a.expires_at || a.expires_at < cutoff);
@@ -46,11 +63,11 @@ export async function collectTokens(cfg, data, { all = false } = {}) {
     console.log(`All ${accounts.length} tokens are valid for at least ${MIN_VALID_MINUTES} more minutes.`);
     return;
   }
-  console.log(`Signing in ${todo.length} of ${accounts.length} accounts (${concurrency} at a time)...`);
+  console.log(`Signing in ${todo.length} of ${accounts.length} accounts (about ${rate} per second, ~${Math.ceil(todo.length / rate / 60)} min)...`);
 
   let done = 0;
   await pool(todo, concurrency, async (account) => {
-    const session = await signIn(cfg, account.email, data.password);
+    const session = await signIn(cfg, account.email, data.password, rate);
     account.access_token = session.access_token;
     account.refresh_token = session.refresh_token;
     account.expires_at = session.expires_at;

@@ -15,7 +15,7 @@ import { takeExam } from "./lib/student.js";
 import { viewResults, createExam, analyzeBlooms } from "./lib/instructor.js";
 import { loadTestData, warnIfTokensExpire } from "./lib/data.js";
 
-const { students, instructors, meta } = loadTestData(__ENV.DATA_FILE || "../data/users.json");
+const { students, instructors, meta } = loadTestData(__ENV.DATA_FILE);
 
 const num = (name, fallback) => (__ENV[name] !== undefined && __ENV[name] !== "" ? Number(__ENV[name]) : fallback);
 const STUDENT_VUS = num("STUDENTS", 1000);
