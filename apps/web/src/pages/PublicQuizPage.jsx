@@ -161,17 +161,17 @@ export const PublicQuizPage = () => {
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
 
-    // Auto-save answer via server-side grading (fire and forget)
+    // Auto-save answer via server-side grading (fire and forget).
+    // Time is sent as 0: the server adds p_time_spent to the stored total, and
+    // time on a question is already recorded when the student leaves it
+    // (finalizeCurrentQuestionTime). Sending the running total here counted it twice.
     if (attemptId) {
-      // Calculate time spent on this question
-      const timeSpent = questionTimeSpent[questionId] || 0;
-
       supabase
         .rpc("save_quiz_response", {
           p_attempt_id: attemptId,
           p_question_id: questionId,
           p_answer: value,
-          p_time_spent: Math.round(timeSpent * 10) / 10, // Round to 1 decimal place
+          p_time_spent: 0,
         })
         .then(() => {});
     }
@@ -221,29 +221,8 @@ export const PublicQuizPage = () => {
       setAnswers(restoredAnswers);
     }
 
-    // Auto-answer questions with auto_answer flag that don't have saved answers
-    const autoAnswers = {};
-    questionsArr.forEach(question => {
-      if (question.auto_answer && 
-          question.correct_answer !== undefined && 
-          !restoredAnswers[question.id]) {
-        autoAnswers[question.id] = String(question.correct_answer);
-      }
-    });
-    
-    if (Object.keys(autoAnswers).length > 0) {
-      setAnswers(prev => ({ ...prev, ...autoAnswers }));
-      
-      // Save auto-answers to server
-      for (const [questionId, answer] of Object.entries(autoAnswers)) {
-        supabase.rpc("save_quiz_response", {
-          p_attempt_id: existingAttemptId,
-          p_question_id: questionId,
-          p_answer: answer,
-          p_time_spent: 0 // Auto-answers have no time spent
-        }).catch(err => console.error("Error saving auto-answer:", err));
-      }
-    }
+    // Auto-answer questions are credited by submit_quiz_attempt on the server,
+    // so the browser never needs the answer key.
 
     // Restore timer from started_at
     if (attemptData?.started_at) {
@@ -408,7 +387,7 @@ export const PublicQuizPage = () => {
             const { data, error } = await supabase
               .from("quiz_questions")
               .select(
-                "questions(id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer), order_index"
+                "questions(id, quiz_id, type, text, options, points, created_at, auto_answer), order_index"
               )
               .eq("quiz_id", quizData.id)
               .order("order_index", { ascending: true });
@@ -429,7 +408,7 @@ export const PublicQuizPage = () => {
           let { data, error } = await supabase
             .from("questions")
             .select(
-              "id, quiz_id, type, text, options, points, created_at, correct_answer, auto_answer"
+              "id, quiz_id, type, text, options, points, created_at, auto_answer"
             )
             .eq("quiz_id", quizData.id)
             .order("created_at", { ascending: true });
@@ -442,7 +421,7 @@ export const PublicQuizPage = () => {
             const retry = await supabase
               .from("questions")
               .select(
-                "id, quiz_id, type, text, options, points, created_at, correct_answer"
+                "id, quiz_id, type, text, options, points, created_at"
               )
               .eq("quiz_id", quizData.id)
               .order("created_at", { ascending: true });
@@ -506,25 +485,8 @@ export const PublicQuizPage = () => {
                     while (rawOptions.length < 4) rawOptions.push("");
                   }
 
-                  let correctAnswer = null;
-                  const snapCorrect = snap.correctAnswer;
-                  if (isMCQ) {
-                    if (typeof snapCorrect === "number") {
-                      correctAnswer = rawOptions[snapCorrect] ?? null;
-                    } else {
-                      correctAnswer = snapCorrect ?? null;
-                    }
-                  } else if (isTF) {
-                    correctAnswer =
-                      String(snapCorrect ?? "true").toLowerCase() === "true" ||
-                      snapCorrect === 0 ||
-                      snapCorrect === "0"
-                        ? "true"
-                        : "false";
-                  } else {
-                    correctAnswer = snapCorrect ?? null;
-                  }
-
+                  // The answer key is intentionally not copied: grading happens
+                  // on the server, so the exam page never needs it.
                   const pseudoId =
                     snap.questionId ||
                     `restored-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -536,7 +498,6 @@ export const PublicQuizPage = () => {
                     text: snap.questionText || snap.text || "",
                     options: isMCQ ? rawOptions : [],
                     points: 1,
-                    correct_answer: correctAnswer,
                     auto_answer: false,
                     created_at: new Date().toISOString(),
                   };
@@ -784,28 +745,6 @@ export const PublicQuizPage = () => {
 
       setAttemptId(attempt.id);
       await shuffleAndSaveOrder(questions, attempt.id);
-      
-      // Auto-answer questions with auto_answer flag
-      const autoAnswers = {};
-      questions.forEach(question => {
-        if (question.auto_answer && question.correct_answer !== undefined) {
-          autoAnswers[question.id] = String(question.correct_answer);
-        }
-      });
-
-      if (Object.keys(autoAnswers).length > 0) {
-        setAnswers(prev => ({ ...prev, ...autoAnswers }));
-
-        // Save auto-answers to server
-        for (const [questionId, answer] of Object.entries(autoAnswers)) {
-          supabase.rpc("save_quiz_response", {
-            p_attempt_id: attempt.id,
-            p_question_id: questionId,
-            p_answer: answer,
-            p_time_spent: 0 // Auto-answers have no time spent
-          }).catch(err => console.error("Error saving auto-answer:", err));
-        }
-      }
 
       setHasStarted(true);
     } catch (err) {
@@ -822,32 +761,6 @@ export const PublicQuizPage = () => {
     setShowReviewPage(false);
     setCurrentQuestionIndex(index);
   };
-
-  // Apply auto-answers when questions and attempt are loaded
-  useEffect(() => {
-    if (hasStarted && questions.length > 0 && attemptId) {
-      const autoAnswers = {};
-      questions.forEach(question => {
-        if (question.auto_answer && question.correct_answer !== undefined && !answers[question.id]) {
-          autoAnswers[question.id] = String(question.correct_answer);
-        }
-      });
-      
-      if (Object.keys(autoAnswers).length > 0) {
-        setAnswers(prev => ({ ...prev, ...autoAnswers }));
-
-        // Save auto-answers to server
-        for (const [questionId, answer] of Object.entries(autoAnswers)) {
-          supabase.rpc("save_quiz_response", {
-            p_attempt_id: attemptId,
-            p_question_id: questionId,
-            p_answer: answer,
-            p_time_spent: 0 // Auto-answers have no time spent
-          }).catch(err => console.error("Error saving auto-answer:", err));
-        }
-      }
-    }
-  }, [hasStarted, questions, attemptId]);
 
   // Fetch existing time spent for this attempt (restore from DB)
   useEffect(() => {
@@ -1656,6 +1569,12 @@ export const PublicQuizPage = () => {
           <h2 className="text-lg font-bold text-brand-navy mb-6">
             {currentQuestionIndex + 1}. {currentQuestion?.text}
           </h2>
+          {currentQuestion?.auto_answer && (
+            <p className="-mt-4 mb-5 text-sm text-gray-500">
+              Everyone gets full points for this question when the exam is
+              submitted, whatever you choose.
+            </p>
+          )}
 
           <div className="space-y-3 ml-4">
             {/* MCQ Options */}

@@ -1,0 +1,12 @@
+{
+  "name": "eduquest-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "Runs the exam grading migrations on an in-memory Postgres (PGlite) and checks their behaviour. Does not touch the real Supabase project.",
+  "scripts": {
+    "test": "node exam_grading.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.2.17"
+  }
+}
