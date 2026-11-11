@@ -42,7 +42,7 @@ export const options = {
       http_req_failed: ["rate<0.01"],
       exam_completed: ["rate>0.99"],
       "http_req_duration{name:save_answer}": ["p(95)<500"],
-      "http_req_duration{name:save_time}": ["p(95)<500"],
+      "http_req_duration{name:save_times}": ["p(95)<1000"],
       "http_req_duration{name:submit_exam}": ["p(95)<2000"],
       "http_req_duration{name:load_questions}": ["p(95)<1500"],
       results_page_loaded: ["rate>0.99"],

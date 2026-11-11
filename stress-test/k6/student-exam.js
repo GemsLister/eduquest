@@ -12,7 +12,7 @@
 // Options (all optional): -e VUS=...  -e THINK_MIN=... -e THINK_MAX=...
 //   -e READ_MIN=... -e READ_MAX=... (seconds spent reading the instructions)
 //   -e ARRIVAL_SECONDS=...  -e DURATION=2h (soak)  -e ROUND=0 (which seeded exam)
-//   -e SUBMIT_JITTER=0 (spike: spread submits over N seconds)
+//   -e SUBMIT_JITTER=15 (spike: submits spread over N seconds, like the exam page does)
 //
 //   k6 run -e SCENARIO=load k6/student-exam.js
 import exec from "k6/execution";
@@ -26,7 +26,7 @@ const { students, meta } = loadTestData(__ENV.DATA_FILE);
 const SCENARIO = (__ENV.SCENARIO || "load").toLowerCase();
 const PROFILES = {
   load: { vus: 1000, think: [15, 45], read: [5, 20], arrival: 300 },
-  spike: { vus: 1000, think: [2, 6], read: [2, 5], arrival: 30, syncSubmit: true },
+  spike: { vus: 1000, think: [2, 6], read: [2, 5], arrival: 30, syncSubmit: true, submitJitter: 15 },
   stress: { vus: students.length, think: [1, 4], read: [1, 3], arrival: 0 },
   soak: { vus: 400, think: [10, 30], read: [5, 15], arrival: 120 },
 };
@@ -40,7 +40,7 @@ const P = {
   read: [num("READ_MIN", base.read[0]), num("READ_MAX", base.read[1])],
   arrival: num("ARRIVAL_SECONDS", base.arrival),
   round: num("ROUND", 0),
-  submitJitter: num("SUBMIT_JITTER", 0),
+  submitJitter: num("SUBMIT_JITTER", base.submitJitter || 0),
   syncSubmit: !!base.syncSubmit,
 };
 const questions = meta.questionsPerExam;
@@ -93,11 +93,11 @@ export const options = {
     checks: ["rate>0.99"],
     exam_completed: ["rate>0.99"],
     "http_req_duration{name:save_answer}": ["p(95)<500"],
-    "http_req_duration{name:save_time}": ["p(95)<500"],
+    "http_req_duration{name:save_times}": ["p(95)<1000"],
     "http_req_duration{name:submit_exam}": ["p(95)<2000"],
     "http_req_duration{name:open_exam_link}": ["p(95)<1500"],
     "http_req_duration{name:load_questions}": ["p(95)<1500"],
-    "http_req_duration{name:create_attempt}": ["p(95)<1500"],
+    "http_req_duration{name:start_exam}": ["p(95)<1500"],
   },
   summaryTrendStats: ["avg", "med", "p(90)", "p(95)", "p(99)", "max"],
 };

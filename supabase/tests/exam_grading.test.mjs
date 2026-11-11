@@ -23,6 +23,7 @@ const MIGRATIONS = [
   "20261111_harden_exam_grading.sql",
   "20261111_protect_attempts_and_answer_key.sql",
   "20261111_restrict_question_reads_to_staff.sql",
+  "20261112_fewer_exam_requests.sql",
 ].map((f) => path.join(here, "..", "migrations", f));
 
 const db = new PGlite();
@@ -45,6 +46,9 @@ const ids = {
   pendingInstructor: "eeeeeeee-0000-0000-0000-000000000002", // registered, not approved yet
   admin: "eeeeeeee-0000-0000-0000-000000000003", // Senior Faculty
   head: "eeeeeeee-0000-0000-0000-000000000004", // Department Head
+  bob: "cccccccc-0000-0000-0000-000000000003", // student who starts with start_exam_attempt
+  bobTwin: "cccccccc-0000-0000-0000-000000000004", // different email, same "bob" prefix
+  sectionS: "ffffffff-0000-0000-0000-000000000001",
 };
 
 // ---------- Fake Supabase environment + minimal copies of the real tables ----------
@@ -60,7 +64,12 @@ await db.exec(`
   CREATE TABLE profiles (
     id uuid PRIMARY KEY, is_admin boolean DEFAULT false, is_faculty_head boolean DEFAULT false,
     is_instructor boolean DEFAULT false, is_approved boolean NOT NULL DEFAULT false);
-  CREATE TABLE quizzes (id uuid PRIMARY KEY, is_published boolean DEFAULT false, instructor_id uuid);
+  CREATE TABLE quizzes (id uuid PRIMARY KEY, is_published boolean DEFAULT false, instructor_id uuid,
+    is_open boolean NOT NULL DEFAULT true, section_id uuid);
+  CREATE TABLE sections (id uuid PRIMARY KEY, exam_code varchar(50));
+  CREATE TABLE student_profile (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), student_email text NOT NULL UNIQUE,
+    student_name text, exam_code varchar, student_id text UNIQUE);
   CREATE TABLE questions (
     id uuid PRIMARY KEY, quiz_id uuid REFERENCES quizzes(id), type varchar(50),
     text text, options text[], correct_answer text, points integer,
@@ -72,7 +81,13 @@ await db.exec(`
   CREATE TABLE quiz_attempts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(), quiz_id uuid, user_id uuid, student_email text,
     score integer DEFAULT 0, status varchar(50) DEFAULT 'in_progress',
-    started_at timestamptz DEFAULT now(), completed_at timestamptz, question_order jsonb);
+    started_at timestamptz DEFAULT now(), completed_at timestamptz, question_order jsonb,
+    section_id uuid, student_name varchar(255));
+  -- same one-attempt-per-student rules as production
+  CREATE UNIQUE INDEX one_completed_per_section ON quiz_attempts (quiz_id, student_email, section_id)
+    WHERE status = 'completed' AND section_id IS NOT NULL;
+  CREATE UNIQUE INDEX one_open_per_section ON quiz_attempts (quiz_id, student_email, section_id)
+    WHERE status = 'in_progress' AND section_id IS NOT NULL;
   CREATE TABLE quiz_responses (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     attempt_id uuid REFERENCES quiz_attempts(id) ON DELETE CASCADE,
@@ -119,6 +134,7 @@ await db.exec(`
     ('${ids.q6}', '${ids.quizDraft}', 'mcq', 'Q6', ARRAY['M','N'], 'M', 1, now());
   INSERT INTO quiz_questions (quiz_id, question_id, order_index) VALUES
     ('${ids.quizB}', '${ids.q4}', 0), ('${ids.quizB}', '${ids.q3}', 1);
+  INSERT INTO sections VALUES ('${ids.sectionS}', 'EXAM-S');
   INSERT INTO quiz_attempts (id, quiz_id, user_id, student_email)
     VALUES ('${ids.attempt}', '${ids.quizA}', '${ids.alice}', 'Alice@School.edu');
 `);
@@ -335,6 +351,92 @@ await alice(); await save(ids.q1, "1", 0);
 await alice();
 const s4 = await submit([{ question_id: ids.q1, answer: "1" }, { question_id: ids.q2, answer: "0" }]);
 check("grading still works for the student under the new policy (2 + 1 + 4 auto)", s4 === 7, String(s4));
+
+group("Starting an exam with one request (fewer requests)");
+const start = async (quizId, sectionId = ids.sectionS, name = "Bob B") =>
+  (await db.query(`SELECT start_exam_attempt($1, $2, $3) AS r`, [quizId, sectionId, name])).rows[0].r;
+const saveTimes = (attemptId, times) =>
+  db.query(`SELECT save_question_times($1, $2::jsonb)`, [attemptId, JSON.stringify(times)]);
+const row = async (attemptId, q) => {
+  await asAdmin();
+  return (await db.query(`SELECT answer, points_earned, time_spent_seconds::float AS t FROM quiz_responses WHERE attempt_id = $1 AND question_id = $2`, [attemptId, q])).rows[0];
+};
+
+await as(null, null, "anon");
+err = await fails(() => start(ids.quizA));
+check("anon role cannot call start_exam_attempt", err?.includes("permission denied"), err);
+
+await as(ids.bob, "bob@school.edu");
+const st1 = await start(ids.quizA);
+check("new attempt: status in_progress with an attempt id", st1.status === "in_progress" && !!st1.attempt_id, j(st1));
+check("question order covers exactly the exam's 3 questions", [...st1.question_order].sort().join() === [ids.q1, ids.q2, ids.q5].sort().join(), j(st1.question_order));
+check("fresh attempt returns no answers or times", Object.keys(st1.answers).length === 0 && Object.keys(st1.times).length === 0, j(st1));
+await asAdmin();
+const prof = (await db.query(`SELECT student_name, student_id, exam_code FROM student_profile WHERE student_email = 'bob@school.edu'`)).rows[0];
+check("student profile created with name, id and the section's exam code", prof?.student_name === "Bob B" && prof.student_id === "bob" && prof.exam_code === "EXAM-S", j(prof));
+const bobAttempt = (await db.query(`SELECT user_id, section_id, student_email, status, question_order FROM quiz_attempts WHERE id = $1`, [st1.attempt_id])).rows[0];
+check("attempt stored with owner, section and saved order", bobAttempt.user_id === ids.bob && bobAttempt.section_id === ids.sectionS && j(bobAttempt.question_order) === j(st1.question_order), j(bobAttempt));
+
+await as(ids.bob, "bob@school.edu");
+await db.query(`SELECT save_quiz_response($1, $2, '1', 0)`, [st1.attempt_id, ids.q1]);
+await saveTimes(st1.attempt_id, { [ids.q1]: 12.5, [ids.q2]: 3, [ids.q3]: 99, "not-a-uuid": 5, [ids.q5]: "abc" });
+let r1 = await row(st1.attempt_id, ids.q1);
+check("time batch adds to an answered question without touching the answer", r1.answer === "1" && r1.t === 12.5, j(r1));
+r1 = await row(st1.attempt_id, ids.q2);
+check("time batch creates a row for a question not answered yet", r1 && r1.answer === null && r1.t === 3, j(r1));
+check("time batch ignores other quizzes' questions and bad keys/values", (await row(st1.attempt_id, ids.q3)) === undefined && (await row(st1.attempt_id, ids.q5)) === undefined);
+await as(ids.bob, "bob@school.edu");
+await saveTimes(st1.attempt_id, { [ids.q1]: 2.5 });
+r1 = await row(st1.attempt_id, ids.q1);
+check("a second batch adds on top", r1.t === 15, j(r1));
+
+await as(ids.mallory, "mallory@school.edu");
+err = await fails(() => saveTimes(st1.attempt_id, { [ids.q1]: 100 }));
+check("another student cannot add time to this attempt", err?.includes("own exam attempt"), err);
+
+await as(ids.bob, "bob@school.edu");
+const st2 = await start(ids.quizA);
+check("starting again resumes the same attempt and order", st2.attempt_id === st1.attempt_id && j(st2.question_order) === j(st1.question_order), j(st2));
+check("resume returns saved answers and times", st2.answers[ids.q1] === "1" && Number(st2.times[ids.q1]) === 15 && Number(st2.times[ids.q2]) === 3 && !(ids.q2 in st2.answers), j(st2));
+check("resume reports server time for the timer", !!st2.started_at && !!st2.server_now, j(st2));
+
+await as(ids.bob, "bob@school.edu");
+const s5 = (await db.query(`SELECT submit_quiz_attempt($1, $2::jsonb) AS s`, [st1.attempt_id, JSON.stringify([
+  { question_id: ids.q1, answer: "", time_spent: 4 },
+  { question_id: ids.q2, answer: "0", time_spent: 6 },
+  { question_id: ids.q5, answer: "", time_spent: 0 },
+])])).rows[0].s;
+r1 = await row(st1.attempt_id, ids.q1);
+check("submit adds unsent time and keeps the saved answer", r1.answer === "1" && r1.t === 19, j(r1));
+r1 = await row(st1.attempt_id, ids.q2);
+check("submit stores the answer and adds its time", r1.answer === "0" && r1.t === 9, j(r1));
+check("score = 2 (Q1) + 1 (Q2) + 4 (Q5 auto-answer) = 7", s5 === 7, String(s5));
+
+await as(ids.bob, "bob@school.edu");
+await saveTimes(st1.attempt_id, { [ids.q1]: 1, [ids.q3]: 50 });
+r1 = await row(st1.attempt_id, ids.q1);
+check("late time batch after submit is recorded, no new rows added", r1.t === 20 && (await row(st1.attempt_id, ids.q3)) === undefined, j(r1));
+await as(ids.bob, "bob@school.edu");
+const st3 = await start(ids.quizA);
+check("starting a submitted exam reports 'completed'", st3.status === "completed" && !st3.attempt_id, j(st3));
+
+await as(ids.bobTwin, "bob@other.edu");
+const st4 = await start(ids.quizA);
+check("a clash on the student_id profile column doesn't block the exam", st4.status === "in_progress" && st4.attempt_id !== st1.attempt_id, j(st4));
+
+await as(ids.bob, "bob@school.edu");
+err = await fails(() => start(ids.quizDraft));
+check("unpublished exam can't be started", err?.includes("Exam not found"), err);
+await asAdmin();
+await db.query(`UPDATE quizzes SET is_open = false WHERE id = $1`, [ids.quizB]);
+await as(ids.bob, "bob@school.edu");
+err = await fails(() => start(ids.quizB));
+check("closed exam can't be started", err?.includes("closed by the instructor"), err);
+await asAdmin();
+await db.query(`UPDATE quizzes SET is_open = true WHERE id = $1`, [ids.quizB]);
+await as(ids.bob, "bob@school.edu");
+const st5 = await start(ids.quizB, null);
+check("exam with linked questions: order uses quiz_questions (Q3, Q4)", [...st5.question_order].sort().join() === [ids.q3, ids.q4].sort().join(), j(st5.question_order));
 
 await asAdmin();
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");

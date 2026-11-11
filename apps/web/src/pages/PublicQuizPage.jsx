@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
-import { studentService } from "../services/studentService.js";
-import { quizService } from "../services/quizService.js";
 import { useGoogleLogin } from "../hooks/authHook/useGoogleLogin.jsx";
 import { useSearchParams } from "react-router-dom";
 import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
@@ -19,6 +17,26 @@ const isMissingTableError = (error) => {
     (msg.includes("relation") && msg.includes("does not exist"))
   );
 };
+
+// Load-related settings (see stress-test/RESULTS.md for why these exist)
+// Time spent per question is sent in one batch this often, instead of one
+// request every time the student moves to another question.
+const TIME_FLUSH_MS = 60_000;
+// When the timer runs out, each browser submits within this many seconds, so a
+// whole class running out of time together doesn't hit the server in one second.
+const AUTO_SUBMIT_SPREAD_SECONDS = 15;
+// A failed answer save is retried this many times (1 s, 2 s, 4 s ... up to 30 s).
+const SAVE_RETRY_LIMIT = 6;
+// Submitting is safe to repeat (the server returns the stored score), so it is
+// retried this many times if the server is busy.
+const SUBMIT_ATTEMPTS = 4;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Errors where retrying can't help (not the student's attempt, attempt closed)
+const isPermanentSaveError = (error) =>
+  error?.code === "42501" ||
+  /no longer open|not found|own exam attempt|signed in/i.test(error?.message || "");
 
 export const PublicQuizPage = () => {
   const { shareToken } = useParams();
@@ -62,6 +80,25 @@ export const PublicQuizPage = () => {
   const autoSubmitRef = useRef(false);
   const quizContainerRef = useRef(null);
 
+  // Answer saving: every answer is saved right away, retried if the save fails,
+  // and saves for the same question are kept in order.
+  const attemptIdRef = useRef(null);
+  const completedRef = useRef(false);
+  const latestAnswerRef = useRef({}); // question id -> { value, version }
+  const savedVersionRef = useRef({}); // question id -> version the server confirmed
+  const saveChainRef = useRef({}); // question id -> promise of the saves in progress
+  const pendingSavesRef = useRef(0);
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | retrying | error
+  // Time spent per question that hasn't been sent to the server yet
+  const unsentTimeRef = useRef({});
+
+  useEffect(() => {
+    attemptIdRef.current = attemptId;
+  }, [attemptId]);
+  useEffect(() => {
+    completedRef.current = completed;
+  }, [completed]);
+
   // Toggle fullscreen mode
   const toggleFullscreen = async () => {
     try {
@@ -77,25 +114,8 @@ export const PublicQuizPage = () => {
     }
   };
 
-  // Track time: save time spent for a given question (now integrated with save_quiz_response)
-  const saveTimeForQuestion = async (questionId, seconds) => {
-    if (!attemptId || !questionId || !seconds || seconds <= 0) return;
-    try {
-      // Get current answer for this question
-      const currentAnswer = answers[questionId] || null;
-
-      // Use save_quiz_response to save both answer and time
-      await supabase.rpc("save_quiz_response", {
-        p_attempt_id: attemptId,
-        p_question_id: questionId,
-        p_answer: currentAnswer,
-        p_time_spent: Math.round(seconds * 10) / 10, // Round to 1 decimal place
-      });
-    } catch (err) {
-      console.error("Error saving question time:", err);
-    }
-  };
-
+  // Time on a question is collected locally when the student leaves it, and
+  // sent in batches (flushQuestionTimes) or with the submission.
   const finalizeCurrentQuestionTime = () => {
     if (!questionEnteredAtRef.current || !currentQuestionIdRef.current) return;
     const now = Date.now();
@@ -106,9 +126,104 @@ export const PublicQuizPage = () => {
         ...prev,
         [qid]: (prev[qid] || 0) + secondsSpent
       }));
-      saveTimeForQuestion(qid, secondsSpent);
+      unsentTimeRef.current[qid] = (unsentTimeRef.current[qid] || 0) + secondsSpent;
     }
     questionEnteredAtRef.current = null;
+  };
+
+  // Send the collected time for all questions in one request.
+  const flushQuestionTimes = async () => {
+    const id = attemptIdRef.current;
+    const batch = unsentTimeRef.current;
+    if (!id || completedRef.current || Object.keys(batch).length === 0) return;
+    unsentTimeRef.current = {};
+    const rounded = {};
+    for (const [qid, seconds] of Object.entries(batch)) {
+      rounded[qid] = Math.round(seconds * 10) / 10;
+    }
+    let failed = false;
+    try {
+      const { error } = await supabase.rpc("save_question_times", {
+        p_attempt_id: id,
+        p_times: rounded,
+      });
+      failed = !!error;
+    } catch {
+      failed = true;
+    }
+    if (failed) {
+      // keep it for the next batch or the submission
+      for (const [qid, seconds] of Object.entries(batch)) {
+        unsentTimeRef.current[qid] = (unsentTimeRef.current[qid] || 0) + seconds;
+      }
+    }
+  };
+
+  const hasUnsavedAnswers = () =>
+    Object.entries(latestAnswerRef.current).some(
+      ([qid, latest]) => savedVersionRef.current[qid] !== latest.version,
+    );
+
+  // Save the newest answer for one question, retrying with growing waits.
+  const pushAnswer = async (qid) => {
+    let failures = 0;
+    for (;;) {
+      const latest = latestAnswerRef.current[qid];
+      if (!latest || savedVersionRef.current[qid] === latest.version) return;
+      if (completedRef.current || !attemptIdRef.current) return;
+
+      let error = null;
+      try {
+        ({ error } = await supabase.rpc("save_quiz_response", {
+          p_attempt_id: attemptIdRef.current,
+          p_question_id: qid,
+          p_answer: latest.value,
+          p_time_spent: 0, // time is sent in batches
+        }));
+      } catch (err) {
+        error = err;
+      }
+
+      if (!error) {
+        savedVersionRef.current[qid] = latest.version;
+        failures = 0;
+        continue; // the student may have changed the answer meanwhile
+      }
+      if (isPermanentSaveError(error)) {
+        console.error("Answer not saved:", error.message);
+        return;
+      }
+      failures += 1;
+      if (failures > SAVE_RETRY_LIMIT) return; // retried later by the periodic check
+      setSaveState("retrying");
+      await sleep(Math.min(30_000, 1000 * 2 ** (failures - 1)));
+    }
+  };
+
+  const runAnswerSave = (qid) => {
+    pendingSavesRef.current += 1;
+    saveChainRef.current[qid] = (saveChainRef.current[qid] || Promise.resolve())
+      .then(() => pushAnswer(qid))
+      .catch(() => {})
+      .then(() => {
+        pendingSavesRef.current -= 1;
+        if (completedRef.current || pendingSavesRef.current > 0) return;
+        setSaveState(hasUnsavedAnswers() ? "error" : "saved");
+      });
+  };
+
+  const queueAnswerSave = (qid, value) => {
+    const previous = latestAnswerRef.current[qid];
+    latestAnswerRef.current[qid] = { value, version: (previous?.version || 0) + 1 };
+    setSaveState("saving");
+    runAnswerSave(qid);
+  };
+
+  // Try again for any answer whose saves all failed.
+  const retryUnsavedAnswers = () => {
+    for (const [qid, latest] of Object.entries(latestAnswerRef.current)) {
+      if (savedVersionRef.current[qid] !== latest.version) runAnswerSave(qid);
+    }
   };
 
   // Quiz duration in seconds (null if unlimited)
@@ -117,7 +232,7 @@ export const PublicQuizPage = () => {
   // --- TIMER (elapsed + countdown) ---
   useEffect(() => {
     if (hasStarted && !completed) {
-      // Initialize countdown only if not already set by restoreAttemptState
+      // Initialize countdown only if not already set by applyStartedAttempt
       if (quizDurationSeconds && remainingSeconds === null) {
         setRemainingSeconds(quizDurationSeconds);
       }
@@ -159,76 +274,41 @@ export const PublicQuizPage = () => {
     remainingSeconds > 0;
 
   const handleAnswerChange = (questionId, value) => {
+    // Once time is up, answers are frozen while the submission goes out.
+    if (timeExpired || completedRef.current) return;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
-
-    // Auto-save answer via server-side grading (fire and forget).
-    // Time is sent as 0: the server adds p_time_spent to the stored total, and
-    // time on a question is already recorded when the student leaves it
-    // (finalizeCurrentQuestionTime). Sending the running total here counted it twice.
-    if (attemptId) {
-      supabase
-        .rpc("save_quiz_response", {
-          p_attempt_id: attemptId,
-          p_question_id: questionId,
-          p_answer: value,
-          p_time_spent: 0,
-        })
-        .then(() => {});
-    }
+    if (attemptIdRef.current) queueAnswerSave(questionId, value);
   };
 
-  // Shuffle questions and save order to the attempt record
-  const shuffleAndSaveOrder = async (questionsArr, newAttemptId) => {
-    const shuffled = [...questionsArr].sort(() => Math.random() - 0.5);
-    const order = shuffled.map((q) => q.id);
-    setQuestions(shuffled);
-    await supabase
-      .from("quiz_attempts")
-      .update({ question_order: order })
-      .eq("id", newAttemptId);
-  };
+  // Apply what start_exam_attempt returned: the (server-shuffled) question
+  // order, saved answers and times when resuming, and the timer.
+  // Auto-answer questions are credited by submit_quiz_attempt on the server,
+  // so the browser never needs the answer key.
+  const applyStartedAttempt = (start, questionsArr) => {
+    const orderIds = Array.isArray(start.question_order) ? start.question_order : [];
+    const ordered = orderIds
+      .map((id) => questionsArr.find((q) => q.id === id))
+      .filter(Boolean);
+    // Append any questions not in the saved order (edge case)
+    const remaining = questionsArr.filter((q) => !orderIds.includes(q.id));
+    setQuestions([...ordered, ...remaining]);
 
-  // Restore question order from a saved attempt, and load saved answers
-  const restoreAttemptState = async (existingAttemptId, questionsArr) => {
-    // Load saved question order
-    const { data: attemptData } = await supabase
-      .from("quiz_attempts")
-      .select("question_order, started_at")
-      .eq("id", existingAttemptId)
-      .single();
-
-    if (attemptData?.question_order) {
-      const orderIds = attemptData.question_order;
-      const ordered = orderIds
-        .map((id) => questionsArr.find((q) => q.id === id))
-        .filter(Boolean);
-      // Append any questions not in the saved order (edge case)
-      const remaining = questionsArr.filter((q) => !orderIds.includes(q.id));
-      setQuestions([...ordered, ...remaining]);
-    } else {
-      // No saved order — shuffle and save now
-      await shuffleAndSaveOrder(questionsArr, existingAttemptId);
+    // Answers and times the server already has
+    setAnswers(start.answers || {});
+    latestAnswerRef.current = {};
+    savedVersionRef.current = {};
+    const times = {};
+    for (const [qid, seconds] of Object.entries(start.times || {})) {
+      times[qid] = Number(seconds) || 0;
     }
+    setQuestionTimeSpent(times);
+    unsentTimeRef.current = {};
 
-    // Load saved answers
-    const { data: savedResponses } =
-      await quizService.getResponsesDetailsByAttempt(existingAttemptId);
-    const restoredAnswers = {};
-    if (savedResponses && savedResponses.length > 0) {
-      savedResponses.forEach((r) => {
-        restoredAnswers[r.question_id] = r.answer;
-      });
-      setAnswers(restoredAnswers);
-    }
-
-    // Auto-answer questions are credited by submit_quiz_attempt on the server,
-    // so the browser never needs the answer key.
-
-    // Restore timer from started_at
-    if (attemptData?.started_at) {
-      const startedAt = new Date(attemptData.started_at).getTime();
-      const now = Date.now();
-      const elapsedSec = Math.floor((now - startedAt) / 1000);
+    // Timer, measured on the server's clock so a wrong device clock doesn't matter
+    if (start.started_at) {
+      const startedAt = new Date(start.started_at).getTime();
+      const now = start.server_now ? new Date(start.server_now).getTime() : Date.now();
+      const elapsedSec = Math.max(0, Math.floor((now - startedAt) / 1000));
       setElapsedSeconds(elapsedSec);
       if (quizDurationSeconds) {
         const remaining = quizDurationSeconds - elapsedSec;
@@ -265,17 +345,6 @@ export const PublicQuizPage = () => {
     return quizRow?.section_id === sectionId;
   };
 
-  const resolveExamCode = async () => {
-    if (!requestedSectionId) return quiz?.sections?.exam_code;
-
-    const { data: sectionRow } = await supabase
-      .from("sections")
-      .select("exam_code")
-      .eq("id", requestedSectionId)
-      .maybeSingle();
-
-    return sectionRow?.exam_code || quiz?.sections?.exam_code;
-  };
 
   // --- LOAD QUIZ DATA ---
   useEffect(() => {
@@ -643,109 +712,30 @@ export const PublicQuizPage = () => {
 
     try {
       setAuthenticating(true);
-      const currentExamCode = await resolveExamCode();
-
-      let { data: student, error: fetchError } =
-        await studentService.getStudentByEmail(email);
-      if (fetchError && fetchError.code !== "PGRST116")
-        throw new Error(fetchError.message);
-
-      if (!student) {
-        const { data: newStudent, error: createError } =
-          await studentService.createStudent({
-            student_email: email,
-            student_name: studentName,
-            student_id: studentId,
-            exam_code: currentExamCode,
-          });
-        if (createError) throw new Error(createError.message);
-        student = newStudent;
-      } else {
-        // Update existing
-        const { error: updateError } = await studentService.updateStudent(
-          student.id,
-          {
-            student_id: studentId,
-            student_name: studentName,
-            exam_code: currentExamCode,
-          },
-        );
-        if (updateError) throw new Error(updateError.message);
-      }
-
-      if (!student || !student.id) {
-        throw new Error("Failed to obtain student profile details.");
-      }
-
-      // Check for existing attempt by email + section (works across devices)
-      let attemptsQuery = supabase
-        .from("quiz_attempts")
-        .select("id, status")
-        .eq("quiz_id", quiz.id)
-        .eq("student_email", email)
-        .in("status", ["in_progress", "completed"]);
-
       const finalSectionId = targetSectionId || requestedSectionId || null;
 
-      attemptsQuery = finalSectionId
-        ? attemptsQuery.eq("section_id", finalSectionId)
-        : attemptsQuery.is("section_id", null);
+      // One request starts a new attempt or resumes the existing one (any
+      // device). The server also updates the student profile and shuffles the
+      // question order. It used to take 5-7 separate requests.
+      const { data: start, error: startError } = await supabase.rpc(
+        "start_exam_attempt",
+        {
+          p_quiz_id: quiz.id,
+          p_section_id: finalSectionId,
+          p_student_name: studentName,
+        },
+      );
+      if (startError) throw new Error(startError.message);
 
-      const { data: existingAttempts, error: checkError } = await attemptsQuery;
-
-      if (checkError) throw new Error(checkError.message);
-
-      if (existingAttempts && existingAttempts.length > 0) {
-        const completedAttempt = existingAttempts.find(
-          (a) => a.status === "completed",
-        );
-        if (completedAttempt) {
-          setAlreadyTaken(true);
-          setAuthenticating(false);
-          return;
-        }
-        // Resume in-progress attempt
-        const inProgressAttempt = existingAttempts.find(
-          (a) => a.status === "in_progress",
-        );
-        if (inProgressAttempt) {
-          setAttemptId(inProgressAttempt.id);
-          await restoreAttemptState(inProgressAttempt.id, questions);
-          setHasStarted(true);
-          return;
-        }
+      if (start?.status === "completed") {
+        setAlreadyTaken(true);
+        return;
       }
+      if (!start?.attempt_id) throw new Error("Failed to start the exam.");
 
-      // Create new attempt only if none exists
-      const { data: attempt, error: attemptError } = await supabase
-        .from("quiz_attempts")
-        .insert([
-          {
-            quiz_id: quiz.id,
-            section_id: finalSectionId,
-            user_id: session.user.id,
-            student_name: studentName,
-            student_email: email,
-            status: "in_progress",
-          },
-        ])
-        .select()
-        .single();
-
-      if (attemptError) {
-        // Unique constraint violation — another device/tab already created an attempt
-        if (attemptError.code === "23505") {
-          setAlreadyTaken(true);
-          setAuthenticating(false);
-          return;
-        }
-        throw new Error(attemptError.message);
-      }
-      if (!attempt) throw new Error("Failed to create exam attempt.");
-
-      setAttemptId(attempt.id);
-      await shuffleAndSaveOrder(questions, attempt.id);
-
+      attemptIdRef.current = start.attempt_id;
+      setAttemptId(start.attempt_id);
+      applyStartedAttempt(start, questions);
       setHasStarted(true);
     } catch (err) {
       setError(err.message || "Failed to start exam");
@@ -762,30 +752,23 @@ export const PublicQuizPage = () => {
     setCurrentQuestionIndex(index);
   };
 
-  // Fetch existing time spent for this attempt (restore from DB)
+  // While the exam is open: send collected time once a minute (and when the
+  // student switches away from the tab), and retry answers that failed to save.
   useEffect(() => {
-    if (!hasStarted || !attemptId || questions.length === 0) return;
-    const fetchTimeSpent = async () => {
-      try {
-        const { data } = await supabase
-          .from("quiz_responses")
-          .select("question_id, time_spent_seconds")
-          .eq("attempt_id", attemptId);
-        if (data && data.length > 0) {
-          const timeMap = {};
-          data.forEach(r => {
-            if (r.time_spent_seconds) {
-              timeMap[r.question_id] = r.time_spent_seconds;
-            }
-          });
-          setQuestionTimeSpent(timeMap);
-        }
-      } catch (err) {
-        console.error("Error fetching time spent:", err);
-      }
+    if (!hasStarted || completed) return;
+    const timer = setInterval(() => {
+      flushQuestionTimes();
+      retryUnsavedAnswers();
+    }, TIME_FLUSH_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushQuestionTimes();
     };
-    fetchTimeSpent();
-  }, [hasStarted, attemptId, questions]);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [hasStarted, completed]);
 
   const handleNext = () => {
     finalizeCurrentQuestionTime();
@@ -813,24 +796,36 @@ export const PublicQuizPage = () => {
       // Finalize time on current question
       finalizeCurrentQuestionTime();
 
-      // Build answers array for server-side grading
+      // Build answers array for server-side grading. Time not sent yet rides
+      // along, so the last batch needs no extra request.
+      const unsentTime = unsentTimeRef.current;
       const answersPayload = questions.map((q) => ({
         question_id: q.id,
         answer: answers[q.id] || "",
+        time_spent: Math.round((unsentTime[q.id] || 0) * 10) / 10,
       }));
 
-      // Submit to server — grading happens in the database
-      const { data: totalScore, error: rpcError } = await supabase.rpc(
-        "submit_quiz_attempt",
-        {
-          p_attempt_id: attemptId,
-          p_answers: answersPayload,
-        },
-      );
+      // Submit to server — grading happens in the database. Retrying is safe:
+      // a repeated submit returns the stored score and adds nothing twice.
+      let result = null;
+      for (let tries = 1; tries <= SUBMIT_ATTEMPTS; tries++) {
+        try {
+          result = await supabase.rpc("submit_quiz_attempt", {
+            p_attempt_id: attemptIdRef.current || attemptId,
+            p_answers: answersPayload,
+          });
+        } catch (err) {
+          result = { data: null, error: err };
+        }
+        if (!result.error || isPermanentSaveError(result.error) || tries === SUBMIT_ATTEMPTS) break;
+        await sleep(2000 * tries);
+      }
 
-      if (rpcError) throw rpcError;
+      if (result.error) throw result.error;
 
-      setScore(totalScore);
+      unsentTimeRef.current = {};
+      completedRef.current = true;
+      setScore(result.data);
       setCompleted(true);
     } catch (err) {
       setError(err.message);
@@ -839,11 +834,15 @@ export const PublicQuizPage = () => {
     }
   };
 
-  // Auto-submit when time expires
+  // Auto-submit when time expires, at a random moment within a few seconds:
+  // when a whole class runs out of time together, this spreads the
+  // submissions out instead of sending them all in the same second.
   useEffect(() => {
     if (timeExpired && !completed && !autoSubmitRef.current) {
       autoSubmitRef.current = true;
-      handleSubmitQuiz();
+      setSubmitting(true);
+      const delay = Math.random() * AUTO_SUBMIT_SPREAD_SECONDS * 1000;
+      setTimeout(() => handleSubmitQuiz(), delay);
     }
   }, [timeExpired, completed]);
 
@@ -874,12 +873,38 @@ export const PublicQuizPage = () => {
     };
   }, [currentQuestionIndex, showReviewPage, hasStarted, attemptId, questions]);
 
-  // Final cleanup on unmount
+  // Final cleanup on unmount: record and send the time on the open question
   useEffect(() => {
     return () => {
       finalizeCurrentQuestionTime();
+      flushQuestionTimes();
     };
   }, []);
+
+  // Save status shown next to the timer, so students know their answers are safe
+  const saveBadge = (() => {
+    if (timeExpired && !completed)
+      return { text: "Time's up · submitting…", title: "Your answers are being submitted.", cls: "bg-red-500 text-white" };
+    if (saveState === "saving")
+      return { text: "Saving…", title: "Saving your latest answer.", cls: "bg-white/10 text-white/80" };
+    if (saveState === "retrying")
+      return { text: "Retrying save…", title: "The connection is slow. Your answer is kept and will be saved automatically.", cls: "bg-amber-400 text-amber-950" };
+    if (saveState === "error")
+      return { text: "Not saved yet", title: "Some answers couldn't be saved yet. They're kept on this page, retried every minute, and sent when you submit.", cls: "bg-amber-400 text-amber-950" };
+    if (saveState === "saved")
+      return { text: "Saved", title: "All your answers are saved.", cls: "bg-emerald-500/20 text-emerald-100" };
+    return null;
+  })();
+  const saveBadgeEl = saveBadge ? (
+    <div
+      role="status"
+      aria-live="polite"
+      title={saveBadge.title}
+      className={`px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${saveBadge.cls}`}
+    >
+      {saveBadge.text}
+    </div>
+  ) : null;
 
   // Helper: count answered questions
   const answeredCount = questions.filter(
@@ -1223,6 +1248,7 @@ export const PublicQuizPage = () => {
                     </svg>
                   )}
                 </button>
+                {saveBadgeEl}
                 <div className="bg-brand-gold/20 text-brand-gold px-3 py-1.5 rounded-full text-sm font-bold">
                   {answeredCount}/{questions.length} answered
                 </div>
@@ -1494,6 +1520,7 @@ export const PublicQuizPage = () => {
                     </svg>
                   )}
                 </button>
+                {saveBadgeEl}
                 {/* Answered badge */}
                 <div className="bg-brand-gold/20 text-brand-gold px-3 py-1.5 rounded-full text-sm font-bold">
                   {answeredCount}/{questions.length} answered

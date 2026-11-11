@@ -1,10 +1,14 @@
-// One student taking one exam, request for request like PublicQuizPage.jsx:
+// One student taking one exam, request for request like PublicQuizPage.jsx
+// (the "fewer requests" version from 2026-11-12):
 //   1. open the exam link         quiz_sections lookup + get_public_quiz_questions
-//   2. start                      student_profile lookup/create/update,
-//                                 attempt lookup, create attempt, save shuffled order
-//   3. answer every question      save_quiz_response on each click, and again with
-//                                 the time spent when moving to the next question
-//   4. submit                     submit_quiz_attempt
+//   2. start                      start_exam_attempt (one request: profile, attempt,
+//                                 shuffled order, and saved answers/times on resume)
+//   3. answer every question      save_quiz_response on each click; time spent is
+//                                 sent in one save_question_times batch per minute
+//   4. submit                     submit_quiz_attempt, carrying the unsent time
+//
+// The original flow (5-7 start requests, a time save per question) is in git
+// history at commit 55f5135, which produced the "before" results.
 import { check, group, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { qs, think, json, ok } from "./api.js";
@@ -14,14 +18,8 @@ export const examSeconds = new Trend("exam_seconds");
 export const alreadyTaken = new Counter("exam_already_taken");
 export const answerSaved = new Rate("answer_saved");
 
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// Matches TIME_FLUSH_MS in PublicQuizPage.jsx
+const TIME_FLUSH_SECONDS = 60;
 
 function pickAnswer(q) {
   const n = q.type === "true_false" ? 2 : (q.options || []).length || 4;
@@ -70,90 +68,27 @@ export function takeExam(api, student, exam, opts) {
 
   think(opts.read); // reads the instructions and signs in
 
-  // ---------- 2. start ----------
+  // ---------- 2. start (one request) ----------
   let attemptId = null;
   let order = null;
   const saved = {}; // question id -> answer already stored (when resuming)
   let outcome = null;
 
   group("2 start exam", () => {
-    const email = student.email;
-    const studentId = email.split("@")[0];
-    const examCode = (link.sections && link.sections.exam_code) || null;
-
-    const prof = api.get(`/rest/v1/student_profile?${qs({ select: "id", student_email: `eq.${email}` })}`, "student_profile_lookup");
-    const profRows = json(prof) || [];
-    if (prof.status === 200 && profRows.length) {
-      const upd = api.patch(
-        `/rest/v1/student_profile?${qs({ id: `eq.${profRows[0].id}` })}`,
-        { student_id: studentId, student_name: student.name, exam_code: examCode },
-        "student_profile_update",
-        { Prefer: "return=representation" },
-      );
-      check(upd, { "student profile updated": ok });
-    } else {
-      const ins = api.post(
-        "/rest/v1/student_profile",
-        [{ student_email: email, student_name: student.name, student_id: studentId, exam_code: examCode }],
-        "student_profile_create",
-        { Prefer: "return=representation" },
-      );
-      check(ins, { "student profile created": ok });
-    }
-
-    const look = api.get(
-      `/rest/v1/quiz_attempts?${qs({
-        select: "id,status",
-        quiz_id: `eq.${exam.quizId}`,
-        student_email: `eq.${email}`,
-        status: "in.(in_progress,completed)",
-        section_id: `eq.${section.sectionId}`,
-      })}`,
-      "attempt_lookup",
+    const res = api.rpc(
+      "start_exam_attempt",
+      { p_quiz_id: exam.quizId, p_section_id: section.sectionId, p_student_name: student.name },
+      "start_exam",
     );
-    const existing = json(look) || [];
-    if (existing.some((a) => a.status === "completed")) {
+    const body = json(res);
+    if (res.status === 200 && body && body.status === "completed") {
       outcome = "already_taken";
       return;
     }
-    const inProgress = existing.find((a) => a.status === "in_progress");
-
-    if (inProgress) {
-      // resume, like restoreAttemptState()
-      attemptId = inProgress.id;
-      const st = api.get(`/rest/v1/quiz_attempts?${qs({ select: "question_order,started_at", id: `eq.${attemptId}` })}`, "resume_attempt");
-      const stRows = json(st) || [];
-      if (stRows[0] && Array.isArray(stRows[0].question_order)) order = stRows[0].question_order;
-      const resp = api.get(`/rest/v1/quiz_responses?${qs({ select: "*", attempt_id: `eq.${attemptId}` })}`, "resume_answers");
-      for (const r of json(resp) || []) if (r.answer !== null && r.answer !== "") saved[r.question_id] = r.answer;
-    } else {
-      const created = api.post(
-        "/rest/v1/quiz_attempts",
-        [{
-          quiz_id: exam.quizId,
-          section_id: section.sectionId,
-          user_id: student.id,
-          student_name: student.name,
-          student_email: email,
-          status: "in_progress",
-        }],
-        "create_attempt",
-        { Prefer: "return=representation" },
-      );
-      if (created.status === 409) {
-        outcome = "already_taken";
-        return;
-      }
-      const rows = json(created) || [];
-      if (!check(created, { "attempt created": (r) => r.status === 201 && rows.length === 1 })) return;
-      attemptId = rows[0].id;
-    }
-
-    if (!order) {
-      order = shuffle(questions.map((q) => q.id));
-      const o = api.patch(`/rest/v1/quiz_attempts?${qs({ id: `eq.${attemptId}` })}`, { question_order: order }, "save_question_order");
-      check(o, { "question order saved": ok });
-    }
+    if (!check(res, { "exam started": (r) => r.status === 200 && body && !!body.attempt_id })) return;
+    attemptId = body.attempt_id;
+    order = Array.isArray(body.question_order) && body.question_order.length ? body.question_order : questions.map((q) => q.id);
+    for (const qid of Object.keys(body.answers || {})) saved[qid] = body.answers[qid];
   });
 
   if (outcome === "already_taken") {
@@ -169,6 +104,16 @@ export function takeExam(api, student, exam, opts) {
   const byId = {};
   for (const q of questions) byId[q.id] = q;
   const answers = Object.assign({}, saved);
+  let unsentTime = {}; // question id -> seconds not sent yet
+  let lastFlush = Date.now();
+
+  const flushTimes = () => {
+    if (Object.keys(unsentTime).length === 0) return;
+    const r = api.rpc("save_question_times", { p_attempt_id: attemptId, p_times: unsentTime }, "save_times");
+    answerSaved.add(ok(r));
+    if (check(r, { "time batch saved": ok })) unsentTime = {};
+    lastFlush = Date.now();
+  };
 
   group("3 answer questions", () => {
     for (const qid of order) {
@@ -192,24 +137,28 @@ export function takeExam(api, student, exam, opts) {
         }
       }
 
-      // "Next": finalizeCurrentQuestionTime() saves the answer with the time spent
+      // "Next": the time is collected locally and sent in a batch once a minute
       const seconds = Math.round(((Date.now() - shownAt) / 1000) * 10) / 10;
-      const t = api.rpc("save_quiz_response", { p_attempt_id: attemptId, p_question_id: qid, p_answer: answers[qid] || null, p_time_spent: seconds }, "save_time");
-      answerSaved.add(ok(t));
-      check(t, { "time saved": ok });
+      unsentTime[qid] = Math.round(((unsentTime[qid] || 0) + seconds) * 10) / 10;
+      if ((Date.now() - lastFlush) / 1000 >= TIME_FLUSH_SECONDS) flushTimes();
     }
   });
 
   // ---------- 4. submit ----------
   if (opts.submitAt) {
-    // Everyone waits for the same deadline, like the exam timer running out.
+    // Everyone's timer runs out together; the page then submits at a random
+    // moment within submitJitter seconds (AUTO_SUBMIT_SPREAD_SECONDS).
     const wait = (opts.submitAt - Date.now()) / 1000 + Math.random() * (opts.submitJitter || 0);
     if (wait > 0) sleep(wait);
   }
 
   let submitted = false;
   group("4 submit", () => {
-    const payload = questions.map((q) => ({ question_id: q.id, answer: answers[q.id] || "" }));
+    const payload = questions.map((q) => ({
+      question_id: q.id,
+      answer: answers[q.id] || "",
+      time_spent: unsentTime[q.id] || 0,
+    }));
     const s = api.rpc("submit_quiz_attempt", { p_attempt_id: attemptId, p_answers: payload }, "submit_exam");
     submitted = check(s, { "exam submitted and scored": (r) => r.status === 200 && typeof json(r) === "number" });
   });
