@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) **failed**: the Free-tier server became overloaded (see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
+**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) **failed**: the Free-tier server ran out of memory (about 0.5 GB of RAM; see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
 
 ---
 
@@ -172,7 +172,7 @@ demanded, versus about 55).
 | Save time spent | 7.9 s | 490 ms | 32.0 s | 52.6 s | 60 s (timeout) | < 500 ms | ✗ |
 | Submit exam | 22.8 s | 9.6 s | 51.7 s | 52.5 s | 52.7 s | < 2,000 ms | ✗ |
 
-### Diagnosis (in progress)
+### Diagnosis: the server ran out of memory
 
 - **Not a network or client problem.** Connecting and TLS setup took almost no time; all of
   the delay was the server taking time to answer.
@@ -180,9 +180,22 @@ demanded, versus about 55).
   database time per call on average.
 - **Requests queued instead of failing.** The server accepted the requests but could not
   keep up, so they waited until the 60 s client timeout.
-- **Most likely cause:** the Free plan's small, "burstable" server ran out of CPU or
-  disk-write capacity (each answer save is a database write). To be confirmed from the
-  Supabase dashboard (Reports: CPU, Disk IO budget) for 22:08–22:28.
+- **Cause: memory exhaustion on the Free-tier server.** Supabase dashboard (Reports), read
+  at 22:36, just after the test:
+
+| Resource | Reading | Limit | Status |
+|---|---|---|---|
+| Memory (RAM) | 232 MB used + 175 MB cache | 434 MB total | full |
+| Swap (disk used as extra memory) | **544 MB (125% of RAM)** | | heavy swapping |
+| Memory commitment | **1.46 GB** | 1.42 GB capacity | **SEVERE** (over capacity) |
+| CPU | 36.7% busy, of which **24.3% waiting on disk (IOwait)** | 100% | waiting, not computing |
+| Disk operations | 22 IOPS | 3,000 IOPS | not a limit |
+| Database connections | 15 | 60 | not a limit |
+
+  The database, API and login service share about 0.5 GB of RAM on the Free plan. Under
+  this load the server ran out of memory and swapped to disk, so every request waited on
+  the disk and the queue grew until requests timed out. The load test had already raised
+  swap from about 200 MB to 380 MB; it passed, but with little memory headroom left.
 
 ### What this means
 
@@ -241,7 +254,7 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 
 | Item | Details | Plan |
 |---|---|---|
-| Free-tier capacity ceiling | The spike test overloaded the server at roughly 460 requests per second demanded; about 62 per second were served | Confirm the cause in the Supabase dashboard; reduce requests/writes per student (one save per question instead of two, one request to start the exam); consider a larger server for production |
+| Free-tier memory ceiling | The spike test exhausted the Free-tier server's ~0.5 GB of RAM (swap 125% of RAM, memory commitment SEVERE) at roughly 460 requests per second demanded; about 62 per second were served | Reduce requests and writes per student (one save per question instead of two, one request to start the exam); use a larger compute size (more RAM) for production |
 | Instructor results page with large exams | The page puts every attempt ID into one request URL and loads attempts without paging; Supabase returns at most 1,000 rows per request. Expected to fail at about 1,000 takers. | Measure in the instructor test, then move the counting into the database |
 | Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
