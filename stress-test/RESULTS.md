@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) **failed**: the Free-tier server ran out of memory (about 0.5 GB of RAM; see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
+**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) first **failed** because the Free-tier server ran out of memory; after cutting the requests each student sends by ~46%, **all 1,000 students finished with no failed requests**, though opening the exam and submitting were still slow (see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
 
 ---
 
@@ -66,7 +66,8 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 |---|---|---|---|---|---|---|---|---|---|
 | Dry run | Small check of the full flow | 20 | 2,228 | 0.00% | 169 ms | 168 ms | 490 ms | 100% (20/20) | ✓ Pass |
 | **Load** | **1,000 students arrive over 5 min, answer at a normal pace (15–45 s per question)** | **1,000** | **111,252** | **0.00%** | **169 ms** | **183 ms** | **229 ms** | **100% (1,000/1,000)** | **✓ Pass** |
-| Spike | 1,000 students start within 30 s, answer every 2–6 s, and all submit in the same second | 1,000 | 76,511 | 3.20% (all timeouts) | 53.3 s | 52.5 s | 35.0 s | 1.3% (13/1,000) | ✗ Fail (server overloaded) |
+| Spike (before) | 1,000 students start within 30 s, answer every 2–6 s, and all submit in the same second | 1,000 | 76,511 | 3.20% (all timeouts) | 53.3 s | 52.5 s | 35.0 s | 1.3% (13/1,000) | ✗ Fail (server out of memory) |
+| **Spike (after fewer requests)** | Same, with ~46% fewer requests per student and submissions spread over 15 s | 1,000 | 60,671 | **0.00%** | 969 ms | 18.7 s | 21.8 s | **100% (1,000/1,000)** | ◐ Completed, but start and submit too slow |
 | Stress | Ramp from 0 to 2,000 students to find the breaking point | up to 2,000 | | | | | | | Not yet run |
 | Soak | 400 students for 2 hours | 400 | | | | | | | Not yet run |
 | Instructors | 100 instructors: results page, exam creation, Bloom's analysis | 100 | | | | | | | Not yet run |
@@ -206,6 +207,48 @@ demanded, versus about 55).
   here (open exam link p95 35 s). Reducing the number of requests and writes per student,
   and/or using a larger server, are the two ways to raise the ceiling.
 
+### After the fix: same spike test with fewer requests per student
+
+**Run:** 11 Nov 2026, 23:09–23:19 (UTC+8). Raw output: `results/spike-v2.json`; charts:
+`results/spike-v2.html`.
+
+**What changed in the system** (commit `acc62a9`, migration `20261112_fewer_exam_requests.sql`):
+
+| | Before | After |
+|---|---|---|
+| Starting or resuming an exam | 5–7 requests | **1 request** (`start_exam_attempt`) |
+| Saving time spent per question | 1 extra request per question (50 per exam) | **1 batch per minute**, the rest sent with the submission |
+| Requests per student per 50-question exam | about 111 | **about 60 (−46%)** |
+| Failed answer saves | silently lost | retried automatically (1 s → 30 s), status shown to the student |
+| Timer runs out for everyone | all submit in the same second | submissions spread over 15 s; submit retried if the server is busy |
+
+**Results, before vs after:**
+
+| Measure | Before | After | Change |
+|---|---|---|---|
+| Exams completed and scored | 13 / 1,000 (1.3%) | **1,000 / 1,000 (100%)** | ✓ |
+| Failed requests | 2,454 (3.20%), all timeouts | **0 (0.00%)** | ✓ |
+| Total requests | 76,511 (test cut off at 20 min) | 60,671 (finished in 9 min 50 s) | |
+| Throughput served | 62 per second | **103 per second** | +66% |
+| Checks passed | 97.15% | **100% (61,671 / 61,671)** | ✓ |
+| Open exam link, p95 | 35.0 s | 21.8 s | better, still over the 1.5 s target |
+| Load questions, p95 | 60 s (timeouts) | 20.4 s | better, still over target |
+| Start / create attempt, p95 | 60 s (timeouts) | 21.3 s | better, still over target |
+| Save answer, median / p95 | 536 ms / 53.3 s | **170 ms / 969 ms** | ✓ median back to normal |
+| Save time, p95 | 52.6 s (per question) | **529 ms** (per batch) | ✓ |
+| Submit, p95 | 52.5 s | 18.7 s | better, still over the 2 s target |
+
+**Checked in the database afterwards:** 1,000 / 1,000 attempts completed; 50,000 / 50,000
+answer rows (48,501 answered, the rest skipped on purpose); every row has its time
+recorded; average score 14.1 / 50 (random answers, as expected); the 1,000 submissions
+arrived spread over 22.4 s instead of one second.
+
+**What is still slow:** the **first 30 seconds**, when 1,000 students open the exam,
+load 50 questions and start their attempt at the same time (p95 about 21 s), and the
+**submission burst** at the end (p95 18.7 s). Answering in between was fast (median
+170 ms). These two bursts are the next targets: loading the exam with fewer, lighter
+requests, and a larger server for production.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -218,7 +261,7 @@ demanded, versus about 55).
 
 ## 7. Automated database correctness tests
 
-The exam database functions are covered by 44 automated tests
+The exam database functions are covered by 67 automated tests
 (`supabase/tests/exam_grading.test.mjs`). They run the real migration files on an
 in-memory PostgreSQL database and act as different users (the student, another student, a
 logged-out visitor, instructors, Senior Faculty, Department Head).
@@ -234,7 +277,8 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | Question loader without the answer key | 5 | ✓ 5 / 5 |
 | Answer key hidden from logged-out users | 3 | ✓ 3 / 3 |
 | Only staff can read the questions table | 8 | ✓ 8 / 8 |
-| **Total** | **44** | **✓ 44 / 44** |
+| Starting an exam with one request, batched time, submit with time | 23 | ✓ 23 / 23 |
+| **Total** | **67** | **✓ 67 / 67** |
 
 ## 8. Problems found and fixed during this testing
 
@@ -249,12 +293,15 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | 7 | The exam's answer key was sent to students' browsers, and the question-loading function had never worked | Students could read the answers in the browser's developer tools | Rewrote the loader so it works and never returns the answer key; the exam page no longer requests it | DB tests; load test (1,000 / 1,000 checks) |
 | 8 | Any signed-in user could read every published exam's questions with answers directly from the database API | Answer key exposed to students | Only staff (approved instructors, Department Heads, Senior Faculty) can read the questions table directly | DB tests |
 | 9 | "Auto-answer" questions were never credited (the browser filled in the wrong answer format) | Students lost points they should have received | Auto-answer questions are credited on the server at submission | DB tests |
+| 10 | Each student sent about 111 requests per 50-question exam (5–7 to start, plus a separate time save for every question); 1,000 fast students exhausted the server's memory | Spike test: only 13 of 1,000 exams completed | One request to start or resume; time sent in one batch per minute; about 60 requests per student | DB tests; spike test re-run (1,000 / 1,000 completed, 0 failed) |
+| 11 | A failed answer save was silently lost, and the student had no way to know | Lost answers when the server or connection is slow | Saves retry automatically and in order; the page shows Saving / Saved / Retrying | Code change; spike test re-run (56,671 / 56,671 saves succeeded) |
+| 12 | When the timer ran out for a whole class, every browser submitted in the same second, and a failed submit was not retried | Submission burst overloads the server | Auto-submit spread over 15 s; submit retried up to 4 times (safe, since submitting twice changes nothing) | Spike test re-run (submissions spread over 22 s, all scored) |
 
 ## 9. Known limitations and open issues
 
 | Item | Details | Plan |
 |---|---|---|
-| Free-tier memory ceiling | The spike test exhausted the Free-tier server's ~0.5 GB of RAM (swap 125% of RAM, memory commitment SEVERE) at roughly 460 requests per second demanded; about 62 per second were served | Reduce requests and writes per student (one save per question instead of two, one request to start the exam); use a larger compute size (more RAM) for production |
+| Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
 | Instructor results page with large exams | The page puts every attempt ID into one request URL and loads attempts without paging; Supabase returns at most 1,000 rows per request. Expected to fail at about 1,000 takers. | Measure in the instructor test, then move the counting into the database |
 | Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
