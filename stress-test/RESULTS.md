@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Load test (1,000 concurrent students) **passed**. Spike, stress, soak, instructor and exam-day tests are still to be run.
+**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) **failed**: the Free-tier server became overloaded (see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
 
 ---
 
@@ -66,7 +66,7 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 |---|---|---|---|---|---|---|---|---|---|
 | Dry run | Small check of the full flow | 20 | 2,228 | 0.00% | 169 ms | 168 ms | 490 ms | 100% (20/20) | ✓ Pass |
 | **Load** | **1,000 students arrive over 5 min, answer at a normal pace (15–45 s per question)** | **1,000** | **111,252** | **0.00%** | **169 ms** | **183 ms** | **229 ms** | **100% (1,000/1,000)** | **✓ Pass** |
-| Spike | 1,000 students start within 30 s and all submit in the same second | 1,000 | | | | | | | Not yet run |
+| Spike | 1,000 students start within 30 s, answer every 2–6 s, and all submit in the same second | 1,000 | 76,511 | 3.20% (all timeouts) | 53.3 s | 52.5 s | 35.0 s | 1.3% (13/1,000) | ✗ Fail (server overloaded) |
 | Stress | Ramp from 0 to 2,000 students to find the breaking point | up to 2,000 | | | | | | | Not yet run |
 | Soak | 400 students for 2 hours | 400 | | | | | | | Not yet run |
 | Instructors | 100 instructors: results page, exam creation, Bloom's analysis | 100 | | | | | | | Not yet run |
@@ -139,6 +139,60 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
   within 216 ms.
 - The exam's answer key was never sent to a student's browser (checked on all 1,000 exams).
 
+## 5B. Spike test: 1,000 students starting together and answering very fast
+
+**Run:** 11 Nov 2026, 22:08–22:28 (UTC+8). Raw output: `results/spike.json`; charts: `results/spike.html`.
+
+Pace: every student answered a question every 2–6 seconds (versus 15–45 s in the load
+test), and all were set to submit at the same second, 565 s after the start. This creates
+about **8 times the request rate** of the load test (roughly 460 requests per second
+demanded, versus about 55).
+
+### Overview
+
+| Measure | Result |
+|---|---|
+| Duration | 20 min 0 s (stopped at the time limit) |
+| Students who opened the exam | 1,000 |
+| Students whose questions loaded | 808 (192 timed out) |
+| Attempts created | 762 |
+| Exams submitted and scored | **13** (749 students were still mid-exam at the time limit) |
+| Total requests | 76,511 |
+| Failed requests | 2,454 (3.20%), **all of them 60-second timeouts**; no error responses |
+| Throughput actually served | 62.2 requests per second on average |
+
+### Response time by request type
+
+| Request | Average | Median | p90 | p95 | Max | Target (p95) | Result |
+|---|---|---|---|---|---|---|---|
+| Open exam link | 17.7 s | 17.7 s | 33.6 s | 35.0 s | 36.3 s | < 1,500 ms | ✗ |
+| Load questions | 24.6 s | 18.1 s | 60 s | 60 s | 60 s (timeout) | < 1,500 ms | ✗ |
+| Create attempt | 17.5 s | 7.9 s | 49.3 s | 60 s | 60 s (timeout) | < 1,500 ms | ✗ |
+| Save answer | 10.1 s | 536 ms | 45.0 s | 53.3 s | 60 s (timeout) | < 500 ms | ✗ |
+| Save time spent | 7.9 s | 490 ms | 32.0 s | 52.6 s | 60 s (timeout) | < 500 ms | ✗ |
+| Submit exam | 22.8 s | 9.6 s | 51.7 s | 52.5 s | 52.7 s | < 2,000 ms | ✗ |
+
+### Diagnosis (in progress)
+
+- **Not a network or client problem.** Connecting and TLS setup took almost no time; all of
+  the delay was the server taking time to answer.
+- **Not slow queries.** Database statistics show the exam functions need about 4.8 ms of
+  database time per call on average.
+- **Requests queued instead of failing.** The server accepted the requests but could not
+  keep up, so they waited until the 60 s client timeout.
+- **Most likely cause:** the Free plan's small, "burstable" server ran out of CPU or
+  disk-write capacity (each answer save is a database write). To be confirmed from the
+  Supabase dashboard (Reports: CPU, Disk IO budget) for 22:08–22:28.
+
+### What this means
+
+- At a **normal answering pace**, 1,000 students worked perfectly (section 5).
+- The Free-tier server has a **capacity ceiling** somewhere between the load test's
+  ~55 requests per second (passed) and this test's ~460 (failed).
+- The moment when 1,000 students **open the exam together** is realistic, and it was slow
+  here (open exam link p95 35 s). Reducing the number of requests and writes per student,
+  and/or using a larger server, are the two ways to raise the ceiling.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -187,6 +241,7 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 
 | Item | Details | Plan |
 |---|---|---|
+| Free-tier capacity ceiling | The spike test overloaded the server at roughly 460 requests per second demanded; about 62 per second were served | Confirm the cause in the Supabase dashboard; reduce requests/writes per student (one save per question instead of two, one request to start the exam); consider a larger server for production |
 | Instructor results page with large exams | The page puts every attempt ID into one request URL and loads attempts without paging; Supabase returns at most 1,000 rows per request. Expected to fail at about 1,000 takers. | Measure in the instructor test, then move the counting into the database |
 | Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
