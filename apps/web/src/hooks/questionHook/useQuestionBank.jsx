@@ -478,12 +478,15 @@ export const useQuestionBank = () => {
       }
       candidateIds = [...new Set(candidateIds)];
 
-      // Keep any copy that students have already answered
-      const { data: answered } = await supabase
-        .from("quiz_responses")
-        .select("question_id")
-        .in("question_id", candidateIds);
-      const answeredIds = new Set((answered || []).map((r) => r.question_id));
+      // Keep any copy that students have already answered. Asked through a
+      // server function: instructors can't read other instructors' students'
+      // answers directly, but must still see that a copy is in use.
+      const { data: answered, error: answeredError } = await supabase.rpc(
+        "questions_with_answers",
+        { p_question_ids: candidateIds },
+      );
+      if (answeredError) throw answeredError;
+      const answeredIds = new Set(Array.isArray(answered) ? answered : []);
 
       if (answeredIds.has(questionId)) {
         return {

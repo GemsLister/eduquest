@@ -25,6 +25,7 @@ const MIGRATIONS = [
   "20261111_restrict_question_reads_to_staff.sql",
   "20261112_fewer_exam_requests.sql",
   "20261113_exam_results_in_one_request.sql",
+  "20261114_protect_student_data.sql",
 ].map((f) => path.join(here, "..", "migrations", f));
 
 const db = new PGlite();
@@ -50,6 +51,7 @@ const ids = {
   bob: "cccccccc-0000-0000-0000-000000000003", // student who starts with start_exam_attempt
   bobTwin: "cccccccc-0000-0000-0000-000000000004", // different email, same "bob" prefix
   sectionS: "ffffffff-0000-0000-0000-000000000001",
+  sectionTeacher: "eeeeeeee-0000-0000-0000-000000000005", // teaches one section of someone else's exam
 };
 
 // ---------- Fake Supabase environment + minimal copies of the real tables ----------
@@ -67,7 +69,7 @@ await db.exec(`
     is_instructor boolean DEFAULT false, is_approved boolean NOT NULL DEFAULT false);
   CREATE TABLE quizzes (id uuid PRIMARY KEY, is_published boolean DEFAULT false, instructor_id uuid,
     is_open boolean NOT NULL DEFAULT true, section_id uuid);
-  CREATE TABLE sections (id uuid PRIMARY KEY, exam_code varchar(50));
+  CREATE TABLE sections (id uuid PRIMARY KEY, exam_code varchar(50), instructor_id uuid);
   CREATE TABLE student_profile (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(), student_email text NOT NULL UNIQUE,
     student_name text, exam_code varchar, student_id text UNIQUE);
@@ -241,7 +243,7 @@ await alice();
 await db.query(`UPDATE quiz_attempts SET question_order = '["x"]' WHERE id = $1`, [ids.attempt]);
 await asAdmin();
 const qo = (await db.query(`SELECT question_order FROM quiz_attempts WHERE id = $1`, [ids.attempt])).rows[0].question_order;
-check("student can still save question_order (used by shuffling)", j(qo) === '["x"]', j(qo));
+check("student can no longer edit the attempt row directly (order is saved by start_exam_attempt)", j(qo) !== '["x"]', j(qo));
 await alice();
 const forged = (await db.query(`INSERT INTO quiz_attempts (quiz_id, user_id, student_email, status, score, completed_at, started_at)
   VALUES ($1, $2, 'alice@school.edu', 'completed', 100, now(), now() - interval '1 day') RETURNING id`, [ids.quizB, ids.alice])).rows[0].id;
@@ -514,6 +516,89 @@ await db.query(`UPDATE profiles SET is_approved = true WHERE id = $1`, [ids.pend
 check("an approved instructor who doesn't own the exam still sees nothing", (await seen(ids.pendingInstructor, "other@school.edu")) === "0/0", await seen(ids.pendingInstructor, "other@school.edu"));
 await asAdmin();
 await db.query(`UPDATE profiles SET is_approved = false WHERE id = $1`, [ids.pendingInstructor]);
+
+group("Student data is protected (attempts, answers, profiles)");
+const secR1Teacher = ids.sectionTeacher;
+await asAdmin();
+await db.query(`INSERT INTO profiles (id, is_instructor, is_approved) VALUES ($1, true, true)`, [secR1Teacher]);
+await db.query(`INSERT INTO sections (id, exam_code, instructor_id) VALUES ($1, 'R1', $2), ($3, 'R2', $4)`, [secR1, secR1Teacher, secR2, ids.instructor]);
+const countAs = async (uid, email, sql, params = []) => {
+  await as(uid, email);
+  return Number((await db.query(sql, params)).rows[0].n);
+};
+const attemptsOfR = `SELECT count(*) AS n FROM quiz_attempts WHERE quiz_id = '${quizR}'`;
+
+for (const table of ["quiz_attempts", "quiz_responses", "student_profile"]) {
+  await as(null, null, "anon");
+  err = await fails(() => db.query(`SELECT count(*) FROM ${table}`));
+  check(`logged-out visitors cannot read ${table}`, err?.includes("permission denied"), err);
+}
+
+check("exam owner sees all 1,202 attempts of their exam", (await countAs(ids.instructor, "inst@school.edu", attemptsOfR)) === 1202);
+check("Senior Faculty sees them all", (await countAs(ids.admin, "admin@school.edu", attemptsOfR)) === 1202);
+check("Department Head sees them all", (await countAs(ids.head, "head@school.edu", attemptsOfR)) === 1202);
+let n2 = await countAs(secR1Teacher, "teacher@school.edu", attemptsOfR);
+check("instructor of one section sees only that section's attempts (601) of someone else's exam", n2 === 601, String(n2));
+n2 = await countAs(ids.pendingInstructor, "other@school.edu", attemptsOfR);
+check("an unrelated instructor sees none", n2 === 0, String(n2));
+n2 = await countAs(ids.mallory, "mallory@school.edu", `SELECT count(*) AS n FROM quiz_attempts`);
+check("a student with no attempts sees none", n2 === 0, String(n2));
+await as(ids.bob, "bob@school.edu");
+const bobRows = (await db.query(`SELECT student_email FROM quiz_attempts`)).rows;
+check("a student sees only their own attempts", bobRows.length > 0 && bobRows.every((r) => r.student_email === "bob@school.edu"), j(bobRows));
+
+await asAdmin();
+const anR1 = (await db.query(`SELECT id FROM quiz_attempts WHERE quiz_id = $1 AND section_id = $2 AND status = 'completed' LIMIT 1`, [quizR, secR1])).rows[0].id;
+const anR2 = (await db.query(`SELECT id FROM quiz_attempts WHERE quiz_id = $1 AND section_id = $2 AND status = 'completed' LIMIT 1`, [quizR, secR2])).rows[0].id;
+const respOf = (a) => `SELECT count(*) AS n FROM quiz_responses WHERE attempt_id = '${a}'`;
+check("section instructor sees answers of their section's attempt", (await countAs(secR1Teacher, "teacher@school.edu", respOf(anR1))) === 3);
+check("...but not of another section's attempt", (await countAs(secR1Teacher, "teacher@school.edu", respOf(anR2))) === 0);
+check("exam owner sees the answers", (await countAs(ids.instructor, "inst@school.edu", respOf(anR2))) === 3);
+check("a student cannot see other students' answers", (await countAs(ids.mallory, "mallory@school.edu", respOf(anR1))) === 0);
+
+await as(ids.bob, "bob@school.edu");
+const bobAttemptId = (await db.query(`SELECT id FROM quiz_attempts LIMIT 1`)).rows[0].id;
+const upd = await db.query(`UPDATE quiz_attempts SET student_name = 'Hacked' WHERE id = $1`, [anR1]);
+check("a student cannot change someone else's attempt", upd.affectedRows === 0, String(upd.affectedRows));
+const updOwn = await db.query(`UPDATE quiz_attempts SET student_name = 'Renamed' WHERE id = $1`, [bobAttemptId]);
+check("...or their own attempt row directly", updOwn.affectedRows === 0, String(updOwn.affectedRows));
+err = await fails(() => db.query(`INSERT INTO quiz_responses (attempt_id, question_id, answer) VALUES ($1, $2, '1')`, [anR1, rq[0]]));
+check("a student cannot insert answers into someone's attempt", err?.includes("row-level security") || err?.includes("permission denied"), err);
+err = await fails(() => db.query(`INSERT INTO quiz_responses (attempt_id, question_id, answer) VALUES ($1, $2, '1')`, [bobAttemptId, rq[0]]));
+check("...or into their own (answers go through save_quiz_response)", err?.includes("row-level security") || err?.includes("permission denied"), err);
+
+await asAdmin();
+await db.query(`INSERT INTO student_profile (student_email, student_name, student_id) VALUES ('carol@school.edu', 'Carol', 'carol')`);
+await as(ids.bob, "bob@school.edu");
+const bobProfiles = (await db.query(`SELECT student_email FROM student_profile`)).rows;
+check("a student sees only their own profile", bobProfiles.length === 1 && bobProfiles[0].student_email === "bob@school.edu", j(bobProfiles));
+await asAdmin();
+const totalProfiles = Number((await db.query(`SELECT count(*) AS n FROM student_profile`)).rows[0].n);
+n2 = await countAs(ids.instructor, "inst@school.edu", `SELECT count(*) AS n FROM student_profile`);
+check("staff see all student profiles", totalProfiles >= 2 && n2 === totalProfiles, `${n2} of ${totalProfiles}`);
+await as(ids.bob, "bob@school.edu");
+err = await fails(() => db.query(`INSERT INTO student_profile (student_email, student_name) VALUES ('x@x.edu', 'X')`));
+check("students cannot create or edit profiles directly", err?.includes("row-level security") || err?.includes("permission denied"), err);
+
+const refsCount = async (uid, email) => {
+  await as(uid, email);
+  return (await db.query(`SELECT get_exam_attempt_refs($1::uuid[]) AS r`, [[quizR]])).rows[0].r.length;
+};
+check("attempt counts for exam lists: owner 1,202", (await refsCount(ids.instructor, "inst@school.edu")) === 1202);
+check("...section instructor counts only their section (601)", (await refsCount(secR1Teacher, "teacher@school.edu")) === 601);
+check("...students get no counts", (await refsCount(ids.bob, "bob@school.edu")) === 0);
+await as(secR1Teacher, "teacher@school.edu");
+const sAtt = (await db.query(`SELECT get_exam_attempts($1::uuid[]) AS r`, [[quizR]])).rows[0].r;
+check("results page: section instructor sees their section's 601 attempts", sAtt.length === 601 && sAtt.every((a) => a.section_id === secR1), String(sAtt.length));
+const sResp = (await db.query(`SELECT get_exam_responses($1::uuid[]) AS r`, [[anR1, anR2]])).rows[0].r;
+check("...and only those attempts' answers", Object.keys(sResp.r).length === 1 && anR1 in sResp.r, j(Object.keys(sResp.r)));
+
+await as(ids.instructor, "inst@school.edu");
+const answeredQs = (await db.query(`SELECT questions_with_answers($1::uuid[]) AS r`, [[...rq, ids.q6]])).rows[0].r;
+check("question bank: staff learn which questions have answers", answeredQs.length === 3 && !answeredQs.includes(ids.q6), j(answeredQs));
+await as(ids.bob, "bob@school.edu");
+const answeredByStudent = (await db.query(`SELECT questions_with_answers($1::uuid[]) AS r`, [rq])).rows[0].r;
+check("...students learn nothing", answeredByStudent.length === 0, j(answeredByStudent));
 
 await asAdmin();
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");

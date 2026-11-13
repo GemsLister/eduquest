@@ -37,19 +37,18 @@ export const fetchQuestionCounts = async (quizIds) => {
 
 /**
  * Returns a Map of quizId -> attempt rows ({ id, quiz_id, section_id }) for
- * the given quizzes in a single query.
+ * the given quizzes in a single request. Only attempts the signed-in user may
+ * see are counted (exam owner, section instructor, Senior Faculty, Department
+ * Head), with no 1,000-row cap.
  */
 export const fetchAttemptsByQuiz = async (quizIds) => {
   const ids = [...new Set((quizIds || []).filter(Boolean))];
   const byQuiz = new Map();
   if (ids.length === 0) return byQuiz;
 
-  const { data } = await supabase
-    .from("quiz_attempts")
-    .select("id, quiz_id, section_id")
-    .in("quiz_id", ids);
+  const { data } = await supabase.rpc("get_exam_attempt_refs", { p_quiz_ids: ids });
 
-  (data || []).forEach((a) => {
+  (Array.isArray(data) ? data : []).forEach((a) => {
     if (!byQuiz.has(a.quiz_id)) byQuiz.set(a.quiz_id, []);
     byQuiz.get(a.quiz_id).push(a);
   });

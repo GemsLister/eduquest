@@ -159,11 +159,13 @@ export const useFetchInstructorQuizzes = () => {
       let questionCounts = new Map();
 
       if (quizIds.length > 0) {
-        const [{ data: quizSections }, { data: attemptsData }, counts] = await Promise.all([
+        const [{ data: quizSections }, { data: attemptRefs }, counts] = await Promise.all([
           supabase.from("quiz_sections").select("quiz_id, section_id").in("quiz_id", quizIds),
-          supabase.from("quiz_attempts").select("id, quiz_id").in("quiz_id", lookupQuizIds),
+          // attempt ids only, for counts (no 1,000-row cap)
+          supabase.rpc("get_exam_attempt_refs", { p_quiz_ids: lookupQuizIds }),
           fetchQuestionCounts(lookupQuizIds),
         ]);
+        const attemptsData = Array.isArray(attemptRefs) ? attemptRefs : [];
 
         const uniqueSections = new Map();
         (quizSections || []).forEach((row) => {
