@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) first **failed** because the Free-tier server ran out of memory; after cutting the requests each student sends by ~46%, **all 1,000 students finished with no failed requests**, though opening the exam and submitting were still slow (see section 5B). Instructor results page: the original page **could not open results for exams with more than about 300–400 takers**; it now loads 1,000 takers in about 2 s (section 5C). With 100 instructors working at once, pages still load but slowly on the Free tier. Stress, soak, exam-day and Bloom's classification tests are still to be run.
+**Status:** Bloom's AI batch classification (the panel's objective) benchmarked on a laptop: stable up to 100 simultaneous analyses after the fixes, with response time growing with the number of simultaneous batches (section 5D). Exam taking: load test (1,000 concurrent students) **passed**; spike test first failed (Free-tier server out of memory) and, after cutting requests per student by ~46%, **all 1,000 students finished** (section 5B). Instructor results page fixed for large exams (section 5C). Stress, soak and exam-day tests are still to be run.
 
 ---
 
@@ -72,6 +72,9 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 | Soak | 400 students for 2 hours | 400 | | | | | | | Not yet run |
 | Instructors (before) | 100 instructors for 8 min: each opens one class's results (50 students) and creates 50-question exams | 100 | 6,755 | 0.43% | — | — | — | results page 98.7% loaded, p95 77.7 s | ◐ Works for one class, slow under load |
 | **Instructors (after)** | Same, with results loaded in one request each | 100 | 5,364 | 0.32% | — | — | — | results page 98.6% loaded, p95 66.3 s, **−64% data** | ◐ Works, still slow under load (Free tier) |
+| **Bloom's: concurrency levels (before → after)** | 1 to 64 instructors analyzing 50-question batches back to back, 60 s per level (laptop) | 1–64 | 208 → 294 batches | 0% → 0% | — | — | — | median at 4 at once: 13.2 s → **8.4 s**; memory 6.1 GB → **1.4 GB** | ✓ Stable; faster with fixes |
+| **Bloom's: 100 instructors click Analyze at once (before → after)** | 100 batches of 50 questions sent together (laptop) | 100 | 100 | **20% timed out → 0%** | — | — | — | median wait 243 s → **165 s**; 80/100 → **100/100** done | ✓ Fixed (still slow: CPU-bound) |
+| **Bloom's: re-analysis after editing 5 of 50 questions (before → after)** | 20 instructors, each analyzes then re-analyzes 5 times (laptop) | 20 | 120 | 1.7% → **0%** | — | — | — | re-analysis median 42.5 s → **5.5 s** | ✓ Fixed |
 | Results of a 1,000-taker exam (one instructor) | Opening the full results of the 1,000-taker exam | 1 | | | | | | before: **400 Bad Request**; after: **0.4 s + 1.8 s** | ✓ Fixed |
 | Exam day | 1,000 students + 100 instructors together | 1,100 | | | | | | | Not yet run |
 
@@ -328,6 +331,135 @@ project because the seeded sections have no subject (the app ignores this error)
   worst cases (p95 over a minute), and creating exams slows too. This is the same Free-tier
   server limit seen in the spike test, not the results page itself.
 
+## 5D. Bloom's taxonomy AI classification (the panel's objective)
+
+> Objective: *conduct stress testing and performance benchmarking to determine the system's
+> stability, response time, and concurrency limits during simultaneous batch AI text
+> classification.*
+
+When an instructor clicks **Analyze**, the web app sends all of the exam's questions (with
+their answer choices) in one batch to the FastAPI service (`fastapi_blooms/`), which classifies
+each question with the fine-tuned DistilBERT model (`distilbert_blooms_mcq`) into one of the six
+Bloom's levels. These tests send many such batches at the same time.
+
+### Test environment
+
+| Item | Value |
+|---|---|
+| Machine | Acer Aspire A315-44P laptop, plugged in |
+| CPU | AMD Ryzen 7 5700U, 8 cores / 16 threads, 1.8 GHz base |
+| RAM | 15.3 GB (Windows 11 Home) |
+| Model | DistilBERT fine-tuned for Bloom's MCQs, 268 MB, PyTorch 2.10 (CPU only), max 256 tokens |
+| Service | FastAPI + uvicorn, one process, on the same laptop (`localhost:8000`) |
+| Load generator | k6 v2.3.0 on the same laptop (`stress-test/k6/blooms.js`) |
+| Batch | 50 generated multiple-choice questions across all six Bloom's levels |
+
+Because k6 and the service share the laptop, and the laptop is not a server, the numbers describe
+**this machine**; a server with more CPU cores would be faster. Repeated runs varied by about
+±15%.
+
+**Note on the question texts:** to stop one test from pre-filling the cache for the next, every
+test question carries a unique tag, which makes it about 15 tokens longer. That alone makes a
+50-question batch take ~3.2 s instead of ~2.4 s. All before/after pairs below use the tagged
+questions, so they compare like with like.
+
+### Single batch, one instructor
+
+| Batch size | Time | Per question |
+|---|---|---|
+| 1 question | 0.16 s | 162 ms |
+| 10 questions | 0.60 s | 60 ms |
+| 50 questions | **2.4–2.5 s** (median of 15) | 49 ms |
+| 100 questions | 5.3 s | 53 ms |
+| 50 questions, all already classified (cache, after the fix) | **0.006 s** | — |
+
+### What limits it: the CPU
+
+The model runs on the CPU and needs about 50 ms per question. Measured directly (no web
+server), the most this laptop gets through is about **47 batches of 50 questions a minute**
+(≈ 39 questions per second), with 8 PyTorch threads and 4 batches running at a time:
+
+| PyTorch threads | Batches at a time | Batches per minute |
+|---|---|---|
+| 8 (default) | 1 | 31 |
+| 8 | 2 | 42 |
+| **8** | **4** | **47** |
+| 4 | 8 | 46 |
+| 2 | 8 | 36 |
+| 16 | 1 | 29 |
+
+So no setting makes it dramatically faster: beyond ~47 batches a minute, more simultaneous
+requests can only wait. The fixes therefore aim at **doing less work** (cache), **waiting
+fairly** (queue) and **staying stable** (bounded memory, quick "busy" reply), not at raw speed.
+
+### The fixes (commit `b776719`)
+
+| Problem found | Fix |
+|---|---|
+| Every request ran at the same time. With 100 at once the service grew to **5.5–6.1 GB of memory** (the laptop dropped to 80 MB free), all of them finished late, and **20 of 100 timed out** after 5 minutes. | At most **4 batches run at a time** (the fastest setting measured); the rest **wait in arrival order** |
+| Nothing stopped an unlimited backlog | When **60 batches are already waiting**, new requests get **503 "busy" with Retry-After** immediately; the web app **retries automatically** (up to 5 times) and tells the instructor |
+| Re-analyzing an exam re-classified every question, even unchanged ones | **Result cache** (by question text and choices, 20,000 entries): only new or edited questions go through the model; a fully cached batch skips the queue |
+
+The cache returns the same classification as the model (tested); the model and its outputs are
+unchanged. 8 new tests (`fastapi_blooms/test_load_handling.py`); the existing smoke tests still
+pass 8/8.
+
+### Result 1: response time at each concurrency level
+
+Each level runs for 60 s, with every simulated instructor sending a new 50-question batch as
+soon as the previous one returns.
+
+| Instructors analyzing at once | Before: median / p95 | After: median / p95 | Batches done (before → after) | Succeeded |
+|---|---|---|---|---|
+| 1 | 3.8 s / 4.2 s | **3.1 s / 3.4 s** | 16 → 19 | 100% / 100% |
+| 2 | 6.3 s / 6.8 s | **4.6 s / 5.1 s** | 20 → 26 | 100% / 100% |
+| 4 | 13.2 s / 14.0 s | **8.4 s / 10.6 s** | 20 → 29 | 100% / 100% |
+| 8 | 25.5 s / 29.2 s | **16.0 s / 19.5 s** | 24 → 35 | 100% / 100% |
+| 16 | 49.1 s / 55.1 s | **32.5 s / 37.6 s** | 32 → 42 | 100% / 100% |
+| 32 | 105.0 s / 105.8 s | **65.1 s / 70.2 s** | 32 → 58 | 100% / 100% |
+| 64 | 133.5 s / 209.2 s | **120.7 s / 181.1 s** | 64 → 85 | 100% / 100% |
+| **Service memory, peak** | **6,135 MB** | **1,385 MB** | | |
+| **Laptop free memory, lowest** | **391 MB** | **3,262 MB** | | |
+
+### Result 2: 100 instructors click Analyze at the same moment
+
+| Measure | Before | After |
+|---|---|---|
+| Batches classified | **80 / 100** (20 timed out after 5 min) | **100 / 100** |
+| Wait, median | 243 s | **165 s** |
+| Wait, p95 / max | 256 s / 259 s (of those that finished) | 312 s / 321 s |
+| "Busy" replies (retried automatically) | — | 56 |
+| Service memory, peak | **5,502 MB** (laptop down to 80 MB free) | **1,411 MB** |
+
+### Result 3: re-analysis after editing (normal use)
+
+20 instructors each analyze their 50-question exam, then five times: edit 5 questions and
+analyze again.
+
+| Measure | Before | After |
+|---|---|---|
+| First analysis, median / p95 | 64.8 s / 65.2 s | 40.2 s / 64.9 s |
+| **Re-analysis, median / p95** | **42.5 s / 56.9 s** | **5.5 s / 33.9 s** |
+| Batches classified | 118 / 120 (2 connections dropped) | **120 / 120** |
+| Questions answered from the cache | — | 4,500 (45 of 50 per re-analysis) |
+| Service memory, peak | 3,954 MB | 1,340 MB |
+
+### Answers to the objective (this laptop)
+
+- **Stability:** after the fixes, **every batch was classified in every test, including 100
+  instructors at once**, and the service's memory stayed at about **1.4 GB** instead of growing
+  past 5.5 GB. Overload produces a quick "busy, retrying" message instead of timeouts.
+- **Response time:** one 50-question batch takes about **2.4 s** (3.1 s with the longer test
+  texts); re-analyzing an edited exam takes about **5.5 s** at the median with 20 instructors
+  working at once.
+- **Concurrency limits:** throughput tops out at about **40–47 batches a minute** (~39 questions
+  per second). Waiting time grows in proportion to the number of simultaneous batches:
+  **up to about 4 simultaneous analyses stay under 15 s** (p95 10.6 s), 8 take about 16–20 s,
+  and 100 at once take about 3–5 minutes for the last instructor. Beyond 64 waiting, new
+  requests are told to retry.
+- **To go further:** more CPU cores (a server, or several service copies behind a load
+  balancer) raise the ceiling roughly in proportion; each extra copy needs ~1.4 GB of memory.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -380,6 +512,9 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | 13 | The results and item analysis pages put every attempt ID in the request URL and loaded attempts without paging | Results of exams with more than ~300–400 takers could not be opened (400 Bad Request at 1,000) | All attempts and answers in one request each, access checked once per request | DB tests (1,202 attempts); 1,000-taker exam loads in ~2 s |
 | 14 | Item analysis searched every answer for every student and question | About 2.5 billion comparisons at 1,000 students; browser freezes | Answers grouped by student once | Code change |
 | 15 | Live security rules let anyone see an attempt or its answers when `student_name` is set (always); anyone could update attempts and insert answers; `student_profile` had row-level security off; two views exposed the same data to logged-out visitors | Any visitor with the site's public key could read (and change) every student's name, email, score and answers | Attempts and answers visible only to the student, exam owner, section instructor, Senior Faculty and Department Heads; no direct writes; profiles staff/student only; views closed (migration `20261114_protect_student_data.sql`, commit `f935b77`) | 28 DB tests; checked on the test project with real logins (logged-out: denied; student: own row only; section instructor: own 50 of 1,000) |
+| 16 | The Bloom's service ran every request at once with no limit | 100 simultaneous analyses: memory 5.5–6.1 GB, 20 of 100 timed out after 5 min | At most 4 batches at a time, the rest wait in arrival order; 503 "busy" + Retry-After past 60 waiting; the web app retries | Burst test: 100/100 classified, memory 1.4 GB |
+| 17 | Re-analyzing an exam re-classified unchanged questions | Re-analysis after editing 5 of 50 questions took a median 42.5 s with 20 instructors | Result cache by question text and choices | Re-analysis median 5.5 s; 4,500 cache hits |
+| 18 | The web app always called `http://localhost:8000`, and the service only allowed localhost origins | The Bloom's feature could not work once deployed | Service URL (`VITE_BLOOMS_API_URL`) and allowed origins (`BLOOMS_ALLOWED_ORIGINS`) come from settings | Code change |
 
 ## 9. Known limitations and open issues
 
@@ -387,7 +522,7 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 |---|---|---|
 | Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
 | Many instructors at once on the Free tier | With 100 instructors viewing results and creating exams at the same time, p95 response times exceed a minute | Larger compute size for production; lighter exam-creation requests |
-| Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
+| Bloom's analysis on one laptop | Benchmarked on a laptop CPU with k6 running on the same machine; throughput is limited to ~40–47 batches of 50 questions a minute, so 100 simultaneous analyses take minutes. The trained model (`distilbert_blooms_mcq`, 268 MB) is not in git (GitHub's 100 MB file limit) | Deploy on a server with more CPU (e.g. Oracle Always Free) and re-run `k6/blooms.js`; store the model with Git LFS or upload it separately | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
 | Free tier | Results describe Supabase's Free plan | A paid plan would have more capacity |
 | Browser rendering | The test measures the server and API, not how fast the page draws in the browser | The front end is static files served by a hosting provider |
