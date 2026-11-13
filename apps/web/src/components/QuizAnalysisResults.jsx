@@ -284,7 +284,12 @@ export const QuizAnalysisResults = ({
             : null,
       }));
 
-      const data = await analyzeQuiz(quizId, questionsForApi);
+      const data = await analyzeQuiz(quizId, questionsForApi, {
+        onBusy: (waitSeconds) =>
+          notify.info(
+            `Many exams are being analyzed right now. Retrying automatically in ${waitSeconds} seconds…`,
+          ),
+      });
 
       // Automatic GAD detection alongside Bloom's Taxonomy
       const gadAnalysis = (questions || []).map((q) => {

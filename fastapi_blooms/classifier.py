@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import re
+import threading
+from collections import OrderedDict
 from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -152,6 +154,45 @@ def classify_questions(items: List[Tuple[str, Optional[List[str]]]]) -> List[dic
     Returns:
         list of dicts with bloomsLevel, thinkingOrder, confidence, needsReview, reviewReasons
     """
+    questions, choices_texts = _normalize(items)
+
+    if not questions:
+        return []
+
+    if not USE_ML_MODEL:
+        return _classify_all_rule_based(questions, "model not loaded")
+
+    # Questions already classified (same text and choices) come from the cache;
+    # only the rest go through the model, once each.
+    keys = list(zip(questions, choices_texts))
+    results = [_cache_get(key) for key in keys]
+    missing = list(dict.fromkeys(key for key, r in zip(keys, results) if r is None))
+
+    if missing:
+        try:
+            predicted = _predict([k[0] for k in missing], [k[1] for k in missing])
+        except Exception as err:
+            return _classify_all_rule_based(questions, f"prediction failed: {err}")
+        fresh = dict(zip(missing, predicted))
+        for key, result in fresh.items():
+            _cache_put(key, result)
+        results = [r if r is not None else fresh[key] for key, r in zip(keys, results)]
+
+    return [_copy_result(r) for r in results]
+
+
+# ------------------------------------------------------------------
+# Result cache: instructors usually re-analyze an exam after editing a few
+# questions, so most questions in a batch were classified before. The model
+# is deterministic, so a cached result is the same classification.
+# ------------------------------------------------------------------
+CACHE_SIZE = int(os.getenv("BLOOMS_CACHE_SIZE", "20000"))
+_cache = OrderedDict()
+_cache_lock = threading.Lock()
+cache_stats = {"hits": 0, "misses": 0}
+
+
+def _normalize(items):
     questions = []
     choices_texts = []
     for question_text, choices in items:
@@ -160,53 +201,89 @@ def classify_questions(items: List[Tuple[str, Optional[List[str]]]]) -> List[dic
             raise ValueError("Question text cannot be empty.")
         questions.append(question_text)
         choices_texts.append(_format_choices(choices))
+    return questions, choices_texts
 
-    if not questions:
-        return []
 
-    if not USE_ML_MODEL:
-        return _classify_all_rule_based(questions, "model not loaded")
+def _copy_result(result: dict) -> dict:
+    return {**result, "reviewReasons": list(result["reviewReasons"])}
 
-    try:
-        inputs = tokenizer(
-            questions,
-            choices_texts,
-            truncation=True,
-            max_length=MAX_LENGTH,
-            padding=True,
-            return_tensors="pt"
-        )
 
-        with torch.inference_mode():
-            logits = model(**inputs).logits
+def _cache_get(key):
+    if CACHE_SIZE <= 0:
+        return None
+    with _cache_lock:
+        result = _cache.get(key)
+        if result is None:
+            cache_stats["misses"] += 1
+            return None
+        _cache.move_to_end(key)
+        cache_stats["hits"] += 1
+        return result
 
-        # Temperature-scaled (calibrated) probabilities
-        probabilities = torch.softmax(logits / TEMPERATURE, dim=-1)
-        top2 = torch.topk(probabilities, k=2, dim=-1)
 
-        results = []
-        for question_text, top_probs, top_idx in zip(questions, top2.values.tolist(), top2.indices.tolist()):
-            bloom_level = BLOOM_LABELS[top_idx[0]]
-            confidence = top_probs[0]
+def _cache_put(key, result):
+    if CACHE_SIZE <= 0:
+        return
+    with _cache_lock:
+        _cache[key] = _copy_result(result)
+        _cache.move_to_end(key)
+        while len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
 
-            review_reasons = []
-            if confidence < CONFIDENCE_THRESHOLD:
-                review_reasons.append("low_confidence")
-            if confidence - top_probs[1] < MARGIN_THRESHOLD:
-                review_reasons.append("close_second_choice")
-            if len(question_text.split()) < SHORT_QUESTION_WORDS:
-                review_reasons.append("short_question")
 
-            results.append({
-                "bloomsLevel": bloom_level,
-                "thinkingOrder": "LOTS" if bloom_level in LOTS_LEVELS else "HOTS",
-                "confidence": round(confidence, 4),
-                "needsReview": bool(review_reasons),
-                "reviewReasons": review_reasons
-            })
-        return results
-    except Exception as err:
-        return _classify_all_rule_based(questions, f"prediction failed: {err}")
+def cache_size() -> int:
+    with _cache_lock:
+        return len(_cache)
+
+
+def needs_model(items: List[Tuple[str, Optional[List[str]]]]) -> bool:
+    """True if any question in the batch is not in the cache yet."""
+    if not USE_ML_MODEL or CACHE_SIZE <= 0:
+        return True
+    questions, choices_texts = _normalize(items)
+    with _cache_lock:
+        return any(key not in _cache for key in zip(questions, choices_texts))
+
+
+def _predict(questions: List[str], choices_texts: List[str]) -> List[dict]:
+    """Run the model on a batch (raises on failure)."""
+    inputs = tokenizer(
+        questions,
+        choices_texts,
+        truncation=True,
+        max_length=MAX_LENGTH,
+        padding=True,
+        return_tensors="pt"
+    )
+
+    with torch.inference_mode():
+        logits = model(**inputs).logits
+
+    # Temperature-scaled (calibrated) probabilities
+    probabilities = torch.softmax(logits / TEMPERATURE, dim=-1)
+    top2 = torch.topk(probabilities, k=2, dim=-1)
+
+    results = []
+    for question_text, top_probs, top_idx in zip(questions, top2.values.tolist(), top2.indices.tolist()):
+        bloom_level = BLOOM_LABELS[top_idx[0]]
+        confidence = top_probs[0]
+
+        review_reasons = []
+        if confidence < CONFIDENCE_THRESHOLD:
+            review_reasons.append("low_confidence")
+        if confidence - top_probs[1] < MARGIN_THRESHOLD:
+            review_reasons.append("close_second_choice")
+        if len(question_text.split()) < SHORT_QUESTION_WORDS:
+            review_reasons.append("short_question")
+
+        results.append({
+            "bloomsLevel": bloom_level,
+            "thinkingOrder": "LOTS" if bloom_level in LOTS_LEVELS else "HOTS",
+            "confidence": round(confidence, 4),
+            "needsReview": bool(review_reasons),
+            "reviewReasons": review_reasons
+        })
+    return results
 
 
 def classify_question(question_text: str, choices: Optional[List[str]] = None) -> dict:
