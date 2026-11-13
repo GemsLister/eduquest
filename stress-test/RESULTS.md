@@ -340,7 +340,7 @@ project because the seeded sections have no subject (the app ignores this error)
 
 ## 7. Automated database correctness tests
 
-The exam database functions are covered by 67 automated tests
+The exam database functions are covered by 113 automated tests
 (`supabase/tests/exam_grading.test.mjs`). They run the real migration files on an
 in-memory PostgreSQL database and act as different users (the student, another student, a
 logged-out visitor, instructors, Senior Faculty, Department Head).
@@ -357,7 +357,9 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | Answer key hidden from logged-out users | 3 | ✓ 3 / 3 |
 | Only staff can read the questions table | 8 | ✓ 8 / 8 |
 | Starting an exam with one request, batched time, submit with time | 23 | ✓ 23 / 23 |
-| **Total** | **67** | **✓ 67 / 67** |
+| Instructor results in one request (1,202 attempts, access rules) | 18 | ✓ 18 / 18 |
+| Student data protected (who can read or change attempts, answers, profiles) | 28 | ✓ 28 / 28 |
+| **Total** | **113** | **✓ 113 / 113** |
 
 ## 8. Problems found and fixed during this testing
 
@@ -377,14 +379,13 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | 12 | When the timer ran out for a whole class, every browser submitted in the same second, and a failed submit was not retried | Submission burst overloads the server | Auto-submit spread over 15 s; submit retried up to 4 times (safe, since submitting twice changes nothing) | Spike test re-run (submissions spread over 22 s, all scored) |
 | 13 | The results and item analysis pages put every attempt ID in the request URL and loaded attempts without paging | Results of exams with more than ~300–400 takers could not be opened (400 Bad Request at 1,000) | All attempts and answers in one request each, access checked once per request | DB tests (1,202 attempts); 1,000-taker exam loads in ~2 s |
 | 14 | Item analysis searched every answer for every student and question | About 2.5 billion comparisons at 1,000 students; browser freezes | Answers grouped by student once | Code change |
-| 15 | **Not fixed yet.** Two live security rules let anyone see an attempt or its answers when `student_name` is set (always), and another lets anyone update attempt rows | Any visitor with the site's public key can read every student's name, email, score and answers | Planned: replace with owner / staff rules (the results pages no longer depend on the loophole) | — |
+| 15 | Live security rules let anyone see an attempt or its answers when `student_name` is set (always); anyone could update attempts and insert answers; `student_profile` had row-level security off; two views exposed the same data to logged-out visitors | Any visitor with the site's public key could read (and change) every student's name, email, score and answers | Attempts and answers visible only to the student, exam owner, section instructor, Senior Faculty and Department Heads; no direct writes; profiles staff/student only; views closed (migration `20261114_protect_student_data.sql`, commit `f935b77`) | 28 DB tests; checked on the test project with real logins (logged-out: denied; student: own row only; section instructor: own 50 of 1,000) |
 
 ## 9. Known limitations and open issues
 
 | Item | Details | Plan |
 |---|---|---|
 | Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
-| Student data readable by anyone | Live security rules on `quiz_attempts` and `quiz_responses` expose every student's name, email, score and answers to anyone with the public key (problem 15) | Tighten the rules before real use |
 | Many instructors at once on the Free tier | With 100 instructors viewing results and creating exams at the same time, p95 response times exceed a minute | Larger compute size for production; lighter exam-creation requests |
 | Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
