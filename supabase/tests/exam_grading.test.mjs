@@ -24,6 +24,7 @@ const MIGRATIONS = [
   "20261111_protect_attempts_and_answer_key.sql",
   "20261111_restrict_question_reads_to_staff.sql",
   "20261112_fewer_exam_requests.sql",
+  "20261113_exam_results_in_one_request.sql",
 ].map((f) => path.join(here, "..", "migrations", f));
 
 const db = new PGlite();
@@ -93,7 +94,7 @@ await db.exec(`
     attempt_id uuid REFERENCES quiz_attempts(id) ON DELETE CASCADE,
     question_id uuid REFERENCES questions(id) ON DELETE CASCADE,
     answer text, is_correct boolean, points_earned integer DEFAULT 0,
-    time_spent_seconds numeric(12,1) NOT NULL DEFAULT 0);
+    time_spent_seconds numeric(12,1) NOT NULL DEFAULT 0, created_at timestamptz DEFAULT now());
   ALTER TABLE quiz_responses ADD CONSTRAINT quiz_responses_attempt_question_unique
     UNIQUE (attempt_id, question_id);
 
@@ -437,6 +438,82 @@ await db.query(`UPDATE quizzes SET is_open = true WHERE id = $1`, [ids.quizB]);
 await as(ids.bob, "bob@school.edu");
 const st5 = await start(ids.quizB, null);
 check("exam with linked questions: order uses quiz_questions (Q3, Q4)", [...st5.question_order].sort().join() === [ids.q3, ids.q4].sort().join(), j(st5.question_order));
+
+group("Instructor results in one request (attempts and answers)");
+const quizR = "aaaaaaaa-0000-0000-0000-0000000000r1".replace("r1", "f1");
+const secR1 = "ffffffff-0000-0000-0000-0000000000a1";
+const secR2 = "ffffffff-0000-0000-0000-0000000000a2";
+await asAdmin();
+await db.query(`INSERT INTO quizzes (id, is_published, instructor_id) VALUES ($1, true, $2)`, [quizR, ids.instructor]);
+const rq = (await db.query(`INSERT INTO questions (id, quiz_id, type, text, options, correct_answer, points)
+  SELECT gen_random_uuid(), $1, 'mcq', 'R' || g, ARRAY['A','B'], 'A', 1 FROM generate_series(1, 3) g RETURNING id`, [quizR])).rows.map((r) => r.id);
+// 1,200 completed attempts (more than Supabase's 1,000-row page), plus 2 others
+await db.query(`INSERT INTO quiz_attempts (id, quiz_id, user_id, student_email, status, score, completed_at, section_id)
+  SELECT gen_random_uuid(), $1, gen_random_uuid(), 'r' || g || '@x.edu', 'completed', g % 4,
+         now() - (g || ' minutes')::interval, CASE WHEN g % 2 = 0 THEN $2::uuid ELSE $3::uuid END
+    FROM generate_series(1, 1200) g`, [quizR, secR1, secR2]);
+await db.query(`INSERT INTO quiz_attempts (id, quiz_id, user_id, student_email, status, section_id, completed_at) VALUES
+  (gen_random_uuid(), $1, gen_random_uuid(), 'open@x.edu', 'in_progress', $2, NULL),
+  (gen_random_uuid(), $1, gen_random_uuid(), 'nosection@x.edu', 'completed', NULL, now() - interval '5 days')`, [quizR, secR1]);
+await db.query(`INSERT INTO quiz_responses (attempt_id, question_id, answer, is_correct, points_earned, time_spent_seconds, created_at)
+  SELECT a.id, q.id, CASE WHEN q.n = 3 THEN NULL ELSE (q.n % 2)::text END, q.n = 1, CASE WHEN q.n = 1 THEN 1 ELSE 0 END,
+         q.n * 10 + 0.5, now() + (q.n || ' seconds')::interval
+    FROM quiz_attempts a
+    CROSS JOIN (SELECT id, row_number() OVER (ORDER BY text) AS n FROM questions WHERE quiz_id = $1) q
+   WHERE a.quiz_id = $1 AND a.status = 'completed'`, [quizR]);
+
+await as(ids.instructor, "inst@school.edu");
+let t0 = Date.now();
+const allAtt = (await db.query(`SELECT get_exam_attempts($1::uuid[]) AS r`, [[quizR]])).rows[0].r;
+const attMs = Date.now() - t0;
+check("returns all 1,202 attempts in one call (no 1,000-row cap)", allAtt.length === 1202, String(allAtt.length));
+const doneTimes = allAtt.filter((a) => a.completed_at).map((a) => new Date(a.completed_at).getTime());
+check("newest first, unfinished attempts last", doneTimes.every((t, i) => i === 0 || doneTimes[i - 1] >= t) && allAtt[allAtt.length - 1].status === "in_progress", j(allAtt.slice(-2).map((a) => a.status)));
+check("each attempt is the full row (same fields as select *)", ["id", "quiz_id", "student_email", "score", "status", "completed_at", "section_id"].every((k) => k in allAtt[0]), j(Object.keys(allAtt[0])));
+const doneOnly = (await db.query(`SELECT get_exam_attempts($1::uuid[], NULL, true) AS r`, [[quizR]])).rows[0].r;
+check("completed only: 1,201", doneOnly.length === 1201 && doneOnly.every((a) => a.status === "completed"), String(doneOnly.length));
+const sec1 = (await db.query(`SELECT get_exam_attempts($1::uuid[], $2) AS r`, [[quizR], secR1])).rows[0].r;
+check("section filter keeps that section plus attempts with no section (600 + 1 open + 1 no-section)", sec1.length === 602 && sec1.every((a) => a.section_id === secR1 || a.section_id === null), String(sec1.length));
+
+const doneIds = doneOnly.map((a) => a.id);
+t0 = Date.now();
+const packed = (await db.query(`SELECT get_exam_responses($1::uuid[]) AS r`, [doneIds])).rows[0].r;
+const respMs = Date.now() - t0;
+check("answers come back with each question listed once", packed.q.length === 3 && [...packed.q].sort().join() === [...rq].sort().join(), j(packed.q));
+const totalRows = Object.values(packed.r).reduce((n, items) => n + items.length, 0);
+check("all 3,603 answers of 1,201 attempts in one call", Object.keys(packed.r).length === 1201 && totalRows === 3603, `${Object.keys(packed.r).length} attempts, ${totalRows} rows`);
+const one = packed.r[doneIds[0]];
+const qText = (await db.query(`SELECT id, text FROM questions WHERE quiz_id = $1`, [quizR])).rows;
+const textOf = (qid) => qText.find((q) => q.id === qid).text;
+check("each answer keeps its fields: [question, answer, is_correct, points, seconds]",
+  one.length === 3 && textOf(packed.q[one[0][0]]) === "R1" && one[0][1] === "1" && one[0][2] === true && one[0][3] === 1 && Number(one[0][4]) === 10.5,
+  j(one));
+check("answers stay in saved order, and an empty answer comes back as null", one.map((x) => textOf(packed.q[x[0]])).join() === "R1,R2,R3" && one[2][1] === null, j(one));
+const none = (await db.query(`SELECT get_exam_responses($1::uuid[]) AS r`, [["00000000-0000-0000-0000-000000000000"]])).rows[0].r;
+check("unknown attempts: empty result, not an error", j(none) === j({ q: [], r: {} }), j(none));
+console.log(`        (timing on this laptop: attempts ${attMs} ms, answers ${respMs} ms)`);
+
+await as(null, null, "anon");
+err = await fails(() => db.query(`SELECT get_exam_attempts($1::uuid[])`, [[quizR]]));
+check("logged-out visitors cannot call get_exam_attempts", err?.includes("permission denied"), err);
+err = await fails(() => db.query(`SELECT get_exam_responses($1::uuid[])`, [doneIds.slice(0, 1)]));
+check("logged-out visitors cannot call get_exam_responses", err?.includes("permission denied"), err);
+const seen = async (uid, email) => {
+  await as(uid, email);
+  const a = (await db.query(`SELECT get_exam_attempts($1::uuid[]) AS r`, [[quizR]])).rows[0].r.length;
+  const r = Object.keys((await db.query(`SELECT get_exam_responses($1::uuid[]) AS r`, [doneIds.slice(0, 5)])).rows[0].r.r).length;
+  return `${a}/${r}`;
+};
+check("exam owner sees all attempts and answers", (await seen(ids.instructor, "inst@school.edu")) === "1202/5", await seen(ids.instructor, "inst@school.edu"));
+check("Senior Faculty sees them", (await seen(ids.admin, "admin@school.edu")) === "1202/5", await seen(ids.admin, "admin@school.edu"));
+check("Department Head sees them", (await seen(ids.head, "head@school.edu")) === "1202/5", await seen(ids.head, "head@school.edu"));
+check("a different instructor sees nothing", (await seen(ids.pendingInstructor, "other@school.edu")) === "0/0", await seen(ids.pendingInstructor, "other@school.edu"));
+check("a student sees nothing", (await seen(ids.alice, "alice@school.edu")) === "0/0", await seen(ids.alice, "alice@school.edu"));
+await asAdmin();
+await db.query(`UPDATE profiles SET is_approved = true WHERE id = $1`, [ids.pendingInstructor]);
+check("an approved instructor who doesn't own the exam still sees nothing", (await seen(ids.pendingInstructor, "other@school.edu")) === "0/0", await seen(ids.pendingInstructor, "other@school.edu"));
+await asAdmin();
+await db.query(`UPDATE profiles SET is_approved = false WHERE id = $1`, [ids.pendingInstructor]);
 
 await asAdmin();
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");

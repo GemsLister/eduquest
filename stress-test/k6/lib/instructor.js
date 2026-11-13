@@ -14,8 +14,17 @@ export const createExamSeconds = new Trend("create_exam_seconds");
 export const bloomsSeconds = new Trend("blooms_analyze_seconds");
 export const bloomsOk = new Rate("blooms_analyze_ok");
 
-/** QuizResults.jsx loadQuizAndAttempts(), with the 1,000-row response paging. */
-export function viewResults(api, quizId) {
+// Which version of the results page to imitate:
+//   before  the original page: attempts with no paging (capped at 1,000 rows) and
+//           answers requested with every attempt id in the URL, 1,000 rows a page
+//   after   since 2026-11-13: get_exam_attempts + get_exam_responses, one request each
+const RESULTS_FLOW = (__ENV.RESULTS_FLOW || "after").toLowerCase();
+
+/**
+ * QuizResults.jsx loadQuizAndAttempts(). With sectionId, the page's section
+ * filter is used (one class); without it, the whole exam.
+ */
+export function viewResults(api, quizId, sectionId = null) {
   const started = Date.now();
   let loaded = false;
   group("results page", () => {
@@ -29,12 +38,22 @@ export function viewResults(api, quizId) {
     const related = [quizId];
     for (const r of json(revs) || []) if (related.indexOf(r.id) === -1) related.push(r.id);
 
-    const att = api.get(
-      `/rest/v1/quiz_attempts?${qs({ select: "*", quiz_id: `in.(${related.join(",")})`, order: "completed_at.desc.nullslast" })}`,
-      "results_attempts",
-    );
-    if (!check(att, { "results: attempts loaded": ok })) return;
-    const attempts = json(att) || [];
+    let attempts;
+    if (RESULTS_FLOW === "before") {
+      const att = api.get(
+        `/rest/v1/quiz_attempts?${qs(Object.assign(
+          { select: "*", quiz_id: `in.(${related.join(",")})`, order: "completed_at.desc.nullslast" },
+          sectionId ? { or: `(section_id.eq.${sectionId},section_id.is.null)` } : {},
+        ))}`,
+        "results_attempts",
+      );
+      if (!check(att, { "results: attempts loaded": ok })) return;
+      attempts = json(att) || [];
+    } else {
+      const att = api.rpc("get_exam_attempts", { p_quiz_ids: related, p_section_id: sectionId, p_completed_only: false }, "results_attempts");
+      attempts = json(att);
+      if (!check(att, { "results: attempts loaded": (r) => r.status === 200 && Array.isArray(attempts) })) return;
+    }
 
     api.get(
       `/rest/v1/quiz_questions?${qs({ select: "questions(id,text,points,created_at),order_index", quiz_id: `eq.${quizId}`, order: "order_index.asc" })}`,
@@ -45,10 +64,10 @@ export function viewResults(api, quizId) {
       "results_question_map",
     );
 
-    // Every completed attempt id goes into the URL, 1,000 responses per page.
     const completedIds = attempts.filter((a) => a.status === "completed").map((a) => a.id);
     let allOk = true;
-    if (completedIds.length) {
+    if (completedIds.length && RESULTS_FLOW === "before") {
+      // Every completed attempt id goes into the URL, 1,000 responses per page.
       for (let from = 0; ; from += 1000) {
         const page = api.get(
           `/rest/v1/quiz_responses?${qs({
@@ -66,6 +85,13 @@ export function viewResults(api, quizId) {
         const rows = json(page) || [];
         if (rows.length < 1000) break;
       }
+    } else if (completedIds.length) {
+      // One request; the attempt ids go in the request body.
+      const res = api.rpc("get_exam_responses", { p_attempt_ids: completedIds }, "results_responses");
+      const body = json(res);
+      allOk = check(res, {
+        "results: responses loaded": (r) => r.status === 200 && body && body.r && Object.keys(body.r).length === completedIds.length,
+      });
     }
     loaded = allOk;
   });

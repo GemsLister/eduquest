@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { fetchExamAttempts, fetchExamResponses } from "../../services/examResultsService";
 import { useAuth } from "../../context/AuthContext";
 import * as ItemAnalysisService from "../../services/item-analysis/itemAnalysisService";
 import { ItemAnalysisHeader } from "../../components/container/item-analysis/ItemAnalysisHeader";
@@ -366,19 +367,13 @@ export const ItemAnalysisPage = () => {
         if (parentQs) questions = parentQs;
       }
 
-      // Only completed attempts count toward item statistics
-      let attemptsQuery = supabase
-        .from("quiz_attempts")
-        .select("*")
-        .in("quiz_id", relatedQuizIds)
-        .eq("status", "completed");
-
-      if (selectedSection) {
-        attemptsQuery = attemptsQuery.or(`section_id.eq.${selectedSection},section_id.is.null`);
-      }
-
-      const { data: baseAttempts } = await attemptsQuery;
-      let attempts = baseAttempts || [];
+      // Only completed attempts count toward item statistics. One request, no
+      // 1,000-row cap; with a section filter, attempts with no section count too.
+      let attempts = await fetchExamAttempts({
+        quizIds: relatedQuizIds,
+        sectionId: selectedSection || null,
+        completedOnly: true,
+      });
 
       if (attempts.length === 0) {
         setAnalysis([]);
@@ -427,33 +422,21 @@ export const ItemAnalysisPage = () => {
           return att.id;
         }) || [];
 
-      // 2. Fetch ALL individual responses for these students (paginated to bypass Supabase 1000 row limit)
-      let responses = [];
-      if (attemptIds.length > 0) {
-        let from = 0;
-        const pageSize = 1000;
-        let hasMore = true;
+      // 2. Fetch ALL individual responses for these students in one request
+      //    (attempt ids go in the request body, so 1,000+ students work)
+      const responses = await fetchExamResponses(attemptIds);
 
-        while (hasMore) {
-          const { data: pageData, error: respError } = await supabase
-            .from("quiz_responses")
-            .select("*")
-            .in("attempt_id", attemptIds)
-            .range(from, from + pageSize - 1);
-
-          if (respError) throw respError;
-
-          if (pageData && pageData.length > 0) {
-            responses = [...responses, ...pageData];
-            if (pageData.length < pageSize) {
-              hasMore = false;
-            } else {
-              from += pageSize;
-            }
-          } else {
-            hasMore = false;
-          }
+      // Group each student's answers once (in saved order). Searching the full
+      // answer list for every student and question took ~2.5 billion
+      // comparisons at 1,000 students x 50 questions.
+      const responsesByAttempt = new Map();
+      for (const res of responses) {
+        let list = responsesByAttempt.get(res.attempt_id);
+        if (!list) {
+          list = [];
+          responsesByAttempt.set(res.attempt_id, list);
         }
+        list.push(res);
       }
 
       const results = questions.map((q, qIndex) => {
@@ -579,7 +562,7 @@ export const ItemAnalysisPage = () => {
           decilePerformance,
           distractorAnalysis: distractorData,
           takersDetails: attemptIds.map((attId) => {
-            const resListForAttempt = responses?.filter((res) => res.attempt_id === attId) || [];
+            const resListForAttempt = responsesByAttempt.get(attId) || [];
             
             // 1. Try finding response by matching question IDs for this question index
             let r = resListForAttempt.find((res) => matchingQuestionIds.has(res.question_id) || res.question_id === q.id);

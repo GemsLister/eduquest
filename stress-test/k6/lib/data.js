@@ -28,6 +28,7 @@ export function loadTestData(customPath) {
       project: { url: d.project.url, anonKey: d.project.anonKey },
       exams: d.exams,
       resultsQuizId: d.resultsExam ? d.resultsExam.quizId : null,
+      resultsSectionIds: d.resultsExam && d.resultsExam.sections ? d.resultsExam.sections.map((x) => x.sectionId) : [],
       questionsPerExam: d.counts ? d.counts.questions : 50,
     }];
   })[0];

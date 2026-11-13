@@ -49,6 +49,15 @@ export function setup() {
 let api = null;
 let ownerApi = null;
 
+// RESULTS_SCOPE=section (default): each instructor opens one class's results
+// (one of the results exam's sections, ~50 students), as instructors normally
+// do. RESULTS_SCOPE=all: everyone opens all 1,000 students' results at once.
+const RESULTS_SCOPE = (__ENV.RESULTS_SCOPE || "section").toLowerCase();
+const resultsSectionFor = (instructor) =>
+  RESULTS_SCOPE === "all" || !meta.resultsSectionIds.length
+    ? null
+    : meta.resultsSectionIds[(instructor.n - 1) % meta.resultsSectionIds.length];
+
 export function instructorSession() {
   const me = instructors[(exec.vu.idInTest - 1) % instructors.length];
   if (!api) api = new Api(meta.project, me);
@@ -57,7 +66,7 @@ export function instructorSession() {
   // shared, so these VUs must not rotate its refresh token.
   if (!ownerApi) ownerApi = new Api(meta.project, instructors[0], { canRefresh: false });
 
-  viewResults(ownerApi, meta.resultsQuizId);
+  viewResults(ownerApi, meta.resultsQuizId, resultsSectionFor(me));
   think(THINK);
 
   const exam = createExam(api, me, meta.questionsPerExam);

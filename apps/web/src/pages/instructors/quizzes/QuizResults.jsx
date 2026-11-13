@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../supabaseClient.js";
+import { fetchExamAttempts, fetchExamResponses } from "../../../services/examResultsService.js";
 import { formatTimeSpent } from "../../../utils/timeSpent.js";
 import { Skeleton, SkeletonTableRow } from "../../../components/ui/Skeleton.jsx";
 
@@ -51,20 +52,13 @@ export const QuizResults = () => {
         console.warn("Could not fetch related quiz versions:", e);
       }
 
-      let attemptsQuery = supabase
-        .from("quiz_attempts")
-        .select("*")
-        .in("quiz_id", relatedQuizIds)
-        .order("completed_at", { ascending: false, nullsFirst: false });
-
-      // Filter by specific section if the instructor selected a section filter
-      if (sectionId) {
-        attemptsQuery = attemptsQuery.or(`section_id.eq.${sectionId},section_id.is.null`);
-      }
-
-      const { data: attemptsData, error: attemptsError } = await attemptsQuery;
-      if (attemptsError) throw attemptsError;
-      setAttempts(attemptsData || []);
+      // All attempts in one request, newest first (no 1,000-row cap). With a
+      // section filter, attempts with no section are included too.
+      const attemptsData = await fetchExamAttempts({
+        quizIds: relatedQuizIds,
+        sectionId,
+      });
+      setAttempts(attemptsData);
 
       // Load questions for the specific current quiz (do not merge duplicate revision questions)
       let finalQuestions = [];
@@ -138,31 +132,9 @@ export const QuizResults = () => {
         .map((a) => a.id);
 
       if (completedIds.length > 0) {
-        let responsesData = [];
-        let from = 0;
-        const pageSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data: pageData, error: responsesError } = await supabase
-            .from("quiz_responses")
-            .select("attempt_id, question_id, time_spent_seconds, answer")
-            .in("attempt_id", completedIds)
-            .range(from, from + pageSize - 1);
-
-          if (responsesError) throw responsesError;
-
-          if (pageData && pageData.length > 0) {
-            responsesData = [...responsesData, ...pageData];
-            if (pageData.length < pageSize) {
-              hasMore = false;
-            } else {
-              from += pageSize;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
+        // All answers in one request (the attempt ids go in the request body,
+        // not the URL, so 1,000+ students work)
+        const responsesData = await fetchExamResponses(completedIds);
 
         const timeMap = {};
         (responsesData || []).forEach((r) => {
