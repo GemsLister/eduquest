@@ -1,0 +1,1 @@
+{"inferenceSlots":4,"maxWaiting":60,"running":0,"waiting":0,"avgBatchSeconds":11.29,"served":394,"busyRejected":56,"cacheOnlyBatches":0,"cache":{"size":19700,"maxSize":20000,"hits":0,"misses":19700}}

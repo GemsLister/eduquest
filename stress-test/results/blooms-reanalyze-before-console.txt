@@ -1,0 +1,941 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: k6/blooms.js
+ web dashboard: http://127.0.0.1:5665
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 20 max VUs, 30m30s max duration (incl. graceful stop):
+              * reanalyze: 1 iterations for each of 20 VUs (maxDuration: 30m0s, exec: analyzeAndRevise, gracefulStop: 30s)
+
+time="2026-11-14T00:44:00+08:00" level=info msg="Mode reanalyze: 50 questions per batch, 100 instructors" source=console
+
+running (00m00.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m00.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m01.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m01.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m02.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m02.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m03.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m03.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m04.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m04.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m05.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m05.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m06.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m06.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m07.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m07.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m08.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m08.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m09.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m09.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m10.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m10.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m11.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m11.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m12.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m12.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m13.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m13.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m14.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m14.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m15.8s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m15.4s/30m0s  00/20 iters, 1 per VU
+
+running (00m16.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m16.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m17.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m17.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m18.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m18.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m19.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m19.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m20.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m20.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m21.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m21.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m22.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m22.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m23.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m23.3s/30m0s  00/20 iters, 1 per VU
+
+running (00m24.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m24.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m25.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m25.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m26.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m26.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m27.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m27.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m28.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m28.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m29.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m29.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m30.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m30.5s/30m0s  00/20 iters, 1 per VU
+
+running (00m31.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m31.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m32.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m32.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m33.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m33.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m34.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m34.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m35.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m35.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m36.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m36.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m37.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m37.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m38.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m38.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m39.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m39.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m40.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m40.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m41.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m41.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m42.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m42.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m43.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m43.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m44.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m44.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m45.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m45.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m46.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m46.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m47.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m47.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m48.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m48.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m49.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m49.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m50.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m50.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m51.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m51.3s/30m0s  00/20 iters, 1 per VU
+
+running (00m52.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m52.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m53.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m53.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m54.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m54.2s/30m0s  00/20 iters, 1 per VU
+
+running (00m55.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m55.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m56.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m56.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m57.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m57.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m58.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m58.1s/30m0s  00/20 iters, 1 per VU
+
+running (00m59.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  00m59.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m00.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m00.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m01.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m01.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m02.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m02.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m03.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m03.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m04.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m04.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m05.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m05.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m06.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m06.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m07.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m07.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m08.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m08.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m09.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m09.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m10.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m10.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m11.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m11.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m12.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m12.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m13.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m13.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m14.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m14.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m15.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m15.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m16.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m16.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m17.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m17.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m18.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m18.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m19.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m19.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m20.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m20.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m21.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m21.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m22.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m22.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m23.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m23.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m24.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m24.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m25.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m25.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m26.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m26.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m27.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m27.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m28.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m28.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m29.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m29.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m30.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m30.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m31.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m31.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m32.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m32.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m33.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m33.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m34.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m34.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m35.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m35.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m36.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m36.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m37.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m37.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m38.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m38.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m39.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m39.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m40.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m40.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m41.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m41.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m42.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m42.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m43.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m43.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m44.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m44.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m45.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m45.3s/30m0s  00/20 iters, 1 per VU
+
+running (01m46.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m46.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m47.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m47.4s/30m0s  00/20 iters, 1 per VU
+
+running (01m48.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m48.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m49.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m49.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m50.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m50.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m51.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m51.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m52.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m52.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m53.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m53.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m54.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m54.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m55.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m55.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m56.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m56.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m57.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m57.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m58.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m58.1s/30m0s  00/20 iters, 1 per VU
+
+running (01m59.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  01m59.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m00.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m00.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m01.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m01.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m02.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m02.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m03.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m03.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m04.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m04.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m05.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m05.1s/30m0s  00/20 iters, 1 per VU
+time="2026-11-14T00:46:05+08:00" level=warning msg="Request Failed" error="Post \"http://127.0.0.1:8000/api/quiz/analyze\": write tcp 127.0.0.1:57780->127.0.0.1:8000: use of closed network connection"
+
+running (02m06.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m06.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m07.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m07.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m21.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m21.0s/30m0s  00/20 iters, 1 per VU
+
+running (02m21.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m21.1s/30m0s  00/20 iters, 1 per VU
+time="2026-11-14T00:46:22+08:00" level=warning msg="Request Failed" error="Post \"http://127.0.0.1:8000/api/quiz/analyze\": write tcp 127.0.0.1:64324->127.0.0.1:8000: wsasend: An established connection was aborted by the software in your host machine."
+
+running (02m22.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m22.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m23.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m23.2s/30m0s  00/20 iters, 1 per VU
+
+running (02m24.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m24.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m25.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m25.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m26.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m26.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m27.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m27.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m28.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m28.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m29.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m29.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m30.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m30.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m31.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m31.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m32.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m32.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m33.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m33.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m34.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m34.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m35.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m35.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m36.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m36.2s/30m0s  00/20 iters, 1 per VU
+
+running (02m37.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m37.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m38.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m38.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m39.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m50.5s/30m0s  00/20 iters, 1 per VU
+
+running (02m50.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m50.5s/30m0s  00/20 iters, 1 per VU
+
+running (02m51.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m51.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m52.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m52.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m53.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m53.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m54.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m54.2s/30m0s  00/20 iters, 1 per VU
+
+running (02m55.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m55.2s/30m0s  00/20 iters, 1 per VU
+
+running (02m56.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m56.1s/30m0s  00/20 iters, 1 per VU
+
+running (02m57.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m57.3s/30m0s  00/20 iters, 1 per VU
+
+running (02m58.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m58.3s/30m0s  00/20 iters, 1 per VU
+
+running (02m59.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  02m59.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m00.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m00.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m01.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m01.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m02.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m02.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m03.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m03.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m04.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m04.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m05.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m05.3s/30m0s  00/20 iters, 1 per VU
+
+running (03m06.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m06.4s/30m0s  00/20 iters, 1 per VU
+
+running (03m07.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m07.5s/30m0s  00/20 iters, 1 per VU
+
+running (03m08.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m08.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m09.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m09.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m10.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m10.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m11.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m11.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m12.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m12.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m13.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m13.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m14.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m14.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m15.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m15.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m16.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m16.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m17.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m17.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m18.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m18.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m19.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m19.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m20.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m20.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m21.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m21.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m22.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m22.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m23.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m23.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m24.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m24.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m25.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m25.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m26.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m26.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m27.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m27.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m28.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m28.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m29.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m29.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m31.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m30.6s/30m0s  00/20 iters, 1 per VU
+
+running (03m31.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m31.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m32.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m32.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m33.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m33.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m34.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m34.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m35.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m35.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m36.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m36.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m37.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m37.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m38.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m38.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m39.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m39.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m40.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m40.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m41.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m41.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m42.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m42.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m43.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m43.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m44.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m44.4s/30m0s  00/20 iters, 1 per VU
+
+running (03m45.8s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m45.3s/30m0s  00/20 iters, 1 per VU
+
+running (03m46.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m46.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m47.8s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m47.4s/30m0s  00/20 iters, 1 per VU
+
+running (03m48.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m48.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m49.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m49.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m50.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m50.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m51.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m51.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m52.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m52.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m53.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m53.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m54.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m54.1s/30m0s  00/20 iters, 1 per VU
+
+running (03m55.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m55.2s/30m0s  00/20 iters, 1 per VU
+
+running (03m56.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m56.3s/30m0s  00/20 iters, 1 per VU
+
+running (03m57.9s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m57.4s/30m0s  00/20 iters, 1 per VU
+
+running (03m58.7s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m58.3s/30m0s  00/20 iters, 1 per VU
+
+running (04m00.4s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  03m59.9s/30m0s  00/20 iters, 1 per VU
+
+running (04m01.3s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m00.8s/30m0s  00/20 iters, 1 per VU
+
+running (04m01.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m01.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m03.3s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m02.8s/30m0s  00/20 iters, 1 per VU
+
+running (04m03.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m03.2s/30m0s  00/20 iters, 1 per VU
+
+running (04m04.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m04.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m05.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m05.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m06.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m06.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m07.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m07.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m08.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m08.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m09.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m09.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m10.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m10.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m11.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m11.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m12.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m12.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m13.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m13.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m14.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m14.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m15.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m15.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m16.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m16.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m17.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m17.2s/30m0s  00/20 iters, 1 per VU
+
+running (04m18.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m18.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m19.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m19.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m20.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m20.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m21.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m21.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m22.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m22.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m23.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m23.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m24.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m24.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m25.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m25.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m26.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m26.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m27.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m27.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m28.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m28.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m29.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m29.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m30.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m30.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m31.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m31.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m32.6s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m32.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m33.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m33.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m34.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m34.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m35.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m35.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m36.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m36.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m37.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m37.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m38.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m38.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m39.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m39.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m40.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m40.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m41.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m41.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m42.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m42.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m43.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m43.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m44.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m44.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m45.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m45.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m46.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m46.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m47.5s), 20/20 VUs, 0 complete and 0 interrupted iterations
+reanalyze   [   0% ] 20 VUs  04m47.1s/30m0s  00/20 iters, 1 per VU
+
+running (04m48.6s), 19/20 VUs, 1 complete and 0 interrupted iterations
+reanalyze   [   5% ] 20 VUs  04m48.1s/30m0s  01/20 iters, 1 per VU
+
+running (04m49.6s), 19/20 VUs, 1 complete and 0 interrupted iterations
+reanalyze   [   5% ] 20 VUs  04m49.1s/30m0s  01/20 iters, 1 per VU
+
+running (04m50.6s), 19/20 VUs, 1 complete and 0 interrupted iterations
+reanalyze   [   5% ] 20 VUs  04m50.1s/30m0s  01/20 iters, 1 per VU
+
+running (04m51.5s), 18/20 VUs, 2 complete and 0 interrupted iterations
+reanalyze   [  10% ] 20 VUs  04m51.1s/30m0s  02/20 iters, 1 per VU
+
+running (04m52.6s), 18/20 VUs, 2 complete and 0 interrupted iterations
+reanalyze   [  10% ] 20 VUs  04m52.2s/30m0s  02/20 iters, 1 per VU
+
+running (04m53.5s), 17/20 VUs, 3 complete and 0 interrupted iterations
+reanalyze   [  15% ] 20 VUs  04m53.1s/30m0s  03/20 iters, 1 per VU
+
+running (04m54.5s), 16/20 VUs, 4 complete and 0 interrupted iterations
+reanalyze   [  20% ] 20 VUs  04m54.1s/30m0s  04/20 iters, 1 per VU
+
+running (04m55.6s), 16/20 VUs, 4 complete and 0 interrupted iterations
+reanalyze   [  20% ] 20 VUs  04m55.2s/30m0s  04/20 iters, 1 per VU
+
+running (04m56.6s), 16/20 VUs, 4 complete and 0 interrupted iterations
+reanalyze   [  20% ] 20 VUs  04m56.1s/30m0s  04/20 iters, 1 per VU
+
+running (04m57.5s), 16/20 VUs, 4 complete and 0 interrupted iterations
+reanalyze   [  20% ] 20 VUs  04m57.1s/30m0s  04/20 iters, 1 per VU
+
+running (04m58.6s), 15/20 VUs, 5 complete and 0 interrupted iterations
+reanalyze   [  25% ] 20 VUs  04m58.2s/30m0s  05/20 iters, 1 per VU
+
+running (04m59.6s), 15/20 VUs, 5 complete and 0 interrupted iterations
+reanalyze   [  25% ] 20 VUs  04m59.2s/30m0s  05/20 iters, 1 per VU
+
+running (05m00.6s), 15/20 VUs, 5 complete and 0 interrupted iterations
+reanalyze   [  25% ] 20 VUs  05m00.2s/30m0s  05/20 iters, 1 per VU
+
+running (05m01.5s), 15/20 VUs, 5 complete and 0 interrupted iterations
+reanalyze   [  25% ] 20 VUs  05m01.1s/30m0s  05/20 iters, 1 per VU
+
+running (05m02.6s), 14/20 VUs, 6 complete and 0 interrupted iterations
+reanalyze   [  30% ] 20 VUs  05m02.1s/30m0s  06/20 iters, 1 per VU
+
+running (05m03.6s), 11/20 VUs, 9 complete and 0 interrupted iterations
+reanalyze   [  45% ] 20 VUs  05m03.2s/30m0s  09/20 iters, 1 per VU
+
+running (05m04.7s), 10/20 VUs, 10 complete and 0 interrupted iterations
+reanalyze   [  50% ] 20 VUs  05m04.3s/30m0s  10/20 iters, 1 per VU
+
+running (05m05.9s), 07/20 VUs, 13 complete and 0 interrupted iterations
+reanalyze   [  65% ] 20 VUs  05m05.5s/30m0s  13/20 iters, 1 per VU
+
+running (05m06.5s), 06/20 VUs, 14 complete and 0 interrupted iterations
+reanalyze   [  70% ] 20 VUs  05m06.1s/30m0s  14/20 iters, 1 per VU
+
+running (05m07.5s), 05/20 VUs, 15 complete and 0 interrupted iterations
+reanalyze   [  75% ] 20 VUs  05m07.1s/30m0s  15/20 iters, 1 per VU
+
+running (05m08.5s), 04/20 VUs, 16 complete and 0 interrupted iterations
+reanalyze   [  80% ] 20 VUs  05m08.1s/30m0s  16/20 iters, 1 per VU
+
+running (05m09.5s), 04/20 VUs, 16 complete and 0 interrupted iterations
+reanalyze   [  80% ] 20 VUs  05m09.1s/30m0s  16/20 iters, 1 per VU
+
+running (05m10.5s), 02/20 VUs, 18 complete and 0 interrupted iterations
+reanalyze   [  90% ] 20 VUs  05m10.1s/30m0s  18/20 iters, 1 per VU
+
+
+  █ THRESHOLDS 
+
+    blooms_batch_ok
+    ✗ 'rate>0.99' rate=98.33%
+
+    blooms_batch_seconds
+    ✗ 'p(95)<15' p(95)=65.0247
+
+      {phase:first}
+      ✗ 'p(95)<15' p(95)=65.2342
+
+      {phase:revised}
+      ✗ 'p(95)<15' p(95)=56.8658
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 120    0.38586/s
+    checks_succeeded...: 98.33% 118 out of 120
+    checks_failed......: 1.66%  2 out of 120
+
+    ✗ Bloom's analysis returned every question
+      ↳  98% — ✓ 118 / ✗ 2
+
+    CUSTOM
+    blooms_batch_ok................: 98.33% 118 out of 120
+    blooms_batch_seconds...........: avg=47.255551  min=13.399   med=47.5005 p(90)=64.573  p(95)=65.0247  p(99)=65.20107  max=65.77  count=118
+      { phase:first }..............: avg=64.14785   min=59.675   med=64.8465 p(90)=65.1799 p(95)=65.2342  p(99)=65.66284  max=65.77  count=20 
+      { phase:revised }............: avg=43.808143  min=13.399   med=42.501  p(90)=55.1623 p(95)=56.8658  p(99)=60.97306  max=60.975 count=98 
+    blooms_ms_per_question.........: avg=945.111017 min=267.98   med=950.01  p(90)=1291.46 p(95)=1300.494 p(99)=1304.0214 max=1315.4 count=118
+
+    HTTP
+    http_req_duration..............: avg=46.01s     min=0s       med=46.14s  p(90)=1m4s    p(95)=1m4s     p(99)=1m5s      max=1m5s   count=121
+      { expected_response:true }...: avg=46.78s     min=177.72ms med=46.96s  p(90)=1m4s    p(95)=1m4s     p(99)=1m5s      max=1m5s   count=119
+    http_req_failed................: 1.65%  2 out of 121
+    http_reqs......................: 121    0.389076/s
+
+    EXECUTION
+    iteration_duration.............: avg=5m2s       min=4m47s    med=5m4s    p(90)=5m9s    p(95)=5m10s    p(99)=5m10s     max=5m10s  count=20 
+    iterations.....................: 20     0.06431/s
+    vus............................: 2      min=2          max=20
+    vus_max........................: 20     min=20         max=20
+
+    NETWORK
+    data_received..................: 1.6 MB 5.3 kB/s
+    data_sent......................: 1.8 MB 5.8 kB/s
+
+
+
+
+running (05m11.0s), 00/20 VUs, 20 complete and 0 interrupted iterations
+reanalyze ✓ [ 100% ] 20 VUs  05m10.6s/30m0s  20/20 iters, 1 per VU
+time="2026-11-14T00:49:11+08:00" level=error msg="thresholds on metrics 'blooms_batch_ok, blooms_batch_seconds, blooms_batch_seconds{phase:first}, blooms_batch_seconds{phase:revised}' have been crossed"

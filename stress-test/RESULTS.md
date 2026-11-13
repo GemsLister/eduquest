@@ -532,3 +532,71 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 All scripts are in `stress-test/`. See `stress-test/README.md` for the full steps: create
 a test project, copy the database structure, seed the test data, then run each scenario
 with k6.
+
+---
+
+## Appendix A. Complete test log
+
+Every test run during this work, in order, including runs that failed or were judged invalid.
+Times are UTC+8. Raw outputs are in `stress-test/results/` (`*.json` = k6 summary,
+`*.html` = charts, `*-console.txt` = full k6 output, `*-resources.csv` = CPU / memory every 2 s).
+Where a later run reused a file name, the earlier run's numbers are taken from the notes made
+at the time and are marked "not kept".
+
+### A1. Exam taking (Supabase test project, Free plan, Seoul)
+
+| # | Date / time | Test | Settings | Result | Verdict | Raw output |
+|---|---|---|---|---|---|---|
+| 1 | 11 Nov 04:06 | Dry run, original exam flow | 20 students, 1–2 s per question | 2,228 requests, 0 failed; 20/20 completed; save p95 169 ms | ✓ Pass | `dry-run.json` |
+| 2 | 11 Nov 04:21–04:54 | **Load**, original flow | 1,000 students, 15–45 s per question, 50 questions | 111,252 requests, 0 failed; 1,000/1,000 completed; save p95 169 ms, submit p95 183 ms; DB: 50,000/50,000 answers | ✓ Pass | `load.json`, `load.html` |
+| 3 | 11 Nov 22:08–22:28 | **Spike**, original flow | 1,000 students start within 30 s, 2–6 s per question, all submit together | 76,511 requests, 2,454 timeouts (3.2%); 13 of 1,000 completed (251 reached the end within 20 min); Supabase memory: swap 125% of RAM, "SEVERE" | ✗ Fail (server out of memory) | `spike.json`, `spike.html` |
+| 4 | 11 Nov 23:00 | Dry run, "fewer requests" flow | 20 students, 2–4 s per question | 1,191 requests (was 2,228), 0 failed; 20/20; DB: 1,000/1,000 answers with time | ✓ Pass | `dry-run-v2.json` |
+| 5 | 11 Nov 23:09–23:19 | **Spike**, "fewer requests" flow | same as #3, submits spread over 15 s | 60,671 requests, 0 failed; 1,000/1,000 completed; open exam p95 21.8 s, submit p95 18.7 s | ◐ Completed, start and submit too slow | `spike-v2.json`, `spike-v2.html` |
+| 6 | 14 Nov 00:0x | Dry run after privacy rules | 20 students | 1,150 requests, 0 failed; 20/20 | ✓ Pass (rules don't break exams) | not kept |
+
+### A2. Instructor pages (Supabase test project)
+
+| # | Date / time | Test | Settings | Result | Verdict | Raw output |
+|---|---|---|---|---|---|---|
+| 7 | 13 Nov 22:09–22:18 | Instructors, original results page | 100 instructors, all open the full 1,000-taker results, 8 min | results page loaded 0/241; 19.9% of requests failed | ✗ Fail (URL too long) | not kept |
+| 8 | 13 Nov 22:19 | URL length probe | one instructor, answers request for 100–1,000 attempts | 100–300 attempts OK; ~400 fails; 1,000 (37 KB URL) → 400 Bad Request | Finding | — |
+| 9 | 13 Nov 22:19–22:27 | Instructors, first fix (row-by-row access check) | as #7 | loaded 1/253 (0.4%); 17.9% failed; idle timing: attempts 7.1 s, answers 7.5 s | ✗ Fail (too slow, near 8 s limit) | not kept |
+| 10 | 13 Nov 22:31–22:40 | Instructors, final fix | as #7 | loaded 0/142; 35.8% failed; a simple request took 0.7–8.9 s with no load | ✗ Invalid (server still degraded; restarted after) | not kept |
+| 11 | 13 Nov 22:45 | Results functions, idle server | one instructor, 1,000-taker exam | attempts 0.4–0.5 s, answers 1.8 s (1.2 MB) | ✓ Fixed | — |
+| 12 | 13 Nov 22:47–22:56 | **Instructors, new page** | 100 instructors, each opens one class (50 students) + creates exams, 8 min | results 417/423 (98.6%), median 2.8 s, p95 66.3 s; 85 MB downloaded; 0.32% failed* | ◐ Works, slow under load | `instructors-after.json` |
+| 13 | 13 Nov 22:57–23:06 | **Instructors, original page** | as #12 | results 456/462 (98.7%), median 4.7 s, p95 77.7 s; 234 MB downloaded; 0.43% failed | ◐ Works for one class, slow under load | `instructors-before.json` |
+| 14 | 14 Nov 00:0x | Privacy rules, real logins | anon, student, owner, section instructor, unrelated instructor | anon denied; student sees own row; owner 1,000; section instructor 50; unrelated 0; student writes blocked | ✓ Pass | — |
+| 15 | 14 Nov 00:0x | Instructors after privacy rules | 10 instructors, 2 min | results 71/71; 0 of 923 requests failed | ✓ Pass | not kept |
+
+\* Excluding a test-data-only error (`auto_share_quiz_with_subject_sections` → 400 because the
+seeded sections have no subject); the app ignores this error.
+
+### A3. Bloom's AI classification (laptop: Ryzen 7 5700U, 8 cores, 15.3 GB)
+
+| # | Date / time | Test | Settings | Result | Verdict | Raw output |
+|---|---|---|---|---|---|---|
+| 16 | 13–14 Nov | Baseline on your running dev server | 1 batch at a time | 50 questions: median 2.46 s | Superseded by #17 | — |
+| 17 | 14 Nov 00:09 | Baseline, clean original service | 15 single batches; 4 at once | 50 questions: median 2.47 s; 4 at once: 7.15 s for all; 1 / 10 / 100 questions: 0.16 / 0.60 / 5.26 s | Reference | — |
+| 18 | 14 Nov 00:12–00:24 | Levels, original service, untagged questions | 1→64 at once, 60 s each | medians 2.7 / 3.9 / 7.4 / 13.5 / 28.2 / 61.9 / 80.2 s; all 100% OK | Superseded by #25 (not comparable: shorter texts) | `blooms-levels-before-untagged.json` |
+| 19 | 14 Nov 00:26 | CPU tuning experiment | threads 2–16 × 1–8 batches at once | best 47 batches/min (8 threads, 4 at once) | Finding | — |
+| 20 | 14 Nov 00:38–00:43 | **Burst, original** | 100 at once | 80/100 classified, 20 timed out (5 min); median 243 s; memory 5.5 GB, 80 MB free | ✗ Fail (timeouts, memory) | `blooms-burst-before.json` |
+| 21 | 14 Nov 00:44–00:49 | **Re-analysis, original** | 20 instructors × 6 analyses | 118/120 (2 dropped); re-analysis median 42.5 s | ◐ Slow | `blooms-reanalyze-before.json` |
+| 22 | 14 Nov 00:50–01:05 | **Levels, improved** | 1→64 at once | 294/294 OK; medians 3.1 / 4.6 / 8.4 / 16.0 / 32.5 / 65.1 / 120.7 s; memory 1.4 GB | ✓ Stable | `blooms-levels-after.json` |
+| 23 | 14 Nov 01:05–01:10 | **Burst, improved** | 100 at once | 100/100; median 165 s; 56 busy replies retried; memory 1.4 GB | ✓ Stable (slow: CPU-bound) | `blooms-burst-after.json` |
+| 24 | 14 Nov 01:10–01:12 | **Re-analysis, improved** | 20 × 6 | 120/120; re-analysis median 5.5 s; 4,500 cache hits | ✓ Pass | `blooms-reanalyze-after.json` |
+| 25 | 14 Nov 01:14–01:29 | **Levels, original, tagged questions** (fair "before" for #22) | 1→64 at once | 208/208 OK; medians 3.8 / 6.3 / 13.2 / 25.5 / 49.1 / 105.0 / 133.5 s; memory 6.1 GB | Reference ("before") | `blooms-levels-before.json` |
+| 26 | 14 Nov 01:13 | Tag effect check, improved service | untagged vs tagged 50-question batch | untagged median 2.36 s (original 2.47 s); tagged 3.18 s; fully cached 6 ms | Finding | — |
+
+### A4. Automated test suites (no network)
+
+| # | When | Suite | Checks | Result |
+|---|---|---|---|---|
+| 27 | 11 Nov | Exam database functions, migration 1 (`supabase/tests`) | 23 | ✓ all pass |
+| 28 | 11 Nov | + attempt column lock, question loader, anon column lock | 37 | ✓ all pass |
+| 29 | 12 Nov | + staff-only questions policy | 44 | ✓ all pass |
+| 30 | 12 Nov | + one-request start, batched time | 67 | ✓ all pass |
+| 31 | 13 Nov | + results in one request, access rules | 85 | ✓ all pass |
+| 32 | 14 Nov | + student data protection | **113** | ✓ all pass |
+| 33 | 11 Nov | k6 scripts against a mock Supabase server (all scenarios, small scale) | — | ✓ found and fixed a retry-loop bug in the test script |
+| 34 | 14 Nov | Bloom's smoke tests (`fastapi_blooms/test_blooms_model.py`) | 8 | ✓ 8/8 |
+| 35 | 14 Nov | Bloom's load handling (`fastapi_blooms/test_load_handling.py`) | 8 | ✓ 8/8 |

@@ -1,0 +1,226 @@
+{
+    "metrics": {
+        "http_req_failed": {
+            "passes": 29,
+            "fails": 6726,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0.004293116210214656
+        },
+        "http_req_waiting": {
+            "avg": 2097.8977797335283,
+            "med": 307.8512,
+            "p(90)": 4352.622200000012,
+            "p(95)": 11596.280409999968,
+            "p(99)": 32090.448956000007,
+            "max": 60000.6398
+        },
+        "data_sent": {
+            "count": 16344436,
+            "rate": 32043.256162811034
+        },
+        "http_req_blocked": {
+            "p(99)": 200.524312,
+            "max": 255.1752,
+            "avg": 3.132833974833456,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_receiving": {
+            "p(90)": 108.95168000000021,
+            "p(95)": 415.2241999999994,
+            "p(99)": 1320.663016,
+            "max": 3262.9711,
+            "avg": 65.94629279052552,
+            "med": 0.4178
+        },
+        "results_page_loaded": {
+            "passes": 456,
+            "fails": 6,
+            "thresholds": {
+                "rate>0.99": true
+            },
+            "value": 0.987012987012987
+        },
+        "http_reqs": {
+            "count": 6755,
+            "rate": 13.243173112843326
+        },
+        "iterations": {
+            "count": 405,
+            "rate": 0.79400223696544
+        },
+        "vus": {
+            "value": 98,
+            "min": 98,
+            "max": 100
+        },
+        "http_req_sending": {
+            "p(95)": 0.6756799999999988,
+            "p(99)": 0.9692000000000005,
+            "max": 3.4881,
+            "avg": 0.24774814211695037,
+            "med": 0,
+            "p(90)": 0.5908
+        },
+        "results_page_seconds": {
+            "p(99)": 94.01615,
+            "max": 105.362,
+            "avg": 15.08033552631579,
+            "med": 4.66,
+            "p(90)": 47.601,
+            "p(95)": 77.6995,
+            "thresholds": {
+                "p(95)<5": true
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 1993.6243448557857,
+            "med": 344.19145000000003,
+            "p(90)": 4184.644,
+            "p(95)": 10727.91525,
+            "p(99)": 29190.812925,
+            "max": 59743.5348
+        },
+        "data_received": {
+            "count": 233543390,
+            "rate": 457861.66441603005
+        },
+        "checks": {
+            "passes": 4056,
+            "fails": 22,
+            "value": 0.9946051986267779
+        },
+        "vus_max": {
+            "value": 100,
+            "min": 100,
+            "max": 100
+        },
+        "group_duration": {
+            "p(90)": 57453.73425,
+            "p(95)": 78004.17450000001,
+            "p(99)": 94231.4087,
+            "max": 105361.5935,
+            "avg": 14216.590620776258,
+            "med": 2585.3712
+        },
+        "create_exam_seconds": {
+            "p(99)": 94.21329999999999,
+            "max": 96.848,
+            "avg": 11.489592499999999,
+            "med": 1.737,
+            "p(90)": 57.490100000000034,
+            "p(95)": 78.96894999999998,
+            "thresholds": {
+                "p(95)<5": true
+            }
+        },
+        "http_req_duration": {
+            "max": 60000.6774,
+            "avg": 2164.091820666176,
+            "med": 345.6499,
+            "p(90)": 4435.2813600000045,
+            "p(95)": 11628.377579999997,
+            "p(99)": 32092.741858000005
+        },
+        "http_req_tls_handshaking": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 135.16698000000005,
+            "max": 200.8921,
+            "avg": 2.2064988749074756,
+            "med": 0
+        },
+        "iteration_duration": {
+            "max": 203699.4601,
+            "avg": 100568.3740493827,
+            "med": 93103.624,
+            "p(90)": 151306.0369,
+            "p(95)": 170655.9282999999,
+            "p(99)": 190294.11933199997
+        },
+        "http_req_connecting": {
+            "max": 57.7282,
+            "avg": 0.5753012879348629,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 32.727422000000004
+        }
+    },
+    "root_group": {
+        "groups": {
+            "results page": {
+                "groups": {},
+                "checks": {
+                        "results: exam loaded": {
+                            "name": "results: exam loaded",
+                            "path": "::results page::results: exam loaded",
+                            "id": "5a11591511240cc7b53158ec965d1b94",
+                            "passes": 497,
+                            "fails": 4
+                        },
+                        "results: attempts loaded": {
+                            "name": "results: attempts loaded",
+                            "path": "::results page::results: attempts loaded",
+                            "id": "a42dfa6f94c8d8cf8f55d9ea51ca21ad",
+                            "passes": 486,
+                            "fails": 0
+                        },
+                        "results: responses page loaded": {
+                            "name": "results: responses page loaded",
+                            "path": "::results page::results: responses page loaded",
+                            "id": "9fee365b750a1b02bc4f1a9c57096b73",
+                            "passes": 1378,
+                            "fails": 2
+                        }
+                    },
+                "name": "results page",
+                "path": "::results page",
+                "id": "b22a5c125448f956f52e40eee7fbac68"
+            },
+            "create exam": {
+                "name": "create exam",
+                "path": "::create exam",
+                "id": "9837aab637451732d8b17dedc7ab08b9",
+                "groups": {},
+                "checks": {
+                        "exam created": {
+                            "passes": 445,
+                            "fails": 4,
+                            "name": "exam created",
+                            "path": "::create exam::exam created",
+                            "id": "22a3becf8abd33582b1c8ff615307107"
+                        },
+                        "exam assigned to section": {
+                            "passes": 437,
+                            "fails": 2,
+                            "name": "exam assigned to section",
+                            "path": "::create exam::exam assigned to section",
+                            "id": "fc7afcb4d46bd526aa4d93cf7f94175b"
+                        },
+                        "questions imported": {
+                            "id": "fe249ed9a55a3498f06c61c75cf676c4",
+                            "passes": 413,
+                            "fails": 10,
+                            "name": "questions imported",
+                            "path": "::create exam::questions imported"
+                        },
+                        "questions linked to exam": {
+                            "path": "::create exam::questions linked to exam",
+                            "id": "0c3dc0f4f1a21133f8fd3efda117a784",
+                            "passes": 400,
+                            "fails": 0,
+                            "name": "questions linked to exam"
+                        }
+                    }
+            }
+        },
+        "checks": {},
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+}
