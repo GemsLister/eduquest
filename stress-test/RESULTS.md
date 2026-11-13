@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) first **failed** because the Free-tier server ran out of memory; after cutting the requests each student sends by ~46%, **all 1,000 students finished with no failed requests**, though opening the exam and submitting were still slow (see section 5B). Stress, soak, instructor and exam-day tests are still to be run.
+**Status:** Load test (1,000 concurrent students at a normal pace) **passed**. Spike test (1,000 students answering very fast and submitting together) first **failed** because the Free-tier server ran out of memory; after cutting the requests each student sends by ~46%, **all 1,000 students finished with no failed requests**, though opening the exam and submitting were still slow (see section 5B). Instructor results page: the original page **could not open results for exams with more than about 300–400 takers**; it now loads 1,000 takers in about 2 s (section 5C). With 100 instructors working at once, pages still load but slowly on the Free tier. Stress, soak, exam-day and Bloom's classification tests are still to be run.
 
 ---
 
@@ -70,7 +70,9 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 | **Spike (after fewer requests)** | Same, with ~46% fewer requests per student and submissions spread over 15 s | 1,000 | 60,671 | **0.00%** | 969 ms | 18.7 s | 21.8 s | **100% (1,000/1,000)** | ◐ Completed, but start and submit too slow |
 | Stress | Ramp from 0 to 2,000 students to find the breaking point | up to 2,000 | | | | | | | Not yet run |
 | Soak | 400 students for 2 hours | 400 | | | | | | | Not yet run |
-| Instructors | 100 instructors: results page, exam creation, Bloom's analysis | 100 | | | | | | | Not yet run |
+| Instructors (before) | 100 instructors for 8 min: each opens one class's results (50 students) and creates 50-question exams | 100 | 6,755 | 0.43% | — | — | — | results page 98.7% loaded, p95 77.7 s | ◐ Works for one class, slow under load |
+| **Instructors (after)** | Same, with results loaded in one request each | 100 | 5,364 | 0.32% | — | — | — | results page 98.6% loaded, p95 66.3 s, **−64% data** | ◐ Works, still slow under load (Free tier) |
+| Results of a 1,000-taker exam (one instructor) | Opening the full results of the 1,000-taker exam | 1 | | | | | | before: **400 Bad Request**; after: **0.4 s + 1.8 s** | ✓ Fixed |
 | Exam day | 1,000 students + 100 instructors together | 1,100 | | | | | | | Not yet run |
 
 ## 5. Load test: 1,000 concurrent students
@@ -249,6 +251,83 @@ load 50 questions and start their attempt at the same time (p95 about 21 s), and
 170 ms). These two bursts are the next targets: loading the exam with fewer, lighter
 requests, and a larger server for production.
 
+## 5C. Instructor results page
+
+**Runs:** 13 Nov 2026, 22:47–22:56 (after) and 22:57–23:06 (before), UTC+8, on a freshly
+restarted test project. Raw output: `results/instructors-after.json`,
+`results/instructors-before.json`.
+
+### The problem
+
+The results page (`QuizResults.jsx`) and item analysis page (`ItemAnalysisPage.jsx`)
+loaded results with:
+
+- **attempts:** one request with no paging. Supabase returns at most 1,000 rows, so
+  attempts beyond 1,000 would be silently left out.
+- **answers:** every attempt ID written into the request URL, 1,000 answers per page.
+
+Measured on the test project with the 1,000-taker exam:
+
+| Completed attempts | Answers URL length | Server reply |
+|---|---|---|
+| 100 | 3,805 characters | ✓ 200 OK |
+| 200 | 7,505 | ✓ 200 OK |
+| 300 | 11,205 | ✓ 200 OK |
+| 400 | about 15,000 | ✗ error reply too large to read |
+| 1,000 | 37,105 | ✗ **400 Bad Request** |
+
+**So the original page could not show the results of an exam taken by more than about
+300–400 students.** In the first instructor test, where every instructor opened the
+1,000-taker exam, the page loaded **0 times out of 241**.
+
+Item analysis had a second problem: for every question and every student it searched
+the full list of answers, about 2.5 billion comparisons at 1,000 students × 50 questions,
+enough to freeze the browser.
+
+### The fix (commit `47f9e44`, migration `20261113_exam_results_in_one_request.sql`)
+
+- Two database functions return **all attempts** and **all answers** as one request each
+  (answers packed compactly; no URL limit; no 1,000-row cap).
+- Access is checked **once per request**: the exam's owner, Senior Faculty and Department
+  Heads. A first version checked access row by row with the existing security rules and
+  took 7–7.5 s for 1,000 students, close to Supabase's 8 s limit.
+- Item analysis groups answers by student once.
+
+### Results
+
+**Full results of the 1,000-taker exam, one instructor, idle server:**
+
+| | Before | After |
+|---|---|---|
+| Attempts (1,000) | loaded, but capped at exactly 1,000 rows | **0.4–0.5 s**, no cap (tested with 1,202) |
+| Answers (50,000) | **400 Bad Request** | **1.8 s** (1.2 MB) |
+
+**100 instructors for 8 minutes**, each opening one class's results (one of 20 sections,
+50 students) and creating 50-question exams:
+
+| Measure | Before | After |
+|---|---|---|
+| Results page loaded | 456 / 462 (98.7%) | 417 / 423 (98.6%) |
+| Results page time, median | 4.7 s | **2.8 s** |
+| Results page time, p95 | 77.7 s | 66.3 s |
+| Answer requests | 1,380 (3 pages per view) | **423 (1 per view)** |
+| Data downloaded | 234 MB | **85 MB (−64%)** |
+| Failed requests* | 0.43% | 0.32% |
+| Creating a 50-question exam, median / p95 | 1.7 s / 79.0 s | 1.7 s / 87.1 s |
+
+\* Excluding the `auto_share_quiz_with_subject_sections` call, which answers 400 in the test
+project because the seeded sections have no subject (the app ignores this error).
+
+### What this means
+
+- **For a normal class (about 50 students), the original page worked**; the new one loads
+  faster at the median with 64% less data.
+- **For a large exam (300–400+ takers), the original page could not load at all**; the new
+  one loads 1,000 takers in about 2 seconds.
+- **With 100 instructors active at the same moment**, both versions slow down badly in the
+  worst cases (p95 over a minute), and creating exams slows too. This is the same Free-tier
+  server limit seen in the spike test, not the results page itself.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -296,13 +375,17 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 | 10 | Each student sent about 111 requests per 50-question exam (5–7 to start, plus a separate time save for every question); 1,000 fast students exhausted the server's memory | Spike test: only 13 of 1,000 exams completed | One request to start or resume; time sent in one batch per minute; about 60 requests per student | DB tests; spike test re-run (1,000 / 1,000 completed, 0 failed) |
 | 11 | A failed answer save was silently lost, and the student had no way to know | Lost answers when the server or connection is slow | Saves retry automatically and in order; the page shows Saving / Saved / Retrying | Code change; spike test re-run (56,671 / 56,671 saves succeeded) |
 | 12 | When the timer ran out for a whole class, every browser submitted in the same second, and a failed submit was not retried | Submission burst overloads the server | Auto-submit spread over 15 s; submit retried up to 4 times (safe, since submitting twice changes nothing) | Spike test re-run (submissions spread over 22 s, all scored) |
+| 13 | The results and item analysis pages put every attempt ID in the request URL and loaded attempts without paging | Results of exams with more than ~300–400 takers could not be opened (400 Bad Request at 1,000) | All attempts and answers in one request each, access checked once per request | DB tests (1,202 attempts); 1,000-taker exam loads in ~2 s |
+| 14 | Item analysis searched every answer for every student and question | About 2.5 billion comparisons at 1,000 students; browser freezes | Answers grouped by student once | Code change |
+| 15 | **Not fixed yet.** Two live security rules let anyone see an attempt or its answers when `student_name` is set (always), and another lets anyone update attempt rows | Any visitor with the site's public key can read every student's name, email, score and answers | Planned: replace with owner / staff rules (the results pages no longer depend on the loophole) | — |
 
 ## 9. Known limitations and open issues
 
 | Item | Details | Plan |
 |---|---|---|
 | Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
-| Instructor results page with large exams | The page puts every attempt ID into one request URL and loads attempts without paging; Supabase returns at most 1,000 rows per request. Expected to fail at about 1,000 takers. | Measure in the instructor test, then move the counting into the database |
+| Student data readable by anyone | Live security rules on `quiz_attempts` and `quiz_responses` expose every student's name, email, score and answers to anyone with the public key (problem 15) | Tighten the rules before real use |
+| Many instructors at once on the Free tier | With 100 instructors viewing results and creating exams at the same time, p95 response times exceed a minute | Larger compute size for production; lighter exam-creation requests |
 | Bloom's analysis service | Runs only on a local machine (`localhost:8000`); not deployed, so not yet load-tested | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
 | Free tier | Results describe Supabase's Free plan | A paid plan would have more capacity |

@@ -126,7 +126,12 @@ export function createExam(api, instructor, count) {
     check(api.post("/rest/v1/quiz_sections", [{ quiz_id: quizId, section_id: instructor.sectionId }], "create_quiz_sections"), {
       "exam assigned to section": ok,
     });
-    api.rpc("auto_share_quiz_with_subject_sections", { p_quiz_id: quizId }, "auto_share_quiz");
+    // The exam editor ignores this call's errors. The seeded test sections have
+    // no subject, so it answers 400 "not assigned to any subject" here; that
+    // is not counted as a failed request.
+    api.rpc("auto_share_quiz_with_subject_sections", { p_quiz_id: quizId }, "auto_share_quiz", {
+      responseCallback: http.expectedStatuses(200, 204, 400),
+    });
 
     const qRows = makeQuestions(count, Math.floor(Math.random() * 100000)).map((q) => Object.assign({ quiz_id: quizId }, q));
     const ins = api.post("/rest/v1/questions", qRows, "import_questions", { Prefer: "return=representation" });

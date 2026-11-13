@@ -50,16 +50,16 @@ export class Api {
     );
   }
 
-  request(method, path, body, name, extra) {
+  request(method, path, body, name, extra, params) {
     // Like supabase-js: refresh shortly before the token expires, not after.
     if (this.canRefresh && this.expiresAt && Date.now() / 1000 > this.expiresAt - 60) this.refresh();
     const payload = body === undefined ? null : JSON.stringify(body);
     const send = () =>
-      http.request(method, this.base + path, payload, {
+      http.request(method, this.base + path, payload, Object.assign({
         headers: this.headers(extra),
         tags: { name },
         timeout: "60s",
-      });
+      }, params || {}));
     let res = send();
     if (res.status === 401 && this.canRefresh && this.refresh()) res = send();
     return res;
@@ -69,7 +69,7 @@ export class Api {
   post(path, body, name, extra) { return this.request("POST", path, body, name, extra); }
   patch(path, body, name, extra) { return this.request("PATCH", path, body, name, extra); }
   del(path, name, extra) { return this.request("DELETE", path, undefined, name, extra); }
-  rpc(fn, args, name) { return this.post(`/rest/v1/rpc/${fn}`, args, name); }
+  rpc(fn, args, name, params) { return this.request("POST", `/rest/v1/rpc/${fn}`, args, name, undefined, params); }
 
   refresh() {
     if (!this.refreshToken) return false;
