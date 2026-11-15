@@ -25,6 +25,10 @@ const READ = [num("READ_MIN", 5), num("READ_MAX", 20)];
 const ARRIVAL = num("ARRIVAL_SECONDS", 300);
 const ROUND = num("ROUND", 0);
 const BLOOMS_URL = __ENV.BLOOMS_API_URL || "";
+// Instructor pace: pause between steps, and create (and analyze) a new exam only every Nth
+// cycle; the other cycles only open class results. Defaults = run 1 (busy instructors).
+const INSTRUCTOR_PAUSE = [num("INSTRUCTOR_PAUSE_MIN", 20), num("INSTRUCTOR_PAUSE_MAX", 60)];
+const CREATE_EVERY = Math.max(1, num("CREATE_EVERY", 1));
 const examSecondsMax = READ[1] + meta.questionsPerExam * (THINK[1] + 4);
 const totalMinutes = Math.ceil((ARRIVAL + examSecondsMax) / 60) + 5;
 
@@ -88,11 +92,13 @@ export function instructor() {
   if (!ownerApi) ownerApi = new Api(meta.project, instructors[0], { canRefresh: false });
 
   viewResults(ownerApi, meta.resultsQuizId, resultsSectionFor(me));
-  think([20, 60]);
+  think(INSTRUCTOR_PAUSE);
+  // offset by instructor so they do not all create an exam in the same cycle
+  if ((exec.vu.iterationInScenario + exec.vu.idInTest) % CREATE_EVERY !== 0) return;
   const exam = createExam(api, me, meta.questionsPerExam);
-  think([20, 60]);
+  think(INSTRUCTOR_PAUSE);
   if (exam && BLOOMS_URL) {
     analyzeBlooms(BLOOMS_URL, exam.quizId, exam.questions);
-    think([20, 60]);
+    think(INSTRUCTOR_PAUSE);
   }
 }
