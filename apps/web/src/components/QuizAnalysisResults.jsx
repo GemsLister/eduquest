@@ -2,7 +2,7 @@ import { useEscapeKey } from "../hooks/useEscapeKey.jsx";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { notify } from "../utils/notify.jsx";
-import { analyzeQuiz } from "../services/quizAnalysisService";
+import { alignResultsToQuestions, runExamAnalysis } from "../utils/examAnalysis";
 import { supabase } from "../supabaseClient";
 import { logAudit } from "../services/auditService";
 import { BloomsVisualizationPanel } from "./BloomsVisualization";
@@ -115,8 +115,22 @@ export const QuizAnalysisResults = ({
   initialReviewerId,
   onBeforeSubmitReview,
   onClose,
+  // The editor's latest analysis. When no question changed since it ran it
+  // is shown right away instead of classifying again; re-analyzing keeps the
+  // levels reviewers set on unchanged questions.
+  previousAnalysis = null,
+  // Called with every new or edited result, so the editor shows it too
+  onAnalyzed,
 }) => {
-  const [results, setResults] = useState(null);
+  const [initialResults] = useState(() => alignResultsToQuestions(previousAnalysis, questions || []));
+  const [results, setResults] = useState(initialResults);
+  const reportedResultsRef = useRef(initialResults);
+  useEffect(() => {
+    if (results && results !== reportedResultsRef.current) {
+      reportedResultsRef.current = results;
+      onAnalyzed?.(results);
+    }
+  }, [results, onAnalyzed]);
   const [loading, setLoading] = useState(false);
   const [forwarded, setForwarded] = useState(false);
   const [forwardLoading, setForwardLoading] = useState(false);
@@ -274,33 +288,16 @@ export const QuizAnalysisResults = ({
     setLoading(true);
 
     try {
-      // MCQs send their option texts as choices; the answer key is never sent
-      const questionsForApi = questions.map((q) => ({
-        id: String(q.id),
-        text: q.text,
-        choices:
-          q.type === "mcq" && Array.isArray(q.options)
-            ? q.options.filter((opt) => typeof opt === "string" && opt.trim())
-            : null,
-      }));
-
-      const data = await analyzeQuiz(quizId, questionsForApi, {
+      // MCQs send their option texts as choices; the answer key is never sent.
+      // Also runs the GAD check and keeps levels reviewers set on unchanged
+      // questions.
+      const data = await runExamAnalysis(quizId, questions, {
+        previous: results || previousAnalysis,
         onBusy: (waitSeconds) =>
           notify.info(
             `Many exams are being analyzed right now. Retrying automatically in ${waitSeconds} seconds…`,
           ),
       });
-
-      // Automatic GAD detection alongside Bloom's Taxonomy
-      const gadAnalysis = (questions || []).map((q) => {
-        const { isGad, matchReason } = analyzeGADQuestion(q.text, q.options);
-        return {
-          questionId: String(q.id),
-          isGad: isGad || !!q.is_gad,
-          matchReason,
-        };
-      });
-      data.gadAnalysis = gadAnalysis;
 
       setResults(data);
       setQuestionPage(1);
@@ -708,6 +705,23 @@ export const QuizAnalysisResults = ({
           ) : (
             /* ─── Step 2: Review Results ─── */
             <>
+              {!forwarded && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600">
+                  <span>
+                    {results === initialResults
+                      ? "No questions changed since the analysis in the exam editor, so it is used as is."
+                      : "Analysis of the exam as it is now."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={loading}
+                    className="text-brand-navy font-semibold hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
+                  >
+                    {loading ? "Analyzing..." : "Re-analyze"}
+                  </button>
+                </div>
+              )}
               {/* Summary Cards — color-coded */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div className="bg-brand-navy/5 border border-brand-navy/20 p-4 rounded-xl text-center">

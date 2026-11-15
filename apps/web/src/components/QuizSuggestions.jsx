@@ -5,13 +5,8 @@
  */
 
 import { useState } from "react";
-
-const TOS_MODES = {
-  standard: { lotsTarget: 30, hotsTarget: 70, label: "Standard TOS" },
-  project: { lotsTarget: 20, hotsTarget: 80, label: "Project-Based" },
-};
-
-const TOLERANCE = 5; // +-5% tolerance before flagging
+// Same targets as the exam editor's Bloom's summary
+import { TOS_MODES, TOS_TOLERANCE as TOLERANCE } from "../utils/examAnalysis";
 
 const BLOOM_ORDER = [
   "Remembering",

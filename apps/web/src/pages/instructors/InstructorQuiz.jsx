@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useBlocker, useLocation, useNavigate, useParams } from "react-router-dom";
 import { notify } from "../../utils/notify.jsx";
 import { useConfirm } from "../../components/ui/ConfirmModal.jsx";
@@ -8,6 +8,9 @@ import { QuizAnalysisResults } from "../../components/QuizAnalysisResults.jsx";
 import { QuizRevisionHistory } from "../../components/container/quiz/QuizRevisionHistory.jsx";
 import { RevisionComments } from "../../components/quiz/RevisionComments.jsx";
 import { useRevisionFeedback } from "../../hooks/quizHook/useRevisionFeedback.js";
+import { useExamAnalysis } from "../../hooks/quizHook/useExamAnalysis.js";
+import { ExamAnalysisSummary, QuestionAnalysisBadge } from "../../components/quiz/ExamAnalysisPanel.jsx";
+import { buildEditorAnalysis } from "../../utils/examAnalysis.js";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 import { ImportExamFileModal } from "../../components/quiz/ImportExamFileModal.jsx";
@@ -129,6 +132,12 @@ export const InstructorQuiz = () => {
   const [parentQuizId, setParentQuizId] = useState(null);
   // Reviewer / Department Head comments while this quiz is being revised
   const { revisionFeedback, getQuestionComments } = useRevisionFeedback(quizId, parentQuizId);
+  // The latest Bloom's analysis, shown per question and summarized above them
+  const examAnalysis = useExamAnalysis({ quizId, parentQuizId, userId });
+  const editorAnalysis = useMemo(
+    () => buildEditorAnalysis(examAnalysis.results, questions),
+    [examAnalysis.results, questions],
+  );
   const [restoredFromSnapshot, setRestoredFromSnapshot] = useState(0);
   const [autoSharing, setAutoSharing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -432,6 +441,45 @@ export const InstructorQuiz = () => {
       else next.add(questionId);
       return next;
     });
+  };
+
+  // Opens question `number` (1-based): its page, expanded, scrolled into view
+  const jumpToQuestion = (number) => {
+    const question = questions[number - 1];
+    if (!question) return;
+    setCurrentPage(Math.ceil(number / QUESTIONS_PER_PAGE));
+    setExpandedQuestions((prev) => new Set(prev).add(question.id));
+    // 88 px clears the sticky page header
+    setTimeout(() => scrollToElementTop(document.getElementById(`question-card-${question.id}`), 88), 50);
+  };
+
+  // Runs the Bloom's classifier from the editor. A new exam is saved as a
+  // draft first so the result can be kept with it.
+  const handleAnalyzeInEditor = async () => {
+    if (!questions.some((q) => (q.text || "").trim())) {
+      notify.error("Add question text before analyzing.");
+      return;
+    }
+    let targetQuizId = quizId;
+    if (!quizId) {
+      const saved = await handleSaveQuiz(false, false, { allowIncomplete: true });
+      if (!saved || saved.error) return;
+      if (saved.id) targetQuizId = saved.id;
+    }
+    try {
+      const result = await examAnalysis.analyze(questions, {
+        targetQuizId,
+        onBusy: (waitSeconds) =>
+          notify.info(
+            `Many exams are being analyzed right now. Retrying automatically in ${waitSeconds} seconds…`,
+          ),
+      });
+      notify.success(
+        `Analyzed ${result.analysis.length} question${result.analysis.length === 1 ? "" : "s"}. Each question now shows its Bloom's level.`,
+      );
+    } catch (err) {
+      notify.error(err.message || "Could not connect to the Bloom's analysis service.");
+    }
   };
   const autoSaveTimer = useRef(null);
   const initialLoadDone = useRef(false);
@@ -2196,6 +2244,19 @@ export const InstructorQuiz = () => {
           className="mb-6"
         />
 
+        {questions.length > 0 && (
+          <ExamAnalysisSummary
+            editorAnalysis={editorAnalysis}
+            results={examAnalysis.results}
+            source={examAnalysis.source}
+            running={examAnalysis.running}
+            canAnalyze={!isLocked}
+            analyzeDisabled={saving || !questions.some((q) => (q.text || "").trim())}
+            onAnalyze={handleAnalyzeInEditor}
+            onJumpToQuestion={jumpToQuestion}
+          />
+        )}
+
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg space-y-4">
             <p className="text-gray-500 font-medium">No questions added yet</p>
@@ -2248,6 +2309,7 @@ export const InstructorQuiz = () => {
               return (
               <div
                 key={`${question.id}-${idx}`}
+                id={`question-card-${question.id}`}
                 className="border-2 border-gray-200 rounded-lg p-5 hover:border-brand-gold/60 transition-colors"
               >
                 {/* Collapsible header */}
@@ -2276,7 +2338,8 @@ export const InstructorQuiz = () => {
                       {idx + 1}. {question.text || <span className="text-gray-400 italic">Untitled question</span>}
                     </h3>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2 mt-1">
+                  <div className="flex flex-wrap items-center justify-end gap-2 flex-shrink-0 ml-2 mt-1 max-w-[60%]">
+                    {editorAnalysis && <QuestionAnalysisBadge entry={editorAnalysis.perQuestion[idx]} />}
                     {(() => {
                       const gadEval = analyzeGADQuestion(question.text || "", question.options);
                       return (
@@ -2655,6 +2718,8 @@ export const InstructorQuiz = () => {
             location.state?.revisionOfSubmissionId || revisionFeedback?.submissionId || null
           }
           initialReviewerId={location.state?.assignedReviewerId || null}
+          previousAnalysis={examAnalysis.results}
+          onAnalyzed={examAnalysis.remember}
           onBeforeSubmitReview={async () => {
             return await handleSaveQuiz(false, false);
           }}
