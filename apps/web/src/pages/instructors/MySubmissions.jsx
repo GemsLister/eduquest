@@ -1283,6 +1283,7 @@ export const MySubmissions = () => {
                             reviewedAt: submission.reviewed_at,
                             facultyHeadApprovedAt:
                               submission.faculty_head_approved_at,
+                            examType: submission.quizzes?.exam_type,
                           });
                         }}
                         className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"

@@ -221,8 +221,24 @@ export const getSignatories = async (facultyHeadId) => {
   return data || {};
 };
 
+// Midterm / Final for the TOS PDF. Looked up on its own so the submission
+// lists keep working on a database without quizzes.exam_type yet.
+const examTypeOf = async (submission) => {
+  if (submission.quizzes?.exam_type !== undefined) return submission.quizzes.exam_type;
+  if (!submission.quiz_id) return null;
+  const { data, error } = await supabase
+    .from("quizzes")
+    .select("exam_type")
+    .eq("id", submission.quiz_id)
+    .maybeSingle();
+  return error ? null : data?.exam_type || null;
+};
+
 export const exportSubmissionTosPdf = async (submission, facultyHeadId) => {
-  const signatories = await getSignatories(facultyHeadId);
+  const [signatories, examType] = await Promise.all([
+    getSignatories(facultyHeadId),
+    examTypeOf(submission),
+  ]);
   await exportBloomsPdf({
     quizTitle: submission.quizzes?.title,
     results: submission.analysis_results,
@@ -238,6 +254,7 @@ export const exportSubmissionTosPdf = async (submission, facultyHeadId) => {
     schoolYearOverride: signatories.school_year_override,
     reviewedAt: submission.reviewed_at,
     facultyHeadApprovedAt: submission.faculty_head_approved_at,
+    examType,
   });
 };
 

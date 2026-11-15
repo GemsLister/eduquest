@@ -66,6 +66,8 @@ export const exportBloomsPdf = async ({
   schoolYearOverride,
   reviewedAt,
   facultyHeadApprovedAt,
+  // "midterm" | "final" (quizzes.exam_type): ticks the Type of Examination box
+  examType,
 }) => {
   try {
     const doc = new jsPDF();
@@ -177,13 +179,22 @@ export const exportBloomsPdf = async ({
     doc.text("(Please check the box)", ix + 2, y + 9);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
+    // A check mark inside a 3.5 mm box whose top-left corner is (bx, by)
+    const tick = (bx, by) => {
+      doc.setLineWidth(0.6);
+      doc.line(bx + 0.6, by + 1.9, bx + 1.4, by + 2.8);
+      doc.line(bx + 1.4, by + 2.8, bx + 3.0, by + 0.6);
+      doc.setLineWidth(0.3);
+    };
     // Mid-Term checkbox
     const cbX = ix + examLabelW + 5;
     doc.rect(cbX, y + 3.5, 3.5, 3.5);
+    if (examType === "midterm") tick(cbX, y + 3.5);
     doc.text("Mid-Term", cbX + 5, y + 7);
     // Final-Term checkbox
     const cbX2 = cbX + 32;
     doc.rect(cbX2, y + 3.5, 3.5, 3.5);
+    if (examType === "final") tick(cbX2, y + 3.5);
     doc.text("Final-Term", cbX2 + 5, y + 7);
     y += examRowH;
 

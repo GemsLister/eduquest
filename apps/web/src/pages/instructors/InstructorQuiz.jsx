@@ -12,6 +12,8 @@ import { useExamAnalysis } from "../../hooks/quizHook/useExamAnalysis.js";
 import { ExamAnalysisSummary, QuestionAnalysisBadge } from "../../components/quiz/ExamAnalysisPanel.jsx";
 import { buildEditorAnalysis, questionAttention } from "../../utils/examAnalysis.js";
 import { BloomsLevelHistory } from "../../components/quiz/BloomsLevelControls.jsx";
+import { ExamTypePicker } from "../../components/quiz/ExamTypePicker.jsx";
+import { isExamType, runWithExamTypeFallback } from "../../utils/examType.js";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 import { ImportExamFileModal } from "../../components/quiz/ImportExamFileModal.jsx";
@@ -106,6 +108,8 @@ export const InstructorQuiz = () => {
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizDuration, setQuizDuration] = useState("");
+  // "midterm" | "final" (quizzes.exam_type); ticked on the TOS PDF
+  const [examType, setExamType] = useState("");
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(quizId ? true : false);
   const [error, setError] = useState("");
@@ -659,15 +663,16 @@ export const InstructorQuiz = () => {
       const parsedDuration = quizDuration ? parseInt(quizDuration) : null;
       if (parsedDuration !== null && (isNaN(parsedDuration) || parsedDuration < 1)) return;
       try {
-        const { error: autoSaveError } = await supabase
-          .from("quizzes")
-          .update({
+        const { error: autoSaveError } = await runWithExamTypeFallback(
+          {
             title: quizTitle,
             description: quizDescription || null,
             duration: parsedDuration,
             is_private: isPrivate,
-          })
-          .eq("id", quizId);
+            ...(isExamType(examType) ? { exam_type: examType } : {}),
+          },
+          (fields) => supabase.from("quizzes").update(fields).eq("id", quizId),
+        );
         if (autoSaveError) throw autoSaveError;
         setLastSaved(new Date());
         if (!questionsDirtyRef.current) setHasUnsavedChanges(false);
@@ -677,7 +682,7 @@ export const InstructorQuiz = () => {
     }, 30000);
 
     return () => clearTimeout(autoSaveTimer.current);
-  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isLocked, isPrivate]);
+  }, [hasUnsavedChanges, quizTitle, quizDescription, quizDuration, quizId, isLocked, isPrivate, examType]);
 
   useEffect(() => {
     loadSections();
@@ -862,6 +867,7 @@ export const InstructorQuiz = () => {
       setQuizTitle(loadedTitle);
       setQuizDescription(quiz.description || "");
       setQuizDuration(quiz.duration || "");
+      setExamType(isExamType(quiz.exam_type) ? quiz.exam_type : "");
       setIsPublished(quiz.is_published || false);
       setIsPrivate(quiz.is_private !== false);
       setShareToken(quiz.share_token || "");
@@ -1456,18 +1462,18 @@ export const InstructorQuiz = () => {
           ? quizTitle.replace(/\s*\(Revised(?:\s+\d+)?\)\s*$/, "")
           : quizTitle;
 
-        const { data, error: updateError } = await supabase
-          .from("quizzes")
-          .update({
+        const { data, error: updateError } = await runWithExamTypeFallback(
+          {
             title: cleanTitle,
             description: quizDescription || null,
             duration: parsedDuration,
             is_published: publish || isPublished,
             is_private: isPrivate,
             share_token: newToken || null,
-          })
-          .eq("id", quizId)
-          .select();
+            ...(isExamType(examType) ? { exam_type: examType } : {}),
+          },
+          (fields) => supabase.from("quizzes").update(fields).eq("id", quizId).select(),
+        );
 
         if (updateError) throw updateError;
         if (!data || data.length === 0) {
@@ -1553,21 +1559,20 @@ export const InstructorQuiz = () => {
       } else {
         newToken = publish ? generateShareToken() : null;
 
-        const { data: newQuiz, error: quizError } = await supabase
-          .from("quizzes")
-          .insert([
-            {
-              instructor_id: user.id,
-              section_id: selectedSectionIds[0] || null,
-              title: quizTitle,
-              description: quizDescription || null,
-              duration: parsedDuration,
-              is_published: publish,
-              is_private: isPrivate,
-              share_token: newToken,
-            },
-          ])
-          .select();
+        const { data: newQuiz, error: quizError } = await runWithExamTypeFallback(
+          {
+            instructor_id: user.id,
+            section_id: selectedSectionIds[0] || null,
+            title: quizTitle,
+            description: quizDescription || null,
+            duration: parsedDuration,
+            is_published: publish,
+            is_private: isPrivate,
+            share_token: newToken,
+            ...(isExamType(examType) ? { exam_type: examType } : {}),
+          },
+          (fields) => supabase.from("quizzes").insert([fields]).select(),
+        );
 
         if (quizError) throw quizError;
         if (!newQuiz || newQuiz.length === 0)
@@ -1993,6 +1998,23 @@ export const InstructorQuiz = () => {
               disabled={isLocked}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold focus:ring-opacity-20 ${isLocked ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
             />
+          </div>
+
+          <div id="exam-type-field" className="scroll-mt-24">
+            <ExamTypePicker
+              idPrefix="quiz-edit-type"
+              value={examType}
+              onChange={(value) => {
+                setExamType(value);
+                markDirty();
+              }}
+              disabled={isLocked}
+            />
+            {!examType && !isLocked && (
+              <p className="text-xs text-amber-700 mt-1.5">
+                Required before submitting for review. It is ticked on the TOS (Table of Specifications).
+              </p>
+            )}
           </div>
 
           <div>
@@ -2790,6 +2812,11 @@ export const InstructorQuiz = () => {
 
               <button
                 onClick={async () => {
+                  if (!isExamType(examType)) {
+                    notify.error("Choose the type of examination (Midterm or Final Exam) before submitting for review.");
+                    scrollToElementTop(document.getElementById("exam-type-field"), 88);
+                    return;
+                  }
                   setOpeningReview(true);
                   try {
                     const saveRes = await handleSaveQuiz(false, false);

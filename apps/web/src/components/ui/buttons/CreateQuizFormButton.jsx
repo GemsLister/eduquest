@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useEscapeKey } from "../../../hooks/useEscapeKey.jsx";
 import { useFocusTrap } from "../../../hooks/useFocusTrap.jsx";
+import { ExamTypePicker } from "../../quiz/ExamTypePicker.jsx";
 
 export const CreateQuizFormButton = ({
   onCreateQuiz,
@@ -179,6 +180,12 @@ export const CreateQuizFormButton = ({
                 />
               </div>
 
+              <ExamTypePicker
+                idPrefix="quiz-create-type"
+                value={quizFormData.exam_type || ""}
+                onChange={(examType) => setQuizFormData({ ...quizFormData, exam_type: examType })}
+              />
+
               <div>
                 <label htmlFor="quiz-create-instructions" className="block text-sm font-semibold text-gray-700 mb-2">
                   Instructions
@@ -308,7 +315,8 @@ export const CreateQuizFormButton = ({
                     isSubmitting ||
                     !availableSections ||
                     availableSections.length === 0 ||
-                    selectedIds.length === 0
+                    selectedIds.length === 0 ||
+                    !quizFormData.exam_type
                   }
                   className="flex-1 px-4 py-2.5 bg-brand-gold text-brand-navy rounded-lg font-semibold text-sm hover:bg-brand-gold-dark hover:brightness-95 hover:shadow-lg active:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60"
                 >

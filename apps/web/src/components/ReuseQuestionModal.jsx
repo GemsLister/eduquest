@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { notify } from "../utils/notify.jsx";
+import { ExamTypePicker } from "./quiz/ExamTypePicker.jsx";
+import { isExamType, runWithExamTypeFallback } from "../utils/examType.js";
 
 /**
  * ReuseQuestionModal
@@ -45,6 +47,7 @@ export const ReuseQuestionModal = ({
   const [newQuizTitle, setNewQuizTitle] = useState("");
   const [newQuizDescription, setNewQuizDescription] = useState("");
   const [newQuizDuration, setNewQuizDuration] = useState("");
+  const [newQuizExamType, setNewQuizExamType] = useState("");
 
   const sampleQuestion = questionsToReuse[0] || null;
 
@@ -353,6 +356,10 @@ export const ReuseQuestionModal = ({
       notify.warning("Exam title is required.");
       return;
     }
+    if (!isExamType(newQuizExamType)) {
+      notify.warning("Choose the type of examination: Midterm or Final Exam.");
+      return;
+    }
     if (!currentSubjectId) {
       notify.error("Subject ID is missing. Please select a subject first.");
       return;
@@ -361,21 +368,19 @@ export const ReuseQuestionModal = ({
     setSubmitting(true);
     try {
       // 1. Create the new quiz under currentSubjectId
-      const { data: newQuiz, error: quizErr } = await supabase
-        .from("quizzes")
-        .insert([
-          {
-            instructor_id: user.id,
-            subject_id: currentSubjectId,
-            title: newQuizTitle.trim(),
-            description: newQuizDescription.trim() || null,
-            duration: newQuizDuration ? parseInt(newQuizDuration) : null,
-            is_published: false,
-            is_private: true,
-          },
-        ])
-        .select()
-        .single();
+      const { data: newQuiz, error: quizErr } = await runWithExamTypeFallback(
+        {
+          instructor_id: user.id,
+          subject_id: currentSubjectId,
+          title: newQuizTitle.trim(),
+          description: newQuizDescription.trim() || null,
+          duration: newQuizDuration ? parseInt(newQuizDuration) : null,
+          is_published: false,
+          is_private: true,
+          exam_type: newQuizExamType,
+        },
+        (fields) => supabase.from("quizzes").insert([fields]).select().single(),
+      );
 
       if (quizErr) throw quizErr;
       if (!newQuiz) throw new Error("Failed to create new exam.");
@@ -634,6 +639,8 @@ export const ReuseQuestionModal = ({
                 />
               </div>
 
+              <ExamTypePicker idPrefix="reuse-new-exam-type" value={newQuizExamType} onChange={setNewQuizExamType} />
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
@@ -644,7 +651,7 @@ export const ReuseQuestionModal = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !newQuizTitle.trim()}
+                  disabled={submitting || !newQuizTitle.trim() || !newQuizExamType}
                   className="px-6 py-2.5 bg-brand-gold hover:bg-brand-gold-dark text-brand-navy text-xs font-extrabold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                 >
                   {submitting ? "Creating & Adding..." : `Create Exam & Add ${count} Question${count > 1 ? "s" : ""}`}

@@ -99,6 +99,10 @@ export const createRevisionCopy = async (originalQuizId) => {
       is_archived: false,
       parent_quiz_id: rootId,
       version_number: versionNumber,
+      // Midterm / Final carries over (only present once the column exists)
+      ...((originalQuiz.exam_type || rootQuiz.exam_type)
+        ? { exam_type: originalQuiz.exam_type || rootQuiz.exam_type }
+        : {}),
     })
     .select()
     .single();

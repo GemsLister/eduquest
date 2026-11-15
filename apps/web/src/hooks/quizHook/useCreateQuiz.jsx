@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { notify } from "../../utils/notify.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { useNavigate, useLocation } from "react-router-dom";
+import { isExamType, runWithExamTypeFallback } from "../../utils/examType.js";
 
 export const useCreateQuiz = ({ user } = {}) => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export const useCreateQuiz = ({ user } = {}) => {
     duration: "",
     section_ids: [],
     is_private: true,
+    exam_type: "",
   });
   const [showQuizForm, setShowQuizForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +48,11 @@ export const useCreateQuiz = ({ user } = {}) => {
         return false;
       }
 
+      if (!isExamType(quizFormData.exam_type)) {
+        notify.warning("Choose the type of examination: Midterm or Final Exam");
+        return false;
+      }
+
       const duration = quizFormData.duration ? parseInt(quizFormData.duration) : null;
       if (duration !== null && (isNaN(duration) || duration < 1)) {
         notify.warning("Duration must be at least 1 minute, or left blank for no time limit");
@@ -59,21 +66,19 @@ export const useCreateQuiz = ({ user } = {}) => {
 
       setIsSubmitting(true);
 
-      const { data, error } = await supabase
-        .from("quizzes")
-        .insert([
-          {
-            instructor_id: user.id,
-            title: quizFormData.title.trim(),
-            description: quizFormData.description.trim() || null,
-            duration,
-            is_published: false,
-            is_private: quizFormData.is_private !== false,
-            section_id: sectionIds[0],
-          },
-        ])
-        .select()
-        .single();
+      const newQuiz = {
+        instructor_id: user.id,
+        title: quizFormData.title.trim(),
+        description: quizFormData.description.trim() || null,
+        duration,
+        is_published: false,
+        is_private: quizFormData.is_private !== false,
+        section_id: sectionIds[0],
+        exam_type: quizFormData.exam_type,
+      };
+      const { data, error } = await runWithExamTypeFallback(newQuiz, (fields) =>
+        supabase.from("quizzes").insert([fields]).select().single(),
+      );
 
       if (error) {
         console.error("Supabase error details:", error);
@@ -104,7 +109,7 @@ export const useCreateQuiz = ({ user } = {}) => {
         console.error("Auto-share failed:", autoShareError);
       }
 
-      setQuizFormData({ title: "", description: "", duration: "", section_ids: [], is_private: true });
+      setQuizFormData({ title: "", description: "", duration: "", section_ids: [], is_private: true, exam_type: "" });
       setShowQuizForm(false);
 
       notify.success(`Exam "${data.title}" created successfully!`);
