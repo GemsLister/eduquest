@@ -10,7 +10,8 @@ import { RevisionComments } from "../../components/quiz/RevisionComments.jsx";
 import { useRevisionFeedback } from "../../hooks/quizHook/useRevisionFeedback.js";
 import { useExamAnalysis } from "../../hooks/quizHook/useExamAnalysis.js";
 import { ExamAnalysisSummary, QuestionAnalysisBadge } from "../../components/quiz/ExamAnalysisPanel.jsx";
-import { buildEditorAnalysis } from "../../utils/examAnalysis.js";
+import { buildEditorAnalysis, questionAttention } from "../../utils/examAnalysis.js";
+import { BloomsLevelHistory } from "../../components/quiz/BloomsLevelControls.jsx";
 import { logAudit } from "../../services/auditService.js";
 import { ImportQuestionBankModal } from "../../components/ImportQuestionBankModal.jsx";
 import { ImportExamFileModal } from "../../components/quiz/ImportExamFileModal.jsx";
@@ -389,11 +390,48 @@ export const InstructorQuiz = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const QUESTIONS_PER_PAGE = 10;
-  const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
+
+  // "Needs attention" filter: reviewer comments, levels a reviewer changed,
+  // questions to raise for the Table of Specifications, low confidence,
+  // edited or not yet analyzed, gender-biased wording
+  const attentionByIndex = questions.map((q, i) =>
+    questionAttention({
+      entry: editorAnalysis?.perQuestion[i],
+      number: i + 1,
+      summary: editorAnalysis?.summary,
+      commentCount: getQuestionComments(q, i).length,
+      hasGenderBias: analyzeGADQuestion(q.text || "", q.options).hasGenderBias,
+    }),
+  );
+  const attentionCount = attentionByIndex.filter((reasons) => reasons.length > 0).length;
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  // Questions shown when the filter was turned on stay listed while they
+  // are being fixed, so a card never disappears mid-edit
+  const [attentionPinned, setAttentionPinned] = useState(() => new Set());
+  const showAttentionOnly = (on) => {
+    setAttentionOnly(on);
+    setAttentionPinned(
+      on ? new Set(questions.filter((_, i) => attentionByIndex[i].length).map((q) => q.id)) : new Set(),
+    );
+    setCurrentPage(1);
+  };
+  const visibleIndexes = questions
+    .map((_, i) => i)
+    .filter((i) => !attentionOnly || attentionByIndex[i].length > 0 || attentionPinned.has(questions[i].id));
+
+  // Adding or importing questions shows the whole list again
+  const questionCountRef = useRef(questions.length);
+  useEffect(() => {
+    if (questions.length > questionCountRef.current && attentionOnly) setAttentionOnly(false);
+    questionCountRef.current = questions.length;
+  }, [questions.length, attentionOnly]);
+
+  const totalPages = Math.ceil(visibleIndexes.length / QUESTIONS_PER_PAGE);
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages || 1);
   const startIndex = (validCurrentPage - 1) * QUESTIONS_PER_PAGE;
   const endIndex = startIndex + QUESTIONS_PER_PAGE;
-  const paginatedQuestions = questions.slice(startIndex, endIndex);
+  const pageIndexes = visibleIndexes.slice(startIndex, endIndex);
+  const paginatedQuestions = pageIndexes.map((i) => questions[i]);
   const questionListRef = useRef(null);
 
   // Changing pages scrolls back up to the first question on the new page
@@ -449,7 +487,14 @@ export const InstructorQuiz = () => {
   const jumpToQuestion = (number) => {
     const question = questions[number - 1];
     if (!question) return;
-    setCurrentPage(Math.ceil(number / QUESTIONS_PER_PAGE));
+    const position = visibleIndexes.indexOf(number - 1);
+    if (position === -1) {
+      // Not in the filtered list: show all questions
+      setAttentionOnly(false);
+      setCurrentPage(Math.ceil(number / QUESTIONS_PER_PAGE));
+    } else {
+      setCurrentPage(Math.floor(position / QUESTIONS_PER_PAGE) + 1);
+    }
     setExpandedQuestions((prev) => new Set(prev).add(question.id));
     // 88 px clears the sticky page header
     setTimeout(() => scrollToElementTop(document.getElementById(`question-card-${question.id}`), 88), 50);
@@ -2216,7 +2261,8 @@ export const InstructorQuiz = () => {
             </h2>
             {totalPages > 1 && (
               <p className="text-xs text-gray-500 mt-1">
-                Showing {startIndex + 1}–{Math.min(endIndex, questions.length)} of {questions.length} questions (Page {validCurrentPage} of {totalPages})
+                Showing {startIndex + 1}–{Math.min(endIndex, visibleIndexes.length)} of {visibleIndexes.length}
+                {attentionOnly ? " questions that need attention" : " questions"} (Page {validCurrentPage} of {totalPages})
               </p>
             )}
           </div>
@@ -2283,6 +2329,38 @@ export const InstructorQuiz = () => {
           />
         )}
 
+        {questions.length > 0 && (attentionCount > 0 || attentionOnly) && (
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div role="group" aria-label="Which questions to show" className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                aria-pressed={!attentionOnly}
+                onClick={() => showAttentionOnly(false)}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
+                  !attentionOnly ? "bg-white text-brand-navy shadow-sm" : "text-gray-600 hover:text-brand-navy"
+                }`}
+              >
+                All questions ({questions.length})
+              </button>
+              <button
+                type="button"
+                aria-pressed={attentionOnly}
+                onClick={() => showAttentionOnly(true)}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${
+                  attentionOnly ? "bg-white text-amber-800 shadow-sm" : "text-gray-600 hover:text-amber-800"
+                }`}
+              >
+                Needs attention ({attentionCount})
+              </button>
+            </div>
+            {attentionOnly && (
+              <span className="text-xs text-gray-500">
+                Questions you fix stay listed until you switch back to all questions.
+              </span>
+            )}
+          </div>
+        )}
+
         {questions.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg space-y-4">
             <p className="text-gray-500 font-medium">No questions added yet</p>
@@ -2330,8 +2408,22 @@ export const InstructorQuiz = () => {
         ) : (
           <>
             <div ref={questionListRef} className="space-y-6 scroll-mt-4">
+            {attentionOnly && paginatedQuestions.length === 0 && (
+              <div className="text-center py-8 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <p className="text-emerald-900 font-semibold">Nothing needs attention right now.</p>
+                <button
+                  type="button"
+                  onClick={() => showAttentionOnly(false)}
+                  className="mt-2 text-sm font-semibold text-brand-navy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/60 rounded"
+                >
+                  Show all questions
+                </button>
+              </div>
+            )}
             {paginatedQuestions.map((question, index) => {
-              const idx = startIndex + index;
+              const idx = pageIndexes[index];
+              const attention = attentionByIndex[idx];
+              const analysisItem = editorAnalysis?.perQuestion[idx]?.item;
               return (
               <div
                 key={`${question.id}-${idx}`}
@@ -2397,6 +2489,18 @@ export const InstructorQuiz = () => {
                     <span className="text-xs bg-brand-navy/10 text-brand-navy px-2 py-0.5 rounded-full font-semibold">{question.points || 1} pt{(question.points || 1) > 1 ? "s" : ""}</span>
                   </div>
                 </div>
+
+                {/* Why this question is in the "Needs attention" list */}
+                {attentionOnly && attention.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-semibold text-amber-800">Needs attention:</span>
+                    {attention.map((reason) => (
+                      <span key={reason} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-medium">
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Expandable content */}
                 {expandedQuestions.has(question.id) && (
@@ -2650,6 +2754,8 @@ export const InstructorQuiz = () => {
                   comments={getQuestionComments(question, idx)}
                   className="mt-4"
                 />
+                {/* Bloom's level changes by reviewers, with their reasons */}
+                {analysisItem && <BloomsLevelHistory item={analysisItem} className="mt-3" />}
               </div>
             );
             })}
@@ -2658,7 +2764,7 @@ export const InstructorQuiz = () => {
           <Pagination
             page={validCurrentPage}
             pageSize={QUESTIONS_PER_PAGE}
-            totalItems={questions.length}
+            totalItems={visibleIndexes.length}
             onChange={goToPage}
           />
           </>

@@ -10,7 +10,13 @@
  */
 import { analyzeQuiz } from "../services/quizAnalysisService";
 import { analyzeGADQuestion } from "../services/gadAnalysisService";
-import { BLOOM_LEVELS, isManualLevel, summarizeAnalysis, thinkingOrderOf } from "./bloomsLevels";
+import {
+  BLOOM_LEVELS,
+  isManualLevel,
+  levelEditorRoleLabel,
+  summarizeAnalysis,
+  thinkingOrderOf,
+} from "./bloomsLevels";
 
 // Table of Specifications targets (same as the analysis dialog's suggestions)
 export const TOS_MODES = {
@@ -186,6 +192,32 @@ export const alignResultsToQuestions = (results, questions) => {
       return { questionId: String(q.id), isGad: isGad || !!q.is_gad, matchReason };
     }),
   };
+};
+
+/**
+ * Why a question needs the author's attention, as short labels (empty when
+ * nothing does). Used by the editor's "Needs attention" filter.
+ *   entry          - this question's { item, status } from buildEditorAnalysis
+ *   number         - its 1-based position
+ *   summary        - buildEditorAnalysis's summary (for the TOS suggestions)
+ *   commentCount   - reviewer / Department Head comments on it
+ *   hasGenderBias  - gender-biased wording found in it
+ */
+export const questionAttention = ({ entry, number, summary, commentCount = 0, hasGenderBias = false }) => {
+  const reasons = [];
+  const item = entry?.item;
+  if (commentCount > 0) reasons.push(commentCount === 1 ? "Reviewer comment" : `${commentCount} reviewer comments`);
+  if (entry?.status === "current" && isManualLevel(item) && item.levelChangedBy?.role !== "instructor") {
+    reasons.push(`Level changed by ${levelEditorRoleLabel(item.levelChangedBy?.role)}`);
+  }
+  if (summary?.recommendation?.type === "raise" && summary.recommendation.questionNumbers.includes(number)) {
+    reasons.push("Raise its Bloom's level");
+  }
+  if (entry?.status === "current" && item?.needsReview) reasons.push("Low confidence");
+  if (entry?.status === "changed") reasons.push("Edited since the analysis");
+  if (entry?.status === "new") reasons.push("Not analyzed yet");
+  if (hasGenderBias) reasons.push("Gender-biased wording");
+  return reasons;
 };
 
 const summarizeEditorAnalysis = (perQuestion, tosMode) => {
