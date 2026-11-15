@@ -502,14 +502,31 @@ Raw output: `results/exam-day.json`, `exam-day.html`, `exam-day-console.txt`,
   Supabase.
 - **Each part passes alone but not together on the Free tier.** 1,000 students alone passed
   (section 5); 100 instructors alone mostly worked (section 5C); both at once overloaded the
-  Free-tier server (~0.5 GB of memory) within 6 minutes. The suspected cause is the same as the
-  first spike test (memory exhausted, swapping); to be confirmed with the server's charts.
+  Free-tier server (~0.5 GB of memory) within 6 minutes. The cause is the same as the first
+  spike test: the server ran out of memory (see the diagnosis below).
 - **Timeouts made it worse.** A timed-out request is abandoned by the browser but still runs on
   the server: 944 exams were stored although instructors saw only 324 succeed, and 38,254
   answers were stored although students saw only 21,792 succeed. Every retry added more work to
   an already overloaded server, so it never recovered while the test ran.
 - **Nothing was lost or corrupted that students saw as saved**, but no one could submit, so on
   a real exam day on this server size the exam would have to be extended or retaken.
+
+### Diagnosis: the database server ran out of memory (Supabase charts, 22:17–23:17)
+
+| Measure (Supabase Reports → Database) | Value | Meaning |
+|---|---|---|
+| RAM in the server | 434 MB | Free-tier compute size |
+| Memory in use at 22:31 | 425 MB (97.9% of RAM) | RAM full |
+| **Swap at 22:31** | **788 MB (181.5% of RAM)** | Almost twice the RAM was pushed to disk |
+| **Memory commitment** | **2.05 GB of 1.42 GB capacity, "SEVERE"** | Far past what the server can hold |
+| **CPU at 22:27** | **IOwait 91.7%**, user 4.8%, system 11.7% | The CPU spent its time waiting for the disk (swapping), not running queries |
+| CPU after ~23:05 | Mostly idle | Recovered once the instructors stopped (23:06) and students were stuck |
+| Database connections | ~16 of 60 the whole time | **Not** a connection limit |
+| Disk usage | 380 MB of 1.9 GB | **Not** a disk-space limit |
+
+The pattern is the same as the first spike test (section 5B), but worse: swap reached 181% of
+RAM (125% in the spike test). The limit is the Free tier's memory, not the app's design: the same
+requests ran in ~0.2 s while memory lasted (first 6 minutes).
 
 ## 6. Dry run: 20 students
 
@@ -657,4 +674,4 @@ seeded sections have no subject); the app ignores this error.
 
 | # | Date / time | Test | Settings | Result | Verdict | Raw output |
 |---|---|---|---|---|---|---|
-| 36 | 15 Nov 22:14–23:17 | **Exam day, run 1** | 1,000 students (arrive over 5 min, 15–45 s per question) + 100 instructors (class results, create 50-question exam, Bloom's analysis; 20–60 s pauses) for 52 min; Bloom's service on the laptop | Normal for 6 min, then Supabase stopped answering; 76,281 requests, 50.39% failed (60 s timeouts); **0/1,000 students submitted**; results page 252/1,500; Bloom's 223/223 OK (median 2.2 s, p95 43.9 s) | ✗ Fail (database server overloaded) | `exam-day.json`, `exam-day.html`, `exam-day-console.txt`, `exam-day-resources.csv`, `exam-day-blooms-stats.json` |
+| 36 | 15 Nov 22:14–23:17 | **Exam day, run 1** | 1,000 students (arrive over 5 min, 15–45 s per question) + 100 instructors (class results, create 50-question exam, Bloom's analysis; 20–60 s pauses) for 52 min; Bloom's service on the laptop | Normal for 6 min, then Supabase stopped answering; 76,281 requests, 50.39% failed (60 s timeouts); **0/1,000 students submitted**; results page 252/1,500; Bloom's 223/223 OK (median 2.2 s, p95 43.9 s) | ✗ Fail (database out of memory: swap 181% of RAM, IOwait 92%) | `exam-day.json`, `exam-day.html`, `exam-day-console.txt`, `exam-day-resources.csv`, `exam-day-blooms-stats.json` |
