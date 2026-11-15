@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Bloom's AI batch classification (the panel's objective) benchmarked on a laptop: stable up to 100 simultaneous analyses after the fixes, with response time growing with the number of simultaneous batches (section 5D). Exam taking: load test (1,000 concurrent students) **passed**; spike test first failed (Free-tier server out of memory) and, after cutting requests per student by ~46%, **all 1,000 students finished** (section 5B). Instructor results page fixed for large exams (section 5C). Stress, soak and exam-day tests are still to be run.
+**Status:** Bloom's AI batch classification (the panel's objective) benchmarked on a laptop: stable up to 100 simultaneous analyses after the fixes, with response time growing with the number of simultaneous batches (section 5D). Exam taking: load test (1,000 concurrent students) **passed**; spike test first failed (Free-tier server out of memory) and, after cutting requests per student by ~46%, **all 1,000 students finished** (section 5B). Instructor results page fixed for large exams (section 5C). The **exam-day test (1,000 students + 100 instructors at once) failed** on the Free-tier test server: it stopped answering 6 minutes in (section 5E). Stress and soak tests are still to be run.
 
 ---
 
@@ -76,7 +76,7 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 | **Bloom's: 100 instructors click Analyze at once (before → after)** | 100 batches of 50 questions sent together (laptop) | 100 | 100 | **20% timed out → 0%** | — | — | — | median wait 243 s → **165 s**; 80/100 → **100/100** done | ✓ Fixed (still slow: CPU-bound) |
 | **Bloom's: re-analysis after editing 5 of 50 questions (before → after)** | 20 instructors, each analyzes then re-analyzes 5 times (laptop) | 20 | 120 | 1.7% → **0%** | — | — | — | re-analysis median 42.5 s → **5.5 s** | ✓ Fixed |
 | Results of a 1,000-taker exam (one instructor) | Opening the full results of the 1,000-taker exam | 1 | | | | | | before: **400 Bad Request**; after: **0.4 s + 1.8 s** | ✓ Fixed |
-| Exam day | 1,000 students + 100 instructors together | 1,100 | | | | | | | Not yet run |
+| **Exam day (run 1)** | 1,000 students take the exam while 100 instructors view class results, create 50-question exams and run Bloom's analysis, 52 min | 1,100 | 76,281 | **50.39%** (timeouts) | 60 s (timeout) | — (none reached submit) | 0.2 s median | **0% (0/1,000)** | ✗ Fail (database server stopped answering after 6 min) |
 
 ## 5. Load test: 1,000 concurrent students
 
@@ -460,6 +460,57 @@ analyze again.
 - **To go further:** more CPU cores (a server, or several service copies behind a load
   balancer) raise the ceiling roughly in proportion; each extra copy needs ~1.4 GB of memory.
 
+## 5E. Exam day: 1,000 students and 100 instructors at the same time
+
+Run 1, 15 Nov 22:14–23:17 (UTC+8), `k6/exam-day.js`, with the Bloom's service on the laptop
+(`localhost:8000`, the improved version from section 5D).
+
+### What it simulates
+
+| Group | Count | What each one does |
+|---|---|---|
+| Students | 1,000 | Arrive over 5 minutes, open the exam, answer 50 questions at a normal pace (15–45 s each), save time every 60 s, submit |
+| Instructors | 100 | For 52 minutes, repeat: open one class's results (50 students), create a 50-question exam and assign it to a section, run Bloom's analysis on it; 20–60 s pause between steps |
+
+This is the load test that passed (section 5) **plus** the instructor test (section 5C)
+**plus** Bloom's analysis, all at once. Note that the instructor part is heavy: each instructor
+creates a new 50-question exam every one to two minutes.
+
+### Result
+
+| Measure | Result |
+|---|---|
+| First 6 minutes (22:14–22:20) | Normal: requests answered in ~0.2 s |
+| From 22:20 | The Supabase test server stopped answering most requests; they waited the full 60 s and timed out, until the end of the test |
+| Requests | 76,281, of which **38,440 (50.39%) failed**, almost all 60 s timeouts |
+| Students who finished the exam | **0 of 1,000** (978 still stuck retrying saves when the test ended; 22 gave up earlier) |
+| Answer saves that succeeded (as seen by the student) | 21,792 of 40,840 (53%) |
+| Answers actually stored in the database | 38,254 of the 50,000 needed |
+| Exam attempts stored / completed | 915 / **0** |
+| Instructors: class results page loaded | **252 of 1,500 (16.8%)**, median 6.0 s, p95 75.8 s |
+| Instructors: "exam created" succeeded (as seen by the instructor) | 324 of 1,469; yet the database holds **944** new exams |
+| Bloom's analysis | **223 of 223 (100%)** classified; median 2.2 s, p95 43.9 s; 0 "busy" replies; 103 batches answered from the cache |
+| Laptop (Bloom's service + k6) | CPU average 43%, peak 100%; service memory peak 1,247 MB; lowest free memory 1,495 MB |
+
+Raw output: `results/exam-day.json`, `exam-day.html`, `exam-day-console.txt`,
+`exam-day-resources.csv`, `exam-day-blooms-stats.json`.
+
+### What this shows
+
+- **The failure was the database server, not the AI service.** The Bloom's service on the
+  laptop classified every batch and stayed within memory; the requests that failed were all to
+  Supabase.
+- **Each part passes alone but not together on the Free tier.** 1,000 students alone passed
+  (section 5); 100 instructors alone mostly worked (section 5C); both at once overloaded the
+  Free-tier server (~0.5 GB of memory) within 6 minutes. The suspected cause is the same as the
+  first spike test (memory exhausted, swapping); to be confirmed with the server's charts.
+- **Timeouts made it worse.** A timed-out request is abandoned by the browser but still runs on
+  the server: 944 exams were stored although instructors saw only 324 succeed, and 38,254
+  answers were stored although students saw only 21,792 succeed. Every retry added more work to
+  an already overloaded server, so it never recovered while the test ran.
+- **Nothing was lost or corrupted that students saw as saved**, but no one could submit, so on
+  a real exam day on this server size the exam would have to be extended or retaken.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -522,6 +573,7 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 |---|---|---|
 | Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
 | Many instructors at once on the Free tier | With 100 instructors viewing results and creating exams at the same time, p95 response times exceed a minute | Larger compute size for production; lighter exam-creation requests |
+| Exam day on the Free tier | 1,000 students plus 100 instructors at the same time overloaded the Free-tier database within 6 minutes; no student could submit (section 5E) | Use a larger compute size for real exam days; keep heavy instructor work (creating exams) out of exam hours; retry with a back-off instead of immediately |
 | Bloom's analysis on one laptop | Benchmarked on a laptop CPU with k6 running on the same machine; throughput is limited to ~40–47 batches of 50 questions a minute, so 100 simultaneous analyses take minutes. The trained model (`distilbert_blooms_mcq`, 268 MB) is not in git (GitHub's 100 MB file limit) | Deploy on a server with more CPU (e.g. Oracle Always Free) and re-run `k6/blooms.js`; store the model with Git LFS or upload it separately | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
 | Free tier | Results describe Supabase's Free plan | A paid plan would have more capacity |
@@ -600,3 +652,9 @@ seeded sections have no subject); the app ignores this error.
 | 33 | 11 Nov | k6 scripts against a mock Supabase server (all scenarios, small scale) | — | ✓ found and fixed a retry-loop bug in the test script |
 | 34 | 14 Nov | Bloom's smoke tests (`fastapi_blooms/test_blooms_model.py`) | 8 | ✓ 8/8 |
 | 35 | 14 Nov | Bloom's load handling (`fastapi_blooms/test_load_handling.py`) | 8 | ✓ 8/8 |
+
+### A5. Exam day (students + instructors + Bloom's together)
+
+| # | Date / time | Test | Settings | Result | Verdict | Raw output |
+|---|---|---|---|---|---|---|
+| 36 | 15 Nov 22:14–23:17 | **Exam day, run 1** | 1,000 students (arrive over 5 min, 15–45 s per question) + 100 instructors (class results, create 50-question exam, Bloom's analysis; 20–60 s pauses) for 52 min; Bloom's service on the laptop | Normal for 6 min, then Supabase stopped answering; 76,281 requests, 50.39% failed (60 s timeouts); **0/1,000 students submitted**; results page 252/1,500; Bloom's 223/223 OK (median 2.2 s, p95 43.9 s) | ✗ Fail (database server overloaded) | `exam-day.json`, `exam-day.html`, `exam-day-console.txt`, `exam-day-resources.csv`, `exam-day-blooms-stats.json` |

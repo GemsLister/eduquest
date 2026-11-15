@@ -3,8 +3,8 @@
 //   - create an exam and import 50 questions               (useCreateQuiz.jsx, InstructorQuiz.jsx)
 //   - run the Bloom's taxonomy analysis on it               (quizAnalysisService.js -> FastAPI)
 import http from "k6/http";
-import { check, group } from "k6";
-import { Trend, Rate } from "k6/metrics";
+import { check, group, sleep } from "k6";
+import { Trend, Rate, Counter } from "k6/metrics";
 import { qs, json, ok } from "./api.js";
 import { makeQuestions } from "../../shared/questions.js";
 
@@ -13,6 +13,7 @@ export const resultsPageLoaded = new Rate("results_page_loaded");
 export const createExamSeconds = new Trend("create_exam_seconds");
 export const bloomsSeconds = new Trend("blooms_analyze_seconds");
 export const bloomsOk = new Rate("blooms_analyze_ok");
+export const bloomsBusy = new Counter("blooms_busy_replies");
 
 // Which version of the results page to imitate:
 //   before  the original page: attempts with no paging (capped at 1,000 rows) and
@@ -36,7 +37,8 @@ export function viewResults(api, quizId, sectionId = null) {
 
     const revs = api.get(`/rest/v1/quizzes?${qs({ select: "id", or: `(parent_quiz_id.eq.${parent},id.eq.${parent})` })}`, "results_revisions");
     const related = [quizId];
-    for (const r of json(revs) || []) if (related.indexOf(r.id) === -1) related.push(r.id);
+    const revList = json(revs);
+    for (const r of Array.isArray(revList) ? revList : []) if (related.indexOf(r.id) === -1) related.push(r.id);
 
     let attempts;
     if (RESULTS_FLOW === "before") {
@@ -161,11 +163,21 @@ export function analyzeBlooms(bloomsUrl, quizId, questions) {
     questions: questions.map((q) => ({ id: String(q.id), text: q.text, choices: q.options || null })),
   };
   const started = Date.now();
-  const res = http.post(`${bloomsUrl.replace(/\/+$/, "")}/api/quiz/analyze`, JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
-    tags: { name: "blooms_analyze" },
-    timeout: "180s",
-  });
+  // Like quizAnalysisService.js: on 503 "busy", wait Retry-After (max 60 s) and
+  // retry, up to 5 times. The time counts from the first click.
+  let res;
+  for (let attempt = 1; ; attempt++) {
+    res = http.post(`${bloomsUrl.replace(/\/+$/, "")}/api/quiz/analyze`, JSON.stringify(body), {
+      headers: { "Content-Type": "application/json" },
+      tags: { name: "blooms_analyze" },
+      timeout: "300s",
+      responseCallback: http.expectedStatuses(200, 503),
+    });
+    if (res.status !== 503 || attempt > 5) break;
+    bloomsBusy.add(1);
+    const suggested = Number(res.headers["Retry-After"]);
+    sleep(Math.min(60, suggested > 0 ? suggested : 5));
+  }
   const out = json(res);
   const good = check(res, {
     "Bloom's analysis returned every question": (r) => r.status === 200 && out && out.analysis && out.analysis.length === questions.length,
