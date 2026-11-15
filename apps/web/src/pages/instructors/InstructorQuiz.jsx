@@ -122,6 +122,8 @@ export const InstructorQuiz = () => {
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [saveSectionsLoading, setSaveSectionsLoading] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  // Saving before the Submit for Review dialog opens
+  const [openingReview, setOpeningReview] = useState(false);
   const [userId, setUserId] = useState(null);
   const [returnToQuizzesAfterAssign, setReturnToQuizzesAfterAssign] =
     useState(false);
@@ -1333,8 +1335,7 @@ export const InstructorQuiz = () => {
         return String(q.correctAnswer || "N/A").trim() || "N/A";
       };
 
-      const safeUpdateQuestion = async (q) => {
-        const payload = {
+      const updatePayloadOf = (q) => ({
           text: q.text,
           options:
             q.type === "mcq"
@@ -1345,8 +1346,21 @@ export const InstructorQuiz = () => {
           is_gad: q.is_gad || false,
           ai_generated: q.ai_generated || false,
           ai_revised: q.ai_revised || false,
-        };
+      });
 
+      // True when the stored row already holds what the editor would save
+      const sameAsStored = (row, payload) =>
+        row &&
+        (row.text ?? "") === (payload.text ?? "") &&
+        JSON.stringify(row.options ?? null) === JSON.stringify(payload.options ?? null) &&
+        (row.correct_answer ?? null) === (payload.correct_answer ?? null) &&
+        Number(row.points ?? 1) === payload.points &&
+        Boolean(row.is_gad) === payload.is_gad &&
+        Boolean(row.ai_generated) === payload.ai_generated &&
+        Boolean(row.ai_revised) === payload.ai_revised;
+
+      const safeUpdateQuestion = async (q) => {
+        const payload = updatePayloadOf(q);
         let { error } = await supabase.from("questions").update(payload).eq("id", q.id);
         if (
           error &&
@@ -1420,9 +1434,10 @@ export const InstructorQuiz = () => {
         // were deliberately moved to the Question Bank and must not be deleted.
         const { data: existingQuestions } = await supabase
           .from("questions")
-          .select("id")
+          .select("id, text, options, correct_answer, points, is_gad, ai_generated, ai_revised")
           .eq("quiz_id", quizId)
           .or("is_archived.is.null,is_archived.eq.false");
+        const storedById = new Map((existingQuestions || []).map((row) => [row.id, row]));
         const existingQuestionIds = new Set(
           existingQuestions?.map((q) => q.id) || [],
         );
@@ -1444,11 +1459,22 @@ export const InstructorQuiz = () => {
           }
         }
 
-        for (const q of questions) {
-          if (!isUnsavedQuestionId(q.id) && existingQuestionIds.has(q.id)) {
-            const updateErr = await safeUpdateQuestion(q);
-            if (updateErr) throw updateErr;
-          }
+        // Only questions that changed are written, several at a time: saving
+        // used to update every question one after another (a 50-question exam
+        // waited for 50 round trips even when nothing had changed)
+        const changedQuestions = questions.filter(
+          (q) =>
+            !isUnsavedQuestionId(q.id) &&
+            existingQuestionIds.has(q.id) &&
+            !sameAsStored(storedById.get(q.id), updatePayloadOf(q)),
+        );
+        const UPDATE_CONCURRENCY = 8;
+        for (let i = 0; i < changedQuestions.length; i += UPDATE_CONCURRENCY) {
+          const errors = await Promise.all(
+            changedQuestions.slice(i, i + UPDATE_CONCURRENCY).map(safeUpdateQuestion),
+          );
+          const updateErr = errors.find(Boolean);
+          if (updateErr) throw updateErr;
         }
 
         const baseSaveTime = Date.now();
@@ -2658,15 +2684,20 @@ export const InstructorQuiz = () => {
 
               <button
                 onClick={async () => {
-                  const saveRes = await handleSaveQuiz(false, false);
-                  if (saveRes?.error) {
-                    notify.error(`Please fix questions before submitting for review: ${saveRes.error}`);
-                    return;
+                  setOpeningReview(true);
+                  try {
+                    const saveRes = await handleSaveQuiz(false, false);
+                    if (saveRes?.error) {
+                      notify.error(`Please fix questions before submitting for review: ${saveRes.error}`);
+                      return;
+                    }
+                    setShowAnalysisModal(true);
+                  } finally {
+                    setOpeningReview(false);
                   }
-                  setShowAnalysisModal(true);
                 }}
                 disabled={
-                  saving || questions.length === 0 || questions.some((q) => !(q.text || "").trim())
+                  saving || openingReview || questions.length === 0 || questions.some((q) => !(q.text || "").trim())
                 }
                 className="bg-brand-navy hover:bg-brand-indigo text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/40"
                 title={
@@ -2678,7 +2709,7 @@ export const InstructorQuiz = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                Submit for Review
+                <StableLabel busy={openingReview} label="Submit for Review" busyLabel="Preparing..." />
               </button>
             </>
           )}
