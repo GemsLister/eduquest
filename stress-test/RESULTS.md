@@ -1,7 +1,7 @@
 # EduQuest Performance and Stress Test Results
 
 **Test date:** 11 November 2026 (UTC+8)
-**Status:** Bloom's AI batch classification (the panel's objective) benchmarked on a laptop: stable up to 100 simultaneous analyses after the fixes, with response time growing with the number of simultaneous batches (section 5D). Exam taking: load test (1,000 concurrent students) **passed**; spike test first failed (Free-tier server out of memory) and, after cutting requests per student by ~46%, **all 1,000 students finished** (section 5B). Instructor results page fixed for large exams (section 5C). The **exam-day test (1,000 students + 100 instructors at once) failed** on the Free-tier test server: it stopped answering 6 minutes in (section 5E). Stress and soak tests are still to be run.
+**Status:** Bloom's AI batch classification (the panel's objective) benchmarked on a laptop: stable up to 100 simultaneous analyses after the fixes, with response time growing with the number of simultaneous batches (section 5D). Exam taking: load test (1,000 concurrent students) **passed**; spike test first failed (Free-tier server out of memory) and, after cutting requests per student by ~46%, **all 1,000 students finished** (section 5B). Instructor results page fixed for large exams (section 5C). The **exam-day test (1,000 students + 100 instructors at once) failed twice** on the Free-tier test server, which ran out of memory 6 minutes in with busy instructors and 11 minutes in with a realistic instructor pace; the Bloom's AI service handled its part without errors both times (section 5E). Stress and soak tests are still to be run.
 
 ---
 
@@ -77,6 +77,7 @@ Each simulated student (k6 "virtual user") sends exactly the requests the real e
 | **Bloom's: re-analysis after editing 5 of 50 questions (before → after)** | 20 instructors, each analyzes then re-analyzes 5 times (laptop) | 20 | 120 | 1.7% → **0%** | — | — | — | re-analysis median 42.5 s → **5.5 s** | ✓ Fixed |
 | Results of a 1,000-taker exam (one instructor) | Opening the full results of the 1,000-taker exam | 1 | | | | | | before: **400 Bad Request**; after: **0.4 s + 1.8 s** | ✓ Fixed |
 | **Exam day (run 1)** | 1,000 students take the exam while 100 instructors view class results, create 50-question exams and run Bloom's analysis, 52 min | 1,100 | 76,281 | **50.39%** (timeouts) | 60 s (timeout) | — (none reached submit) | 0.2 s median | **0% (0/1,000)** | ✗ Fail (database server stopped answering after 6 min) |
+| **Exam day (run 2)** | Same 1,000 students; 100 instructors at a realistic pace (1–3 min pauses, a new exam every 4th cycle) | 1,100 | 87,495 | **34.98%** (timeouts) | 60 s (timeout) | 233 ms | 0.2 s median | **37% (370/1,000)**, all only after the instructors stopped | ✗ Fail (database out of memory after 11 min) |
 
 ## 5. Load test: 1,000 concurrent students
 
@@ -528,6 +529,55 @@ The pattern is the same as the first spike test (section 5B), but worse: swap re
 RAM (125% in the spike test). The limit is the Free tier's memory, not the app's design: the same
 requests ran in ~0.2 s while memory lasted (first 6 minutes).
 
+
+### Run 2: realistic instructor pace
+
+Run 2, 15 Nov 23:26 – 16 Nov 00:28 (UTC+8), after restarting the test project and the Bloom's
+service (empty cache). Same 1,000 students; the instructors now pause **1–3 minutes** between
+steps and create (and analyze) a new exam only **every 4th cycle**; the other cycles only open
+class results. Settings: `INSTRUCTOR_PAUSE_MIN=60 INSTRUCTOR_PAUSE_MAX=180 CREATE_EVERY=4`.
+This is about a third of run 1's exam creation and two thirds of its results-page views.
+
+| Measure | Run 1 (busy instructors) | Run 2 (realistic pace) |
+|---|---|---|
+| Server stopped keeping up | after **6 min** (22:20) | after **11 min** (23:37) |
+| Requests / failed | 76,281 / **50.39%** | 87,495 / **34.98%** |
+| Answer save, median / p95 | 37.4 s / 60 s (timeout) | 0.2 s / 60 s (timeout) |
+| Answers stored in the database (of 50,000) | 38,254 | 47,500 |
+| **Students who submitted** | **0 / 1,000** | **370 / 1,000**, all between **00:24 and 00:27**, i.e. only after the instructors stopped (00:18); every one scored |
+| Students still in the exam at the 62-minute cut-off | 978 | 630 |
+| Submit time (when it got through) | — | median 175 ms, p95 233 ms |
+| Exams created (instructors saw / stored) | 324 / 944 | 123 / 299 |
+| Class results page loaded | 252 / 1,500 (16.8%) | 349 / 1,327 (26.3%), median 1.4 s |
+| **Bloom's analysis** | **223 / 223**, median 2.2 s, p95 43.9 s | **102 / 102**, median 2.2 s, **p95 3.6 s**, 0 busy replies |
+| Laptop: service memory peak / lowest free | 1,247 MB / 1,495 MB | 1,026 MB / 2,214 MB |
+
+Supabase charts for run 2 (23:18 – 00:18):
+
+| Measure | Value |
+|---|---|
+| Memory in use | 424–429 MB of 434 MB (97.7–98.9%) |
+| **Swap** | **679 MB (157% of RAM) at 23:42; 681 MB (157%) at 00:14** |
+| **Memory commitment** | **1.82–1.93 GB of 1.42 GB, "SEVERE"** |
+| CPU | IOwait spikes up to ~100%; from ~23:40 the chart has gaps where the server reported no CPU figures at all (too busy swapping to report) |
+| Database connections | 15–16 of 60 |
+
+The restart before run 2 cleared the swap, but it climbed straight back once the students were
+in the exam.
+
+### What the two runs show
+
+- **Slowing the instructors down only delayed the failure** (6 → 11 minutes). The larger part
+  of the load is the 1,000 students in the exam; the instructors push it over the edge.
+- **The database recovers when the load drops:** in run 2, 370 students submitted within
+  minutes of the instructors stopping, and every submission was scored.
+- **Bloom's AI classification was never the bottleneck.** In both runs every batch was
+  classified (325 of 325), and at a realistic pace the p95 was **3.6 s**.
+- **Answer to the panel (concurrency limit):** on the Free tier (0.5 GB of memory), 1,000
+  students taking an exam work on their own (section 5), but **not** together with 100
+  instructors using the system. A real exam day of this size needs a larger database compute
+  size, or instructor activity kept low during exam hours.
+
 ## 6. Dry run: 20 students
 
 | Measure | Result |
@@ -590,7 +640,7 @@ logged-out visitor, instructors, Senior Faculty, Department Head).
 |---|---|---|
 | Free-tier memory ceiling | The first spike test exhausted the Free-tier server's ~0.5 GB of RAM. After cutting requests per student by ~46%, all 1,000 students finished with no failures, but opening the exam (p95 ~21 s) and the submission burst (p95 18.7 s) are still slow when 1,000 students do them within seconds | Make opening the exam lighter (fewer, smaller requests); use a larger compute size (more RAM) for production |
 | Many instructors at once on the Free tier | With 100 instructors viewing results and creating exams at the same time, p95 response times exceed a minute | Larger compute size for production; lighter exam-creation requests |
-| Exam day on the Free tier | 1,000 students plus 100 instructors at the same time overloaded the Free-tier database within 6 minutes; no student could submit (section 5E) | Use a larger compute size for real exam days; keep heavy instructor work (creating exams) out of exam hours; retry with a back-off instead of immediately |
+| Exam day on the Free tier | 1,000 students plus 100 instructors at the same time overloaded the Free-tier database within 6 minutes; no student could submit. With a realistic instructor pace it lasted 11 minutes, and 370 students submitted only after the instructors stopped (section 5E) | Use a larger compute size for real exam days; keep heavy instructor work (creating exams) out of exam hours; retry with a back-off instead of immediately |
 | Bloom's analysis on one laptop | Benchmarked on a laptop CPU with k6 running on the same machine; throughput is limited to ~40–47 batches of 50 questions a minute, so 100 simultaneous analyses take minutes. The trained model (`distilbert_blooms_mcq`, 268 MB) is not in git (GitHub's 100 MB file limit) | Deploy on a server with more CPU (e.g. Oracle Always Free) and re-run `k6/blooms.js`; store the model with Git LFS or upload it separately | Deploy it, run the Bloom's test |
 | One load-generating laptop | All traffic came from one computer and one internet address, while real students use many devices | Results are a lower bound for network effects; note in the report |
 | Free tier | Results describe Supabase's Free plan | A paid plan would have more capacity |
@@ -675,3 +725,4 @@ seeded sections have no subject); the app ignores this error.
 | # | Date / time | Test | Settings | Result | Verdict | Raw output |
 |---|---|---|---|---|---|---|
 | 36 | 15 Nov 22:14–23:17 | **Exam day, run 1** | 1,000 students (arrive over 5 min, 15–45 s per question) + 100 instructors (class results, create 50-question exam, Bloom's analysis; 20–60 s pauses) for 52 min; Bloom's service on the laptop | Normal for 6 min, then Supabase stopped answering; 76,281 requests, 50.39% failed (60 s timeouts); **0/1,000 students submitted**; results page 252/1,500; Bloom's 223/223 OK (median 2.2 s, p95 43.9 s) | ✗ Fail (database out of memory: swap 181% of RAM, IOwait 92%) | `exam-day.json`, `exam-day.html`, `exam-day-console.txt`, `exam-day-resources.csv`, `exam-day-blooms-stats.json` |
+| 37 | 15 Nov 23:26 – 16 Nov 00:28 | **Exam day, run 2** (realistic instructor pace) | Same 1,000 students + 100 instructors pausing 1–3 min, a new exam every 4th cycle (`INSTRUCTOR_PAUSE_MIN=60 INSTRUCTOR_PAUSE_MAX=180 CREATE_EVERY=4`); project and Bloom's service restarted first | Normal for 11 min, then Supabase out of memory (swap 157% of RAM); 87,495 requests, 34.98% failed; **370/1,000 submitted, all after the instructors stopped**; Bloom's 102/102 OK (median 2.2 s, p95 3.6 s) | ✗ Fail (database out of memory) | `exam-day-2.json`, `exam-day-2.html`, `exam-day-2-console.txt`, `exam-day-2-resources.csv`, `exam-day-2-blooms-stats.json` |
