@@ -51,6 +51,12 @@
     4. **KR-20 ($r_{xx}$):** Kuder-Richardson Formula 20 internal consistency reliability
     5. **SEM ($S_e$):** Standard Error of Measurement ($SEM = s\sqrt{1-r_{xx}}$)
     6. **SE Mean:** Standard Error of the Mean
+* **Formulas Used** ($N$ = examinees, $X_j$ = total score of examinee $j$, $k$ = number of items, $p_i$ = proportion correct on item $i$, $q_i = 1 - p_i$):
+  * **Mean:** $\bar{x} = \dfrac{\sum X_j}{N}$
+  * **Variance / Std Dev:** $s^2 = \dfrac{\sum (X_j - \bar{x})^2}{N - 1}$, $\quad s = \sqrt{s^2}$
+  * **KR-20:** $r_{xx} = \dfrac{k}{k-1}\left(1 - \dfrac{\sum p_i q_i}{s^2}\right)$, limited to $0 - 1$ (≥ 0.80 High, ≥ 0.70 Acceptable, < 0.70 Low)
+  * **SEM:** $S_e = s\sqrt{1 - r_{xx}}$
+  * **SE Mean:** $SE_{\bar{x}} = \dfrac{s}{\sqrt{N}}$
 * **Code Reference:** [`ItemAnalysisPage.jsx`](file:///c:/Users/milcky/OneDrive/Desktop/Capstone/eduquest/apps/web/src/pages/item-analysis/ItemAnalysisPage.jsx)
 
 ---
@@ -62,9 +68,35 @@
   * **Role:** Instructor
   * **Navigation:** **Item Analysis Page** (`/item-analysis/:quizId`)
   * **UI Location:**
-    * **"Psychometric Reference & Evaluation Criteria"** card explaining **Kelley's 27% Rule**, **Difficulty Index ($P$)** ranges ($0.30 - 0.75$), **Discrimination Index ($D$)** ranges ($\ge 0.40$ Excellent, $< 0.20$ Poor), and **Distractor Analysis** criteria.
+    * **"Psychometric Reference & Evaluation Criteria"** card explaining **Kelley's 27% Rule**, **Difficulty Index ($P$)** ranges ($0.25 - 0.75$ Moderate), **Discrimination Index ($D$)** ranges ($\ge 0.40$ Excellent, $< 0.20$ Poor), and **Distractor Analysis** criteria.
     * Interactive info tooltip icons `(i)` on every psychometric metric tile.
-* **Code Reference:** [`ItemAnalysisResults.jsx`](file:///c:/Users/milcky/OneDrive/Desktop/Capstone/eduquest/apps/web/src/components/container/item-analysis/ItemAnalysisResults.jsx)
+* **Criteria Used:**
+  * **Kelley's 27% Rule:** upper and lower groups of size $g = \lfloor 0.27 \times n \rfloor$ (at least 1), where $n$ = examinees who answered the item, ranked by total score.
+  * **Difficulty Index:** $P = \dfrac{\text{correct}}{\text{answered}}$
+
+    | $P$ | Level |
+    | :--- | :--- |
+    | $> 0.75$ | Easy |
+    | $0.25 - 0.75$ | Moderate |
+    | $< 0.25$ | Difficult |
+
+  * **Discrimination Index:** $D = P_U - P_L$, where $P_U$ = correct in upper group $/\,g$ and $P_L$ = correct in lower group $/\,g$. $D$ is rounded to 2 decimals before labeling, so every value falls in exactly one range.
+
+    | $D$ | Label | Recommendation |
+    | :--- | :--- | :--- |
+    | $\ge 0.40$ | Excellent | Retain |
+    | $0.30 - 0.39$ | Good | Retain |
+    | $0.20 - 0.29$ | Marginal | Revise |
+    | $0.00 - 0.19$ | Poor | Reject or Revise |
+    | $< 0$ | Flawed | Reject |
+
+  * **Item Decision** (shown on the page and saved as the question's flag):
+    * **Reject** (`discard`): $P = 0$, $P = 1$, or $D < 0.20$
+    * **Retain** (`approved`): $0.25 \le P \le 0.75$ and $D \ge 0.30$
+    * **Revise** (`needs_revision`): everything else
+  * **Distractor Analysis:** each option's share $= \dfrac{\text{students who chose it}}{\text{students who answered}} \times 100$. A wrong option chosen by 0% is **Non-functional**; 5% or more is **Functional**.
+  * **Saved Results:** *Save Analysis* stores $P$, $D$, their labels, total and correct takers, the item decision, and one distractor row per option (A, B, C…). "Marginal" is stored as *Acceptable* and "Flawed" as *Poor* (the exact $D$ value is kept).
+* **Code Reference:** [`ItemAnalysisResults.jsx`](file:///c:/Users/milcky/OneDrive/Desktop/Capstone/eduquest/apps/web/src/components/container/item-analysis/ItemAnalysisResults.jsx), [`useDiscrimination.jsx`](file:///c:/Users/milcky/OneDrive/Desktop/Capstone/eduquest/apps/web/src/hooks/analysisHook/useDiscrimination.jsx), [`saveItemAnalysis.js`](file:///c:/Users/milcky/OneDrive/Desktop/Capstone/eduquest/apps/web/src/services/item-analysis/saveItemAnalysis.js)
 
 ---
 
