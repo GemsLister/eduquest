@@ -559,6 +559,7 @@ export const ItemAnalysisPage = () => {
           highestScore,
           lowestScore,
           totalResponses: total,
+          correctCount,
           decilePerformance,
           distractorAnalysis: distractorData,
           takersDetails: attemptIds.map((attId) => {

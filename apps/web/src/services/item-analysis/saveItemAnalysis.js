@@ -2,18 +2,26 @@ import { supabase } from "../../supabaseClient";
 import { logAudit } from "../auditService.js";
 
 /**
- * Calculate auto-flag based on difficulty status
- * @param {string} difficultyStatus - "Easy", "Moderate", "Difficult", or "N/A"
- * @returns {string} - "approved", "needs_revision", or "discard"
+ * Convert the decision shown on the Item Analysis page (which uses both
+ * Difficulty P and Discrimination D) into the stored flag, so the saved
+ * flag always matches what the instructor saw.
+ *   approved -> approved        (0.25 <= P <= 0.75 and D >= 0.30)
+ *   revise   -> needs_revision
+ *   reject   -> discard         (P = 0, P = 1, or D < 0.20)
+ * @param {string} pageFlag - item.autoFlag from the Item Analysis page
+ * @returns {string} - "approved", "needs_revision", "discard", or "pending"
  */
-const calculateAutoFlag = (difficultyStatus) => {
-  switch (difficultyStatus) {
-    case "Easy":
+const toStoredFlag = (pageFlag) => {
+  switch ((pageFlag || "").toString().trim().toLowerCase()) {
+    case "approved":
+    case "retain":
       return "approved";
-    case "Moderate":
+    case "revise":
+    case "needs_revision":
       return "needs_revision";
-    case "Difficult":
-      return "needs_revision";
+    case "reject":
+    case "discard":
+      return "discard";
     default:
       return "pending";
   }
@@ -27,13 +35,21 @@ const normalizeDifficultyStatus = (status) => {
   return null;
 };
 
+// The item_analysis table only accepts Excellent / Good / Acceptable / Poor.
+// The page's "Marginal" (D 0.20-0.29) is stored as Acceptable and "Flawed"
+// (D < 0) as Poor; the exact D value is saved in discrimination_index.
 const normalizeDiscriminationStatus = (status) => {
   const value = (status || "").toString().trim().toLowerCase();
   if (value === "excellent") return "Excellent";
   if (value === "good") return "Good";
-  if (value === "acceptable") return "Acceptable";
-  if (value === "poor") return "Poor";
+  if (value === "acceptable" || value === "marginal") return "Acceptable";
+  if (value === "poor" || value === "flawed") return "Poor";
   return null;
+};
+
+const toFiniteOrNull = (value) => {
+  const num = Number(value);
+  return value !== null && value !== "" && Number.isFinite(num) ? num : null;
 };
 
 /**
@@ -47,13 +63,18 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
     const results = [];
 
     for (const item of analysisResults) {
-      const normalizedDifficultyStatus = normalizeDifficultyStatus(item.status);
+      const totalTakers = toFiniteOrNull(item.totalResponses);
+      const hasResponses = totalTakers !== null && totalTakers > 0;
+
+      const normalizedDifficultyStatus = hasResponses
+        ? normalizeDifficultyStatus(item.status)
+        : null;
       const normalizedDiscriminationStatus = normalizeDiscriminationStatus(
         item.discStatus,
       );
 
-      // Calculate auto-flag based on difficulty status (Easy/Moderate/Difficult)
-      const autoFlag = calculateAutoFlag(normalizedDifficultyStatus);
+      // Use the same decision the page shows (based on both P and D)
+      const autoFlag = toStoredFlag(item.autoFlag);
 
       // First, try to delete existing analysis for this question
       await supabase
@@ -68,22 +89,15 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         .insert({
           quiz_id: quizId,
           question_id: item.question_id,
-          difficulty_index: Number.isFinite(parseFloat(item.difficulty))
-            ? parseFloat(item.difficulty)
+          difficulty_index: hasResponses
+            ? toFiniteOrNull(parseFloat(item.difficulty))
             : null,
           difficulty_status: normalizedDifficultyStatus,
-          discrimination_index: Number.isFinite(parseFloat(item.discrimination))
-            ? parseFloat(item.discrimination)
-            : null,
+          discrimination_index: toFiniteOrNull(parseFloat(item.discrimination)),
           discrimination_status: normalizedDiscriminationStatus,
-          total_takers: Number.isFinite(Number(item.total))
-            ? Number(item.total)
-            : null,
-          correct_takers:
-            Number.isFinite(Number(item.total)) &&
-            Number.isFinite(parseFloat(item.difficulty))
-              ? Math.round(Number(item.total) * parseFloat(item.difficulty))
-              : null,
+          // The page names these fields totalResponses / correctCount
+          total_takers: totalTakers,
+          correct_takers: toFiniteOrNull(item.correctCount),
           auto_flag: autoFlag,
         })
         .select()
@@ -115,17 +129,17 @@ export const saveItemAnalysis = async (quizId, analysisResults) => {
         );
       }
 
-      // Insert distractor analysis if available
-      if (item.distractorAnalysis && analysisData) {
-        const distractorInserts = Object.entries(item.distractorAnalysis)
-          .filter(([key]) => key !== "distractors")
-          .map(([key, value]) => ({
-            item_analysis_id: analysisData.id,
-            option_identifier: key,
-            taker_count: value.count,
-            taker_percentage: parseFloat(value.percentage),
-            is_correct_answer: key === "correct",
-          }));
+      // Insert distractor analysis: one row per option, labeled A, B, C...
+      // (option_identifier holds at most 10 characters, so the letter is
+      // stored rather than the option text).
+      if (Array.isArray(item.distractorAnalysis) && analysisData) {
+        const distractorInserts = item.distractorAnalysis.map((option, idx) => ({
+          item_analysis_id: analysisData.id,
+          option_identifier: String.fromCharCode(65 + idx),
+          taker_count: Number(option.count) || 0,
+          taker_percentage: toFiniteOrNull(parseFloat(option.percentage)) ?? 0,
+          is_correct_answer: option.isCorrect === true,
+        }));
 
         if (distractorInserts.length > 0) {
           const { error: distractorError } = await supabase

@@ -26,23 +26,25 @@ export const useDistractor = () => {
     const Pl = lowerCorrect / groupSize;
     
     // Calculate discrimination index D = Pu - Pl
-    const D = Pu - Pl;
+    // Rounded to the 2 decimals shown on screen (0.7 - 0.3 = 0.39999...)
+    const D = Number((Pu - Pl).toFixed(2));
     
     // Determine effectiveness based on provided table criteria
+    // Ranges end where the next begins, so no D value is left unlabeled.
     let status, recommendation;
     if (D < 0) {
       status = "Flawed";
       recommendation = "Reject (Low scorers got it right more than high scorers)";
-    } else if (D >= 0 && D <= 0.19) {
+    } else if (D < 0.20) {
       status = "Poor";
       recommendation = "Reject or Revise (The item is failing to sort students)";
-    } else if (D >= 0.20 && D <= 0.29) {
+    } else if (D < 0.30) {
       status = "Marginal";
       recommendation = "Revise (Needs improvement)";
-    } else if (D >= 0.30 && D <= 0.39) {
+    } else if (D < 0.40) {
       status = "Good";
       recommendation = "Retain (Good item)";
-    } else if (D >= 0.40) {
+    } else {
       status = "Excellent";
       recommendation = "Retain (Excellent item)";
     }
