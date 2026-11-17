@@ -1,0 +1,57 @@
+SmartQuiz defense: stress testing slides (copy into Canva)
+=========================================================
+Each slide: paste the text into the left text box and upload the matching
+image for the right side. All numbers come from stress-test/RESULTS.md.
+
+
+SLIDE 1: METHODS  (no new image; keep your icons)
+-------------------------------------------------
+Toolchain: k6 load testing tool with the FastAPI Bloom's service
+(DistilBERT) and Supabase Free tier.
+
+Hardware: AI service on a laptop (Ryzen 7 5700U, 8 cores, 16 GB RAM).
+
+Workloads Tested: single-batch baselines, concurrency scaling
+(1–64 instructors analyzing at once), 100 simultaneous analyses,
+re-analysis with cache, and exam day (1,000 students + 100 instructors).
+
+Big number on the right:  1–64 instructors at once
+
+
+SLIDE 2: RESULTS: STABILITY  (image: 2-stability-chart.png)
+------------------------------------------------------------
+Stability: 100% success under peak load: all 100 simultaneous
+50-question analyses finished (before the fixes, 20 timed out).
+A fair queue and a result cache cut service memory from 5.5 GB to 1.4 GB.
+
+
+SLIDE 3: RESULTS: RESPONSE TIME  (image: 3-response-time-chart.png)
+---------------------------------------------------------------------
+Response Time: about 2.4 s per 50-question batch. Re-analysis after
+editing improved from 42.5 s to 5.5 s with 20 instructors working at once.
+
+
+SLIDE 4: RESULTS: CONCURRENCY LIMIT  (image: 4-concurrency-chart.png)
+----------------------------------------------------------------------
+Concurrency Limit: CPU-bound ceiling of 40–47 batches per minute.
+Up to 4 simultaneous analyses meet the 15 s target (p95 10.6 s);
+beyond that, requests wait in a fair queue instead of failing.
+
+
+SLIDE 5: RESULTS: EXAM DAY  (image: 5-exam-day-chart.png)  ← NEW SLIDE
+-----------------------------------------------------------------------
+Exam Day: the AI classified all 325 batches (p95 3.6 s at a realistic
+pace). The Supabase Free-tier database (0.5 GB RAM) ran out of memory
+after 6–11 minutes; 1,000 students alone passed with 0 errors.
+A real exam day needs a larger database plan.
+
+
+SLIDE 6: CONCLUSION  (optional; no image needed)
+------------------------------------------------
+• Stable: 100% of batches classified in every test after the fixes.
+• Fast: 2.4 s per 50-question batch; 5.5 s re-analysis.
+• Limit: 40–47 batches/minute on a laptop CPU; up to 4 at once
+  within 15 s.
+• System-wide: the Free-tier database, not the AI, limits exam day.
+• Recommendation: deploy the AI on a server with more CPU cores and
+  use a larger database plan for real exam days.
